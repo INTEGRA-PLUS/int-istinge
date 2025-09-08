@@ -3995,6 +3995,14 @@ class CronController extends Controller
                                     $API->write('=.id='.$ARRAYS[0]['.id']);
                                     $READ = $API->read();
 
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();
 
