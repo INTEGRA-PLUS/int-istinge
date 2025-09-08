@@ -173,6 +173,7 @@ class PlantillasController extends Controller
         ]);
 
         $plantilla = Plantilla::find($id);
+        $rutaArchivoNuevo = "";
 
         if($plantilla){
             $rutaCarpeta = resource_path('views/emails');
