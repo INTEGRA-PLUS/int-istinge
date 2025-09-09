@@ -712,6 +712,7 @@ class ContratosController extends Controller
                 'servicio_tv' => 'required'
             ]);
         }
+
         $ppoe_local_adress = "";
         $mikrotik = Mikrotik::where('id', $request->server_configuration_id)->first();
         $plan = PlanesVelocidad::where('id', $request->plan_id)->first();
@@ -1065,6 +1066,7 @@ class ContratosController extends Controller
             $contrato->tipo_moden              = $request->tipo_moden;
             $contrato->descuento_pesos         = $request->descuento_pesos;
             $contrato->fact_primer_mes         = $request->fact_primer_mes;
+            $contrato->fecha_hasta_desc        = $request->fecha_hasta_desc;
 
             if ($request->rd_item_vencimiento) {
                 $contrato->dt_item_hasta           = $request->dt_item_hasta;
@@ -1942,6 +1944,7 @@ class ContratosController extends Controller
                     $contrato->serial_moden            = $request->serial_moden;
                     $contrato->descuento_pesos         = $request->descuento_pesos;
                     $contrato->fact_primer_mes         = $request->fact_primer_mes;
+                    $contrato->fecha_hasta_desc        = $request->fecha_hasta_desc;
 
                     if($request->change_cliente == 1){
                         $contrato->client_id               = $request->new_contacto_contrato;
@@ -2141,6 +2144,7 @@ class ContratosController extends Controller
                 $contrato->contrasena_wifi         = $request->contrasena_wifi;
                 $contrato->ip_receptora            = $request->ip_receptora;
                 $contrato->puerto_receptor         = $request->puerto_receptor;
+                $contrato->fecha_hasta_desc        = $request->fecha_hasta_desc;
 
                 //campos al quitar una mikrotik
                 $contrato->server_configuration_id = isset($request->server_configuration_id) ? $request->server_configuration_id : null;
