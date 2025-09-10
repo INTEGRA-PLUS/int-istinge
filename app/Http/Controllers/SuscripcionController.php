@@ -42,6 +42,10 @@ class SuscripcionController extends Controller
         // Check if today is the billing day and subscription is inactive (estado = 0)
         $showModal = ($today == $suscripcion->dia_facturacion && $suscripcion->estado == 0);
 
+        if($empresa->status == 0){
+            $showModal = true;
+        }
+
         return response()->json(['showModal' => $showModal]);
     }
 
