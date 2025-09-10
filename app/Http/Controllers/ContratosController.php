@@ -389,7 +389,8 @@ class ContratosController extends Controller
             }
             if ($request->sn) {
                 $contratos->where(function ($query) use ($request) {
-                    $query->orWhere('contracts.olt_sn_mac', 'like', "%{$request->sn}%");
+                    $query->orWhere('contracts.olt_sn_mac', 'like', "%{$request->sn}%")
+                    ->orWhere('contracts.serial_onu', 'like', "%{$request->sn}%");
                 });
             }
             if ($request->observaciones) {
