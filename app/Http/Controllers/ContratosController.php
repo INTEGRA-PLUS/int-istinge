@@ -1067,7 +1067,7 @@ class ContratosController extends Controller
             $contrato->tipo_moden              = $request->tipo_moden;
             $contrato->descuento_pesos         = $request->descuento_pesos;
             $contrato->fact_primer_mes         = $request->fact_primer_mes;
-            $contrato->fecha_hasta_desc        = $request->fecha_hasta_desc;
+            $contrato->fecha_hasta_desc        = isset($request->fecha_hasta_desc) ? $request->fecha_hasta_desc : null;
 
             if ($request->rd_item_vencimiento) {
                 $contrato->dt_item_hasta           = $request->dt_item_hasta;
@@ -1945,7 +1945,7 @@ class ContratosController extends Controller
                     $contrato->serial_moden            = $request->serial_moden;
                     $contrato->descuento_pesos         = $request->descuento_pesos;
                     $contrato->fact_primer_mes         = $request->fact_primer_mes;
-                    $contrato->fecha_hasta_desc        = $request->fecha_hasta_desc;
+                    $contrato->fecha_hasta_desc        = isset($request->fecha_hasta_desc) ? $request->fecha_hasta_desc : null;
 
                     if($request->change_cliente == 1){
                         $contrato->client_id               = $request->new_contacto_contrato;
