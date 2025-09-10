@@ -29,6 +29,7 @@ class SuscripcionController extends Controller
         }
 
         $empresa_id = Auth::user()->empresa;
+        $empresa = User::where('empresa', $empresa_id)->first();
         $today = Carbon::now()->day;
 
         $suscripcion = Suscripcion::where('id_empresa', $empresa_id)
