@@ -505,34 +505,26 @@
                          </div>
                      </div>
 
-                     <!-- Modal Suscripción Vencida -->
-                     <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true">
-                         <div class="modal-dialog" role="document">
-                             <div class="modal-content">
-                                 <div class="modal-header bg-danger text-white">
-                                     <h4 class="modal-title text-uppercase">Integra Colombia: Suscripción Vencida</h4>
-                                     <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                                         <span aria-hidden="true">&times;</span>
-                                     </button>
-                                 </div>
-                                 <div class="modal-body">
-                                     <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-                                     <p>Medios de pago:</p>
-                                     <ul class="list-unstyled">
-                                         <li><strong>Nequi:</strong> 3206909290 <strong>CC:</strong> 1045740096</li>
-                                         <li><strong>Cuenta de ahorros Bancolombia:</strong> 42081411021</li>
-                                         <li><strong>CC:</strong> 1001912928</li>
-                                         <li><strong>Representante legal:</strong> Ximena Herrera</li>
-                                     </ul>
-                                     <div class="text-center mt-3">
-                                         <a href="https://wa.me/573206909290?text=Adjunto comprobante de pago para reactivar membresía" target="_blank" class="btn btn-success">
-                                             <i class="fab fa-whatsapp mr-2"></i>Enviar comprobante por WhatsApp
-                                         </a>
-                                     </div>
-                                 </div>
-                             </div>
-                         </div>
-                     </div>
+                    <!-- Modal Suscripción Vencida -->
+                    @if((Auth::user()->empresa()) && Auth::user()->empresa()->activo_mensaje == 1)
+                    <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true"
+                    data-backdrop="static" data-keyboard="false">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h4 class="modal-title text-uppercase">Integra Colombia: Suscripción Vencida</h4>
+                                    {{-- <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button> --}}
+                                </div>
+                                <div class="modal-body">
+                                    <p>Tu suscripción ha vencido. Para mantener el acceso a nuestros servicios,
+                                    recuerda realizar tu pago a la brevedad.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                      <!-- NOTIFICACIONES -->
                      <input type="hidden" name="nro_notificacionesR" id="nro_notificacionesR" value="0">
