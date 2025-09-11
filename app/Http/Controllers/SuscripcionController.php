@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Empresa;
 use App\Suscripcion;
 use App\SuscripcionPago;
 use Carbon\Carbon;
@@ -29,7 +30,7 @@ class SuscripcionController extends Controller
         }
 
         $empresa_id = Auth::user()->empresa;
-        $empresa = User::where('empresa', $empresa_id)->first();
+        $empresa = Empresa::where('empresa', $empresa_id)->first();
         $today = Carbon::now()->day;
 
         $suscripcion = Suscripcion::where('id_empresa', $empresa_id)
