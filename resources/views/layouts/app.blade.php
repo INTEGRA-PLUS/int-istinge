@@ -511,7 +511,7 @@
                      </div>
 
                      <!-- Modal Suscripción Vencida -->
-                     @if(Auth::user()->empresa()->status == 0)
+                     @if((Auth::user()->empresa()) && Auth::user()->empresa()->activo_mensaje == 1)
                      <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true"
                      data-backdrop="static" data-keyboard="false">
                          <div class="modal-dialog" role="document">
