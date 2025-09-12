@@ -586,7 +586,7 @@ class FacturasController extends Controller{
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
         })
         ->addColumn('contrato', function (Factura $factura)  {
-            if($factura->contratos()->first()){
+            if($factura->contratos() != false){
                 return $factura->contratos()->first()->contrato_nro;
             }else return "n/a";
         })
