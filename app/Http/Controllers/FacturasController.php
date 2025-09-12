@@ -401,9 +401,9 @@ class FacturasController extends Controller{
         }catch (\Throwable $e) {
 
                 $dianFecthSync = '';
-               
+
                 \Log::error("Error consultando facturas con 409: " . $e->getMessage());
-               
+
         }
 
 
@@ -650,6 +650,11 @@ class FacturasController extends Controller{
         })
         ->addColumn('pendiente', function (Factura $factura) use ($moneda) {
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
+        })
+        ->addColumn('contrato', function (Factura $factura)  {
+            if($factura->contratos()->first()){
+                return $factura->contratos()->first()->contrato_nro;
+            }else return "n/a";
         })
         ->addColumn('estado', function (Factura $factura) {
             $msj = '';
