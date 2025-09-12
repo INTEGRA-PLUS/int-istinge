@@ -875,7 +875,7 @@ class FacturasController extends Controller{
             return   '<span class="text-' . $factura->estatus(true) . '">' . $factura->estatus() . '</span>';
         })
         ->addColumn('contrato', function (Factura $factura)  {
-            if($factura->contratos()->count() > 0){
+            if($factura->contratos() > 0){
                 return $factura->contratos()->first()->contrato_nro;
             }else return "n/a";
         })
