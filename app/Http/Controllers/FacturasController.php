@@ -652,7 +652,7 @@ class FacturasController extends Controller{
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
         })
         ->addColumn('contrato', function (Factura $factura)  {
-            if($factura->contratos()->first()){
+            if($factura->contratos() != false){
                 return $factura->contratos()->first()->contrato_nro;
             }else return "n/a";
         })
@@ -936,6 +936,11 @@ class FacturasController extends Controller{
         })
         ->addColumn('pendiente', function (Factura $factura) use ($moneda) {
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
+        })
+        ->addColumn('contrato', function (Factura $factura)  {
+            if($factura->contratos() != false){
+                return $factura->contratos()->first()->contrato_nro;
+            }else return "n/a";
         })
         ->addColumn('estado', function (Factura $factura) {
             return   '<span class="text-' . $factura->estatus(true) . '">' . $factura->estatus() . '</span>';
