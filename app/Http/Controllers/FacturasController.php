@@ -399,6 +399,7 @@ class FacturasController extends Controller{
             'c.email as emailcliente',
             'c.celular as celularcliente',
             'c.nombre as nombrecliente',
+            'c.nit as nitcliente',
             'c.apellido1 as ape1cliente',
             'c.apellido2 as ape2cliente',
             'factura.tipo',
@@ -583,6 +584,11 @@ class FacturasController extends Controller{
         })
         ->addColumn('pendiente', function (Factura $factura) use ($moneda) {
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
+        })
+        ->addColumn('contrato', function (Factura $factura)  {
+            if($factura->contratos()->first()){
+                return $factura->contratos()->first()->contrato_nro;
+            }else return "n/a";
         })
         ->addColumn('estado', function (Factura $factura) {
             $msj = '';
@@ -867,6 +873,11 @@ class FacturasController extends Controller{
         })
         ->addColumn('estado', function (Factura $factura) {
             return   '<span class="text-' . $factura->estatus(true) . '">' . $factura->estatus() . '</span>';
+        })
+        ->addColumn('contrato', function (Factura $factura)  {
+            if($factura->contratos()->first()){
+                return $factura->contratos()->first()->contrato_nro;
+            }else return "n/a";
         })
         ->editColumn('nitcliente', function (Factura $factura) {
             return  $factura->cliente ? "<a href=" . route('contactos.show', $factura->cliente) . ">{$factura->cliente()->tip_iden('mini')} {$factura->nitcliente}</a>" : "";
