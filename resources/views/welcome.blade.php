@@ -863,7 +863,7 @@
             </div>
             <div class="row mt-4">
                 <!-- Total Facturado -->
-                {{-- <div class="col-md-6 col-lg-3 mb-4">
+                <div class="col-md-6 col-lg-3 mb-4">
                     <div class="card-counter primary">
                         <i class="fas fa-dollar-sign"></i>
                         <div>
@@ -871,7 +871,7 @@
                             <span class="count-name">Total Facturado</span>
                         </div>
                     </div>
-                </div> --}}
+                </div>
 
                 <!-- Facturas Electrónicas -->
                 <div class="col-md-6 col-lg-3 mb-4">
