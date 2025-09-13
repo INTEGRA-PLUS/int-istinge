@@ -4952,7 +4952,7 @@ class FacturasController extends Controller{
         }
 
         $totalFaltantes = Factura::
-        join('contracts as c','c.id','=','factura.contrato_id')
+        leftjoin('contracts as c','c.id','=','factura.contrato_id')
         ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
         ->where('factura.fecha',$request->fecha)
         ->where('factura.whatsapp',0)
@@ -4960,7 +4960,7 @@ class FacturasController extends Controller{
         ->select('factura.*', 'gc.nombre as grupoNombre')->count('factura.id');
 
         $facturas = Factura::
-        join('contracts as c','c.id','=','factura.contrato_id')
+        leftjoin('contracts as c','c.id','=','factura.contrato_id')
         ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
         ->where('factura.fecha',$request->fecha)
         ->where('factura.whatsapp',0)
@@ -4969,7 +4969,7 @@ class FacturasController extends Controller{
         ->paginate();
 
         $sinTelefono = Factura::
-            join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+            leftjoin('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as con', 'con.id', 'c.client_id')
             ->where(function ($query) {
                 $query->whereNull('con.celular')
