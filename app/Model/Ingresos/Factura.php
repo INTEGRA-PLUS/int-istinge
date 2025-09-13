@@ -1412,19 +1412,38 @@ public function forma_pago()
 
             //si este caso ocurre es por que tengo que cobrar el mes pasado
             if($empresa->periodo_facturacion == 2){
-                $finCorte = Carbon::parse($finCorte)->subMonth();
-                $inicioCorte =  $inicioCorte->subMonth();
+                // MES VENCIDO
+                $corteAnterior = Carbon::createFromDate(
+                    Carbon::parse($this->fecha)->year,
+                    Carbon::parse($this->fecha)->month,
+                    $grupo->fecha_corte
+                );
+
+                $inicioCorte = $corteAnterior->copy()->subMonth(); // inicio en el corte pasado
+                $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
             }
-            else{
+            else {
                 if ($empresa->periodo_facturacion == 1) {
+                    // MES ANTICIPADO
                     $corteActual = Carbon::createFromDate(
                         Carbon::parse($this->fecha)->year,
                         Carbon::parse($this->fecha)->month,
                         $grupo->fecha_corte
                     )->addMonth(); // Corte del mes siguiente
 
-                    $inicioCorte = $corteActual->copy(); // Día del corte
-                    $finCorte = $corteActual->copy()->addMonth()->subDay(); // Un día antes del siguiente corte
+                    $inicioCorte = $corteActual->copy();
+                    $finCorte = $corteActual->copy()->addMonth()->subDay();
+
+                } else if ($empresa->periodo_facturacion == 3) {
+                    // MES ACTUAL
+                    $corteActual = Carbon::createFromDate(
+                        Carbon::parse($this->fecha)->year,
+                        Carbon::parse($this->fecha)->month,
+                        $grupo->fecha_corte
+                    ); // Corte del mismo mes
+
+                    $inicioCorte = $corteActual->copy();
+                    $finCorte = $corteActual->copy()->addMonth()->subDay();
                 }
             }
             //se comenta por que etsaba creando conflicto
