@@ -226,6 +226,24 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
 INSERT INTO `usuarios` (`id`, `cedula`, `nombres`, `email`, `username`, `telefono`, `password`, `remember_token`, `user_status`, `rol`, `empresa`, `created_at`, `updated_at`) VALUES
 (1, NULL, 'Asministrador ', 'master@gmail.com', 'master', NULL, '$2y$10$pkikSHyuqnhQZjWqKmffk.8PW9bKKINKfm133gOaHtN1RzjlUjDBq', 'rfbbxPJMEFDVHWbmd4SQEPNHYtv0nM1psFOz2diZ7qElN4JOeDR8ZlI2Ulpr', 1, 1, NULL, '2018-09-29 04:00:00', '2018-09-29 04:00:00');
 
+CREATE TABLE `asistencias` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `usuario_id` INT NOT NULL,
+  `tipo` ENUM('ingreso','salida') NOT NULL,
+  `fecha_hora` DATETIME NOT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` TEXT NULL,
+  `dispositivo_info` TEXT NULL,
+  `observaciones` TEXT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL,
+  CONSTRAINT `asistencias_usuario_id_foreign`
+    FOREIGN KEY (`usuario_id`)
+    REFERENCES `usuarios`(`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 DROP TABLE IF EXISTS `bancos`;
 CREATE TABLE IF NOT EXISTS `bancos` (
   `id` int(8) NOT NULL  PRIMARY KEY AUTO_INCREMENT,
