@@ -35,7 +35,7 @@ use PHPExcel_Style_Border;
 use DOMDocument;
 use App\TipoEmpresa; use App\Categoria;
 use App\Retencion;
- use Mail; use bcrypt;
+use Mail; use bcrypt;
 use Barryvdh\DomPDF\Facade as PDF;
 use App\Contrato;
 use App\GrupoCorte;
