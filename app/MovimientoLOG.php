@@ -30,6 +30,10 @@ class MovimientoLOG extends Model
         return Modulo::find($this->modulo);
     }
     public function created_by(){
-        return ($this->created_by) ? User::find($this->created_by)->nombres : 'Usuario APP';
+        if ($this->created_by) {
+            $usuario = User::find($this->created_by);
+            return $usuario ? $usuario->nombres : 'Usuario Eliminado';
+        }
+        return 'Usuario APP';
     }
 }
