@@ -3721,8 +3721,8 @@ class ExportarReportesController extends Controller
             }
 
             $barrio = "";
-            if($movimiento->cliente() != ""){
-                $movimiento->cliente()->barrio()->nombre;
+            if ($movimiento->cliente() && $movimiento->cliente()->barrio()) {
+                $barrio = $movimiento->cliente()->barrio()->nombre;
             }
 
 
