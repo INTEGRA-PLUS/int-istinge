@@ -1315,162 +1315,148 @@ public function forma_pago()
         }
     }
 
-public function periodoCobradoTexto($tirilla=false){
-    Carbon::setLocale('es');
-    $grupo = Contrato::join('grupos_corte as gc', 'gc.id', '=', 'contracts.grupo_corte')->
-    where('contracts.id',$this->contrato_id)
-    ->select('gc.*')->first();
-
-    if(!$grupo){
+    public function periodoCobradoTexto($tirilla=false){
+        Carbon::setLocale('es');
         $grupo = Contrato::join('grupos_corte as gc', 'gc.id', '=', 'contracts.grupo_corte')->
-        where('client_id',$this->cliente)
+        where('contracts.id',$this->contrato_id)
         ->select('gc.*')->first();
-    }
 
-    $empresa = Empresa::find($this->empresa);
+        if(!$grupo){
+            $grupo = Contrato::join('grupos_corte as gc', 'gc.id', '=', 'contracts.grupo_corte')->
+            where('client_id',$this->cliente)
+            ->select('gc.*')->first();
+        }
 
-    if($grupo){
         $empresa = Empresa::find($this->empresa);
-        $mesInicioCorte = $mesFinCorte = Carbon::parse($this->fecha)->format('m');
-        $yearInicioCorte = $yearFinCorte = Carbon::parse($this->fecha)->format('Y');
 
-        //Calculos para los inicios de corte
-        if($mesInicioCorte == 1){
-            $mesInicioCorte = 12;
-            $yearInicioCorte = $yearInicioCorte - 1;
-        }else{
-            $mesInicioCorte = $mesInicioCorte - 1;
-        }
 
-        //Calculos para los finales de corte
-        if($mesFinCorte == 12){
-            $mesFinCorte = 1;
-            $yearFinCorte = $yearFinCorte + 1;
-        }else{
-            $mesFinCorte = $mesFinCorte + 1;
-        }
+        if($grupo){
+            $empresa = Empresa::find($this->empresa);
+            $mesInicioCorte = $mesFinCorte = Carbon::parse($this->fecha)->format('m');
+            $yearInicioCorte = $yearFinCorte = Carbon::parse($this->fecha)->format('Y');
 
-        /*
-            validamos que si la fecha de corte es mas grande que el ultimo dia del mes anterior
-            (caso con los meses que tiene 28, 29 días y la fec. corte es el 30)
-            entonces la fecha de corte pasa a ser el ultimo día del mes.
-        */
-        $diaValidar = "1-".$mesInicioCorte."-".$yearInicioCorte;
-        $diaValidar = Carbon::parse($diaValidar)->endOfMonth()->format('d');
-
-        $diaFinValidar = "1-".$mesFinCorte."-".$yearFinCorte;
-        $diaFinValidar = Carbon::parse($diaFinValidar)->endOfMonth()->format('d');
-
-        $diaInicioCorte = $diaFinCorte = $grupo->fecha_corte;
-
-        if($grupo->fecha_corte > $diaValidar){
-            $diaInicioCorte = $diaValidar;
-        }
-
-        if($grupo->fecha_corte > $diaFinValidar && $diaFinValidar != 28){//hacemos una excepcion con el mes de febrero
-             $diaFinCorte = $diaFinValidar;
-        }
-
-        //construimos el inicio del corte tomando la fecha de la factura (mes y año) y el grupo de corte (el dia)
-        $fechaInicio = $inicioCorte = $diaInicioCorte . "-" . $mesInicioCorte . "-" . $yearInicioCorte;
-
-        //obtenemos el mes y año de la factura actual
-        $mesYearFactura = Carbon::parse($this->fecha)->format('m-Y');
-
-        $validateFin = "01-".$mesYearFactura;
-        $validateFin= Carbon::parse($validateFin)->endOfMonth()->format('d');
-
-        if($validateFin < $diaFinCorte && $diaFinCorte == 30 || $validateFin < $diaFinCorte && $diaFinCorte == 31){
-            $diaFinCorte = $validateFin;
-        }
-
-        //fecha fin corte es la combiancion del grupo de corte, osea la fecha_corte y mes factura es el mes año de la factura
-        $fechaFin = $finCorte = $diaFinCorte . "-" . $mesYearFactura;
-
-        //Construimos una fecha con el grupo de corte y mes y año de la factura, tambien formateamos la fecha de la factura completamente
-        $fechaFactura = Carbon::parse($this->fecha);
-        $inicio = $grupo->fecha_corte . "-" . $mesYearFactura;
-        $inicio = Carbon::parse($inicio);
-
-        $diasCobrados = 0;
-        $diasdeMas = 0;
-
-        $fechaInicio = Carbon::parse($fechaInicio);
-        //sumamos un dia ya que el corte es un 30, empezaria desde el siguiente dia
-        $inicioCorte = $fechaInicio->addDay();
-
-        if(Carbon::parse($fechaInicio)->format('d') == 31){
-            $inicioCorte = $fechaInicio->addDay();
-        }
-
-        $fechaFin = Carbon::parse($fechaFin);
-
-        /* Validacion de mes anticipado, vencido o actual */
-        $diaFac = Carbon::parse($this->fecha)->format('d');
-
-        if($empresa->periodo_facturacion == 2){
-            // MES VENCIDO
-            $corteAnterior = Carbon::createFromDate(
-                Carbon::parse($this->fecha)->year,
-                Carbon::parse($this->fecha)->month,
-                $grupo->fecha_corte
-            );
-
-            $inicioCorte = $corteAnterior->copy()->subMonth(); // inicio en el corte pasado
-            $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
-        }
-        else if ($empresa->periodo_facturacion == 1) {
-            // MES ANTICIPADO
-            $corteActual = Carbon::createFromDate(
-                Carbon::parse($this->fecha)->year,
-                Carbon::parse($this->fecha)->month,
-                $grupo->fecha_corte
-            )->addMonth(); // Corte del mes siguiente
-
-            $inicioCorte = $corteActual->copy();
-            $finCorte = $corteActual->copy()->addMonth()->subDay();
-
-        } else if ($empresa->periodo_facturacion == 3) {
-            // MES ACTUAL - CORREGIDO
-            $fechaFactura = Carbon::parse($this->fecha);
-            
-            // Si estamos antes del día de corte del mes actual
-            if ($fechaFactura->day < $grupo->fecha_corte) {
-                // Cobrar desde el corte del mes pasado hasta el corte de este mes
-                $corteAnterior = Carbon::createFromDate(
-                    $fechaFactura->year,
-                    $fechaFactura->month,
-                    $grupo->fecha_corte
-                )->subMonth();
-                
-                $inicioCorte = $corteAnterior->copy()->addDay(); // Día siguiente al corte anterior
-                $finCorte = Carbon::createFromDate(
-                    $fechaFactura->year,
-                    $fechaFactura->month,
-                    $grupo->fecha_corte
-                );
-            } else {
-                // Si estamos después del día de corte, cobrar desde este corte hasta el siguiente
-                $corteActual = Carbon::createFromDate(
-                    $fechaFactura->year,
-                    $fechaFactura->month,
-                    $grupo->fecha_corte
-                );
-                
-                $inicioCorte = $corteActual->copy()->addDay(); // Día siguiente al corte actual
-                $finCorte = $corteActual->copy()->addMonth(); // Corte del siguiente mes
+            //Calculos para los inicios de corte
+            if($mesInicioCorte == 1){
+                $mesInicioCorte = 12;
+                $yearInicioCorte = $yearInicioCorte - 1;
+            }else{
+                $mesInicioCorte = $mesInicioCorte - 1;
             }
+
+            //Calculos para los finales de corte
+            if($mesFinCorte == 12){
+                $mesFinCorte = 1;
+                $yearFinCorte = $yearFinCorte + 1;
+            }else{
+                $mesFinCorte = $mesFinCorte + 1;
+            }
+
+            /*
+                validamos que si la fecha de corte es mas grande que el ultimo dia del mes anterior
+                (caso con los meses que tiene 28, 29 días y la fec. corte es el 30)
+                entonces la fecha de corte pasa a ser el ultimo día del mes.
+            */
+            $diaValidar = "1-".$mesInicioCorte."-".$yearInicioCorte;
+            $diaValidar = Carbon::parse($diaValidar)->endOfMonth()->format('d');
+
+            $diaFinValidar = "1-".$mesFinCorte."-".$yearFinCorte;
+            $diaFinValidar = Carbon::parse($diaFinValidar)->endOfMonth()->format('d');
+
+            $diaInicioCorte = $diaFinCorte = $grupo->fecha_corte;
+
+
+            if($grupo->fecha_corte > $diaValidar){
+                $diaInicioCorte = $diaValidar;
+            }
+
+            if($grupo->fecha_corte > $diaFinValidar && $diaFinValidar != 28){//hacemos una excepcion con el mes de febrero
+                 $diaFinCorte = $diaFinValidar;
+            }
+
+            //construimos el inicio del corte tomando la fecha de la factura (mes y año) y el grupo de corte (el dia)
+            $fechaInicio = $inicioCorte = $diaInicioCorte . "-" . $mesInicioCorte . "-" . $yearInicioCorte;
+
+            //obtenemos el mes y año de la factura actual
+            $mesYearFactura = Carbon::parse($this->fecha)->format('m-Y');
+
+            $validateFin = "01-".$mesYearFactura;
+            $validateFin= Carbon::parse($validateFin)->endOfMonth()->format('d');
+
+            if($validateFin < $diaFinCorte && $diaFinCorte == 30 || $validateFin < $diaFinCorte && $diaFinCorte == 31){
+                $diaFinCorte = $validateFin;
+            }
+
+            //fecha fin corte es la combiancion del grupo de corte, osea la fecha_corte y mes factura es el mes año de la factura
+            $fechaFin = $finCorte = $diaFinCorte . "-" . $mesYearFactura;
+
+            //Construimos una fecha con el grupo de corte y mes y año de la factura, tambien formateamos la fecha de la factura completamente
+            $fechaFactura = Carbon::parse($this->fecha);
+            $inicio = $grupo->fecha_corte . "-" . $mesYearFactura;
+            $inicio = Carbon::parse($inicio);
+
+            $diasCobrados = 0;
+            $diasdeMas = 0;
+
+            $fechaInicio = Carbon::parse($fechaInicio);
+            //sumamos un dia ya que el corte es un 30, empezaria desde el siguiente dia
+            $inicioCorte = $fechaInicio->addDay();
+
+            if(Carbon::parse($fechaInicio)->format('d') == 31){
+                $inicioCorte = $fechaInicio->addDay();
+            }
+
+            $fechaFin    = Carbon::parse($fechaFin);
+
+            /* Validacion de mes anticipado o mes vencido */
+            $diaFac = Carbon::parse($this->fecha)->format('d');
+
+            //si este caso ocurre es por que tengo que cobrar el mes pasado
+            if($empresa->periodo_facturacion == 2){
+                // MES VENCIDO
+                $corteAnterior = Carbon::createFromDate(
+                    Carbon::parse($this->fecha)->year,
+                    Carbon::parse($this->fecha)->month,
+                    $grupo->fecha_corte
+                );
+
+                $inicioCorte = $corteAnterior->copy()->subMonth(); // inicio en el corte pasado
+                $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
+            }
+            else {
+                if ($empresa->periodo_facturacion == 1) {
+                    // MES ANTICIPADO
+                    $corteActual = Carbon::createFromDate(
+                        Carbon::parse($this->fecha)->year,
+                        Carbon::parse($this->fecha)->month,
+                        $grupo->fecha_corte
+                    )->addMonth(); // Corte del mes siguiente
+
+                    $inicioCorte = $corteActual->copy();
+                    $finCorte = $corteActual->copy()->addMonth()->subDay();
+
+                } else if ($empresa->periodo_facturacion == 3) {
+                // MES ACTUAL - del corte de este mes al día antes del corte del mes siguiente
+                $inicioCorte = Carbon::createFromDate(
+                    Carbon::parse($this->fecha)->year,
+                    Carbon::parse($this->fecha)->month,
+                    $grupo->fecha_corte
+                );
+            
+                $finCorte = $inicioCorte->copy()->addMonth()->subDay();
+            }
+
+            }
+            //se comenta por que etsaba creando conflicto
+
+            /* Validacion de mes anticipado o mes vencido */
+            $finCorte = Carbon::parse($finCorte)->translatedFormat('d F Y'); // Ejemplo: 02 enero 2025
+            $inicioCorte = Carbon::parse($inicioCorte)->translatedFormat('d F Y');
+
+            $mensaje = ($tirilla) ? $inicioCorte." - ".$finCorte : "Periodo cobrado del " . $inicioCorte . " Al " . $finCorte;
+
+            return $mensaje;
         }
-
-        /* Formateo de fechas para mostrar */
-        $finCorte = Carbon::parse($finCorte)->translatedFormat('d F Y'); // Ejemplo: 02 enero 2025
-        $inicioCorte = Carbon::parse($inicioCorte)->translatedFormat('d F Y');
-
-        $mensaje = ($tirilla) ? $inicioCorte." - ".$finCorte : "Periodo cobrado del " . $inicioCorte . " Al " . $finCorte;
-
-        return $mensaje;
     }
-}
 
     public function diasCobradosProrrateo($forzar_prorrateo = null, $facturaInicio = null){
 
