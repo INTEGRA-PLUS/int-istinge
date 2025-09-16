@@ -65,7 +65,7 @@
                 </span>
             </div>
         </div>
-
+ 
         <div class="row">
             <div class="col-md-6 form-group">
                 <label class="control-label">Tipo<span class="text-danger">*</span></label>
