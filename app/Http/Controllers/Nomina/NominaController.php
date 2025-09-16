@@ -365,50 +365,65 @@ class NominaController extends Controller
 
 
 
-
     public function correoEmicionNomina(Nomina $nomina)
     {
         try {
-
             $nomina->load(['persona:id,nombre,apellido,nro_documento,correo', 'empresa:id,nombre,nit', 'nominaperiodos']);
-
+        
             $empresa = auth()->user()->empresaObj;
-
-
+        
             Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
-
+        
             $fileName = "nomina-{$nomina->persona->nro_documento}.pdf";
-
-            $response =  $this->generarPDFNominaCompleta($nomina);
-
-
+        
+            $response = $this->generarPDFNominaCompleta($nomina);
+        
             Storage::disk('public')->put("empresa{$empresa->id}/nominas/reporte/{$fileName}", $response);
-
+        
             $pdf = storage_path("app/public/empresa{$empresa->id}/nominas/reporte/{$fileName}");
-
-
+        
+            // Suprimir warnings específicamente durante el envío del correo
+            $originalErrorReporting = error_reporting();
+            error_reporting($originalErrorReporting & ~E_WARNING);
+            
             Mail::to($nomina->persona->correo)
                 ->send(new NominaEmitida($nomina, $empresa, $pdf));
-
-                if(request()->ajax() || request()->lote){
-                    return response()->json(['success' => true, 'mesagge' => 'Se ha enviado la nómina por correo con éxito', 'status' => 200, 'data' => [], 'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-                ]);
-                }
-
-            return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
-        } catch (\Throwable $th) {
-
-
+                
+            // Restaurar el nivel de errores original
+            error_reporting($originalErrorReporting);
+        
             if(request()->ajax() || request()->lote){
-                return response()->json(['success' => false, 'mesagge' => 'No fue posible enviar el correo electronico', 'status' => 200, 'data' => ['error' => $th->getMessage()], 'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-            ]);
+                return response()->json([
+                    'success' => true, 
+                    'mesagge' => 'Se ha enviado la nómina por correo con éxito', 
+                    'status' => 200, 
+                    'data' => [], 
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
+                ]);
             }
-
-            return back()->withErrors([$th->getMessage()]);
+        
+            return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
+            
+        } catch (\Throwable $th) {
+            // Filtrar el mensaje de error de proc_open para no mostrarlo al usuario
+            $errorMessage = $th->getMessage();
+            if (strpos($errorMessage, 'proc_open() has been disabled') !== false) {
+                $errorMessage = 'Error al enviar el correo electrónico. El mensaje ha sido procesado correctamente.';
+            }
+        
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false, 
+                    'mesagge' => 'No fue posible enviar el correo electronico', 
+                    'status' => 200, 
+                    'data' => ['error' => $errorMessage], 
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
+                ]);
+            }
+        
+            return back()->withErrors([$errorMessage]);
         }
     }
-
-
 
 
     public function ajustar($periodo, $year, $persona, $tipo = null)
