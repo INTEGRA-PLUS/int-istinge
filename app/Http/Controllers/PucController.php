@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 use App\Puc;
 use Carbon\Carbon;
 use Auth;
@@ -49,14 +51,9 @@ class PucController extends Controller
         return view('puc.create')->with(compact('categoria','grupos','tipos','balances'));
     }
 
-    /**
-  * Registrar un nuevo banco
-  * @param Request $request
-  * @return redirect
-  */
-   public function store(Request $request)
+    public function store(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'nombre'      => 'required|max:200',
             'asociado'    => 'required|numeric',
             'codigo'      => 'required|max:50',
@@ -65,7 +62,9 @@ class PucController extends Controller
             'grupo'       => 'required|exists:puc_grupo,id',
             'tipo'        => 'required|exists:puc_tipo,id',
             'balance'     => 'required|exists:puc_balance,id',
-        ], [
+        ];
+
+        $messages = [
             'nombre.required'    => 'El campo Nombre es obligatorio.',
             'nombre.max'         => 'El campo Nombre no puede exceder 200 caracteres.',
             'asociado.required'  => 'Debe indicar la categoría asociada.',
@@ -80,13 +79,24 @@ class PucController extends Controller
             'tipo.exists'        => 'El Tipo seleccionado no existe.',
             'balance.required'   => 'Debe seleccionar un Balance.',
             'balance.exists'     => 'El Balance seleccionado no existe.',
-        ]);
+        ];
 
-        // Verificar si el código ya está en uso
+        $validator = Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+        // Validación adicional: código duplicado
         if (Puc::where('empresa', Auth::user()->empresa)->where('codigo', $request->codigo)->exists()) {
-            return back()
-                ->withInput()
-                ->withErrors(['codigo' => 'El código ingresado ya está siendo usado.']);
+            $err = ['codigo' => ['El código ingresado ya está siendo usado.']];
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $err], 409);
+            }
+            return redirect()->back()->withErrors($err)->withInput();
         }
 
         // Crear la categoría
@@ -103,8 +113,13 @@ class PucController extends Controller
         $categoria->id_balance = $request->balance;
         $categoria->save();
 
-        return redirect('empresa/puc')->with('success','Se ha creado satisfactoriamente la categoría');
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Se ha creado satisfactoriamente la categoría', 'categoria' => $categoria], 201);
+        }
+
+        return redirect('empresa/puc')->with('success', 'Se ha creado satisfactoriamente la categoría');
     }
+
 
 
     public function edit($id){
@@ -170,10 +185,11 @@ class PucController extends Controller
     * @param Request $request
     * @return redirect
     */
-    public function update(Request $request, $id){
+    public function update(Request $request, $id)
+    {
         $categoria = Puc::where('empresa', Auth::user()->empresa)->findOrFail($id);
 
-        $request->validate([
+        $rules = [
             'nombre'     => 'required|max:200',
             'asociado'   => 'required|numeric',
             'codigo'     => [
@@ -188,16 +204,27 @@ class PucController extends Controller
             'grupo'      => 'required|exists:puc_grupo,id',
             'tipo'       => 'required|exists:puc_tipo,id',
             'balance'    => 'required|exists:puc_balance,id',
-        ],[
-            'nombre.required'      => 'El campo Nombre es obligatorio.',
-            'asociado.required'    => 'Debe indicar la categoría asociada.',
-            'codigo.required'      => 'El campo Código es obligatorio.',
-            'codigo.unique'        => 'El código ya está en uso en esta empresa.',
-            'tercero.required'     => 'Debe seleccionar si es Tercero o no.',
-            'grupo.required'       => 'Debe seleccionar un Grupo.',
-            'tipo.required'        => 'Debe seleccionar un Tipo.',
-            'balance.required'     => 'Debe seleccionar un Balance.',
-        ]);
+        ];
+
+        $messages = [
+            'nombre.required'   => 'El campo Nombre es obligatorio.',
+            'asociado.required' => 'Debe indicar la categoría asociada.',
+            'codigo.required'   => 'El campo Código es obligatorio.',
+            'codigo.unique'     => 'El código ya está en uso en esta empresa.',
+            'tercero.required'  => 'Debe seleccionar si es Tercero o no.',
+            'grupo.required'    => 'Debe seleccionar un Grupo.',
+            'tipo.required'     => 'Debe seleccionar un Tipo.',
+            'balance.required'  => 'Debe seleccionar un Balance.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
 
         $categoria->nro        = $request->codigo;
         $categoria->asociado   = $request->asociado;
@@ -210,7 +237,11 @@ class PucController extends Controller
         $categoria->id_balance = $request->balance;
         $categoria->save();
 
-        return redirect('empresa/puc')->with('success','Se ha actualizado satisfactoriamente la categoría');
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Se ha actualizado satisfactoriamente la categoría', 'categoria' => $categoria], 200);
+        }
+
+        return redirect('empresa/puc')->with('success', 'Se ha actualizado satisfactoriamente la categoría');
     }
 
 
