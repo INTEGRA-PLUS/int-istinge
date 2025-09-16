@@ -54,32 +54,46 @@ class PucController extends Controller
   * @param Request $request
   * @return redirect
   */
-  public function store(Request $request){
-        
-    $request->validate([
-        'nombre' => 'required|max:200',
-        'asociado' => 'required|numeric',
+    public function store(Request $request){
+        $request->validate([
+            'nombre'     => 'required|max:200',
+            'asociado'   => 'required|numeric',
+            'codigo'     => 'required|max:50',
+            'descripcion'=> 'nullable|max:500',
+            'tercero'    => 'required|in:0,1',
+            'grupo'      => 'required|exists:puc_grupo,id',
+            'tipo'       => 'required|exists:puc_tipo,id',
+            'balance'    => 'required|exists:puc_balance,id',
+        ],[
+            'nombre.required'      => 'El campo Nombre es obligatorio.',
+            'asociado.required'    => 'Debe indicar la categoría asociada.',
+            'codigo.required'      => 'El campo Código es obligatorio.',
+            'tercero.required'     => 'Debe seleccionar si es Tercero o no.',
+            'grupo.required'       => 'Debe seleccionar un Grupo.',
+            'tipo.required'        => 'Debe seleccionar un Tipo.',
+            'balance.required'     => 'Debe seleccionar un Balance.',
         ]);
         
         if(!Puc::where('empresa',Auth::user()->empresa)->where('codigo',$request->codigo)->first()){
             $categoria = new Puc;
-            $categoria->empresa=Auth::user()->empresa;
-            $categoria->nro = $request->codigo;
-            $categoria->asociado=$request->asociado;
-            $categoria->nombre=$request->nombre;
-            $categoria->codigo=$request->codigo;
-            $categoria->descripcion=$request->descripcion;
-            $categoria->tercero=$request->tercero;
-            $categoria->id_grupo=$request->grupo;
-            $categoria->id_tipo=$request->tipo;
-            $categoria->id_balance=$request->balance;
+            $categoria->empresa    = Auth::user()->empresa;
+            $categoria->nro        = $request->codigo;
+            $categoria->asociado   = $request->asociado;
+            $categoria->nombre     = $request->nombre;
+            $categoria->codigo     = $request->codigo;
+            $categoria->descripcion= $request->descripcion;
+            $categoria->tercero    = $request->tercero;
+            $categoria->id_grupo   = $request->grupo;
+            $categoria->id_tipo    = $request->tipo;
+            $categoria->id_balance = $request->balance;
             $categoria->save();
-            $mensaje='Se ha creado satisfactoriamente la categoría';
-            return $categoria;
+
+            return redirect('empresa/puc')->with('success','Se ha creado satisfactoriamente la categoría');
         }else{
-            return redirect('empresa/puc')->with('info', 'el codigo ingresado ya está siendo usado');
+            return redirect('empresa/puc')->with('info', 'El código ingresado ya está siendo usado');
         }
     }
+
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
@@ -144,34 +158,49 @@ class PucController extends Controller
     * @param Request $request
     * @return redirect
     */
-    public function update(Request $request, $id)
-    {
+    public function update(Request $request, $id){
+        $categoria = Puc::where('empresa', Auth::user()->empresa)->findOrFail($id);
+
         $request->validate([
-            'nombre' => 'required|max:200',
+            'nombre'     => 'required|max:200',
+            'asociado'   => 'required|numeric',
+            'codigo'     => [
+                'required',
+                'max:50',
+                Rule::unique('puc', 'codigo')
+                    ->where('empresa', Auth::user()->empresa)
+                    ->ignore($categoria->id),
+            ],
+            'descripcion'=> 'nullable|max:500',
+            'tercero'    => 'required|in:0,1',
+            'grupo'      => 'required|exists:puc_grupo,id',
+            'tipo'       => 'required|exists:puc_tipo,id',
+            'balance'    => 'required|exists:puc_balance,id',
+        ],[
+            'nombre.required'      => 'El campo Nombre es obligatorio.',
+            'asociado.required'    => 'Debe indicar la categoría asociada.',
+            'codigo.required'      => 'El campo Código es obligatorio.',
+            'codigo.unique'        => 'El código ya está en uso en esta empresa.',
+            'tercero.required'     => 'Debe seleccionar si es Tercero o no.',
+            'grupo.required'       => 'Debe seleccionar un Grupo.',
+            'tipo.required'        => 'Debe seleccionar un Tipo.',
+            'balance.required'     => 'Debe seleccionar un Balance.',
         ]);
 
-        $categoria = Puc::find($id);
+        $categoria->nro        = $request->codigo;
+        $categoria->asociado   = $request->asociado;
+        $categoria->nombre     = $request->nombre;
+        $categoria->codigo     = $request->codigo;
+        $categoria->descripcion= $request->descripcion;
+        $categoria->tercero    = $request->tercero;
+        $categoria->id_grupo   = $request->grupo;
+        $categoria->id_tipo    = $request->tipo;
+        $categoria->id_balance = $request->balance;
+        $categoria->save();
 
-        if ($categoria) {
-
-            if(!Puc::where('empresa',Auth::user()->empresa)->where('codigo',$request->codigo)->where('id','!=',$id)->first()){
-                $categoria->nombre=$request->nombre;
-                $categoria->codigo=$request->codigo;
-                $categoria->descripcion=$request->descripcion;
-                $categoria->tercero=$request->tercero;
-                $categoria->id_grupo=$request->grupo;
-                $categoria->id_tipo=$request->tipo;
-                $categoria->id_balance=$request->balance;
-                $categoria->save();
-                $mensaje='Se ha modificado satisfactoriamente la categoría';
-                return redirect('empresa/puc')->with('success', $mensaje);
-            }else{
-                return redirect('empresa/puc')->with('info', 'Ya hay una cuenta del puc con ese código.');
-            }
-          
-        }
-        return redirect('empresa/puc')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/puc')->with('success','Se ha actualizado satisfactoriamente la categoría');
     }
+
 
     /**
     * Funcion para eliminar un banco
