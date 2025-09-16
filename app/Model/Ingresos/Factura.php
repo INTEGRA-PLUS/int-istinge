@@ -1127,24 +1127,35 @@ public function forma_pago()
         return '';
     }
 
-    public function periodoCobrado($tirilla=false){
-        // Usamos la lógica validada de periodoCobradoTexto()
-        $mensaje = $this->periodoCobradoTexto($tirilla);
-
-        // Mantenemos compatibilidad: añadimos días cobrados si aplica
-        if(!$tirilla && $this->contrato_id != null){
-            try {
-                $dias = $this->diasCobradosProrrateo();
-                if(is_numeric($dias) && intval($dias) > 0){
-                    $mensaje .= " total días cobrados: " . intval($dias);
-                }
-            } catch (\Exception $e) {
-                // Evitamos que un error rompa el PDF
-            }
+    public function periodoCobrado()
+    {
+        $diaCorte = $this->dia_corte;
+        $periodo = $this->periodo_facturacion; // 1=Anticipado, 2=Vencido, 3=Actual
+        $fechaHoy = Carbon::now();
+    
+        switch ($periodo) {
+            case 1: // Anticipado
+                $inicio = Carbon::create($fechaHoy->year, $fechaHoy->month, $diaCorte)->addMonth();
+                $fin    = $inicio->copy()->addMonth()->subDay();
+                break;
+            
+            case 2: // Vencido
+                $fin    = Carbon::create($fechaHoy->year, $fechaHoy->month, $diaCorte)->subDay();
+                $inicio = $fin->copy()->subMonth()->addDay();
+                break;
+            
+            case 3: // Actual
+            default:
+                $inicio = Carbon::create($fechaHoy->year, $fechaHoy->month, $diaCorte);
+                $fin    = $inicio->copy()->addMonth()->subDay();
+                break;
         }
-
-        return $mensaje;
+    
+        $dias = $inicio->diffInDays($fin) + 1;
+    
+        return "Periodo cobrado del {$inicio->format('d F Y')} Al {$fin->format('d F Y')} {$dias} días";
     }
+    
 
     public function periodoCobradoTexto($tirilla=false){
         Carbon::setLocale('es');
