@@ -103,7 +103,6 @@
 </form>
 
 @section('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function guardarPuc(categoriaNro) {
     let errores = [];
@@ -148,16 +147,9 @@ function guardarPuc(categoriaNro) {
 
     // Mostrar errores si los hay
     if (errores.length > 0) {
-        let mensaje = "<ul>";
-        errores.forEach(e => mensaje += `<li>${e}</li>`);
-        mensaje += "</ul>";
-
-        Swal.fire({
-            icon: 'error',
-            title: 'Faltan campos obligatorios',
-            html: mensaje,
-        });
-
+        let mensaje = "Faltan campos obligatorios:\n\n";
+        errores.forEach(e => mensaje += "- " + e + "\n");
+        alert(mensaje);
         return; // detener envío
     }
 
