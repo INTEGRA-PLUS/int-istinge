@@ -372,22 +372,22 @@ class NominaController extends Controller
                 'nominaperiodos'
             ]);
         
-            $empresa = auth()->user()->empresaObj;
+            $empresa = (object) auth()->user()->empresaObj;
         
             // Limpiar carpeta anterior
             Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
-        
+
             $fileName = "nomina-{$nomina->persona->nro_documento}.pdf";
             $relativePath = "empresa{$empresa->id}/nominas/reporte/{$fileName}";
-        
+
             // Generar PDF y guardarlo
             $response = $this->generarPDFNominaCompleta($nomina);
             Storage::disk('public')->put($relativePath, $response);
-        
+
             // Enviar correo con adjunto
             Mail::to($nomina->persona->correo)
                 ->send(new NominaEmitida($nomina, $empresa, $relativePath));
-        
+
             if (request()->ajax() || request()->lote) {
                 return response()->json([
                     'success' => true,
@@ -397,15 +397,15 @@ class NominaController extends Controller
                     'ref' => $nomina->codigo_dian ?: $nomina->persona->nombre()
                 ]);
             }
-        
+
             return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
-        
+
         } catch (\Throwable $th) {
             $errorMessage = $th->getMessage();
             if (strpos($errorMessage, 'proc_open() has been disabled') !== false) {
                 $errorMessage = 'Error al enviar el correo electrónico. El mensaje ha sido procesado correctamente.';
             }
-        
+
             if (request()->ajax() || request()->lote) {
                 return response()->json([
                     'success' => false,
@@ -415,7 +415,7 @@ class NominaController extends Controller
                     'ref' => $nomina->codigo_dian ?: $nomina->persona->nombre()
                 ]);
             }
-        
+
             return back()->withErrors([$errorMessage]);
         }
     }
