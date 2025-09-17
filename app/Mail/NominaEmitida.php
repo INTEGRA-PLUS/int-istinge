@@ -14,7 +14,8 @@ class NominaEmitida extends Mailable implements ShouldQueue
     public $subject;
     public $nomina;
     public $empresa;
-    public $pdf;
+    public $pdfContent;
+    public $fileName;
     public $persona;
 
     /**
@@ -22,12 +23,13 @@ class NominaEmitida extends Mailable implements ShouldQueue
      *
      * @return void
      */
-    public function __construct($nomina, $empresa, $pdf)
+    public function __construct($nomina, $empresa, $pdfContent, $fileName)
     {
         $this->subject = "Detalles de tu nómina en {$empresa->nombre}";
         $this->nomina = $nomina;
         $this->empresa = $empresa;
-        $this->pdf = $pdf;
+        $this->pdfContent = $pdfContent;
+        $this->fileName = $fileName;
         $this->persona = $nomina->persona;
     }
 
@@ -38,9 +40,21 @@ class NominaEmitida extends Mailable implements ShouldQueue
      */
     public function build()
     {
+        // Validar que el contenido del PDF no esté vacío
+        if (empty($this->pdfContent)) {
+            throw new \Exception('El contenido del PDF está vacío');
+        }
+
+        // Validar que el nombre del archivo sea válido
+        if (empty($this->fileName) || !is_string($this->fileName)) {
+            throw new \Exception('El nombre del archivo PDF no es válido');
+        }
+
         return $this->subject($this->subject)
             ->from($this->empresa->email, $this->empresa->nombre)
             ->view('emails.nomina-emitida')
-            ->attachFromStorageDisk('public',$this->pdf);
+            ->attachData($this->pdfContent, $this->fileName, [
+                'mime' => 'application/pdf',
+            ]);
     }
 }

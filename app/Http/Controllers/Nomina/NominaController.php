@@ -379,34 +379,62 @@ class NominaController extends Controller
             $pdfResponse = $this->generarPDFNominaCompleta($nomina);
             $pdfContent = $pdfResponse->getContent();
         
+            // Validar que el PDF se generó correctamente
+            if (empty($pdfContent)) {
+                throw new \Exception('Error al generar el PDF de la nómina');
+            }
+        
             // Suprimir warnings específicamente durante el envío del correo
             $originalErrorReporting = error_reporting();
             error_reporting($originalErrorReporting & ~E_WARNING);
-
-            Mail::to($nomina->persona->correo)
-                ->send(new NominaEmitida($nomina, $empresa, $pdfContent, $fileName));
-
+            
+            try {
+                Mail::to($nomina->persona->correo)
+                    ->send(new NominaEmitida($nomina, $empresa, $pdfContent, $fileName));
+            } catch (\Exception $mailException) {
+                // Restaurar el nivel de errores original antes de lanzar la excepción
+                error_reporting($originalErrorReporting);
+                throw $mailException;
+            }
+                
             // Restaurar el nivel de errores original
             error_reporting($originalErrorReporting);
         
             if(request()->ajax() || request()->lote){
+                // Limpiar cualquier buffer de salida antes de devolver JSON
+                if (ob_get_level()) {
+                    ob_clean();
+                }
+                
                 return response()->json([
                     'success' => true, 
                     'mesagge' => 'Se ha enviado la nómina por correo con éxito', 
                     'status' => 200, 
                     'data' => [], 
                     'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-                ]);
+                ], 200, ['Content-Type' => 'application/json; charset=utf-8']);
             }
         
             return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
-
+            
         } catch (\Throwable $th) {
+            // Limpiar cualquier buffer de salida
+            if (ob_get_level()) {
+                ob_clean();
+            }
+            
             // Filtrar el mensaje de error de proc_open para no mostrarlo al usuario
             $errorMessage = $th->getMessage();
             if (strpos($errorMessage, 'proc_open() has been disabled') !== false) {
                 $errorMessage = 'Error al enviar el correo electrónico. El mensaje ha sido procesado correctamente.';
             }
+            
+            // Log del error para debugging
+            \Log::error('Error en correoEmicionNomina', [
+                'nomina_id' => $nomina->id,
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString()
+            ]);
         
             if(request()->ajax() || request()->lote){
                 return response()->json([
@@ -415,13 +443,12 @@ class NominaController extends Controller
                     'status' => 200, 
                     'data' => ['error' => $errorMessage], 
                     'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-                ]);
+                ], 200, ['Content-Type' => 'application/json; charset=utf-8']);
             }
         
             return back()->withErrors([$errorMessage]);
         }
     }
-
 
     public function ajustar($periodo, $year, $persona, $tipo = null)
     {
