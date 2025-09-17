@@ -145,18 +145,20 @@ class ContactosController extends Controller
                 });
             }
 
-            /**
-             * 🔹 Aquí está el cambio importante
-             * Usamos LEFT JOIN para saber si un contacto tiene contratos asociados
-             */
             if ($request->t_contrato == 1) {
                 // SIN contrato
-                $contactos->leftJoin('contracts', 'contactos.id', '=', 'contracts.client_id')
-                        ->whereNull('contracts.client_id');
+                $contactos->whereNotExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('contracts')
+                        ->whereRaw('contactos.id = contracts.client_id');
+                });
             } elseif ($request->t_contrato == 2) {
                 // CON contrato
-                $contactos->leftJoin('contracts', 'contactos.id', '=', 'contracts.client_id')
-                        ->whereNotNull('contracts.client_id');
+                $contactos->whereExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('contracts')
+                        ->whereRaw('contactos.id = contracts.client_id');
+                });
             }
         }
 
