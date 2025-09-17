@@ -363,7 +363,6 @@ class NominaController extends Controller
         return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
     }
 
-
     public function correoEmicionNomina(Nomina $nomina)
     {
         try {
@@ -375,28 +374,19 @@ class NominaController extends Controller
         
             $empresa = auth()->user()->empresaObj;
         
-            // Limpiar la carpeta de reportes previos
+            // Limpiar carpeta anterior
             Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
         
             $fileName = "nomina-{$nomina->persona->nro_documento}.pdf";
             $relativePath = "empresa{$empresa->id}/nominas/reporte/{$fileName}";
         
-            // Generar el PDF
+            // Generar PDF y guardarlo
             $response = $this->generarPDFNominaCompleta($nomina);
-        
-            // Guardar en disco (solo la ruta relativa)
             Storage::disk('public')->put($relativePath, $response);
         
-            // Suprimir warnings específicamente durante el envío del correo
-            $originalErrorReporting = error_reporting();
-            error_reporting($originalErrorReporting & ~E_WARNING);
-        
-            // Enviar correo pasando la ruta relativa
+            // Enviar correo con adjunto
             Mail::to($nomina->persona->correo)
                 ->send(new NominaEmitida($nomina, $empresa, $relativePath));
-        
-            // Restaurar el nivel de errores original
-            error_reporting($originalErrorReporting);
         
             if (request()->ajax() || request()->lote) {
                 return response()->json([
@@ -404,7 +394,7 @@ class NominaController extends Controller
                     'mesagge' => 'Se ha enviado la nómina por correo con éxito',
                     'status' => 200,
                     'data' => [],
-                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
+                    'ref' => $nomina->codigo_dian ?: $nomina->persona->nombre()
                 ]);
             }
         
@@ -419,17 +409,16 @@ class NominaController extends Controller
             if (request()->ajax() || request()->lote) {
                 return response()->json([
                     'success' => false,
-                    'mesagge' => 'No fue posible enviar el correo electronico',
+                    'mesagge' => 'No fue posible enviar el correo electrónico',
                     'status' => 200,
                     'data' => ['error' => $errorMessage],
-                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
+                    'ref' => $nomina->codigo_dian ?: $nomina->persona->nombre()
                 ]);
             }
         
             return back()->withErrors([$errorMessage]);
         }
     }
-
 
     public function ajustar($periodo, $year, $persona, $tipo = null)
     {
