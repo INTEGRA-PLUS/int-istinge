@@ -32,6 +32,7 @@ use App\Model\Nomina\NominaConfiguracionCalculos;
 use Illuminate\Support\Facades\DB as FacadesDB;
 use Illuminate\Support\Facades\Mail;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
+use Illuminate\Mail\Mailable;
 
 include_once(app_path() . '/../public/Spout/Autoloader/autoload.php');
 include_once(app_path() .'/../public/PHPExcel/Classes/PHPExcel.php');
@@ -372,23 +373,19 @@ class NominaController extends Controller
         
             $empresa = auth()->user()->empresaObj;
         
-            Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
-        
             $fileName = "nomina-{$nomina->persona->nro_documento}.pdf";
         
-            $response = $this->generarPDFNominaCompleta($nomina);
-        
-            Storage::disk('public')->put("empresa{$empresa->id}/nominas/reporte/{$fileName}", $response);
-        
-            $pdf = storage_path("app/public/empresa{$empresa->id}/nominas/reporte/{$fileName}");
+            // Genera el PDF directamente en memoria
+            $pdfResponse = $this->generarPDFNominaCompleta($nomina);
+            $pdfContent = $pdfResponse->getContent();
         
             // Suprimir warnings específicamente durante el envío del correo
             $originalErrorReporting = error_reporting();
             error_reporting($originalErrorReporting & ~E_WARNING);
-            
+
             Mail::to($nomina->persona->correo)
-                ->send(new NominaEmitida($nomina, $empresa, $pdf));
-                
+                ->send(new NominaEmitida($nomina, $empresa, $pdfContent, $fileName));
+
             // Restaurar el nivel de errores original
             error_reporting($originalErrorReporting);
         
@@ -403,7 +400,7 @@ class NominaController extends Controller
             }
         
             return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
-            
+
         } catch (\Throwable $th) {
             // Filtrar el mensaje de error de proc_open para no mostrarlo al usuario
             $errorMessage = $th->getMessage();
