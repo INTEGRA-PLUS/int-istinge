@@ -27,7 +27,7 @@ class NominaEmitida extends Mailable implements ShouldQueue
         $this->subject = "Detalles de tu nómina en {$empresa->nombre}";
         $this->nomina = $nomina;
         $this->empresa = $empresa;
-        $this->pdf = $pdf;
+        $this->pdf = $pdf; // aquí ya llega la ruta relativa: empresa{id}/nominas/reporte/archivo.pdf
         $this->persona = $nomina->persona;
     }
 
@@ -41,6 +41,7 @@ class NominaEmitida extends Mailable implements ShouldQueue
         return $this->subject($this->subject)
             ->from($this->empresa->email, $this->empresa->nombre)
             ->view('emails.nomina-emitida')
-            ->attachFromStorageDisk('public',$this->pdf);
+            
+            ->attachFromStorageDisk('public', $this->pdf);
     }
 }
