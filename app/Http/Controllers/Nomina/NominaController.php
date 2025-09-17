@@ -32,7 +32,6 @@ use App\Model\Nomina\NominaConfiguracionCalculos;
 use Illuminate\Support\Facades\DB as FacadesDB;
 use Illuminate\Support\Facades\Mail;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
-use Illuminate\Mail\Mailable;
 
 include_once(app_path() . '/../public/Spout/Autoloader/autoload.php');
 include_once(app_path() .'/../public/PHPExcel/Classes/PHPExcel.php');
@@ -373,68 +372,44 @@ class NominaController extends Controller
         
             $empresa = auth()->user()->empresaObj;
         
+            Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
+        
             $fileName = "nomina-{$nomina->persona->nro_documento}.pdf";
         
-            // Genera el PDF directamente en memoria
-            $pdfResponse = $this->generarPDFNominaCompleta($nomina);
-            $pdfContent = $pdfResponse->getContent();
+            $response = $this->generarPDFNominaCompleta($nomina);
         
-            // Validar que el PDF se generó correctamente
-            if (empty($pdfContent)) {
-                throw new \Exception('Error al generar el PDF de la nómina');
-            }
+            Storage::disk('public')->put("empresa{$empresa->id}/nominas/reporte/{$fileName}", $response);
+        
+            $pdf = storage_path("app/public/empresa{$empresa->id}/nominas/reporte/{$fileName}");
         
             // Suprimir warnings específicamente durante el envío del correo
             $originalErrorReporting = error_reporting();
             error_reporting($originalErrorReporting & ~E_WARNING);
             
-            try {
-                Mail::to($nomina->persona->correo)
-                    ->send(new NominaEmitida($nomina, $empresa, $pdfContent, $fileName));
-            } catch (\Exception $mailException) {
-                // Restaurar el nivel de errores original antes de lanzar la excepción
-                error_reporting($originalErrorReporting);
-                throw $mailException;
-            }
+            Mail::to($nomina->persona->correo)
+                ->send(new NominaEmitida($nomina, $empresa, $pdf));
                 
             // Restaurar el nivel de errores original
             error_reporting($originalErrorReporting);
         
             if(request()->ajax() || request()->lote){
-                // Limpiar cualquier buffer de salida antes de devolver JSON
-                if (ob_get_level()) {
-                    ob_clean();
-                }
-                
                 return response()->json([
                     'success' => true, 
                     'mesagge' => 'Se ha enviado la nómina por correo con éxito', 
                     'status' => 200, 
                     'data' => [], 
                     'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-                ], 200, ['Content-Type' => 'application/json; charset=utf-8']);
+                ]);
             }
         
             return back()->with('success', 'Se ha enviado la nómina por correo con éxito');
             
         } catch (\Throwable $th) {
-            // Limpiar cualquier buffer de salida
-            if (ob_get_level()) {
-                ob_clean();
-            }
-            
             // Filtrar el mensaje de error de proc_open para no mostrarlo al usuario
             $errorMessage = $th->getMessage();
             if (strpos($errorMessage, 'proc_open() has been disabled') !== false) {
                 $errorMessage = 'Error al enviar el correo electrónico. El mensaje ha sido procesado correctamente.';
             }
-            
-            // Log del error para debugging
-            \Log::error('Error en correoEmicionNomina', [
-                'nomina_id' => $nomina->id,
-                'error' => $th->getMessage(),
-                'trace' => $th->getTraceAsString()
-            ]);
         
             if(request()->ajax() || request()->lote){
                 return response()->json([
@@ -443,12 +418,13 @@ class NominaController extends Controller
                     'status' => 200, 
                     'data' => ['error' => $errorMessage], 
                     'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre()
-                ], 200, ['Content-Type' => 'application/json; charset=utf-8']);
+                ]);
             }
         
             return back()->withErrors([$errorMessage]);
         }
     }
+
 
     public function ajustar($periodo, $year, $persona, $tipo = null)
     {
