@@ -835,7 +835,9 @@ class ContactosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
             ],
         ];
-        $objPHPExcel->getActiveSheet()->getStyle('A3:T3')->applyFromArray($estilo);
+        
+        $lastColumn = $letras[count($titulosColumnas) - 1]; 
+        $objPHPExcel->getActiveSheet()->getStyle("A3:{$lastColumn}3")->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
