@@ -884,7 +884,7 @@ class ContactosController extends Controller
                 ->setCellValue($letras[17].$i, $contacto->estrato)
                 ->setCellValue($letras[18].$i, $contacto->observaciones)
                 ->setCellValue($letras[19].$i, $contacto->tipo_contacto())
-                ->setCellValue($letras[20].$i, $contacto->contrato ?? 'N/A');
+                ->setCellValue($letras[20].$i, $contacto->contract() ?? 'N/A');
             $i++;
         }
 
