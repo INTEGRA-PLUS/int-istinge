@@ -801,7 +801,7 @@ class ContactosController extends Controller
     {
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto'];
+        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto', 'Contrato'];
         $letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
         $objPHPExcel->getProperties()->setCreator('Sistema') // Nombre del autor
@@ -883,7 +883,8 @@ class ContactosController extends Controller
                 ->setCellValue($letras[16].$i, $contacto->email)
                 ->setCellValue($letras[17].$i, $contacto->estrato)
                 ->setCellValue($letras[18].$i, $contacto->observaciones)
-                ->setCellValue($letras[19].$i, $contacto->tipo_contacto());
+                ->setCellValue($letras[19].$i, $contacto->tipo_contacto())
+                ->setCellValue($letras[20].$i, $contacto->contrato ?? 'N/A');
             $i++;
         }
 
