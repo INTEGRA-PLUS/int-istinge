@@ -6,17 +6,18 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use App\Model\Nomina\Nomina;
 
 class NominaEmitida extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
     public $subject;
-    public $nomina;
-    public $empresa;
+    public $nominaId;
+    public $empresaData;
     public $pdfContent;
     public $fileName;
-    public $persona;
+    public $personaData;
 
     /**
      * Create a new message instance.
@@ -25,12 +26,19 @@ class NominaEmitida extends Mailable implements ShouldQueue
      */
     public function __construct($nomina, $empresa, $pdfContent, $fileName)
     {
+        $this->nominaId = $nomina->id;
+        $this->empresaData = [
+            'nombre' => $empresa->nombre,
+            'email' => $empresa->email ?? config('mail.from.address'),
+        ];
+        $this->personaData = [
+            'nombre' => $nomina->persona->nombre,
+            'apellido' => $nomina->persona->apellido,
+            'correo' => $nomina->persona->correo,
+        ];
         $this->subject = "Detalles de tu nómina en {$empresa->nombre}";
-        $this->nomina = $nomina;
-        $this->empresa = $empresa;
         $this->pdfContent = $pdfContent;
         $this->fileName = $fileName;
-        $this->persona = $nomina->persona;
     }
 
     /**
@@ -50,9 +58,17 @@ class NominaEmitida extends Mailable implements ShouldQueue
             throw new \Exception('El nombre del archivo PDF no es válido');
         }
 
+        // Reconstruir los objetos para la vista si es necesario
+        $nomina = Nomina::find($this->nominaId);
+
         return $this->subject($this->subject)
-            ->from($this->empresa->email, $this->empresa->nombre)
+            ->from($this->empresaData['email'], $this->empresaData['nombre'])
             ->view('emails.nomina-emitida')
+            ->with([
+                'nomina' => $nomina,
+                'empresa' => (object) $this->empresaData,
+                'persona' => (object) $this->personaData
+            ])
             ->attachData($this->pdfContent, $this->fileName, [
                 'mime' => 'application/pdf',
             ]);
