@@ -80,7 +80,6 @@ class ContactosController extends Controller
                 });
             }
             if ($request->municipio) {
-
                 $contactos->where(function ($query) use ($municipio) {
                     $query->orWhere('fk_idmunicipio', 'like', "%{$municipio->id}%");
                 });
@@ -98,7 +97,6 @@ class ContactosController extends Controller
                 });
             }
             if ($request->direccion) {
-
                 $direccion = $request->direccion;
                 $direccion = explode(' ', $direccion);
                 $direccion = array_reverse($direccion);
@@ -106,23 +104,14 @@ class ContactosController extends Controller
                 foreach ($direccion as $dir) {
                     $dir = strtolower($dir);
                     $dir = str_replace('#', '', $dir);
-                    //$dir = str_replace("-","",$dir);
-                    //$dir = str_replace("/","",$dir);
-
                     $contactos->where(function ($query) use ($dir) {
                         $query->orWhere('direccion', 'like', "%{$dir}%");
                     });
                 }
-
-                /*
-                $contactos->where(function ($query) use ($request) {
-                   // $query->orWhere('direccion', 'like', "%{$request->direccion}%");
-                });
-                */
             }
             if ($request->barrio) {
                 $contactos->where(function ($query) use ($request) {
-                    $query->orWhere('barrio_id',$request->barrio);
+                    $query->orWhere('barrio_id', $request->barrio);
                 });
             }
             if ($request->vereda) {
@@ -130,13 +119,11 @@ class ContactosController extends Controller
                     $query->orWhere('vereda', 'like', "%{$request->vereda}%");
                 });
             }
-
-            if($request->etiqueta_id){
+            if ($request->etiqueta_id) {
                 $contactos->where(function ($query) use ($request) {
                     $query->orWhere('etiqueta_id', $request->etiqueta_id);
                 });
             }
-
             if ($request->email) {
                 $contactos->where(function ($query) use ($request) {
                     $query->orWhere('email', 'like', "%{$request->email}%");
@@ -157,20 +144,22 @@ class ContactosController extends Controller
                     $query->orWhere('saldo_favor', '>', 0);
                 });
             }
+
+            /**
+             * 🔹 Aquí está el cambio importante
+             * Usamos LEFT JOIN para saber si un contacto tiene contratos asociados
+             */
             if ($request->t_contrato == 1) {
-                $contactos->whereNotExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('contracts')
-                        ->whereRaw('contactos.id = contracts.client_id');
-                });
+                // SIN contrato
+                $contactos->leftJoin('contracts', 'contactos.id', '=', 'contracts.client_id')
+                        ->whereNull('contracts.client_id');
             } elseif ($request->t_contrato == 2) {
-                $contactos->whereExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('contracts')
-                        ->whereRaw('contactos.id = contracts.client_id');
-                });
+                // CON contrato
+                $contactos->leftJoin('contracts', 'contactos.id', '=', 'contracts.client_id')
+                        ->whereNotNull('contracts.client_id');
             }
         }
+
 
         $contactos->where('contactos.empresa', auth()->user()->empresa);
         $contactos->whereIn('tipo_contacto', [$tipo_usuario, 2]);
