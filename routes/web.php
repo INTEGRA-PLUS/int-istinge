@@ -455,6 +455,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/television', 'InventarioController@television')->name('inventario.television');
 		Route::get('/television/create', 'InventarioController@television_create')->name('inventario.television_create');
 
+		Route::post('/inventario/storeback', [InventarioController::class, 'storeback'])->name('inventario.storeback');
+		Route::get('/inventario/datos/{id}', [InventarioController::class, 'obtenerDatosProducto'])->name('inventario.datos');
+		Route::post('inventario/storeback', 'InventarioController@storeBack')->name('facturasp.inventario.storeback');
+
+
 		Route::post('/diaiva', 'InventarioController@diaIva');
 
 

@@ -475,6 +475,162 @@ class FacturaspController extends Controller
         return redirect('empresa/facturasp')->with('success', $mensaje)->with('codigo', $factura->id);
     }
 
+    public function storeback(Request $request)
+    {
+        try {
+            // Validación de campos obligatorios
+            $validator = Validator::make($request->all(), [
+                'producto' => 'required|string|max:200',
+                'ref' => 'required|string|max:200|unique:inventario,ref,NULL,id,empresa,' . Auth::user()->empresa,
+                'categoria' => 'required|exists:categorias,id',
+                'impuesto' => 'required|exists:impuestos,id',
+                'precio' => 'nullable|numeric|min:0',
+                'descripcion' => 'nullable|string|max:500',
+                'tipo_producto' => 'nullable|integer|in:1,2',
+            ], [
+                'producto.required' => 'El nombre del producto es obligatorio',
+                'ref.required' => 'La referencia es obligatoria',
+                'ref.unique' => 'La referencia ya existe para otro producto',
+                'categoria.required' => 'Debe seleccionar una categoría',
+                'impuesto.required' => 'Debe seleccionar un impuesto',
+                'precio.numeric' => 'El precio debe ser un número válido',
+            ]);
+        
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'ERROR',
+                    'mensaje' => $validator->errors()->first()
+                ], 422);
+            }
+        
+            // Validar campos extras obligatorios
+            $extras = CamposExtra::where('empresa', Auth::user()->empresa)
+                ->where('status', 1)
+                ->where('tipo', 1) // Campos obligatorios
+                ->get();
+        
+            foreach ($extras as $campo) {
+                $nombreCampo = 'ext_' . $campo->campo;
+                if (!$request->has($nombreCampo) || !$request->$nombreCampo) {
+                    return response()->json([
+                        'status' => 'ERROR',
+                        'mensaje' => "El campo {$campo->nombre} es obligatorio"
+                    ], 422);
+                }
+            }
+        
+            // Crear el producto
+            $producto = new Inventario();
+            $producto->empresa = Auth::user()->empresa;
+            $producto->producto = $request->producto;
+            $producto->ref = $request->ref;
+            $producto->precio = $this->precision($request->precio ?? 0);
+            $producto->descripcion = $request->descripcion;
+            $producto->categoria = $request->categoria;
+            $producto->id_impuesto = $request->impuesto;
+            $producto->tipo_producto = $request->tipo_producto ?? 2; // 2 = no inventariable por defecto
+            $producto->status = 1;
+            $producto->created_by = Auth::user()->id;
+            
+            // Campos adicionales si existen
+            foreach ($extras as $campo) {
+                $nombreCampo = 'ext_' . $campo->campo;
+                if ($request->has($nombreCampo)) {
+                    $producto->{$campo->campo} = $request->$nombreCampo;
+                }
+            }
+        
+            // Si se marcó como público para la web
+            if ($request->publico == 1 && Auth::user()->empresaObj->carrito == 1) {
+                $producto->publico = 1;
+            }
+        
+            $producto->save();
+        
+            // Si tiene precio y listas de precios, guardarlas
+            if ($request->precio && $this->hasListasPrecios($request)) {
+                $this->guardarListasPrecios($producto->id, $request);
+            }
+        
+            // Respuesta exitosa con datos del producto para el select
+            return response()->json([
+                'status' => 'OK',
+                'success' => true,
+                'mensaje' => 'Producto creado exitosamente',
+                'id' => $producto->id,
+                'producto' => $producto->producto,
+                'ref' => $producto->ref,
+                'nombre' => $producto->producto . ' - (' . $producto->ref . ')',
+                'precio' => $producto->precio,
+                'impuesto' => $producto->id_impuesto,
+                'descripcion' => $producto->descripcion,
+                'categoria_id' => $producto->categoria
+            ]);
+        
+        } catch (\Exception $e) {
+            \Log::error('Error al crear producto desde modal: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'status' => 'ERROR',
+                'success' => false,
+                'mensaje' => 'Error interno del servidor. Intente nuevamente.'
+            ], 500);
+        }
+    }
+    
+    /**
+     * Método auxiliar para verificar si hay listas de precios en el request
+     */
+    private function hasListasPrecios($request)
+    {
+        $listas = ListaPrecios::where('empresa', Auth::user()->empresa)
+            ->where('status', 1)
+            ->get();
+    
+        foreach ($listas as $lista) {
+            $precioLista = $request->input('precio_lista_' . $lista->id);
+            if ($precioLista && $precioLista > 0) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Método auxiliar para guardar listas de precios
+     */
+    private function guardarListasPrecios($productoId, $request)
+    {
+        try {
+            $listas = ListaPrecios::where('empresa', Auth::user()->empresa)
+                ->where('status', 1)
+                ->get();
+        
+            foreach ($listas as $lista) {
+                $precioLista = $request->input('precio_lista_' . $lista->id);
+                
+                if ($precioLista && $precioLista > 0) {
+                    // Verificar si existe tabla de relación para listas de precios
+                    // Ajustar según tu estructura de base de datos
+                    if (\Schema::hasTable('productos_listas_precios')) {
+                        DB::table('productos_listas_precios')->insert([
+                            'producto_id' => $productoId,
+                            'lista_precio_id' => $lista->id,
+                            'precio' => $this->precision($precioLista),
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error al guardar listas de precios: ' . $e->getMessage());
+        }
+    }
+
+
     public function show($id){
         $this->getAllPermissions(Auth::user()->id);
         $factura = FacturaProveedores::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
