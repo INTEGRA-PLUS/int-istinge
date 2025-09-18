@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 use App\Puc;
 use Carbon\Carbon;
 use Auth;
@@ -49,37 +51,76 @@ class PucController extends Controller
         return view('puc.create')->with(compact('categoria','grupos','tipos','balances'));
     }
 
-    /**
-  * Registrar un nuevo banco
-  * @param Request $request
-  * @return redirect
-  */
-  public function store(Request $request){
-        
-    $request->validate([
-        'nombre' => 'required|max:200',
-        'asociado' => 'required|numeric',
-        ]);
-        
-        if(!Puc::where('empresa',Auth::user()->empresa)->where('codigo',$request->codigo)->first()){
-            $categoria = new Puc;
-            $categoria->empresa=Auth::user()->empresa;
-            $categoria->nro = $request->codigo;
-            $categoria->asociado=$request->asociado;
-            $categoria->nombre=$request->nombre;
-            $categoria->codigo=$request->codigo;
-            $categoria->descripcion=$request->descripcion;
-            $categoria->tercero=$request->tercero;
-            $categoria->id_grupo=$request->grupo;
-            $categoria->id_tipo=$request->tipo;
-            $categoria->id_balance=$request->balance;
-            $categoria->save();
-            $mensaje='Se ha creado satisfactoriamente la categoría';
-            return $categoria;
-        }else{
-            return redirect('empresa/puc')->with('info', 'el codigo ingresado ya está siendo usado');
+    public function store(Request $request)
+    {
+        $rules = [
+            'nombre'      => 'required|max:200',
+            'asociado'    => 'required|numeric',
+            'codigo'      => 'required|max:50',
+            'descripcion' => 'nullable|max:500',
+            'tercero'     => 'required|in:0,1',
+            'grupo'       => 'required|exists:puc_grupo,id',
+            'tipo'        => 'required|exists:puc_tipo,id',
+            'balance'     => 'required|exists:puc_balance,id',
+        ];
+
+        $messages = [
+            'nombre.required'    => 'El campo Nombre es obligatorio.',
+            'nombre.max'         => 'El campo Nombre no puede exceder 200 caracteres.',
+            'asociado.required'  => 'Debe indicar la categoría asociada.',
+            'asociado.numeric'   => 'El campo Asociado debe ser un número válido.',
+            'codigo.required'    => 'El campo Código es obligatorio.',
+            'codigo.max'         => 'El campo Código no puede exceder 50 caracteres.',
+            'tercero.required'   => 'Debe seleccionar si es Tercero o no.',
+            'tercero.in'         => 'La opción seleccionada en Tercero no es válida.',
+            'grupo.required'     => 'Debe seleccionar un Grupo.',
+            'grupo.exists'       => 'El Grupo seleccionado no existe.',
+            'tipo.required'      => 'Debe seleccionar un Tipo.',
+            'tipo.exists'        => 'El Tipo seleccionado no existe.',
+            'balance.required'   => 'Debe seleccionar un Balance.',
+            'balance.exists'     => 'El Balance seleccionado no existe.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()->withErrors($validator)->withInput();
         }
+
+        // Validación adicional: código duplicado
+        if (Puc::where('empresa', Auth::user()->empresa)->where('codigo', $request->codigo)->exists()) {
+            $err = ['codigo' => ['El código ingresado ya está siendo usado.']];
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $err], 409);
+            }
+            return redirect()->back()->withErrors($err)->withInput();
+        }
+
+        // Crear la categoría
+        $categoria = new Puc;
+        $categoria->empresa    = Auth::user()->empresa;
+        $categoria->nro        = $request->codigo;
+        $categoria->asociado   = $request->asociado;
+        $categoria->nombre     = $request->nombre;
+        $categoria->codigo     = $request->codigo;
+        $categoria->descripcion= $request->descripcion;
+        $categoria->tercero    = $request->tercero;
+        $categoria->id_grupo   = $request->grupo;
+        $categoria->id_tipo    = $request->tipo;
+        $categoria->id_balance = $request->balance;
+        $categoria->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Se ha creado satisfactoriamente la categoría', 'categoria' => $categoria], 201);
+        }
+
+        return redirect('empresa/puc')->with('success', 'Se ha creado satisfactoriamente la categoría');
     }
+
+
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
@@ -146,32 +187,63 @@ class PucController extends Controller
     */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'nombre' => 'required|max:200',
-        ]);
+        $categoria = Puc::where('empresa', Auth::user()->empresa)->findOrFail($id);
 
-        $categoria = Puc::find($id);
+        $rules = [
+            'nombre'     => 'required|max:200',
+            'asociado'   => 'required|numeric',
+            'codigo'     => [
+                'required',
+                'max:50',
+                Rule::unique('puc', 'codigo')
+                    ->where('empresa', Auth::user()->empresa)
+                    ->ignore($categoria->id),
+            ],
+            'descripcion'=> 'nullable|max:500',
+            'tercero'    => 'required|in:0,1',
+            'grupo'      => 'required|exists:puc_grupo,id',
+            'tipo'       => 'required|exists:puc_tipo,id',
+            'balance'    => 'required|exists:puc_balance,id',
+        ];
 
-        if ($categoria) {
+        $messages = [
+            'nombre.required'   => 'El campo Nombre es obligatorio.',
+            'asociado.required' => 'Debe indicar la categoría asociada.',
+            'codigo.required'   => 'El campo Código es obligatorio.',
+            'codigo.unique'     => 'El código ya está en uso en esta empresa.',
+            'tercero.required'  => 'Debe seleccionar si es Tercero o no.',
+            'grupo.required'    => 'Debe seleccionar un Grupo.',
+            'tipo.required'     => 'Debe seleccionar un Tipo.',
+            'balance.required'  => 'Debe seleccionar un Balance.',
+        ];
 
-            if(!Puc::where('empresa',Auth::user()->empresa)->where('codigo',$request->codigo)->where('id','!=',$id)->first()){
-                $categoria->nombre=$request->nombre;
-                $categoria->codigo=$request->codigo;
-                $categoria->descripcion=$request->descripcion;
-                $categoria->tercero=$request->tercero;
-                $categoria->id_grupo=$request->grupo;
-                $categoria->id_tipo=$request->tipo;
-                $categoria->id_balance=$request->balance;
-                $categoria->save();
-                $mensaje='Se ha modificado satisfactoriamente la categoría';
-                return redirect('empresa/puc')->with('success', $mensaje);
-            }else{
-                return redirect('empresa/puc')->with('info', 'Ya hay una cuenta del puc con ese código.');
+        $validator = Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
             }
-          
+            return redirect()->back()->withErrors($validator)->withInput();
         }
-        return redirect('empresa/puc')->with('success', 'No existe un registro con ese id');
+
+        $categoria->nro        = $request->codigo;
+        $categoria->asociado   = $request->asociado;
+        $categoria->nombre     = $request->nombre;
+        $categoria->codigo     = $request->codigo;
+        $categoria->descripcion= $request->descripcion;
+        $categoria->tercero    = $request->tercero;
+        $categoria->id_grupo   = $request->grupo;
+        $categoria->id_tipo    = $request->tipo;
+        $categoria->id_balance = $request->balance;
+        $categoria->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Se ha actualizado satisfactoriamente la categoría', 'categoria' => $categoria], 200);
+        }
+
+        return redirect('empresa/puc')->with('success', 'Se ha actualizado satisfactoriamente la categoría');
     }
+
 
     /**
     * Funcion para eliminar un banco

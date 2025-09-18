@@ -186,7 +186,7 @@ class CronController extends Controller
 
             $grupos_corte = GrupoCorte::
             where('fecha_factura', $date)
-            ->where('hora_creacion_factura','<=',$horaActual)
+            ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
             ->where('status', 1)->get();
 
             $fecha = Carbon::now()->format('Y-m-d');
@@ -414,6 +414,8 @@ class CronController extends Controller
                                         foreach($contratos_multiples as $cm){
 
                                             $descuentoPesos = 0;
+                                            $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+                                            $fechaActual = Carbon::now()->format('Y-m-d');
 
                                             ## Se carga el item a la factura (Plan de Internet) ##
                                             if($contrato->plan_id){
@@ -432,12 +434,23 @@ class CronController extends Controller
                                                     $item_reg->impuesto = 19;
                                                 }
                                                 $item_reg->cant        = 1;
-                                                $item_reg->desc        = $cm->descuento;
 
-                                                if($cm->descuento_pesos != null && $descuentoPesos == 0){
-                                                    $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
-                                                    $descuentoPesos = 1;
+                                                if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                                                    $item_reg->desc        = $cm->descuento;
+
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
+                                                }else if($descuentoHasta == null || $descuentoHasta == ""){
+                                                    $item_reg->desc        = $cm->descuento;
+
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
                                                 }
+
                                                 $item_reg->save();
                                             }
 
@@ -453,11 +466,21 @@ class CronController extends Controller
                                                 $item_reg->id_impuesto = $item->id_impuesto;
                                                 $item_reg->impuesto    = $item->impuesto;
                                                 $item_reg->cant        = 1;
-                                                $item_reg->desc        = $cm->descuento;
-                                                if($cm->descuento_pesos != null && $descuentoPesos == 0){
-                                                    $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
-                                                    $descuentoPesos = 1;
+
+                                                if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
+                                                }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
                                                 }
+
                                                 $item_reg->save();
                                             }
 
@@ -473,11 +496,21 @@ class CronController extends Controller
                                                 $item_reg->id_impuesto = $item->id_impuesto;
                                                 $item_reg->impuesto    = $item->impuesto;
                                                 $item_reg->cant        = 1;
-                                                $item_reg->desc        = $cm->descuento;
-                                                if($cm->descuento_pesos != null && $descuentoPesos == 0){
-                                                    $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
-                                                    $descuentoPesos = 1;
+
+                                                if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
+                                                }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
                                                 }
+
 
                                                 if($cm->rd_item_vencimiento == 1){
 
@@ -503,11 +536,21 @@ class CronController extends Controller
                                                 $item_reg->id_impuesto = $item->id_impuesto;
                                                 $item_reg->impuesto    = $item->impuesto;
                                                 $item_reg->cant        = 1;
-                                                $item_reg->desc        = $cm->descuento;
-                                                if($cm->descuento_pesos != null && $descuentoPesos == 0){
-                                                    $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
-                                                    $descuentoPesos = 1;
+
+                                                if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
+                                                }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                                                    $item_reg->desc        = $cm->descuento;
+                                                    if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                                                        $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                                                        $descuentoPesos = 1;
+                                                    }
                                                 }
+
                                                 $item_reg->save();
                                             }
 
@@ -938,7 +981,7 @@ class CronController extends Controller
 
                         if($promesaExtendida > 0){
 
-                            if($contrato->state != 'enabled'){
+                            if($contrato->state != 'enabled' && $empresa->consultas_mk ==1){
 
                                 if(isset($contrato->server_configuration_id) && $factura->estatus != 0){
 
@@ -1009,6 +1052,7 @@ class CronController extends Controller
                                 $API = new RouterosAPI();
                                 $API->port = $mikrotik->puerto_api;
 
+                                if($empresa->consultas_mk ==1){
                                 if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
                                     $API->write('/ip/firewall/address-list/print', TRUE);
                                     $ARRAYS = $API->read();
@@ -1062,6 +1106,8 @@ class CronController extends Controller
                                     }
                                     $API->disconnect();
                                 }
+                                }
+
                                 $contrato->state = 'disabled';
                                 $contrato->observaciones = $contrato->observaciones. " - Contrato deshabilitado automaticamente";
                                 $contrato->save();
@@ -1219,6 +1265,11 @@ class CronController extends Controller
                         }else{
                             $contratos = Contrato::where('id',$contacto->contrato_id)->get();
                         }
+                    }
+
+                    $promesaExtendida = DB::table('promesa_pago')->where('factura', $factura->id)->where('vencimiento', '>=', $fecha)->count();
+                    if($promesaExtendida > 0){
+                        continue;
                     }
 
                     //2. Debemos recorrer el o los contratos para que haga el disabled.
@@ -3424,6 +3475,7 @@ class CronController extends Controller
             ->where('factura.whatsapp', 0)
             ->whereIn('c.grupo_corte', $grupos_corte_array)
             ->select('factura.*')
+            ->orderBy('factura.updated_at', 'asc')
             ->limit(45)
             ->get();
 
@@ -3435,6 +3487,9 @@ class CronController extends Controller
                 $facturaPDF = $this->getPdfFactura($factura->id);
                 $facturabase64 = base64_encode($facturaPDF);
                 $instance = Instance::where('company_id', $empresa->id)->where('type',1)->first();
+
+                $factura->updated_at = now();
+                $factura->save();
 
                 if(is_null($instance) || empty($instance)){
                     Log::error('Instancia no está creada.');
@@ -3790,7 +3845,10 @@ class CronController extends Controller
             $diasMas = $empresa->dias_reconexion_generica;
 
             $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
-            join('contracts as cs','cs.id','=','f.contrato_id')->
+            leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
+            ->leftJoin('contracts as cs', function ($join) {
+                $join->on('cs.nro', '=', 'fcs.contrato_nro');
+            })->
             select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id')->
             where('f.estatus',1)->
             whereIn('f.tipo', [1,2])->
@@ -4007,6 +4065,14 @@ class CronController extends Controller
                                     $API->write('/ip/firewall/address-list/remove', false);
                                     $API->write('=.id='.$ARRAYS[0]['.id']);
                                     $READ = $API->read();
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
 
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();

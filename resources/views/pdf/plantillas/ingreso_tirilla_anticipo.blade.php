@@ -236,40 +236,16 @@
 </div>
 <hr class="tirilla-hr">
 <div class="tirilla-section" style="text-align: left;">
-    @if($ingreso->tipo == 1 || $ingreso->tipo == 2) 
-        <span class="tirilla-label">Ingreso:</span> 
-    @elseif($ingreso->tipo == 3) 
-        <span class="tirilla-label">Cuenta de Cobro:</span> 
-    @endif 
-    <b>No. {{$ingreso->nro}}</b><br>
-
+    @if($ingreso->tipo == 1 || $ingreso->tipo == 2) <span class="tirilla-label">Ingreso:</span> @elseif($ingreso->tipo == 3) <span class="tirilla-label">Cuenta de Cobro:</span> @endif <b>No. {{$ingreso->nro}}</b><br>
     <span class="tirilla-label">Fecha Expedición:</span> {{date('d/m/Y', strtotime($ingreso->fecha))}}<br>
-    <span class="tirilla-label">Fecha Vencimiento:</span> {{date('d/m/Y', strtotime($ingreso->ingresofactura()->factura()->vencimiento))}}<br>
-    <span class="tirilla-label">Estado:</span> 
-        @if($ingreso->ingresofactura()->factura()->estatus == 0) Cerrada @endif 
-        @if($ingreso->ingresofactura()->factura()->estatus == 1) Abierta @endif 
-        @if($ingreso->ingresofactura()->factura()->estatus == 2) Anulada @endif
-    <br>
+    <span class="tirilla-label">Fecha Vencimiento:</span> {{date('d/m/Y', strtotime($ingreso->fecha))}}<br>
+    <span class="tirilla-label">Estado:</span> Cerrada<br>
     <span class="tirilla-label">Recibo de Caja:</span> <b>No. {{ $ingreso->nro }}</b><br>
-    <span class="tirilla-label">Fecha y Hora del Pago:</span> {{ $ingreso->created_at->format('d/m/Y H:i') }}<br>
-
-    {{-- 👉 Nuevo campo de contrato --}}
-    @if($contratoNro)
-        <span class="tirilla-label">Contrato:</span> {{ $contratoNro }}<br>
-    @else
-        <span class="tirilla-label">Contrato:</span> No asociado<br>
-    @endif
-
+    <span class="tirilla-label">Fecha del Pago:</span> {{ date('d/m/Y', strtotime($ingreso->fecha)) }}<br>
     <span class="tirilla-label">Cuenta:</span> {{ $ingreso->cuenta()->nombre }}<br>
     <span class="tirilla-label">Método de Pago:</span> {{ $ingreso->metodo_pago() }}<br>
-    @if(isset(Auth::user()->empresa()->periodo_tirilla) && Auth::user()->empresa()->periodo_tirilla == 1)
-        <span class="tirilla-label">Periodo:</span> {{$ingreso->ingresofactura()->factura()->periodoCobradoTexto()}}<br>
-    @endif
-    @if($ingreso->notas) 
-        <span class="tirilla-label">Notas:</span> {{ $ingreso->notas }} 
-    @endif
+    @if($ingreso->notas) <span class="tirilla-label">Notas:</span> {{ $ingreso->notas }} @endif
 </div>
-
 <hr class="tirilla-hr">
 <div class="tirilla-section">
     <table class="tirilla-table">

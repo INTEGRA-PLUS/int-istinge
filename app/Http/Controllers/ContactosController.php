@@ -80,7 +80,6 @@ class ContactosController extends Controller
                 });
             }
             if ($request->municipio) {
-
                 $contactos->where(function ($query) use ($municipio) {
                     $query->orWhere('fk_idmunicipio', 'like', "%{$municipio->id}%");
                 });
@@ -98,7 +97,6 @@ class ContactosController extends Controller
                 });
             }
             if ($request->direccion) {
-
                 $direccion = $request->direccion;
                 $direccion = explode(' ', $direccion);
                 $direccion = array_reverse($direccion);
@@ -106,23 +104,14 @@ class ContactosController extends Controller
                 foreach ($direccion as $dir) {
                     $dir = strtolower($dir);
                     $dir = str_replace('#', '', $dir);
-                    //$dir = str_replace("-","",$dir);
-                    //$dir = str_replace("/","",$dir);
-
                     $contactos->where(function ($query) use ($dir) {
                         $query->orWhere('direccion', 'like', "%{$dir}%");
                     });
                 }
-
-                /*
-                $contactos->where(function ($query) use ($request) {
-                   // $query->orWhere('direccion', 'like', "%{$request->direccion}%");
-                });
-                */
             }
             if ($request->barrio) {
                 $contactos->where(function ($query) use ($request) {
-                    $query->orWhere('barrio_id',$request->barrio);
+                    $query->orWhere('barrio_id', $request->barrio);
                 });
             }
             if ($request->vereda) {
@@ -130,13 +119,11 @@ class ContactosController extends Controller
                     $query->orWhere('vereda', 'like', "%{$request->vereda}%");
                 });
             }
-
-            if($request->etiqueta_id){
+            if ($request->etiqueta_id) {
                 $contactos->where(function ($query) use ($request) {
                     $query->orWhere('etiqueta_id', $request->etiqueta_id);
                 });
             }
-
             if ($request->email) {
                 $contactos->where(function ($query) use ($request) {
                     $query->orWhere('email', 'like', "%{$request->email}%");
@@ -157,13 +144,16 @@ class ContactosController extends Controller
                     $query->orWhere('saldo_favor', '>', 0);
                 });
             }
+
             if ($request->t_contrato == 1) {
+                // SIN contrato
                 $contactos->whereNotExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('contracts')
                         ->whereRaw('contactos.id = contracts.client_id');
                 });
             } elseif ($request->t_contrato == 2) {
+                // CON contrato
                 $contactos->whereExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('contracts')
@@ -171,6 +161,7 @@ class ContactosController extends Controller
                 });
             }
         }
+
 
         $contactos->where('contactos.empresa', auth()->user()->empresa);
         $contactos->whereIn('tipo_contacto', [$tipo_usuario, 2]);
@@ -810,31 +801,23 @@ class ContactosController extends Controller
     {
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto'];
+        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto', 'Contrato'];
         $letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-        $objPHPExcel->getProperties()->setCreator('Sistema') // Nombre del autor
-            ->setLastModifiedBy('Sistema') //Ultimo usuario que lo modific���
-            ->setTitle('Reporte Excel Contactos') // Titulo
-            ->setSubject('Reporte Excel Contactos') //Asunto
-            ->setDescription('Reporte de Contactos') //Descripci���n
-            ->setKeywords('reporte Contactos') //Etiquetas
-            ->setCategory('Reporte excel'); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah��� el titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:D1');
-        // Se agregan los titulos del reporte
-        $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A1', $tituloReporte);
-        // Titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A2:C2');
-        // Se agregan los titulos del reporte
-        $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A2', 'Fecha '.date('d-m-Y')); // Titulo del reporte
+        $objPHPExcel->getProperties()->setCreator('Sistema')
+            ->setLastModifiedBy('Sistema')
+            ->setTitle('Reporte Excel Contactos')
+            ->setSubject('Reporte Excel Contactos')
+            ->setDescription('Reporte de Contactos')
+            ->setKeywords('reporte Contactos')
+            ->setCategory('Reporte excel');
 
-        $estilo = ['font' => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'], 'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-        ]];
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:D1');
+        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A1', $tituloReporte);
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A2:C2');
+        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A2', 'Fecha '.date('d-m-Y'));
+
+        $estilo = ['font' => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'], 'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]];
         $objPHPExcel->getActiveSheet()->getStyle('A1:T3')->applyFromArray($estilo);
 
         $estilo = [
@@ -846,32 +829,27 @@ class ContactosController extends Controller
                 'bold' => true,
                 'size' => 12,
                 'name' => 'Times New Roman',
-                'color' => [
-                    'rgb' => 'FFFFFF',
-                ],
+                'color' => ['rgb' => 'FFFFFF'],
             ],
             'alignment' => [
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
             ],
         ];
-        $objPHPExcel->getActiveSheet()->getStyle('A3:T3')->applyFromArray($estilo);
+        
+        $lastColumn = $letras[count($titulosColumnas) - 1]; 
+        $objPHPExcel->getActiveSheet()->getStyle("A3:{$lastColumn}3")->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
-
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
         }
 
         $i = 4;
-        $letra = 0;
         $contactos = Contacto::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         if ($tipo != 2) {
             $contactos = $contactos->whereIn('tipo_contacto', [$tipo, 2]);
         }
 
-        $empresa = Empresa::find(Auth::user()->empresa);
-
         foreach ($contactos as $contacto) {
-
             $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[0].$i, $contacto->nombre)
                 ->setCellValue($letras[1].$i, $contacto->apellido1)
@@ -892,32 +870,50 @@ class ContactosController extends Controller
                 ->setCellValue($letras[16].$i, $contacto->email)
                 ->setCellValue($letras[17].$i, $contacto->estrato)
                 ->setCellValue($letras[18].$i, $contacto->observaciones)
-                ->setCellValue($letras[19].$i, $contacto->tipo_contacto());
+                ->setCellValue($letras[19].$i, $contacto->tipo_contacto())
+                ->setCellValue($letras[20].$i, strip_tags($contacto->contract() ?? 'N/A'));
             $i++;
         }
 
-        $estilo = ['font' => ['size' => 12, 'name' => 'Times New Roman'],
+        // ✅ Estilo general
+        $estilo = [
+            'font' => ['size' => 12, 'name' => 'Times New Roman'],
             'borders' => [
                 'allborders' => [
                     'style' => PHPExcel_Style_Border::BORDER_THIN,
                 ],
-            ], 'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]];
+            ],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]
+        ];
         $objPHPExcel->getActiveSheet()->getStyle('A3:T'.$i)->applyFromArray($estilo);
 
-        for ($i = 'A'; $i <= $letras[20]; $i++) {
-            $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(true);
+        // ✅ Estilo especial para columna Contrato (U)
+        $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->applyFromArray([
+            'font' => ['size' => 12, 'name' => 'Times New Roman'],
+            'alignment' => [
+                'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allborders' => [
+                    'style' => PHPExcel_Style_Border::BORDER_THIN,
+                ],
+            ]
+        ]);
+        $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->getAlignment()->setWrapText(true);
+        $objPHPExcel->getActiveSheet()->getColumnDimension($letras[20])->setAutoSize(true);
+
+        for ($j = 'A'; $j <= $letras[20]; $j++) {
+            $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($j)->setAutoSize(true);
         }
 
-        // Se asigna el nombre a la hoja
         $objPHPExcel->getActiveSheet()->setTitle('Reporte de Contactos');
-
-        // Se activa la hoja para que sea la que se muestre cuando el archivo se abre
         $objPHPExcel->setActiveSheetIndex(0);
 
-        // Inmovilizar paneles
         $objPHPExcel->getActiveSheet(0)->freezePane('A5');
         $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
         $objPHPExcel->setActiveSheetIndex(0);
+
         header('Pragma: no-cache');
         header('Content-type: application/vnd.ms-excel');
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -927,6 +923,7 @@ class ContactosController extends Controller
         $objWriter->save('php://output');
         exit;
     }
+
 
     /**
      * Vista para importar los contactos

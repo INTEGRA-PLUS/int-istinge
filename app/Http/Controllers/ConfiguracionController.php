@@ -1966,6 +1966,36 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function contratoNumeracion(Request $request){
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->separar_numeracion == 0) {
+      $empresa->separar_numeracion = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->separar_numeracion = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
+
+  public function consultasMikrotik(Request $request){
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->consultas_mk == 0) {
+      $empresa->consultas_mk = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->consultas_mk = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
+
   public function facturacionSmsAutomatica(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 
@@ -1994,7 +2024,20 @@ class ConfiguracionController extends Controller
     }
   }
 
+  function envioWppIngreso(Request $request){
+    $empresa = Empresa::find(auth()->user()->empresa);
 
+    if ($request->status == 0) {
+      $empresa->envio_wpp_ingreso = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->envio_wpp_ingreso = 0;
+      $empresa->save();
+      return 0;
+    }
+
+  }
 
   public function limpiarCache(Request $request){
     $empresa = Empresa::find($request->empresa);

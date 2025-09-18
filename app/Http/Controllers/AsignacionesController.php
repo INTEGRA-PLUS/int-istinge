@@ -1508,14 +1508,14 @@ class AsignacionesController extends Controller
                 }
             }
 
-            $link = config('app.url')."/api/contrato-digital/".$ref;
+            $link = config('app.url')."api/contrato-digital/".$ref;
 
             return response()->json([
                 'success'  => true,
                 'contacto' => $contacto->id,
-                'text'     => "<a href='".config('app.url')."/api/contrato-digital/".$ref."' target='_blank'>".config('app.url')."/api/contrato-digital/".$ref."</a><br><br><button class='btn btn-primary btn-lg' data-clipboard-text='".$link."'>COPIAR URL</button>
+                'text'     => "<a href='".config('app.url')."api/contrato-digital/".$ref."' target='_blank'>".config('app.url')."api/contrato-digital/".$ref."</a><br><br><button class='btn btn-primary btn-lg' data-clipboard-text='".$link."'>COPIAR URL</button>
                 ",
-                'link'     => config('app.url')."/api/contrato-digital/".$ref,
+                'link'     => config('app.url')."api/contrato-digital/".$ref,
                 'type'     => 'success'
             ]);
         }

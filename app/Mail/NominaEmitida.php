@@ -14,33 +14,27 @@ class NominaEmitida extends Mailable implements ShouldQueue
     public $subject;
     public $nomina;
     public $empresa;
-    public $pdf;
+    public $pdf; // aquí guardamos la ruta relativa dentro del disco "public"
     public $persona;
 
-    /**
-     * Create a new message instance.
-     *
-     * @return void
-     */
     public function __construct($nomina, $empresa, $pdf)
     {
         $this->subject = "Detalles de tu nómina en {$empresa->nombre}";
         $this->nomina = $nomina;
         $this->empresa = $empresa;
-        $this->pdf = $pdf;
+        $this->pdf = $pdf; // ejemplo: empresa5/nominas/reporte/nomina-1234.pdf
         $this->persona = $nomina->persona;
     }
 
-    /**
-     * Build the message.
-     *
-     * @return $this
-     */
     public function build()
     {
         return $this->subject($this->subject)
-            ->from($this->empresa->email, $this->empresa->nombre)
+            ->from($this->empresa->email ?? config('mail.from.address'), $this->empresa->nombre)
             ->view('emails.nomina-emitida')
-            ->attachFromStorageDisk('public',$this->pdf);
+            // Aquí adjuntamos desde el disco "public" usando la ruta relativa
+            ->attachFromStorageDisk('public', $this->pdf, [
+                'as'   => "nomina-{$this->persona->nro_documento}.pdf",
+                'mime' => 'application/pdf',
+            ]);
     }
 }

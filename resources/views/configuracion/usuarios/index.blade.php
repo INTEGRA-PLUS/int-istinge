@@ -130,7 +130,7 @@
 					                @endif
 					                @if(isset($_SESSION['permisos']['426']))
 					                    @if($recarga == 1)
-					                        <button class="btn btn-outline-info btn-icons saldo" idUser="{{$usuario->id}}" title="Recarga de Saldo"><i class="fas fa-dollar-sign"></i></button>
+					                        <button class="btn btn-outline-info btn-icons saldo-btn" idUser="{{$usuario->id}}" title="Recarga de Saldo"><i class="fas fa-dollar-sign"></i></button>
 					                    @endif
 					                @endif
 								</td>
@@ -170,12 +170,12 @@
 	            $('#modal').modal("show");
 	        });
 
-	        $('.saldo').click(function(){
+	        $('.saldo-btn').click(function(){
 	            $('#form-recarga').trigger("reset");
-	            var url = 'saldoUsuario';
+	            let urlSaldo = 'saldoUsuario';
 	            var _token =   $('meta[name="csrf-token"]').attr('content');
 	            $("#modal-title").html($(this).attr('title'));
-	            $.post(url,{ id : $(this).attr('idUser'), _token : _token },function(resul){
+	            $.post(urlSaldo,{ id : $(this).attr('idUser'), _token : _token },function(resul){
 	                $("#modal-body").html(resul);
 	            });
 	            $('#modal').modal("show");

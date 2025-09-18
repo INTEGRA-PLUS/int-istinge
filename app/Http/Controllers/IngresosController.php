@@ -389,43 +389,29 @@ class IngresosController extends Controller
                     return back()->with('danger', $mensaje)->withInput();
                 }
             }
-
-            //Si es tipo 1, osea coversion de factura estandar a electrónica con emisión
+            //Si es tipo 1 osea pagos a facturas.
             if ($request->tipo == 1) {
 
-                //Validacion
-                foreach ($request->factura_pendiente as $key => $factura_id) {
-                    $montoPago = $this->precision($request->precio[$key]);
-
-                    $pagoRepetido = IngresosFactura::where('factura', $factura_id)
-                        ->where('pagado', $montoPago)
-                        ->whereHas('ingresoRelation', function ($query) {
-                            $query->whereBetween('created_at', [now()->subSeconds(120), now()]);
-                        })
-                    ->exists();
-
-                    if ($pagoRepetido) {
-                        $factura = Factura::find($factura_id);
-                        return back()->with('danger', 'Ya has registrado un pago de $' . number_format($montoPago, 0, ',', '.') . ' recientemente para la factura N° ' . $factura->codigo . '. Evita pagos duplicados.')->withInput();
-                    }
-                }
-
+                //Validaciones
                 if(is_array($request->factura_pendiente)){
-                    foreach ($request->factura_pendiente as $key => $value) {
 
+                    foreach ($request->factura_pendiente as $key => $factura_id) {
+
+                        $montoPago = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
 
-                        if($factura->contratos() !== false && $contrato = $factura->contratos()->first()){
-                            $contrato = $contrato->contrato_nro;
-                            $contrato = Contrato::where('nro',$contrato)->first();
+                        $pagoRepetido = IngresosFactura::where('factura', $factura_id)
+                            ->where('pagado', $montoPago)
+                            ->whereHas('ingresoRelation', function ($query) {
+                                $query->whereBetween('created_at', [now()->subSeconds(600), now()]);
+                            })
+                            ->exists();
 
-                            if($contrato && $contrato->pago_siigo_contrato == 1){
-                                $siigo = new SiigoController();
-                                $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
-                                if(isset($response['success']) && $response['success'] == false){
-                                    return back()->with('danger', "No se ha podido establecer conexión con siigo y no se ha generado el pago")->withInput();
-                                }
-                            }
+
+                        if ($pagoRepetido) {
+                            $factura = Factura::find($factura_id);
+                            Log::info("No permitio la creacion de un pago duplicado" . $factura_id);
+                            return back()->with('danger', ' Ya has registrado un pago de $' . number_format($montoPago, 0, ',', '.') . ' recientemente para la factura N° ' . $factura->codigo . '. Evita pagos duplicados, intenta en dos minutos de nuevo.')->withInput();
                         }
 
                         if($factura->estatus == 0){
@@ -433,12 +419,30 @@ class IngresosController extends Controller
                             return back()->with('danger', $mensaje)->withInput();
                         }
 
+                        if(!$pagoRepetido){
+                            $sumaPagos = round(IngresosFactura::join('ingresos as i','i.id','ingresos_factura.ingreso')
+                            ->where('factura',$factura_id)
+                            ->where('i.estatus',1)
+                            ->sum('pago')
+                            );
+                            $totalFact = $factura->total()->total;
+
+                            if($sumaPagos >= $totalFact){
+
+                                $factura->estatus = 0;
+                                $factura->save();
+
+                                Log::info("No permitio la creacion de un pago duplicado" . $factura_id);
+                                $mensaje='La factura que estas intentando pagar ya tiene el total de la factura pagado. FACTURA N° '.$factura->codigo;
+                                return back()->with('danger', $mensaje)->withInput();
+                            }
+                        }
+
                         //Conversión de factura estandar a factura electrónica.
-                        if(isset($request->tipo_electronica) && $request->tipo_electronica == 1 ||
-                           isset($request->tipo_electronica) && $request->tipo_electronica == 2){
+                        if(isset($request->tipo_electronica) && $request->tipo_electronica == 1){
 
                             //primero recuperamos
-                            $nro=NumeracionFactura::where('empresa',$empresa->id)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
+                            $nro=NumeracionFactura::where('empresa',1)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
                             $inicio = $nro->inicio;
 
                             if($factura->tipo != 2 && $request->precio[$key] > 0)
@@ -456,19 +460,20 @@ class IngresosController extends Controller
                                 $nro->save();
                             }
                         }
-                    }
 
-                    if($request->tipo_electronica == 2){
-                        foreach ($request->factura_pendiente as $key => $value) {
-                            $factura = Factura::find($request->factura_pendiente[$key]);
-                            //si tiene el tipo 2 es por que desean emitir la(s) factura(s).
-                            if($factura->emitida != 1){
-                                $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
-                                Log::info($emision);
-                            }
+                        //tipo_electronica 2
+                        if(isset($request->tipo_electronica) && $request->tipo_electronica == 2){
+                                //si tiene el tipo 2 es por que desean emitir la(s) factura(s).
+                                if($factura->emitida != 1){
+
+                                    if($factura->tipo == 1){
+                                        $conversion = app(FacturasController::class)->convertirelEctronica($factura->id,0,1);
+                                    }
+
+                                    $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
+                                }
                         }
                     }
-
                 }else {
                         $mensaje='No hay facturas pendientes seleccionadas.';
                         return back()->with('danger', $mensaje)->withInput();
@@ -558,7 +563,9 @@ class IngresosController extends Controller
                         }
 
                         if($contrato){
-                            $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                            if($empresa->consultas_mk == 1){
+                                $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                            }
                         }
 
                         /*
@@ -598,7 +605,6 @@ class IngresosController extends Controller
                         sobre el total de la factura por que el resto es saldo a favor.
                         */
                         if($factura->total()->total < $request->precio[$key]){
-
 
                             // $items->pago = $factura->total()->total; ya no se desea asi, ahora quieren que aparezca el total asi sobrepase
                             $items->pago = $this->precision($request->precio[$key]);
@@ -1022,7 +1028,13 @@ class IngresosController extends Controller
                     $ingreso->save();
                 }
 
-                // DB::commit();
+                // // DB::commit();
+                if (isset($empresa->envio_wpp_ingreso) && $empresa->envio_wpp_ingreso == 1) {
+                    return redirect()->route('ingresos.tirillawpp', [
+                        'id'   => $ingreso->nro, // igual que en tu blade
+                        'name' => $factura->id
+                    ]);
+                }
 
                 $mensaje = 'SE HA CREADO SATISFACTORIAMENTE EL PAGO. ' . $morosos;
                 return redirect('empresa/ingresos/'.$ingreso->id)->with('success', $mensaje)->with('factura_id', $ingreso->id)->with('tirilla', $tirilla);
@@ -1061,6 +1073,15 @@ class IngresosController extends Controller
                     $API->write('=.id='.$ARRAYS[0]['.id']);
                     $READ = $API->read();
 
+
+                    #AGREGAMOS A IP_AUTORIZADAS#
+                    $API->comm("/ip/firewall/address-list/add", array(
+                        "address" => $contrato->ip,
+                        "list" => 'ips_autorizadas'
+                        )
+                    );
+                    #AGREGAMOS A IP_AUTORIZADAS#
+
                     $mensaje = "- Se ha sacado la ip de morosos.";
 
                     $ingreso->revalidacion_enable_internet = 1;
@@ -1070,8 +1091,8 @@ class IngresosController extends Controller
                     $contrato->save();
 
                 }
-                $API->disconnect();
                 #ELIMINAMOS DE MOROSOS#
+                $API->disconnect();
             }
         }else{
             $ingreso->revalidacion_enable_internet = 1;
@@ -1171,6 +1192,8 @@ class IngresosController extends Controller
 
         //mandamos por parametro el ingreso y el 1 (guardar)
         PucMovimiento::ingreso($ingreso,1,0);
+
+        DB::commit();
     }
 
     function tirillaWpp($nro, WapiService $wapiService){
@@ -1311,6 +1334,7 @@ class IngresosController extends Controller
     public function show($id){
         $this->getAllPermissions(Auth::user()->id);
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+
         if ($ingreso) {
             if ($ingreso->tipo==1) {
                 $titulo='Pago a facturas de venta';
@@ -1603,31 +1627,59 @@ class IngresosController extends Controller
         }
     }
 
-    public function imprimirTirilla($id, $tipo='original'){
+    public function imprimirTirilla($id, $tipo='original')
+    {
         view()->share(['title' => 'Imprimir Ingreso']);
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
+                        ->where('nro', $id)
+                        ->first();
+
         if ($ingreso) {
-            if ($ingreso->tipo==1) {
-                $itemscount=IngresosFactura::where('ingreso',$ingreso->id)->count();
-                $items = IngresosFactura::join('items_factura as itf','itf.factura','ingresos_factura.factura')->select('itf.*')->where('ingreso',$ingreso->id)->get();
-            }else if ($ingreso->tipo==2){
-                $itemscount=IngresosCategoria::where('ingreso',$ingreso->id)->count();
-                $items = IngresosCategoria::where('ingreso',$ingreso->id)->get();
-            }else{
-                $itemscount=1;
-                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->get();
+            if ($ingreso->tipo == 1) {
+                $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
+                $items = IngresosFactura::join('items_factura as itf', 'itf.factura', 'ingresos_factura.factura')
+                                        ->select('itf.*')
+                                        ->where('ingreso', $ingreso->id)
+                                        ->get();
+            } else if ($ingreso->tipo == 2) {
+                $itemscount = IngresosCategoria::where('ingreso', $ingreso->id)->count();
+                $items = IngresosCategoria::where('ingreso', $ingreso->id)->get();
+            } else {
+                $itemscount = 1;
+                $items = Ingreso::where('empresa', Auth::user()->empresa)
+                                ->where('nro', $id)
+                                ->get();
             }
-            $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
+
+            $retenciones = IngresosRetenciones::where('ingreso', $ingreso->id)->get();
             $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
-            ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
+                                        ->where('num_equivalente', 0)
+                                        ->where('nomina', 0)
+                                        ->where('tipo', 2)
+                                        ->where('preferida', 1)
+                                        ->first();
             $empresa = Empresa::find($ingreso->empresa);
-            $paper_size = array(0,0,270,580);
-            $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
-             'itemscount','empresa', 'resolucion'));
+
+            $contratoNro = Contrato::where('client_id', $ingreso->cliente)
+                                ->value('nro'); // devuelve directamente el valor
+
+            $paper_size = [0, 0, 270, 580];
+
+            if ($ingreso->valor_anticipo > 0) {
+                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact(
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                ));
+            } else {
+                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                ));
+            }
+
             $pdf->setPaper($paper_size, 'portrait');
-            return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
+            return response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf']);
         }
     }
+
 
     public function enviar($id, $emails=null, $redireccionar=true){
         view()->share(['title' => 'Enviando Recibo de Caja']);
@@ -1832,6 +1884,7 @@ class IngresosController extends Controller
                 $cliente = Contacto::where('nit',$nit)->first();
 
                 if(!$cliente){
+                    $mensaje .= 'CLIENTE CON CC '.$nit.' NO EXISTE<br>';
                     continue;
                 }
 
@@ -1900,46 +1953,7 @@ class IngresosController extends Controller
                             $contrato = Contrato::where('client_id', $cliente->id)->first();
                             $res = DB::table('contracts')->where('client_id',$cliente->id)->update(["state" => 'enabled']);
 
-                            /* * * API MK * * */
-                            if($contrato && $contrato->server_configuration_id){
-                                $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
-
-                                $API = new RouterosAPI();
-                                $API->port = $mikrotik->puerto_api;
-
-                                if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-                                    $API->write('/ip/firewall/address-list/print', TRUE);
-                                    $ARRAYS = $API->read();
-
-                                    #ELIMINAMOS DE MOROSOS#
-                                    $API->write('/ip/firewall/address-list/print', false);
-                                    $API->write('?address='.$contrato->ip, false);
-                                    $API->write("?list=morosos",false);
-                                    $API->write('=.proplist=.id');
-                                    $ARRAYS = $API->read();
-
-                                    if(count($ARRAYS)>0){
-                                        $API->write('/ip/firewall/address-list/remove', false);
-                                        $API->write('=.id='.$ARRAYS[0]['.id']);
-                                        $READ = $API->read();
-                                    }
-                                    #ELIMINAMOS DE MOROSOS#
-
-                                    #AGREGAMOS A IP_AUTORIZADAS#
-                                    $API->comm("/ip/firewall/address-list/add", array(
-                                        "address" => $contrato->ip,
-                                        "list" => 'ips_autorizadas'
-                                        )
-                                    );
-                                    #AGREGAMOS A IP_AUTORIZADAS#
-
-                                    $API->disconnect();
-
-                                    $contrato->state = 'enabled';
-                                    $contrato->save();
-                                }
-                            }
-                            /* * * API MK * * */
+                            //LA EJECUCION DE FUNCIONES MIKROTIK SE DEJARA EN EL CRONJOB REFRESHCORTEINTERNETTV
 
                             /* * * ENVÍO SMS * * */
                             $servicio = Integracion::where('empresa', Auth::user()->empresa)->where('tipo', 'SMS')->where('status', 1)->first();
@@ -2023,7 +2037,7 @@ class IngresosController extends Controller
                         }
                     }
                 }else{
-                    $mensaje .= '(FACTURA N° '.$codigo.') NO ENCONTRADA<br>';
+                    $mensaje .= 'FACTURA NO ENCONTRADA PARA EL CLIENTE CON NIT ' .$nit. '<br>';
                 }
             }
             return back()->with('success', $mensaje);

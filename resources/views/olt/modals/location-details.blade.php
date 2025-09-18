@@ -1,15 +1,14 @@
-<div class="modal fade" id="moveOnuModal" tabindex="-1" role="dialog" aria-labelledby="vlanModalLabel" aria-hidden="true">
+<div class="modal fade" id="locationDetails" tabindex="-1" role="dialog" aria-labelledby="vlanModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm" role="document" style="max-width: 500px">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Move ONU <span id="ethernetName"></span></h5>
+          <h5 class="modal-title">Update location details <span id="ethernetName"></span></h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
 
         <div class="modal-body container">
-
 
             <!-- OLT-ID -->
             <div id="olt-group" class="row mb-3 align-items-center">

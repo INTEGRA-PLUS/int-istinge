@@ -92,6 +92,8 @@
             <a href="{{ route('configuracion.servicios') }}">Servicios</a> <br>
             <a href="{{ route('miusuario') }}">Mi perfil</a><br>
             <a href="#" data-toggle="modal" data-target="#seguridad">Seguridad</a><br>
+            <a href="javascript:consultasMk()">{{ Auth::user()->empresa()->consultas_mk == 0 ? 'Habilitar':'Deshabilitar' }} consultas a la mikrotik</a><br>
+			<input type="hidden" id="consultas_mk" value="{{Auth::user()->empresa()->consultas_mk}}">
         </div>
 
         @if (isset($_SESSION['permisos']['40']) || isset($_SESSION['permisos']['258']))
@@ -122,9 +124,12 @@
                 <input type="hidden" id="efectyid" value="{{ Auth::user()->empresa()->efecty }}">
                 <a href="javascript:facturacionSmsAutomatica()">{{ Auth::user()->empresa()->factura_sms_auto == 0 ? 'Habilitar' : 'Deshabilitar' }}
                     SMS automaticos</a><br>
-                    <a href="javascript:periodoTirilla()">{{ Auth::user()->empresa()->periodo_tirilla == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                <a href="javascript:periodoTirilla()">{{ Auth::user()->empresa()->periodo_tirilla == 0 ? 'Habilitar' : 'Deshabilitar' }}
                         periodo en tirilla</a><br>
                 <input type="hidden" id="periodoTirilla" value="{{ Auth::user()->empresa()->periodo_tirilla }}">
+                <a href="javascript:envioWppIngreso()">{{ Auth::user()->empresa()->envio_wpp_ingreso == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                    envio de tirilla por wpp en recibo de caja</a><br>
+                <input type="hidden" id="envioWppIngreso" value="{{ Auth::user()->empresa()->envio_wpp_ingreso }}">
             </div>
 
             <div class="col-sm-3 enlaces">
@@ -164,6 +169,9 @@
 
                         <a href="javascript:facturacionContratosOff()">{{ Auth::user()->empresa()->factura_contrato_off == 0 ? 'Habilitar':'Deshabilitar' }} facturas en contratos deshabilitados</a><br>
 			            <input type="hidden" id="factura_contrato_off" value="{{Auth::user()->empresa()->factura_contrato_off}}">
+
+                        <a href="javascript:separarNumeracionContrato()">{{ Auth::user()->empresa()->separar_numeracion == 0 ? 'Separar':'Unificar' }} Numeración por servidor</a><br>
+			            <input type="hidden" id="separar_numeracion" value="{{Auth::user()->empresa()->separar_numeracion}}">
 
                         {{-- Valor de reconexion generico --}}
                         <a href="javascript:reconexionGenerica()">{{ Auth::user()->empresa()->reconexion_generica == 0 ? 'Habilitar' : 'Deshabilitar' }}
@@ -883,6 +891,122 @@
             })
         }
 
+        function separarNumeracionContrato(){
+
+        let url = `{{ route('configuracion.contrato_numeracion') }}`;
+
+        if ($("#separar_numeracion").val() == 0) {
+            $titleswal = "¿Desea separar la numeración del contrato por servidor?";
+        }
+
+        if ($("#separar_numeracion").val() == 1) {
+            $titleswal = "¿Desea unificar la numeración de los contratos sin separarla por servidor?";
+        }
+
+        Swal.fire({
+            title: $titleswal,
+            type: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            cancelButtonText: 'Cancelar',
+            confirmButtonText: 'Aceptar',
+        }).then((result) => {
+            if (result.value) {
+                $.ajax({
+                    url: url,
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    method: 'post',
+                    data: { separar_numeracion: $("#separar_numeracion").val() },
+                    success: function (data) {
+                        console.log(data);
+                        if (data == 1) {
+                            Swal.fire({
+                                type: 'success',
+                                title: 'Nuemración de contratos configurada para separar por servidor',
+                                showConfirmButton: false,
+                                timer: 5000
+                            })
+                            $("#separar_numeracion").val(1);
+                        } else {
+                            Swal.fire({
+                                type: 'success',
+                                title: 'Numeración de contratos configurada para unificar sin separar por servidor',
+                                showConfirmButton: false,
+                                timer: 5000
+                            })
+                            $("#separar_numeracion").val(0);
+                        }
+                        setTimeout(function(){
+                            var a = document.createElement("a");
+                            a.href = window.location.pathname;
+                            a.click();
+                        }, 1000);
+                    }
+                });
+
+            }
+        })
+
+        }
+
+        function consultasMk(){
+			let url = `{{ route('configuracion.consultas_mikrotik') }}`;
+
+		    if ($("#separar_numeracion").val() == 0) {
+		        $titleswal = "¿Desea habilitar las consultas a la mikrotik?";
+		    }
+
+		    if ($("#separar_numeracion").val() == 1) {
+		        $titleswal = "¿Desea deshabilitar las consultas a la mikrotik?";
+		    }
+
+		    Swal.fire({
+		        title: $titleswal,
+		        type: 'warning',
+		        showCancelButton: true,
+		        confirmButtonColor: '#3085d6',
+		        cancelButtonColor: '#d33',
+		        cancelButtonText: 'Cancelar',
+		        confirmButtonText: 'Aceptar',
+		    }).then((result) => {
+		        if (result.value) {
+		            $.ajax({
+		                url: url,
+		                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+		                method: 'post',
+		                data: { consultas_mk: $("#consultas_mk").val() },
+		                success: function (data) {
+		                    console.log(data);
+		                    if (data == 1) {
+		                        Swal.fire({
+		                            type: 'success',
+		                            title: 'Consultas mikrotik se ejecutarán.',
+		                            showConfirmButton: false,
+		                            timer: 5000
+		                        })
+		                        $("#consultas_mk").val(1);
+		                    } else {
+		                        Swal.fire({
+		                            type: 'success',
+		                            title: 'Consultas mikrotik no se ejecutarán.',
+		                            showConfirmButton: false,
+		                            timer: 5000
+		                        })
+		                        $("#consultas_mk").val(0);
+		                    }
+		                    setTimeout(function(){
+		                    	var a = document.createElement("a");
+		                    	a.href = window.location.pathname;
+		                    	a.click();
+		                    }, 1000);
+		                }
+		            });
+
+		        }
+		    })
+		}
+
         function facturacionContratosOff() {
 			if (window.location.pathname.split("/")[1] === "software") {
 				var url='/software/configuracion_facturas_contratos_off';
@@ -1544,6 +1668,72 @@
                                     timer: 5000
                                 })
                                 $("#facturaAuto").val(0);
+                            }
+                            setTimeout(function() {
+                                var a = document.createElement("a");
+                                a.href = window.location.pathname;
+                                a.click();
+                            }, 1000);
+                        }
+                    });
+
+                }
+            })
+        }
+
+        function envioWppIngreso(){
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion_envio_wpp_ingreso';
+            } else {
+                var url = '/configuracion_envio_wpp_ingreso';
+            }
+
+            if ($("#envioWppIngreso").val() == 0) {
+                $titleswal = "¿Desea habilitar el envio de la tirilla cuando se haga el ingreso de la factura?";
+            }
+
+            if ($("#envioWppIngreso").val() == 1) {
+                $titleswal = "¿Desea deshabilitar el envio de la tirilla cuando se haga el ingreso de la factura?";
+            }
+
+            Swal.fire({
+                title: $titleswal,
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                cancelButtonText: 'Cancelar',
+                confirmButtonText: 'Aceptar',
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: url,
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        method: 'post',
+                        data: {
+                            status: $("#envioWppIngreso").val()
+                        },
+                        success: function(data) {
+                            console.log(data);
+                            if (data == 1) {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envio de tirilla por wpp cuando se haga el ingreso habilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#envioWppIngreso").val(1);
+                            } else {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envio de tirilla por wpp cuando se haga el ingreso deshabilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#envioWppIngreso").val(0);
                             }
                             setTimeout(function() {
                                 var a = document.createElement("a");

@@ -161,7 +161,9 @@ Route::get('/testerroute54', 'Controller@tester54');
 Route::get('qrcode', function () {
 	return QrCode::generate('Make me into a QrCode!');
 });
+Route::post('configuracion_separacion_numero_contrato', 'ConfiguracionController@contratoNumeracion')->name('configuracion.contrato_numeracion');
 Route::post('configuracion_facturas_contratos_off', 'ConfiguracionController@facturaContratoOff');
+Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consultasMikrotik')->name('configuracion.consultas_mikrotik');
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
 Route::post('configuracion_pagosiigo', 'ConfiguracionController@pagosSiigo');
@@ -171,6 +173,7 @@ Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@apli
 Route::post('configuracion_factcronabiertas', 'ConfiguracionController@factCronAbiertas');
 Route::post('configuracion_facturacionSmsAutomatica', 'ConfiguracionController@facturacionSmsAutomatica');
 Route::post('configuracion_periodo_tirilla', 'ConfiguracionController@periodoTirilla');
+Route::post('configuracion_envio_wpp_ingreso', 'ConfiguracionController@envioWppIngreso');
 Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache');
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
@@ -369,6 +372,7 @@ Route::group(['prefix' => 'Olt'], function(){
 	Route::post('update-ethernet-port', 'OltController@update_ethernet_port')->name('olt.update-ethernet-port');
 
 	// Modales
+    Route::get('get-modal-location', 'OltController@getModalLocationDetail')->name('olt.get-modal-location');
 	Route::get('get-modal-onu', 'OltController@getModalMoveOnu')->name('olt.get-modal-onu');
 	Route::post('move-onu-modal', 'OltController@updateMoveOnuModal')->name('olt.update-modal-onu');
 
@@ -509,6 +513,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		/* PASAR INFORMACION DE REMISION A FACTURA*/
 		Route::get('remision/{id}', 'FacturasController@remisionAfactura')->name('factura.remision');
 		/**/
+
+        //json factura microservicio
+        Route::get('jsondian/{id?}/{emails?}', 'FacturasController@jsonDianFacturaVenta')->name('json.dian-factura');
 
         Route::get('logs/{contrato}', 'FacturasController@logs');
         Route::get('{id}/log', 'FacturasController@log')->name('facturas.log');
@@ -876,6 +883,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	});
 
 	Route::group(['prefix' => 'notascredito'], function () {
+
+        //json factura microservicio
+        Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
 
 		Route::get('xml/{id}', 'NotascreditoController@xmlNotaCredito')->name('xml.notacredito');
 		Route::get('descargar/{nro}', 'NotascreditoController@xml')->name('notascredito.xml');
@@ -1417,6 +1427,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('ejemplo', 'ContratosController@ejemplo')->name('contratos.ejemplo');
 		Route::post('importar', 'ContratosController@cargando')->name('contratos.importar_cargando');
 
+        Route::get('actualizar', 'ContratosController@actualizar')->name('contratos.actualizar');
+        Route::post('data-ejemplo', 'ContratosController@data_ejemplo')->name('contratos.data_ejemplo');
+
 		Route::get('importarMK', 'ContratosController@importarMK')->name('contratos.importarMK');
 		Route::post('opciones_dian', 'ContratosController@opcion_dian');
 
@@ -1685,3 +1698,24 @@ Route::group(['middleware' => ['auth']], function () {
 	// Ruta para generar PDF de asignación de material
 	Route::get('empresa/asignacion_material/pdf/{id}', 'AsignacionMaterialController@pdf')->name('asignacion_material.pdf');
 });
+
+Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
+	Route::group(['prefix' => 'asistencias'], function () {
+		Route::get('/', 'AsistenciasController@index')->name('asistencias.index');
+		Route::get('/reportes', 'AsistenciasController@reportes')->name('asistencias.reportes');
+		Route::get('/exportar-excel', 'AsistenciasController@exportarExcel')->name('asistencias.exportar');
+
+		// Ruta especial para que el usuario acceda a su propio QR (DEBE IR ANTES de /{usuarioId}/qr)
+		Route::get('/mi-qr', 'AsistenciasController@miQR')->name('asistencias.mi-qr');
+
+		// Ruta para obtener el estado actual del usuario autenticado
+		Route::get('/estado-actual', 'AsistenciasController@estadoActual')->name('asistencias.estado-actual');
+
+		Route::get('/{usuarioId}/qr', 'AsistenciasController@mostrarQR')->name('asistencias.qr');
+		Route::post('/marcar-admin', 'AsistenciasController@marcarAdmin')->name('asistencias.marcar.admin');
+	});
+});
+
+// RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
+Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
+Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');

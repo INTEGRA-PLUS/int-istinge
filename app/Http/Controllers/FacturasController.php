@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Builders\JsonBuilders\InvoiceJsonBuilder;
 use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
@@ -33,7 +35,7 @@ use PHPExcel_Style_Border;
 use DOMDocument;
 use App\TipoEmpresa; use App\Categoria;
 use App\Retencion;
- use Mail; use bcrypt;
+use Mail; use bcrypt;
 use Barryvdh\DomPDF\Facade as PDF;
 use App\Contrato;
 use App\GrupoCorte;
@@ -53,6 +55,8 @@ use App\Services\ElectronicBillingService;
 use App\CRM;
 use App\Instance;
 use App\MovimientoLOG;
+use App\NumeracionPos;
+use App\Services\BTWService;
 use App\Services\WapiService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
@@ -342,8 +346,70 @@ class FacturasController extends Controller{
         ->where('tipo',2)
         ->first();
 
+
+        $prefijo = $numeracionActual->prefijo;   // FE
+        $inicio  = (int) $numeracionActual->inicioverdadero; // 567
+        $final   = (int) $numeracionActual->final;  // 10000
+
+        // 2. Consultar todas las facturas con ese prefijo
+        $facturas = Factura::where('codigo', 'like', $prefijo . '%')
+        ->where('tipo',2)
+        ->pluck('codigo')
+        ->toArray();
+
+        // 3. Extraer solo el número
+        $usados = array_map(function($codigo) use ($prefijo) {
+            return (int) str_replace($prefijo, '', $codigo);
+        }, $facturas);
+
+        sort($usados);
+
+        // 4. Buscar el último consecutivo usado
+        $ultimoUsado = !empty($usados) ? max($usados) : $inicio - 1;
+
+        // 5. Generar todos los posibles consecutivos hasta el último usado
+        $todos = range($inicio, $ultimoUsado);
+
+        // 6. Calcular los faltantes
+        $faltantes = array_diff($todos, $usados);
+
+        $reporteFaltantes =  [
+            'prefijo' => $prefijo,
+            'inicio' => $inicio,
+            'final' => $final,
+            'ultimo_usado' => $ultimoUsado,
+            'faltantes' => array_values($faltantes),
+        ];
+
+
+
+        try {
+
+        $dianFecthSync = DB::table('factura')
+                                ->selectRaw("GROUP_CONCAT(CONCAT(codigo, ' - (', fecha, ')') SEPARATOR ', ') as alertas")
+                                ->where('dian_response', 'like', '%409%')
+                                ->whereIn('estatus', [0, 2])
+                                ->where('statusdian', 1)
+                                ->where('dian_service', 0)
+                                ->where('emitida', 0)
+                                ->whereRaw('MONTH(fecha) = MONTH(CURDATE())')
+                                ->whereRaw('YEAR(fecha) = YEAR(CURDATE())')
+                                ->orderByDesc('id')
+                                ->limit(10)
+                                ->value('alertas');
+
+        }catch (\Throwable $e) {
+
+                $dianFecthSync = '';
+
+                \Log::error("Error consultando facturas con 409: " . $e->getMessage());
+
+        }
+
+
+
         view()->share(['title' => 'Facturas de Venta Electrónica', 'subseccion' => 'venta-electronica']);
-        return view('facturas-electronica.index', compact('clientes', 'municipios', 'tabla','servidores','grupos_corte','empresa'));
+        return view('facturas-electronica.index', compact('clientes', 'municipios', 'tabla','servidores','grupos_corte','empresa','reporteFaltantes', 'dianFecthSync'));
     }
 
     /*
@@ -534,7 +600,7 @@ class FacturasController extends Controller{
                         $query->orWhere('factura.emitida', 0)->where('factura.dian_response',null);
                     }
                     else{
-                        $query->orWhere('factura.emitida', 0)->whereIn('factura.dian_response',[409,504]);
+                        $query->orWhere('factura.emitida', 0)->whereIn('factura.dian_response',[409,504,401]);
                     }
                 });
             }
@@ -545,7 +611,7 @@ class FacturasController extends Controller{
 
         if(Auth::user()->empresa()->oficina){
             if(auth()->user()->oficina){
-                $facturas->where('cs.oficina', auth()->user()->oficina);
+                $facturas->where('cs1.oficina', auth()->user()->oficina);
             }
         }
 
@@ -870,6 +936,11 @@ class FacturasController extends Controller{
         })
         ->addColumn('pendiente', function (Factura $factura) use ($moneda) {
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
+        })
+        ->addColumn('contrato', function (Factura $factura)  {
+            if($factura->contratos() != false){
+                return $factura->contratos()->first()->contrato_nro;
+            }else return "n/a";
         })
         ->addColumn('estado', function (Factura $factura) {
             return   '<span class="text-' . $factura->estatus(true) . '">' . $factura->estatus() . '</span>';
@@ -2370,7 +2441,8 @@ class FacturasController extends Controller{
                $nestedData[] = date('d-m-Y', strtotime($factura->vencimiento));
             }
             if($pagado > 0 && $factura->estatus==0){
-                $nestedData[] = '<spam class="text-success">'.date('d-m-Y', strtotime($factura->ingreso()->fecha)).'</spam>';
+                $fecha = isset($factura->ingreso()->fecha) ? date('d-m-Y', strtotime($factura->ingreso()->fecha)) : '';
+                $nestedData[] = '<spam class="text-success">'.$fecha.'</spam>';
             }else{
                 $nestedData[] = '<spam class="text-danger">Fac no cerrada</spam>';
             }
@@ -2445,6 +2517,137 @@ class FacturasController extends Controller{
         }
 
         return back()->with('message_success', "Importacion masiva temrinada");
+    }
+
+    public function jsonDianFacturaVenta($id, $emails = false) {
+
+        try {
+
+            $factura = Factura::Find($id);
+            $empresa = Empresa::Find($factura->empresa);
+            $cliente = $factura->clienteObj;
+            $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+
+            if (!$factura && !$empresa) {
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
+                }else{
+                    return redirect('/empresa/facturas')->with('message_denied', 'Factura o empresa no encontrada');
+                }
+            }
+
+            // Numeracion Factura o POS
+            if($factura->tipo == 6){
+
+                $resolucion = NumeracionPos::where('empresa', Auth::user()->empresa)
+                ->where('preferida', 1)->first();
+                $factura->technicalkey = $resolucion->technical_key;
+                $factura->save();
+
+            }else{
+
+                $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
+                ->where('num_equivalente', 0)
+                ->where('nomina', 0)
+                ->where('preferida', 1)->first();
+
+            }
+
+            // Construccion del json por partes.
+            $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW);
+            $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($factura,$resolucion,$modoBTW);
+            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW);
+            $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW);
+
+            $fullJson = InvoiceJsonBuilder::buildFullInvoice([
+                'head'     => $jsonInvoiceHead,
+                'details'  => $jsonInvoiceDetails,
+                'company'  => $jsonInvoiceCompany,
+                'customer' => $jsonInvoiceCustomer,
+                'mode'     => $modoBTW
+            ]);
+            // return $fullJson;
+
+            // Envio de json completo a microservicio de gestoru.
+            $btw = new BTWService;
+            $response = (object)$btw->sendInvoiceBTW($fullJson);
+
+            if(isset($response->status) && $response->status == 'success'){
+
+                $factura->emitida = 1;
+                $factura->uuid = $response->cufe;
+                $factura->save();
+
+                if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Factura enviada correctamente',
+                        'data' => $response
+                    ]);
+                }else{
+                    return redirect('/empresa/facturas')->with('message_success', 'Factura emitida correctamente con el cufe: ' .$response->cufe);
+                }
+            }
+
+            if(isset($response->success) && $response->success == false){
+
+                if(isset($response->result)){
+
+                    $message = $this->formatedResponseErrorBTW($response->result->descResponseDian);
+                    if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Error en campos mandatorios.',
+                        'error' => $message
+                    ]);
+                    }else{
+                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                    }
+                }
+
+                if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Error al enviar la factura',
+                        'error' => $response->message
+                    ], 500);
+                }else{
+                    return redirect('/empresa/facturas')->with('message_denied_btw', $response->message);
+                }
+
+            }else{
+
+                if(isset($response->statusCode) && $response->statusCode == 500){
+
+                    $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
+                    if(request()->ajax()){
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Error al procesar la solicitud',
+                            'error' => $message
+                        ], 500);
+                    }else{
+                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                    }
+                }
+
+                return redirect()->back()->with('message_denied_btw', 'Error al procesar la solicitud, por favor intente nuevamente.');
+            }
+
+        } catch (\Throwable $th) {
+
+            if(request()->ajax()){
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error al procesar la solicitud',
+                    'error' => 'Error al procesar la solicitud: ' . $th->getMessage()],
+                     500
+                );
+            }
+            else{
+                return redirect('/empresa/facturas')->with('message_denied_btw', $th->getMessage());
+            }
+        }
     }
 
     public function xmlFacturaVenta($id){
@@ -4245,6 +4448,7 @@ class FacturasController extends Controller{
         ];
 
         $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+
         if(isset($response->statusCode)) {
             return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
         }
@@ -4254,6 +4458,8 @@ class FacturasController extends Controller{
             return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
         }
 
+        $factura->whatsapp = 1;
+        $factura->save();
         return back()->with('success', 'Mensaje enviado correctamente.');
 
     }
@@ -4408,6 +4614,24 @@ class FacturasController extends Controller{
             $nro->save();
 
             $factura->codigo = $nro->prefijo . $inicio;
+
+            $codigoUsado = Factura::where('empresa', 1)->where('codigo', $factura->codigo)->orderBy('nro', 'asc')->get()->last();
+
+            if($codigoUsado){
+
+                if (!$masivo) {
+                    return back()->with('danger', 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado');
+                }
+
+                return [
+                    'success' => false,
+                    'message' => 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado',
+                    'factura_id' => $facturaId,
+                ];
+
+            }
+
+
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 2;
@@ -4733,7 +4957,7 @@ class FacturasController extends Controller{
         }
 
         $totalFaltantes = Factura::
-        join('contracts as c','c.id','=','factura.contrato_id')
+        leftjoin('contracts as c','c.id','=','factura.contrato_id')
         ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
         ->where('factura.fecha',$request->fecha)
         ->where('factura.whatsapp',0)
@@ -4741,7 +4965,7 @@ class FacturasController extends Controller{
         ->select('factura.*', 'gc.nombre as grupoNombre')->count('factura.id');
 
         $facturas = Factura::
-        join('contracts as c','c.id','=','factura.contrato_id')
+        leftjoin('contracts as c','c.id','=','factura.contrato_id')
         ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
         ->where('factura.fecha',$request->fecha)
         ->where('factura.whatsapp',0)
@@ -4750,7 +4974,7 @@ class FacturasController extends Controller{
         ->paginate();
 
         $sinTelefono = Factura::
-            join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+            leftjoin('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as con', 'con.id', 'c.client_id')
             ->where(function ($query) {
                 $query->whereNull('con.celular')

@@ -322,10 +322,15 @@
                             </div>
                         </li>
                         <li class="nav-item" id="">
+                            @if(Auth::user()->rol == 4)
+                            <a  class="nav-link"  href="{{route('tecnico.dashboard')}}">
+                            @else
                             <a  class="nav-link"  href="{{route('home')}}">
+                            @endif
                                 <i class="menu-icon fas fa-home"></i>
                                 <span class="menu-title">Inicio</span>
                             </a>
+
                         </li>
                         @include('layouts.includes.menu')
                     </ul>
@@ -505,26 +510,26 @@
                          </div>
                      </div>
 
-                    <!-- Modal Suscripción Vencida -->
-                    @if((Auth::user()->empresa()) && Auth::user()->empresa()->activo_mensaje == 1)
-                    <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true"
-                    data-backdrop="static" data-keyboard="false">
-                        <div class="modal-dialog" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header bg-danger text-white">
-                                    <h4 class="modal-title text-uppercase">Integra Colombia: Suscripción Vencida</h4>
-                                    {{-- <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                                        <span aria-hidden="true">&times;</span>
-                                    </button> --}}
-                                </div>
-                                <div class="modal-body">
-                                    <p>Tu suscripción ha vencido. Para mantener el acceso a nuestros servicios,
-                                    recuerda realizar tu pago a la brevedad.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    @endif
+                     <!-- Modal Suscripción Vencida -->
+                     @if((Auth::user()->empresa()) && Auth::user()->empresa()->activo_mensaje == 1)
+                     <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true"
+                     data-backdrop="static" data-keyboard="false">
+                         <div class="modal-dialog" role="document">
+                             <div class="modal-content">
+                                 <div class="modal-header bg-danger text-white">
+                                     <h4 class="modal-title text-uppercase">Integra Colombia: Suscripción Vencida</h4>
+                                     {{-- <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                         <span aria-hidden="true">&times;</span>
+                                     </button> --}}
+                                 </div>
+                                 <div class="modal-body">
+                                     <p>Tu suscripción ha vencido. Para mantener el acceso a nuestros servicios,
+                                        recuerda realizar tu pago a la brevedad.</p>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                     @endif
 
                      <!-- NOTIFICACIONES -->
                      <input type="hidden" name="nro_notificacionesR" id="nro_notificacionesR" value="0">
@@ -926,6 +931,98 @@
             $(document).ready(function() {
                 checkSubscriptionStatus();
             });
+        </script>
+
+        <!-- Script de respaldo para asistencias - Solo se ejecuta si el script del navbar no se ejecutó -->
+        <script>
+        // Esperar a que el DOM esté completamente cargado
+        $(document).ready(function() {
+            console.log('Layout principal cargado - verificando asistencias...');
+
+            // Dar tiempo a que se ejecute el script del navbar
+            setTimeout(function() {
+                // Solo ejecutar si no se inicializó desde el navbar
+                if (typeof window.asistenciaInicializada === 'undefined' || !window.asistenciaInicializada) {
+                    console.log('Sistema de asistencias no inicializado, ejecutando desde layout principal...');
+
+                    // Solo ejecutar si existe el botón de asistencia
+                    if ($('#btn-asistencia').length > 0) {
+                        console.log('Botón de asistencia encontrado, inicializando...');
+
+                        if (window.location.pathname.split("/")[1] === "software") {
+                            var url = '/software/empresa/asistencias/estado-actual';
+                        }else{
+                            var url = '/empresa/asistencias/estado-actual';
+                        }
+                        // Verificar estado de asistencia
+                        function verificarEstadoAsistenciaBackup() {
+                            $.ajax({
+                                url: url,
+                                method: 'GET',
+                                dataType: 'json',
+                                timeout: 10000,
+                                success: function(response) {
+                                    console.log('Estado asistencia (backup):', response);
+
+                                    const texto = $('#texto-asistencia');
+                                    const icono = $('#icono-asistencia');
+                                    const boton = $('#btn-asistencia');
+
+                                    if (icono.length === 0) return;
+
+                                    if(response.ultimo_registro) {
+                                        const estado = response.ultimo_registro.tipo;
+
+                                        if(estado === 'ingreso') {
+                                            icono.css('color', '#28a745');
+                                            texto.hide(); // Ocultar texto cuando está en el trabajo
+                                            boton.attr('title', 'En el trabajo - Último ingreso: ' + response.ultimo_registro.hora);
+                                            boton.removeClass('btn-pulse');
+                                        } else {
+                                            icono.css('color', '#ffc107');
+                                            texto.show().css('color', '#ffc107').text('Marcar Ingreso');
+                                            boton.attr('title', 'Fuera del trabajo - Última salida: ' + response.ultimo_registro.hora);
+                                            boton.removeClass('btn-pulse');
+                                        }
+                                    } else {
+                                        icono.css('color', '#6c757d');
+                                        texto.show().css('color', '#6c757d').text('Marcar Ingreso');
+                                        boton.attr('title', 'Sin registros hoy - Haz clic para marcar ingreso');
+                                        boton.addClass('btn-pulse');
+                                    }
+
+                                    console.log('Estado actualizado (backup)');
+
+                                    // Marcar como inicializado
+                                    window.asistenciaInicializada = true;
+                                    window.actualizarEstadoAsistencia = verificarEstadoAsistenciaBackup;
+                                },
+                                error: function(xhr, status, error) {
+                                    console.log('Error en backup de asistencias:', status, error);
+                                }
+                            });
+                        }
+
+                        // Ejecutar verificación
+                        verificarEstadoAsistenciaBackup();
+
+                        // Configurar tooltip
+                        $('#btn-asistencia').tooltip({
+                            placement: 'bottom',
+                            trigger: 'hover'
+                        });
+                    }
+                } else {
+                    console.log('Sistema de asistencias ya inicializado desde navbar');
+                }
+
+                // Forzar actualización si existe la función global
+                if (typeof window.actualizarEstadoAsistencia === 'function') {
+                    console.log('Actualizando estado desde función global...');
+                    window.actualizarEstadoAsistencia();
+                }
+            }, 1500); // Esperar 1.5 segundos antes de ejecutar el respaldo
+        });
         </script>
     </body>
 </html>

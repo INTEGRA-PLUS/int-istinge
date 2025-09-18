@@ -569,7 +569,7 @@ class Controller extends BaseController
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_HTTPHEADER => array(
-                "efacturaAuthorizationToken: 62808bf1-d446-46ee-8120-00162e95c059",
+                "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                 "Content-Type: text/plain",
                 "Partnership-Id: 1128464945"
             ),
@@ -596,7 +596,7 @@ class Controller extends BaseController
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => "GET",
                 CURLOPT_HTTPHEADER => array(
-                    "efacturaAuthorizationToken: 62808bf1-d446-46ee-8120-00162e95c059",
+                    "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                     "Content-Type: text/plain",
                     "Partnership-Id: 1128464945"
                 ),
@@ -2542,5 +2542,32 @@ if ($mikrotik) {
         //>>>>Fin posible aplicación prorrateo al total<<<<//
         return true;
     }
+
+    public static function formatedResponseErrorBTW($message){
+
+        $raw = $message;
+
+        // Opcionalmente, puedes limpiar espacios innecesarios
+        $cleaned = preg_replace('/\s+/', ' ', $raw);
+
+        // Separar por "Regla:" y luego reconstruir
+        $parts = preg_split('/Regla:/', $cleaned);
+
+        $formatted = "<strong>Status:</strong><br>";
+
+        $formatted .= nl2br(trim($parts[0])) . "<br><br>";
+
+        if (count($parts) > 1) {
+            $formatted .= "<strong>Errores:</strong><ul>";
+            foreach (array_slice($parts, 1) as $regla) {
+                $formatted .= "<li><strong>Regla:</strong> " . trim($regla) . "</li>";
+            }
+            $formatted .= "</ul>";
+        }
+
+        return $formatted;
+
+    }
+
 
 }

@@ -71,6 +71,42 @@
 	    </div>
 	@endif
 
+    @if(isset($dianFecthSync) && $dianFecthSync)
+
+         <div class="alert alert-warning alert-dismissible fade show" role="alert">
+             <strong>⚠️ Volver a emitir facturas: {{ $dianFecthSync }} para revalidar el estado de emisión</strong><br>
+             <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+                    <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+
+    @endif
+
+    @if(isset($reporteFaltantes) && !empty($reporteFaltantes['faltantes']))
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>⚠️ Consecutivos faltantes detectados</strong><br>
+        Prefijo: <b>{{ $reporteFaltantes['prefijo'] }}</b><br>
+        Rango: <b>{{ $reporteFaltantes['inicio'] }} - {{ $reporteFaltantes['final'] }}</b><br>
+        Último usado: <b>{{ $reporteFaltantes['ultimo_usado'] }}</b><br>
+        Faltantes:
+        <span class="text-danger">
+            {{ implode(', ', $reporteFaltantes['faltantes']) }}
+        </span><br>
+        <span>Por favor crea manualmente facturas con estos consecutivos.</span>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    @else
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <span>✅ No tienes consecutivos salteados.</span>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    @endif
+
+
 	<div class="container-fluid d-none" id="form-filter">
 		<fieldset>
             <legend>Filtro de Búsqueda</legend>

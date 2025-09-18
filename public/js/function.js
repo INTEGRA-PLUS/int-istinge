@@ -4337,12 +4337,19 @@ function getPlanes(mikrotik) {
             getInterfaces(mikrotik);
             $("#amarre_mac").val(data.mikrotik.amarre_mac);
             $('#conexion').val('').selectpicker('refresh');
-
-              // Vaciar el select para evitar duplicados
+            // Vaciar el select para evitar duplicados
             $("#div_profile_select").empty();
 
+            // Asegurarnos de que profile sea un array
+            var profiles = data.profile;
+            if (typeof profiles === "number" || typeof profiles === "string") {
+                profiles = [ { name: profiles } ];
+            } else if (!Array.isArray(profiles)) {
+                profiles = []; // fallback a vacío
+            }
+
             // Iterar sobre los perfiles y agregar cada uno como una opción al select
-            $.each(data.profile, function(key, value) {
+            $.each(profiles, function(key, value) {
                 $("#div_profile_select").append($('<option>', {
                     value: value.name,
                     text: value.name
@@ -4537,9 +4544,14 @@ function modificarPromesa(id) {
                                 <label class="control-label">Hora máxima de Pago <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" title="Seleccione" name="hora_pago" id="hora_pago-${id}" required="">
                                     <option value="00:00">12:00 AM</option>
+                                    <option value="03:00">3:00 AM</option>
                                     <option value="06:00">6:00 AM</option>
+                                    <option value="09:00">9:00 AM</option>
                                     <option value="12:00">12:00 PM</option>
+                                    <option value="15:00">3:00 PM</option>
                                     <option value="18:00">6:00 PM</option>
+                                    <option value="21:00">9:00 PM</option>
+                                    <option value="23:00">11:00 PM</option>
                                 </select>
                             </div>
                         </div>
