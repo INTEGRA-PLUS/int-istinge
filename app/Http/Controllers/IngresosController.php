@@ -1278,13 +1278,18 @@ class IngresosController extends Controller
         $total = $ingreso->total()->total;
         $message = "$nameEmpresa Le informa que su soporte de pago ha sido generado bajo el numero $ingreso->nro por un monto de $$total pesos.";
 
-        $body = json_encode([
+        $body = [
             "contact" => $contact,
             "message" => $message,
             "media"   => $file
-        ]);
+        ];
 
-        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+
+        $response = (object) $wapiService->sendMessageMedia(
+            $instance->uuid,
+            $instance->api_key,
+            ['json' => $body] // 👈 en vez de mandar el body plano
+        );
 
         if (isset($response->statusCode)) {
             return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
