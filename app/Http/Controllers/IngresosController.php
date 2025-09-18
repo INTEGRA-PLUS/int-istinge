@@ -1660,9 +1660,8 @@ class IngresosController extends Controller
                                         ->first();
             $empresa = Empresa::find($ingreso->empresa);
 
-            $contratoNro = Contrato::where('client_id', $ingreso->cliente)
-                                ->value('nro'); // devuelve directamente el valor
-
+            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+            
             $paper_size = [0, 0, 270, 580];
 
             if ($ingreso->valor_anticipo > 0) {

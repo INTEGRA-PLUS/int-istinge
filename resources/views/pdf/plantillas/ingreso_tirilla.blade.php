@@ -253,8 +253,7 @@
     <span class="tirilla-label">Recibo de Caja:</span> <b>No. {{ $ingreso->nro }}</b><br>
     <span class="tirilla-label">Fecha y Hora del Pago:</span> {{ $ingreso->created_at->format('d/m/Y H:i') }}<br>
 
-    {{-- 👉 Nuevo campo de contrato --}}
-    @if($contratoNro)
+    @if(!empty($contratoNro))
         <span class="tirilla-label">Contrato:</span> {{ $contratoNro }}<br>
     @else
         <span class="tirilla-label">Contrato:</span> No asociado<br>
