@@ -1627,38 +1627,59 @@ class IngresosController extends Controller
         }
     }
 
-    public function imprimirTirilla($id, $tipo='original'){
+    public function imprimirTirilla($id, $tipo='original')
+    {
         view()->share(['title' => 'Imprimir Ingreso']);
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-        if ($ingreso) {
-            if ($ingreso->tipo==1) {
-                $itemscount=IngresosFactura::where('ingreso',$ingreso->id)->count();
-                $items = IngresosFactura::join('items_factura as itf','itf.factura','ingresos_factura.factura')->select('itf.*')->where('ingreso',$ingreso->id)->get();
-            }else if ($ingreso->tipo==2){
-                $itemscount=IngresosCategoria::where('ingreso',$ingreso->id)->count();
-                $items = IngresosCategoria::where('ingreso',$ingreso->id)->get();
-            }else{
-                $itemscount=1;
-                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->get();
-            }
-            $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
-            $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
-            ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
-            $empresa = Empresa::find($ingreso->empresa);
-            $paper_size = array(0,0,270,580);
+        $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
+                        ->where('nro', $id)
+                        ->first();
 
-            if($ingreso->valor_anticipo > 0){
-                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact('ingreso', 'items', 'retenciones',
-                'itemscount','empresa', 'resolucion'));
-            }else{
-                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
-                'itemscount','empresa', 'resolucion'));
+        if ($ingreso) {
+            if ($ingreso->tipo == 1) {
+                $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
+                $items = IngresosFactura::join('items_factura as itf', 'itf.factura', 'ingresos_factura.factura')
+                                        ->select('itf.*')
+                                        ->where('ingreso', $ingreso->id)
+                                        ->get();
+            } else if ($ingreso->tipo == 2) {
+                $itemscount = IngresosCategoria::where('ingreso', $ingreso->id)->count();
+                $items = IngresosCategoria::where('ingreso', $ingreso->id)->get();
+            } else {
+                $itemscount = 1;
+                $items = Ingreso::where('empresa', Auth::user()->empresa)
+                                ->where('nro', $id)
+                                ->get();
+            }
+
+            $retenciones = IngresosRetenciones::where('ingreso', $ingreso->id)->get();
+            $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
+                                        ->where('num_equivalente', 0)
+                                        ->where('nomina', 0)
+                                        ->where('tipo', 2)
+                                        ->where('preferida', 1)
+                                        ->first();
+            $empresa = Empresa::find($ingreso->empresa);
+
+            $contratoNro = Contrato::where('client_id', $ingreso->cliente)
+                                ->value('nro'); // devuelve directamente el valor
+
+            $paper_size = [0, 0, 270, 580];
+
+            if ($ingreso->valor_anticipo > 0) {
+                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact(
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                ));
+            } else {
+                $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                ));
             }
 
             $pdf->setPaper($paper_size, 'portrait');
-            return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
+            return response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf']);
         }
     }
+
 
     public function enviar($id, $emails=null, $redireccionar=true){
         view()->share(['title' => 'Enviando Recibo de Caja']);
