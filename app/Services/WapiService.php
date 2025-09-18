@@ -60,7 +60,7 @@ class WapiService
             "POST",
             $this->baseUri . "/api/v1/send/" . $uuid,
             [],
-            $body,
+            ['json' => $body], // 👈 aquí en vez del array plano
             $this->headers,
             true
         );
