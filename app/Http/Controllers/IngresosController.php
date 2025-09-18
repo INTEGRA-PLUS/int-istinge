@@ -1196,7 +1196,7 @@ class IngresosController extends Controller
         DB::commit();
     }
 
-    function tirillaWpp($nro, WapiService $wapiService)
+    public function tirillaWpp($nro, WapiService $wapiService)
     {
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
             ->where('nro', $nro)
@@ -1232,8 +1232,9 @@ class IngresosController extends Controller
             ->first();
         $empresa = Empresa::find($ingreso->empresa);
 
-        // Traer número de contrato
-        $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+        // Traer número de contrato (si no existe -> No asociado)
+        $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro');
+        $contratoTexto = $contratoNro ? $contratoNro : 'No asociado';
 
         // Crear PDF
         $paper_size = [0, -10, 270, 650];
@@ -1282,15 +1283,16 @@ class IngresosController extends Controller
             "name" => $cliente->nombre . " " . $cliente->apellido1
         ];
 
-        // Mensaje
+        // Mensaje con contrato
         $nameEmpresa = auth()->user()->empresa()->nombre;
         $total = $ingreso->total()->total;
-        $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro por un monto de $$total pesos.";
+        $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro "
+                . "por un monto de $$total pesos. Contrato: $contratoTexto";
 
         $body = [
             "contact" => $contact,
             "message" => $message,
-            "media" => $file
+            "media"   => $file
         ];
 
         // Enviar al servicio
@@ -1313,6 +1315,7 @@ class IngresosController extends Controller
 
         return back()->with('success', 'Mensaje enviado correctamente.');
     }
+
 
     public function updateIngresoPucCategoria($request,$id){
 
