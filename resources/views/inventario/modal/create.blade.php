@@ -216,7 +216,7 @@ var empresaMoneda = "{{ Auth::user()->empresa()->moneda ?? '$' }}";
 </script>
 
 <script>
-$(document).ready(function() {
+	$(document).ready(function() {
     // Variables globales
     let filaActual = 1;
     
@@ -224,16 +224,20 @@ $(document).ready(function() {
     $('.buscar').select2();
     $('.selectpicker').selectpicker();
     
-    // Event listener para abrir modal desde tabla
-    $('#table-form').on('click', '.modalTr', function() {
+    // Event listener mejorado para abrir modal
+    $(document).on('click', '.modalTr', function(e) {
+        e.preventDefault(); // Prevenir navegación del enlace
+        
         filaActual = $(this).attr('tr') || 1;
         $('#trFila').val(filaActual);
         $('.modal-title').text('Nuevo Producto');
         
+        console.log('Abriendo modal para fila:', filaActual); // Debug
+        
         // Limpiar formulario del modal
         limpiarFormulario();
         
-        // Mostrar modal
+        // Mostrar modal manualmente
         $('#modalproduct').modal('show');
     });
     
