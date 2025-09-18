@@ -1196,94 +1196,80 @@ class IngresosController extends Controller
         DB::commit();
     }
 
-    public function tirillaWpp($nro, WapiService $wapiService){
-        view()->share(['title' => 'Imprimir Ingreso']);
-        $ingreso = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $nro)->first();
+    function tirillaWpp($nro, WapiService $wapiService){
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $nro)->first();
+        if ($ingreso) {
+            if ($ingreso->tipo==1) {
+                $itemscount=IngresosFactura::where('ingreso',$ingreso->id)->count();
+                $items = IngresosFactura::join('items_factura as itf','itf.factura','ingresos_factura.factura')->select('itf.*')->where('ingreso',$ingreso->id)->get();
+            }else if ($ingreso->tipo==2){
+                $itemscount=IngresosCategoria::where('ingreso',$ingreso->id)->count();
+                $items = IngresosCategoria::where('ingreso',$ingreso->id)->get();
+            }else{
+                $itemscount=1;
+                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->get();
+            }
+            $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
+            $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
+            ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
+            $empresa = Empresa::find($ingreso->empresa);
+            $paper_size = array(0,-10,270, 650);
 
-        if (! $ingreso) {
-            return back()->with('danger', 'Ingreso no encontrado.');
+             $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
+            'itemscount','empresa', 'resolucion'));
+             $pdf->setPaper($paper_size, 'portrait');
+             $pdf->save(public_path() . "/convertidor/recibo" . $ingreso->nro . ".pdf")->output();
+             $pdf64 = base64_encode($pdf->stream());
+             $instance = Instance::where('company_id', auth()->user()->empresa)->first();
+
+             if(is_null($instance) || empty($instance)){
+                return back()->with('danger', 'Aún no ha creado una instancia, por favor pongase en contacto con el administrador.');
+            }
+
+            if($instance->status !== "PAIRED") {
+                return back()->with('danger', 'La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
+            }
+
+            $file = [
+                "mimeType" => "application/pdf",
+                "file" => $pdf64,
+            ];
+
+            $cliente = $ingreso->cliente();
+
+            if($cliente->celular == null){
+                $cliente->celular = $cliente->telefono;
+            }
+
+            $contact = [
+                "phone" => "57" . $cliente->celular,
+                "name" => $cliente->nombre . " " . $cliente->apellido1
+            ];
+
+            $nameEmpresa = auth()->user()->empresa()->nombre;
+            $total = $ingreso->total()->total;
+            $message = "$nameEmpresa Le informa que su soporte de pago ha sido generado bajo el numero $ingreso->nro por un monto de $$total pesos.";
+            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+            $body = [
+                "contact" => $contact,
+                "message" => $message,
+                "media" => $file
+            ];
+
+
+            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+            if(isset($response->statusCode)) {
+                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            }
+            $response = json_decode($response->scalar);
+
+            if($response->status != "success") {
+                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            }
+
+            return back()->with('success', 'Mensaje enviado correctamente.');
         }
-
-        if ($ingreso->tipo == 1) {
-            $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
-            $items = IngresosFactura::join('items_factura as itf','itf.factura','ingresos_factura.factura')
-                    ->select('itf.*')->where('ingreso', $ingreso->id)->get();
-        } elseif ($ingreso->tipo == 2) {
-            $itemscount = IngresosCategoria::where('ingreso', $ingreso->id)->count();
-            $items = IngresosCategoria::where('ingreso', $ingreso->id)->get();
-        } else {
-            $itemscount = 1;
-            // FIX: usar $nro (no $id)
-            $items = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $nro)->get();
-        }
-
-        $retenciones = IngresosRetenciones::where('ingreso', $ingreso->id)->get();
-        $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
-            ->where('num_equivalente', 0)->where('nomina', 0)->where('tipo', 2)->where('preferida', 1)->first();
-        $empresa = Empresa::find($ingreso->empresa);
-        $paper_size = array(0, -10, 270, 650);
-
-        // ---- BUSCAR EL NRO DEL CONTRATO (solo el nro) ----
-        $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
-        // --------------------------------------------------
-
-        // Generar PDF y pasar la variable contratoNro a la vista
-        $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
-            'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
-        ));
-
-        $pdf->setPaper($paper_size, 'portrait');
-        // Si quieres guardar y luego encodificar para enviar:
-        $pdfContent = $pdf->output(); // string binario del pdf
-        file_put_contents(public_path("/convertidor/recibo{$ingreso->nro}.pdf"), $pdfContent);
-        $pdf64 = base64_encode($pdfContent);
-
-        // Instancia wapi (tu código existente)
-        $instance = Instance::where('company_id', auth()->user()->empresa)->first();
-        if (is_null($instance) || empty($instance)) {
-            return back()->with('danger', 'Aún no ha creado una instancia, por favor pongase en contacto con el administrador.');
-        }
-        if ($instance->status !== "PAIRED") {
-            return back()->with('danger', 'La instancia de whatsapp no está conectada, por favor conéctese y vuelva a intentarlo.');
-        }
-
-        $file = [
-            "mimeType" => "application/pdf",
-            "file" => $pdf64,
-        ];
-
-        $cliente = $ingreso->cliente();
-        if ($cliente->celular == null) {
-            $cliente->celular = $cliente->telefono;
-        }
-
-        $contact = [
-            "phone" => "57" . $cliente->celular,
-            "name"  => $cliente->nombre . " " . ($cliente->apellido1 ?? '')
-        ];
-
-        $nameEmpresa = auth()->user()->empresa()->nombre;
-        $total = $ingreso->total()->total;
-        $message = "$nameEmpresa Le informa que su soporte de pago ha sido generado bajo el numero $ingreso->nro por un monto de $$total pesos.";
-
-        $body = [
-            "contact" => $contact,
-            "message" => $message,
-            "media"   => $file
-        ];
-
-        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-        if (isset($response->statusCode)) {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-        }
-        $response = json_decode($response->scalar);
-        if ($response->status != "success") {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-        }
-
-        return back()->with('success', 'Mensaje enviado correctamente.');
     }
-
 
     public function updateIngresoPucCategoria($request,$id){
 
