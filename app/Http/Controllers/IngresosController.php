@@ -1198,15 +1198,15 @@ class IngresosController extends Controller
 
     public function tirillaWpp($nro, WapiService $wapiService)
     {
+        view()->share(['title' => 'Imprimir Ingreso']);
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
             ->where('nro', $nro)
             ->first();
 
         if (!$ingreso) {
-            return back()->with('danger', 'No se encontró el ingreso.');
+            return back()->with('danger', 'Ingreso no encontrado.');
         }
 
-        // Items según tipo
         if ($ingreso->tipo == 1) {
             $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
             $items = IngresosFactura::join('items_factura as itf', 'itf.factura', 'ingresos_factura.factura')
@@ -1231,13 +1231,11 @@ class IngresosController extends Controller
             ->where('preferida', 1)
             ->first();
         $empresa = Empresa::find($ingreso->empresa);
-
-        // Traer número de contrato (si no existe -> No asociado)
-        $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro');
-        $contratoTexto = $contratoNro ? $contratoNro : 'No asociado';
-
-        // Crear PDF
         $paper_size = [0, -10, 270, 650];
+
+        // 🚀 SIEMPRE mandamos la variable, aunque sea null
+        $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+
         $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
             'ingreso',
             'items',
@@ -1247,15 +1245,10 @@ class IngresosController extends Controller
             'resolucion',
             'contratoNro'
         ));
+
         $pdf->setPaper($paper_size, 'portrait');
-
-        // Obtener contenido binario
         $pdfContent = $pdf->output();
-
-        // Guardar en public/convertidor/
         file_put_contents(public_path("/convertidor/recibo{$ingreso->nro}.pdf"), $pdfContent);
-
-        // Convertir a base64
         $pdf64 = base64_encode($pdfContent);
 
         $instance = Instance::where('company_id', auth()->user()->empresa)->first();
@@ -1263,16 +1256,14 @@ class IngresosController extends Controller
             return back()->with('danger', 'Aún no ha creado una instancia, por favor póngase en contacto con el administrador.');
         }
         if ($instance->status !== "PAIRED") {
-            return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese y vuelva a intentarlo.');
+            return back()->with('danger', 'La instancia de whatsapp no está conectada, por favor conéctese y vuelva a intentarlo.');
         }
 
-        // Construir archivo
         $file = [
             "mimeType" => "application/pdf",
-            "file" => $pdf64,
+            "file"     => $pdf64,
         ];
 
-        // Cliente
         $cliente = $ingreso->cliente();
         if ($cliente->celular == null) {
             $cliente->celular = $cliente->telefono;
@@ -1280,14 +1271,12 @@ class IngresosController extends Controller
 
         $contact = [
             "phone" => "57" . $cliente->celular,
-            "name" => $cliente->nombre . " " . $cliente->apellido1
+            "name"  => $cliente->nombre . " " . ($cliente->apellido1 ?? '')
         ];
 
-        // Mensaje con contrato
         $nameEmpresa = auth()->user()->empresa()->nombre;
         $total = $ingreso->total()->total;
-        $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro "
-                . "por un monto de $$total pesos. Contrato: $contratoTexto";
+        $message = "$nameEmpresa Le informa que su soporte de pago ha sido generado bajo el numero $ingreso->nro por un monto de $$total pesos.";
 
         $body = [
             "contact" => $contact,
@@ -1295,36 +1284,20 @@ class IngresosController extends Controller
             "media"   => $file
         ];
 
-        // Enviar al servicio
-        $response = $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
 
-        if (!$response) {
-            return back()->with('danger', 'No hubo respuesta del servidor de WhatsApp.');
+        if (isset($response->statusCode)) {
+            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
         }
 
-        // Manejo de respuesta
-        $decoded = null;
-
-        if (is_object($response) && method_exists($response, 'getBody')) {
-            // Caso Guzzle
-            $decoded = json_decode($response->getBody()->getContents());
-        } elseif (is_string($response)) {
-            // Caso JSON en string
-            $decoded = json_decode($response);
-        } elseif (is_array($response)) {
-            // Caso array
-            $decoded = (object) $response;
-        } elseif (is_object($response)) {
-            // Caso stdClass
-            $decoded = $response;
-        }
-
-        if (!$decoded || !isset($decoded->status) || $decoded->status != "success") {
-            return back()->with('danger', 'No se pudo enviar el mensaje, respuesta inválida del servidor de WhatsApp.');
+        $response = json_decode($response->scalar);
+        if ($response->status != "success") {
+            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
         }
 
         return back()->with('success', 'Mensaje enviado correctamente.');
     }
+
 
 
     public function updateIngresoPucCategoria($request,$id){
