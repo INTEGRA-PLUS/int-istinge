@@ -1302,15 +1302,25 @@ class IngresosController extends Controller
             return back()->with('danger', 'No hubo respuesta del servidor de WhatsApp.');
         }
 
-        // Manejo de respuesta (puede ser Guzzle o stdClass)
-        if (method_exists($response, 'getBody')) {
+        // Manejo de respuesta
+        $decoded = null;
+
+        if (is_object($response) && method_exists($response, 'getBody')) {
+            // Caso Guzzle
             $decoded = json_decode($response->getBody()->getContents());
-        } else {
-            $decoded = is_string($response) ? json_decode($response) : (object)$response;
+        } elseif (is_string($response)) {
+            // Caso JSON en string
+            $decoded = json_decode($response);
+        } elseif (is_array($response)) {
+            // Caso array
+            $decoded = (object) $response;
+        } elseif (is_object($response)) {
+            // Caso stdClass
+            $decoded = $response;
         }
 
-        if (!$decoded || $decoded->status != "success") {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+        if (!$decoded || !isset($decoded->status) || $decoded->status != "success") {
+            return back()->with('danger', 'No se pudo enviar el mensaje, respuesta inválida del servidor de WhatsApp.');
         }
 
         return back()->with('success', 'Mensaje enviado correctamente.');
