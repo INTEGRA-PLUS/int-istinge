@@ -1288,7 +1288,7 @@ class IngresosController extends Controller
         $response = (object) $wapiService->sendMessageMedia(
             $instance->uuid,
             $instance->api_key,
-            ['json' => $body] // 👈 en vez de mandar el body plano
+            $body // <-- sin ['json' => ...]
         );
 
         if (isset($response->statusCode)) {
