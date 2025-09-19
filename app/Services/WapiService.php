@@ -44,8 +44,7 @@ class WapiService
 
     public function getInstanceById(int $id)
     {
-
-        $instance = \App\Instance::find($id);
+        $instance = \App\Instance::find($id); // asegúrate que el namespace sea correcto
 
         if (!$instance) {
             throw new \Exception("No se encontró la instancia con id $id");
@@ -61,8 +60,7 @@ class WapiService
             $this->baseUri . "/api/v1/channel/wbot/" . $instance->uuid,
             [],
             [],
-            $this->headers,
-            true
+            $this->headers
         );
 
         // Convertir a JSON si viene como array
@@ -72,6 +70,7 @@ class WapiService
 
         return $response;
     }
+
 
 
     public function initSession(string $uuid)
