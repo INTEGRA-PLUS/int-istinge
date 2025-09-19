@@ -1257,7 +1257,7 @@ class IngresosController extends Controller
             ];
 
 
-            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+            $response = $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
             if(isset($response->statusCode)) {
                 return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
             }
