@@ -614,7 +614,7 @@ class InventarioController extends Controller{
 
             $request->validate([
                 'producto'      => 'required',
-                'categoria'     => 'required|exists:categorias,id',
+                'categoria' => 'required|exists:puc,id',
                 'impuesto'      => 'required|numeric',
                 'tipo_producto' => 'required|numeric',
             ]);
