@@ -165,9 +165,9 @@
                 </optgroup>
               </select>
               <p class="text-left nomargin">
-                  <a href="javascript:void(0)" class="modalTr" tr="1">
-                      <i class="fas fa-plus"></i> Nuevo Producto
-                  </a>
+              <a href="#" data-toggle="modal" data-target="#modalproduct" class="modalTr" tr="1">
+                  <i class="fas fa-plus"></i> Nuevo Producto
+              </a>
               </p>
               </div>
               </td>
