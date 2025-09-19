@@ -264,6 +264,7 @@ class CRMController extends Controller
     public function whatsapp(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
+
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 1)
             ->first();
@@ -271,11 +272,13 @@ class CRMController extends Controller
         if (!$instance) {
             return view('crm.whatsapp')->with(compact('instance'));
         }
+
         try {
-            $response = $wapiService->getInstance($instance->uuid);
+            // 🔹 Usar el ID en lugar del UUID
+            $response = $wapiService->getInstanceById($instance->id);
 
             if (!$response) {
-                throw new \Exception("El servicio WapiService::getInstance devolvió null.");
+                throw new \Exception("El servicio WapiService::getInstanceById devolvió null.");
             }
 
             $getResponse = json_decode($response);
@@ -308,6 +311,7 @@ class CRMController extends Controller
             ]);
         }
     }
+
 
 
     public function whatsapp2(Request $request, WapiService $wapiService){

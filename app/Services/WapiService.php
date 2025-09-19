@@ -32,7 +32,7 @@ class WapiService
 
     public function getInstance(string $uuid)
     {
-        $response = $this->makeRequest(
+        return $this->makeRequest(
             "GET",
             $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
             [],
@@ -40,13 +40,36 @@ class WapiService
             $this->headers,
             true
         );
+    }
 
-        // Si viene como array, conviértelo a JSON
+    public function getInstanceById(int $id)
+    {
+
+        $instance = \App\Instance::find($id);
+
+        if (!$instance) {
+            throw new \Exception("No se encontró la instancia con id $id");
+        }
+
+        if (!$instance->uuid) {
+            throw new \Exception("La instancia encontrada no tiene UUID asignado");
+        }
+
+        // Llamar al endpoint de Wapi usando el UUID
+        $response = $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/channel/wbot/" . $instance->uuid,
+            [],
+            [],
+            $this->headers,
+            true
+        );
+
+        // Convertir a JSON si viene como array
         if (is_array($response)) {
             return json_encode($response);
         }
 
-        // Si ya es string lo devuelves igual
         return $response;
     }
 
