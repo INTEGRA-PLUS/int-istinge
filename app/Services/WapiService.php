@@ -32,7 +32,7 @@ class WapiService
 
     public function getInstance(string $uuid)
     {
-        return $this->makeRequest(
+        $response = $this->makeRequest(
             "GET",
             $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
             [],
@@ -40,7 +40,16 @@ class WapiService
             $this->headers,
             true
         );
+
+        // Si viene como array, conviértelo a JSON
+        if (is_array($response)) {
+            return json_encode($response);
+        }
+
+        // Si ya es string lo devuelves igual
+        return $response;
     }
+
 
     public function initSession(string $uuid)
     {
