@@ -28,8 +28,10 @@ class WapiService
 
     public function resolveAuthorization(&$queryParams, &$formParams, &$headers)
     {
-        $queryParams['token'] = $this->secretToken;
+        // En lugar de meterlo en query param, lo ponemos en el header
+        $headers['Authorization'] = 'Bearer ' . $this->secretToken;
     }
+
 
     public function getInstance(string $uuid)
     {
