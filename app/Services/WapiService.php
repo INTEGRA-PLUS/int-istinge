@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Traits\ConsumesExternalServices;
+use Illuminate\Support\Facades\Log;
 
 class WapiService
 {
@@ -32,7 +33,7 @@ class WapiService
 
     public function getInstance(string $uuid)
     {
-        return $this->makeRequest(
+        $response = $this->makeRequest(
             "GET",
             $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
             [],
@@ -40,6 +41,10 @@ class WapiService
             $this->headers,
             true
         );
+
+        Log::info('getInstance response: ', ['response' => $response]);
+
+        return $response;
     }
 
     public function getInstanceById(int $id)

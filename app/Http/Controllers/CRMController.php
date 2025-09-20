@@ -274,11 +274,11 @@ class CRMController extends Controller
         }
 
         try {
-            // 🔹 Usar el ID en lugar del UUID
-            $response = $wapiService->getInstanceById($instance->id);
+            // 🔹 Usar el UUID en lugar del ID
+            $response = $wapiService->getInstance($instance->uuid);
 
             if (!$response) {
-                throw new \Exception("El servicio WapiService::getInstanceById devolvió null.");
+                throw new \Exception("El servicio WapiService::getInstance devolvió null.");
             }
 
             $getResponse = json_decode($response);
@@ -287,7 +287,7 @@ class CRMController extends Controller
                 throw new \Exception("La respuesta de la API no tiene el formato esperado.");
             }
 
-            $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
+            $instance->status = $getResponse->data->status === "PAIRED" ? "PAIRED" : "UNPAIRED";
             $instance->type = 1; // Es de CRM Whatsapp
             $instance->save();
 
