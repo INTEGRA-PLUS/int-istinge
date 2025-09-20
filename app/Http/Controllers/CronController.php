@@ -173,7 +173,7 @@ class CronController extends Controller
     public static function CrearFactura(){
 
         // 🔹 Forzar la fecha a agosto 2025
-        $fechaForzada = Carbon::create(2025, 8, 15); // día 15 de agosto 2025
+        $fechaForzada = Carbon::create(2025, 8, 30); // día 15 de agosto 2025
 
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
@@ -222,8 +222,8 @@ class CronController extends Controller
                 }
 
                 //Calculo fecha pago oportuno.
-                $y = Carbon::now()->format('Y');
-                $m = Carbon::now()->format('m');
+                $y = $fechaForzada->format('Y');
+                $m = $fechaForzada->format('m');
                 $d = substr(str_repeat(0, 2).$grupo_corte->fecha_pago, - 2);
                 if($d == 0){
                     $d = 30;
@@ -670,7 +670,7 @@ class CronController extends Controller
 
              /* Enviar correo funcional */
              foreach($grupos_corte as $grupo_corte){
-                $fechaInvoice = Carbon::now()->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
+                $fechaInvoice = $fechaForzada->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
                 self::sendInvoices($fechaInvoice);
             }
 
