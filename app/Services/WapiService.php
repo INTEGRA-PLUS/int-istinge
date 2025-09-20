@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Traits\ConsumesExternalServices;
-use Illuminate\Support\Facades\Log;
 
 class WapiService
 {
@@ -17,7 +16,7 @@ class WapiService
 
     public function __construct()
     {
-        $this->baseUri = env('WAPI_URL', 'https://api.vibiocrm.com');
+        $this->baseUri = env('WAPI_URL', 'http://127.0.0.1:8080');
         $this->secretToken = strval(env('WAPI_TOKEN'));
         $this->headers = [
             'cache-control' => 'no-cache',
@@ -28,51 +27,20 @@ class WapiService
 
     public function resolveAuthorization(&$queryParams, &$formParams, &$headers)
     {
-        // En lugar de meterlo en query param, lo ponemos en el header
-        $headers['Authorization'] = 'Bearer ' . $this->secretToken;
+        $queryParams['token'] = $this->secretToken;
     }
-
 
     public function getInstance(string $uuid)
     {
-        try {
-            $url = $this->baseUri . "/api/v1/channel/wbot/" . $uuid;
-
-            Log::info('Llamando a WAPI', [
-                'url' => $url,
-                'headers' => $this->headers,
-            ]);
-
-            $response = $this->makeRequest(
-                "GET",
-                $url,
-                [],
-                [],
-                $this->headers,
-                true
-            );
-
-            if (!$response) {
-                throw new \Exception("makeRequest devolvió null");
-            }
-
-            $body = (string) $response->getBody();
-
-            Log::info('Respuesta de WAPI', [
-                'status' => $response->getStatusCode(),
-                'body'   => $body,
-            ]);
-
-            return $body;
-
-        } catch (\Throwable $e) {
-            Log::error('Error en getInstance: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return null; // o puedes lanzar la excepción si quieres romper
-        }
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
+            [],
+            [],
+            $this->headers,
+            true
+        );
     }
-
 
     public function getInstanceById(int $id)
     {
