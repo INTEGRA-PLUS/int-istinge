@@ -16,7 +16,7 @@ class WapiService
 
     public function __construct()
     {
-        $this->baseUri = env('WAPI_URL', 'http://127.0.0.1:8080');
+        $this->baseUri = env('WAPI_URL', 'https://api.vibiocrm.com');
         $this->secretToken = strval(env('WAPI_TOKEN'));
         $this->headers = [
             'cache-control' => 'no-cache',
