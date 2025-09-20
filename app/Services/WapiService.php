@@ -35,19 +35,44 @@ class WapiService
 
     public function getInstance(string $uuid)
     {
-        $response = $this->makeRequest(
-            "GET",
-            $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
-            [],
-            [],
-            $this->headers,
-            true
-        );
+        try {
+            $url = $this->baseUri . "/api/v1/channel/wbot/" . $uuid;
 
-        Log::info('getInstance response: ', ['response' => $response]);
+            Log::info('Llamando a WAPI', [
+                'url' => $url,
+                'headers' => $this->headers,
+            ]);
 
-        return $response;
+            $response = $this->makeRequest(
+                "GET",
+                $url,
+                [],
+                [],
+                $this->headers,
+                true
+            );
+
+            if (!$response) {
+                throw new \Exception("makeRequest devolvió null");
+            }
+
+            $body = (string) $response->getBody();
+
+            Log::info('Respuesta de WAPI', [
+                'status' => $response->getStatusCode(),
+                'body'   => $body,
+            ]);
+
+            return $body;
+
+        } catch (\Throwable $e) {
+            Log::error('Error en getInstance: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null; // o puedes lanzar la excepción si quieres romper
+        }
     }
+
 
     public function getInstanceById(int $id)
     {
