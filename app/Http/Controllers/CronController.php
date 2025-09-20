@@ -172,6 +172,9 @@ class CronController extends Controller
 
     public static function CrearFactura(){
 
+        // 🔹 Forzar la fecha a agosto 2025
+        $fechaForzada = Carbon::create(2025, 8, 15); // día 15 de agosto 2025
+
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
 
@@ -179,17 +182,17 @@ class CronController extends Controller
 
         if($empresa->factura_auto == 1){
             $i=0;
-            $date = getdate()['mday'] * 1;
+            $date = $fechaForzada->day; // en lugar de getdate()['mday']
             $numeros = [];
             $bulk = '';
-            $horaActual = date('H:i');
+            $horaActual = $fechaForzada->format('H:i');
 
             $grupos_corte = GrupoCorte::
             where('fecha_factura', $date)
             ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
             ->where('status', 1)->get();
 
-            $fecha = Carbon::now()->format('Y-m-d');
+            $fecha = $fechaForzada->format('Y-m-d');
 
             $state = ['enabled'];
             if ($empresa->factura_contrato_off == 1) {
