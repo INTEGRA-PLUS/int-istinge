@@ -1992,10 +1992,6 @@ class FacturasController extends Controller{
         }
     }
 
-    public function imprimirFe($id){
-        return $this->Imprimir($id, 'original', true);
-    }
-    
     public function imprimirTirilla($id, $tipo='original'){
         $tipo1=$tipo;
 
@@ -2036,8 +2032,52 @@ class FacturasController extends Controller{
             $data['Empresa'] = $infoEmpresa->toArray();
             $infoCliente = Contacto::find($factura->cliente);
             $data['Cliente'] = $infoCliente->toArray();
-        
-            // NUEVO: Obtener información del contrato
+
+            $codqr = null;
+            $CUFEvr = null;
+
+            if($factura->emitida == 1){
+                $impTotal = 0;
+                foreach ($factura->total()->imp as $totalImp){
+                    if(isset($totalImp->total)){
+                        $impTotal = $totalImp->total;
+                    }
+                }
+
+                $CUFEvr = $factura->info_cufe($factura->id, $impTotal);
+
+                // Construcción del código QR para factura emitida
+                $impuesto = 0;
+                foreach ($factura->total()->imp as $key => $imp) {
+                    if(isset($imp->total)){
+                        $impuesto = $imp->total;
+                    }
+                }
+
+                $codqr = "NumFac:" . $factura->codigo . "\n" .
+                "NitFac:"  . $data['Empresa']['nit']   . "\n" .
+                "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
+                "FecFac:" . Carbon::parse($factura->created_at)->format('Y-m-d') .  "\n" .
+                "HoraFactura" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
+                "ValorFactura:" .  number_format($factura->total()->subtotal, 2, '.', '') . "\n" .
+                "ValorIVA:" .  number_format($impuesto, 2, '.', '') . "\n" .
+                "ValorOtrosImpuestos:" .  0.00 . "\n" .
+                "ValorTotalFactura:" .  number_format($factura->total()->subtotal + $factura->impuestos_totales(), 2, '.', '') . "\n" .
+                "CUFE:" . $CUFEvr;
+            } else {
+                // Generar QR básico para facturas no emitidas
+                $codqr = "NumFac:" . $factura->codigo . "\n" .
+                "NitFac:"  . $data['Empresa']['nit']   . "\n" .
+                "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
+                "FecFac:" . Carbon::parse($factura->created_at)->format('Y-m-d') .  "\n" .
+                "HoraFactura" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
+                "ValorFactura:" .  number_format($factura->total()->subtotal, 2, '.', '') . "\n" .
+                "ValorIVA:" .  number_format($factura->impuestos_totales(), 2, '.', '') . "\n" .
+                "ValorOtrosImpuestos:" .  0.00 . "\n" .
+                "ValorTotalFactura:" .  number_format($factura->total()->subtotal + $factura->impuestos_totales(), 2, '.', '') . "\n";
+            }
+
+            // Obtener información del contrato
             $contrato = null;
 
             // Opción 1: Si la factura tiene un campo contrato_id directo
@@ -2061,7 +2101,7 @@ class FacturasController extends Controller{
                 $contrato = Contrato::where('client_id', $factura->cliente)
                                   ->first(); // Cambiado para buscar cualquier contrato, no solo activos
             }
-        
+
             // Agregar datos del contrato al array $data
             if ($contrato) {
                 $data['Contrato'] = [
@@ -2072,7 +2112,7 @@ class FacturasController extends Controller{
             }
         
             $paper_size = array(0,0,270,580);
-            $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso','data'));
+            $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso','data','codqr','CUFEvr'));
             $pdf->setPaper($paper_size, 'portrait');
             return response($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
         }
