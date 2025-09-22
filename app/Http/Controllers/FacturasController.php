@@ -1990,10 +1990,10 @@ class FacturasController extends Controller{
     public function imprimirFe($id){
         return $this->Imprimir($id, 'original', true);
     }
-
+    
     public function imprimirTirilla($id, $tipo='original'){
         $tipo1=$tipo;
-    
+
         /**
          * toma en cuenta que para ver los mismos
          * datos debemos hacer la misma consulta
@@ -2014,9 +2014,9 @@ class FacturasController extends Controller{
                 $tipo='Cuenta de Cobro Original';
             }
         }
-        
+
         $resolucion = NumeracionFactura::where('empresa',Auth::user()->empresa)->latest()->first();
-    
+
         if ($factura) {
             $items = ItemsFactura::where('factura',$factura->id)->get();
             $itemscount=ItemsFactura::where('factura',$factura->id)->count();
@@ -2025,7 +2025,7 @@ class FacturasController extends Controller{
         
             // NUEVO: Inicializar array $data y obtener información básica
             $data = [];
-            
+
             // Obtener información del cliente y empresa
             $infoEmpresa = Empresa::find(Auth::user()->empresa);
             $data['Empresa'] = $infoEmpresa->toArray();
@@ -2034,32 +2034,34 @@ class FacturasController extends Controller{
         
             // NUEVO: Obtener información del contrato
             $contrato = null;
-            
+
             // Opción 1: Si la factura tiene un campo contrato_id directo
             if (isset($factura->contrato_id) && $factura->contrato_id) {
                 $contrato = Contrato::find($factura->contrato_id);
             }
-            // Opción 2: Si necesitas buscar el contrato a través de los items
-            elseif (!$contrato) {
-                foreach ($items as $item) {
-                    if (isset($item->contrato_id) && $item->contrato_id) {
-                        $contrato = Contrato::find($item->contrato_id);
-                        break; // Tomar el primer contrato encontrado
-                    }
+
+            // Opción 2: Buscar contrato a través de la tabla de relaciones facturas_contratos
+            if (!$contrato) {
+                $contratoRelacion = DB::table('facturas_contratos')
+                    ->where('factura_id', $factura->id)
+                    ->first();
+
+                if ($contratoRelacion) {
+                    $contrato = Contrato::where('nro', $contratoRelacion->contrato_nro)->first();
                 }
             }
-            // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
+
+            // Opción 3: Buscar contrato del cliente
             if (!$contrato) {
-                $contrato = Contrato::where('cliente_id', $factura->cliente)
-                                  ->where('estado', 'activo') // o el campo que uses para estado
-                                  ->first();
+                $contrato = Contrato::where('client_id', $factura->cliente)
+                                  ->first(); // Cambiado para buscar cualquier contrato, no solo activos
             }
         
             // Agregar datos del contrato al array $data
             if ($contrato) {
                 $data['Contrato'] = [
-                    'direccion_instalacion' => $contrato->direccion_instalacion,
-                    'numero_contrato' => $contrato->numero ?? $contrato->id,
+                    'direccion_instalacion' => $contrato->address_street ?? $contrato->direccion_instalacion ?? null,
+                    'numero_contrato' => $contrato->nro ?? $contrato->numero ?? $contrato->id,
                     // Puedes agregar más campos del contrato si los necesitas
                 ];
             }
@@ -2067,7 +2069,7 @@ class FacturasController extends Controller{
             $paper_size = array(0,0,270,580);
             $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso','data'));
             $pdf->setPaper($paper_size, 'portrait');
-            return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf',]);
+            return response($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
         }
     }
 
