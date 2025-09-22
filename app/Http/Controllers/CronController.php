@@ -172,24 +172,6 @@ class CronController extends Controller
 
     public static function CrearFactura(){
 
-        echo "<pre>Iniciando creación de facturas...\n"; 
-        @ob_flush(); flush(); // 🔹 Forzar salida inmediata al navegador
-
-        // tu código...
-
-        echo "Validando empresa...\n"; 
-        @ob_flush(); flush();
-
-        $empresa = Empresa::find(1);
-
-        if ($empresa->factura_auto == 1) {
-            echo "Facturación automática activada.\n";
-            @ob_flush(); flush();
-        }
-
-        // 🔹 Forzar la fecha a agosto 2025
-        $fechaForzada = Carbon::create(2025, 8, 30); // día 15 de agosto 2025
-
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
 
@@ -197,17 +179,17 @@ class CronController extends Controller
 
         if($empresa->factura_auto == 1){
             $i=0;
-            $date = $fechaForzada->day; // en lugar de getdate()['mday']
+            $date = getdate()['mday'] * 1;
             $numeros = [];
             $bulk = '';
-            $horaActual = $fechaForzada->format('H:i');
+            $horaActual = date('H:i');
 
             $grupos_corte = GrupoCorte::
             where('fecha_factura', $date)
             ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
             ->where('status', 1)->get();
 
-            $fecha = $fechaForzada->format('Y-m-d');
+            $fecha = Carbon::now()->format('Y-m-d');
 
             $state = ['enabled'];
             if ($empresa->factura_contrato_off == 1) {
@@ -220,7 +202,7 @@ class CronController extends Controller
                 ->select('contracts.id', 'contracts.iva_factura', 'contracts.public_id', 'c.id as cliente',
                 'contracts.state', 'contracts.fecha_corte', 'contracts.fecha_suspension', 'contracts.facturacion',
                 'contracts.plan_id', 'contracts.descuento', 'c.nombre', 'c.nit', 'c.celular', 'c.telefono1',
-                'c.saldo_favor','contracts.created_at',
+                'c.saldo_favor','contracts.created_at','contracts.fact_primer_mes',
                 'e.terminos_cond', 'e.notas_fact', 'contracts.servicio_tv', 'contracts.factura_individual','contracts.nro')
                 ->where('contracts.grupo_corte',$grupo_corte->id)->
                 where('contracts.status',1)->
@@ -236,13 +218,9 @@ class CronController extends Controller
                     $numero = 0;
                 }
 
-                // dentro de los foreach
-                echo "Procesando grupo de corte: {$grupo_corte->id}\n";
-                @ob_flush(); flush();
-
                 //Calculo fecha pago oportuno.
-                $y = $fechaForzada->format('Y');
-                $m = $fechaForzada->format('m');
+                $y = Carbon::now()->format('Y');
+                $m = Carbon::now()->format('m');
                 $d = substr(str_repeat(0, 2).$grupo_corte->fecha_pago, - 2);
                 if($d == 0){
                     $d = 30;
@@ -335,9 +313,6 @@ class CronController extends Controller
                             }
                         }
                     }
-    
-                    echo "Procesando grupo de corte: {$grupo_corte->id}\n";
-                    @ob_flush(); flush();
 
                     /* ** Validacion: si la actual es dif a la ultima fac pasa o sino
                     si son iguales y no tiene fact manual == 1(la ultima) y es manual y no automatica pasa */
@@ -547,8 +522,7 @@ class CronController extends Controller
                                                     $item_reg->save();
                                                 }
                                             }
-                                            echo "Procesando grupo de corte: {$grupo_corte->id}\n";
-                                            @ob_flush(); flush();
+
                                             ## REGISTRAMOS EL ITEM SI TIENE PAGO PENDIENTE DE ASIGNACIÓN DE PRODUCTO
                                             $asignacion = Producto::where('contrato', $cm->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
 
@@ -680,9 +654,9 @@ class CronController extends Controller
                             }//validacion que no se creen dos el mismo dia
                         }
                     } //Comentando factura abierta del mes pasado
-                    \Log::info("Iniciando generación de facturas");
+
                  }
-                 \Log::info("Iniciando generación de facturas");
+
 
                 }// fin foreach contratos.
             }
@@ -694,7 +668,7 @@ class CronController extends Controller
 
              /* Enviar correo funcional */
              foreach($grupos_corte as $grupo_corte){
-                $fechaInvoice = $fechaForzada->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
+                $fechaInvoice = Carbon::now()->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
                 self::sendInvoices($fechaInvoice);
             }
 
@@ -772,14 +746,11 @@ class CronController extends Controller
                             $result = curl_exec ($ch);
                             $err  = curl_error($ch);
                             curl_close($ch);
-                            \Log::info("Iniciando generación de facturas");
-                            echo "\nProceso terminado.\n</pre>";
                         }
                     }
                 }
             }
             ## ENVIO SMS ##
-            \Log::info("Iniciando generación de facturas");
         }
     }
 
