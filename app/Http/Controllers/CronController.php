@@ -679,9 +679,9 @@ class CronController extends Controller
                             }//validacion que no se creen dos el mismo dia
                         }
                     } //Comentando factura abierta del mes pasado
-
+                    \Log::info("Iniciando generación de facturas");
                  }
-
+                 \Log::info("Iniciando generación de facturas");
 
                 }// fin foreach contratos.
             }
