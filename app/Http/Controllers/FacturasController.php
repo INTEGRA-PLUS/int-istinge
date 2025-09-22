@@ -1935,7 +1935,25 @@ class FacturasController extends Controller{
             $itemscount=ItemsFactura::where('factura',$factura->id)->count();
             $retenciones = FacturaRetencion::where('factura', $factura->id)->get();
 
+            // Obtener datos básicos para el QR siempre
+            $infoEmpresa = $empresa;
+            $data['Empresa'] = $infoEmpresa->toArray();
+            $infoCliente = Contacto::find($factura->cliente);
+            $data['Cliente'] = $infoCliente->toArray();
+
+            // Calcular impuestos
+            $impuesto = 0;
+            foreach ($factura->total()->imp as $key => $imp) {
+                if(isset($imp->total)){
+                    $impuesto = $imp->total;
+                }
+            }
+
+            $codqr = null;
+            $CUFEvr = null;
+
             if($factura->emitida == 1){
+                // Factura emitida - QR completo con CUFE
                 $impTotal = 0;
                 foreach ($factura->total()->imp as $totalImp){
                     if(isset($totalImp->total)){
@@ -1944,46 +1962,38 @@ class FacturasController extends Controller{
                 }
 
                 $CUFEvr = $factura->info_cufe($factura->id, $impTotal);
-                $infoEmpresa = $empresa;
-                $data['Empresa'] = $infoEmpresa->toArray();
-                $infoCliente = Contacto::find($factura->cliente);
-                $data['Cliente'] = $infoCliente->toArray();
-                /*..............................
-                Construcción del código qr a la factura
-                ................................*/
-                $impuesto = 0;
-                foreach ($factura->total()->imp as $key => $imp) {
-                    if(isset($imp->total)){
-                        $impuesto = $imp->total;
-                    }
-                }
 
                 $codqr = "NumFac:" . $factura->codigo . "\n" .
                 "NitFac:"  . $data['Empresa']['nit']   . "\n" .
                 "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
                 "FecFac:" . Carbon::parse($factura->created_at)->format('Y-m-d') .  "\n" .
-                "HoraFactura" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
+                "HoraFactura:" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
                 "ValorFactura:" .  number_format($factura->total()->subtotal, 2, '.', '') . "\n" .
                 "ValorIVA:" .  number_format($impuesto, 2, '.', '') . "\n" .
                 "ValorOtrosImpuestos:" .  0.00 . "\n" .
                 "ValorTotalFactura:" .  number_format($factura->total()->subtotal + $factura->impuestos_totales(), 2, '.', '') . "\n" .
                 "CUFE:" . $CUFEvr;
-                /*..............................
-                Construcción del código qr a la factura
-                ................................*/
-                if($empresa->formato_impresion == 1){
-                    $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr'));
-                }else{
-                    $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr'));
-                }
-            }else{
-                if($empresa->formato_impresion == 1){
-                    $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion'));
-                }else{
-                    $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion'));
-                }
+            } else {
+                // Factura NO emitida - QR básico sin CUFE
+                $codqr = "NumFac:" . $factura->codigo . "\n" .
+                "NitFac:"  . $data['Empresa']['nit']   . "\n" .
+                "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
+                "FecFac:" . Carbon::parse($factura->created_at)->format('Y-m-d') .  "\n" .
+                "HoraFactura:" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
+                "ValorFactura:" .  number_format($factura->total()->subtotal, 2, '.', '') . "\n" .
+                "ValorIVA:" .  number_format($impuesto, 2, '.', '') . "\n" .
+                "ValorOtrosImpuestos:" .  0.00 . "\n" .
+                "ValorTotalFactura:" .  number_format($factura->total()->subtotal + $factura->impuestos_totales(), 2, '.', '');
             }
-            return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
+
+            // Generar PDF siempre con las variables del QR
+            if($empresa->formato_impresion == 1){
+                $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
+            }else{
+                $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
+            }
+
+            return response($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
         }
     }
 
