@@ -172,6 +172,21 @@ class CronController extends Controller
 
     public static function CrearFactura(){
 
+        echo "<pre>Iniciando creación de facturas...\n"; 
+        @ob_flush(); flush(); // 🔹 Forzar salida inmediata al navegador
+
+        // tu código...
+
+        echo "Validando empresa...\n"; 
+        @ob_flush(); flush();
+
+        $empresa = Empresa::find(1);
+
+        if ($empresa->factura_auto == 1) {
+            echo "Facturación automática activada.\n";
+            @ob_flush(); flush();
+        }
+
         // 🔹 Forzar la fecha a agosto 2025
         $fechaForzada = Carbon::create(2025, 8, 30); // día 15 de agosto 2025
 
@@ -220,6 +235,10 @@ class CronController extends Controller
                 }else{
                     $numero = 0;
                 }
+
+                // dentro de los foreach
+                echo "Procesando grupo de corte: {$grupo_corte->id}\n";
+                @ob_flush(); flush();
 
                 //Calculo fecha pago oportuno.
                 $y = $fechaForzada->format('Y');
@@ -315,6 +334,9 @@ class CronController extends Controller
                             }
                         }
                     }
+    
+                    echo "Procesando grupo de corte: {$grupo_corte->id}\n";
+                    @ob_flush(); flush();
 
                     /* ** Validacion: si la actual es dif a la ultima fac pasa o sino
                     si son iguales y no tiene fact manual == 1(la ultima) y es manual y no automatica pasa */
@@ -524,7 +546,8 @@ class CronController extends Controller
                                                     $item_reg->save();
                                                 }
                                             }
-
+                                            echo "Procesando grupo de corte: {$grupo_corte->id}\n";
+                                            @ob_flush(); flush();
                                             ## REGISTRAMOS EL ITEM SI TIENE PAGO PENDIENTE DE ASIGNACIÓN DE PRODUCTO
                                             $asignacion = Producto::where('contrato', $cm->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
 
@@ -748,6 +771,8 @@ class CronController extends Controller
                             $result = curl_exec ($ch);
                             $err  = curl_error($ch);
                             curl_close($ch);
+                            \Log::info("Iniciando generación de facturas");
+                            echo "\nProceso terminado.\n</pre>";
                         }
                     }
                 }
