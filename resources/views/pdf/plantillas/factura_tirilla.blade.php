@@ -127,8 +127,19 @@
     <div style="width: 100%;">
         <div style="width: 100%; text-align: center; display: inline-block;">
             Señor(es): {{$factura->cliente()->nombre}} {{$factura->cliente()->apellidos()}}<br>
-            @if($factura->cliente()->direccion) Dirección: {{$factura->cliente()->direccion}}<br>@endif
-            @if($factura->cliente()->ciudad) Ciudad: {{$factura->cliente()->ciudad}}<br>@endif
+            
+            <!-- CAMBIO 1: Dirección - de dirección del cliente a dirección del contrato -->
+            @if(isset($data['Contrato']['direccion_instalacion']) && $data['Contrato']['direccion_instalacion'])
+                Dirección: {{$data['Contrato']['direccion_instalacion']}}<br>
+            @elseif($factura->cliente()->direccion) 
+                Dirección: {{$factura->cliente()->direccion}}<br>
+            @endif
+            
+            <!-- CAMBIO 2: Ciudad - mantener la del cliente -->
+            @if($factura->cliente()->ciudad) 
+                Ciudad: {{$factura->cliente()->ciudad}}<br>
+            @endif
+            
             @if($factura->cliente()->telefono1) Teléfono: {{$factura->cliente()->telefono1}}<br>@endif
             @if($factura->cliente()->nit) {{ $factura->cliente()->tip_iden('mini')}}: {{$factura->cliente()->nit}}<br>@endif<br>
         </div>
