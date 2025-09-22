@@ -1774,7 +1774,7 @@ class FacturasController extends Controller{
     public function copia($id){
         return $this->pdf($id, 'copia');
     }
-    
+
     public function pdf($id, $tipo='original'){
         $tipo1=$tipo;
         /**
@@ -1998,7 +1998,7 @@ class FacturasController extends Controller{
 
     public function imprimirTirilla($id, $tipo='original'){
         $tipo1=$tipo;
-
+    
         /**
          * toma en cuenta que para ver los mismos
          * datos debemos hacer la misma consulta
@@ -2018,18 +2018,59 @@ class FacturasController extends Controller{
             }else{
                 $tipo='Cuenta de Cobro Original';
             }
-
         }
+        
         $resolucion = NumeracionFactura::where('empresa',Auth::user()->empresa)->latest()->first();
-
+    
         if ($factura) {
             $items = ItemsFactura::where('factura',$factura->id)->get();
             $itemscount=ItemsFactura::where('factura',$factura->id)->count();
             $retenciones = FacturaRetencion::where('factura', $factura->id)->get();
             $ingreso = IngresosFactura::where('factura',$factura->id)->first();
-
+        
+            // NUEVO: Inicializar array $data y obtener información básica
+            $data = [];
+            
+            // Obtener información del cliente y empresa
+            $infoEmpresa = Empresa::find(Auth::user()->empresa);
+            $data['Empresa'] = $infoEmpresa->toArray();
+            $infoCliente = Contacto::find($factura->cliente);
+            $data['Cliente'] = $infoCliente->toArray();
+        
+            // NUEVO: Obtener información del contrato
+            $contrato = null;
+            
+            // Opción 1: Si la factura tiene un campo contrato_id directo
+            if (isset($factura->contrato_id) && $factura->contrato_id) {
+                $contrato = Contrato::find($factura->contrato_id);
+            }
+            // Opción 2: Si necesitas buscar el contrato a través de los items
+            elseif (!$contrato) {
+                foreach ($items as $item) {
+                    if (isset($item->contrato_id) && $item->contrato_id) {
+                        $contrato = Contrato::find($item->contrato_id);
+                        break; // Tomar el primer contrato encontrado
+                    }
+                }
+            }
+            // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
+            if (!$contrato) {
+                $contrato = Contrato::where('cliente_id', $factura->cliente)
+                                  ->where('estado', 'activo') // o el campo que uses para estado
+                                  ->first();
+            }
+        
+            // Agregar datos del contrato al array $data
+            if ($contrato) {
+                $data['Contrato'] = [
+                    'direccion_instalacion' => $contrato->direccion_instalacion,
+                    'numero_contrato' => $contrato->numero ?? $contrato->id,
+                    // Puedes agregar más campos del contrato si los necesitas
+                ];
+            }
+        
             $paper_size = array(0,0,270,580);
-            $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso'));
+            $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso','data'));
             $pdf->setPaper($paper_size, 'portrait');
             return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf',]);
         }
