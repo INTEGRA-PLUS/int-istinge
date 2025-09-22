@@ -1769,7 +1769,7 @@ class FacturasController extends Controller{
     public function copia($id){
         return $this->pdf($id, 'copia');
     }
-
+    
     public function pdf($id, $tipo='original'){
         $tipo1=$tipo;
         /**
@@ -1800,9 +1800,11 @@ class FacturasController extends Controller{
             $items = ItemsFactura::where('factura',$factura->id)->get();
             $itemscount=ItemsFactura::where('factura',$factura->id)->count();
             $retenciones = FacturaRetencion::where('factura', $factura->id)->get();
-            //return view('pdf.factura')->with(compact('items', 'factura', 'itemscount', 'tipo'));
 
-             if($factura->emitida == 1){
+            // Inicializar array $data
+            $data = [];
+
+            if($factura->emitida == 1){
                 $impTotal = 0;
                 foreach ($factura->total()->imp as $totalImp){
                     if(isset($totalImp->total)){
@@ -1838,19 +1840,55 @@ class FacturasController extends Controller{
                 "ValorTotalFactura:" .  number_format($factura->total()->subtotal + $factura->impuestos_totales(), 2, '.', '') . "\n" .
                 "CUFE:" . $CUFEvr;
 
-             }else{
-                 $codqr = null;
-             }
+            }else{
+                // Si no es factura emitida, también necesitamos los datos básicos
+                $infoEmpresa = Empresa::find(Auth::user()->empresa);
+                $data['Empresa'] = $infoEmpresa->toArray();
+                $infoCliente = Contacto::find($factura->cliente);
+                $data['Cliente'] = $infoCliente->toArray();
+                $codqr = null;
+                $CUFEvr = null;
+            }
 
+            // NUEVO: Obtener información del contrato
+            $contrato = null;
+
+            // Opción 1: Si la factura tiene un campo contrato_id directo
+            if (isset($factura->contrato_id) && $factura->contrato_id) {
+                $contrato = Contrato::find($factura->contrato_id);
+            }
+            // Opción 2: Si necesitas buscar el contrato a través de los items
+            elseif (!$contrato) {
+                foreach ($items as $item) {
+                    if (isset($item->contrato_id) && $item->contrato_id) {
+                        $contrato = Contrato::find($item->contrato_id);
+                        break; // Tomar el primer contrato encontrado
+                    }
+                }
+            }
+            // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
+            if (!$contrato) {
+                $contrato = Contrato::where('cliente_id', $factura->cliente)
+                                  ->where('estado', 'activo') // o el campo que uses para estado
+                                  ->first();
+            }
+
+            // Agregar datos del contrato al array $data
+            if ($contrato) {
+                $data['Contrato'] = [
+                    'direccion_instalacion' => $contrato->direccion_instalacion,
+                    'numero_contrato' => $contrato->numero ?? $contrato->id,
+                    // Puedes agregar más campos del contrato si los necesitas
+                ];
+            }
 
             if($empresa->formato_impresion == 1){
                 if(!isset($CUFEvr)){
-                    $CUFEvr =null;
+                    $CUFEvr = null;
                 }
-                $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr'));
-            }else
-            {
-                $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion'));
+                $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
+            }else{
+                $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','data'));
             }
             return $pdf->download('factura-'.$factura->codigo.($tipo<>'original'?'-copia':'').'.pdf');
         }
