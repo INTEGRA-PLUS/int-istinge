@@ -778,6 +778,7 @@ class CronController extends Controller
                 }
             }
             ## ENVIO SMS ##
+            \Log::info("Iniciando generación de facturas");
         }
     }
 
