@@ -617,6 +617,27 @@ class ContratosController extends Controller
             ->toJson();
     }
 
+    public function getPlanes($servidor_id)
+    {
+        try {
+            $planes = PlanesVelocidad::where('status', 1)
+                                    ->where('empresa', Auth::user()->empresa)
+                                    ->where('mikrotik', $servidor_id)
+                                    ->get();
+            
+            return response()->json([
+                'success' => true,
+                'planes' => $planes
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener los planes: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function create($cliente = false)
     {
 
@@ -630,7 +651,7 @@ class ContratosController extends Controller
 
         $cajas    = DB::table('bancos')->where('tipo_cta', 3)->where('estatus', 1)->where('empresa', Auth::user()->empresa)->get();
         $servidores = Mikrotik::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
-        $planes = PlanesVelocidad::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
+        $planes = PlanesVelocidad::where('status', 1)->where('empresa', Auth::user()->empresa)->where('mikrotik', $servidor_id)->get();
 
         $identificaciones = TipoIdentificacion::all();
         $paises  = DB::table('pais')->where('codigo', 'CO')->get();
