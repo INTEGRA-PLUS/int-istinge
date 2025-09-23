@@ -1888,9 +1888,18 @@ class CronController extends Controller
                                 $ARRAYS = $API->read();
 
                                 if(count($ARRAYS)>0){
+
                                     $API->write('/ip/firewall/address-list/remove', false);
                                     $API->write('=.id='.$ARRAYS[0]['.id']);
                                     $READ = $API->read();
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
 
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();
