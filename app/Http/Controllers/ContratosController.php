@@ -651,8 +651,7 @@ class ContratosController extends Controller
 
         $cajas    = DB::table('bancos')->where('tipo_cta', 3)->where('estatus', 1)->where('empresa', Auth::user()->empresa)->get();
         $servidores = Mikrotik::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
-        $planes = PlanesVelocidad::where('status', 1)->where('empresa', Auth::user()->empresa)->where('mikrotik', $servidor_id)->get();
-
+        $planes = PlanesVelocidad::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $identificaciones = TipoIdentificacion::all();
         $paises  = DB::table('pais')->where('codigo', 'CO')->get();
         $departamentos = DB::table('departamentos')->get();
