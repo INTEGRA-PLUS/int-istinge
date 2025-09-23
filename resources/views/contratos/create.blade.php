@@ -265,7 +265,7 @@
                     </div>
                     <div class="tab-pane fade" id="internet" role="tabpanel" aria-labelledby="internet-tab">
                         <div class="row">
-
+                            
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Servidor <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -280,7 +280,49 @@
                                     <strong>{{ $errors->first('server_configuration_id') }}</strong>
                                 </span>
                             </div>
-
+                            <script>
+                                function getPlanes(servidor_id) {
+                                    console.log('Servidor seleccionado:', servidor_id);
+                                    
+                                    if (!servidor_id) {
+                                        document.getElementById('plan_id').innerHTML = '<option value="">Seleccione</option>';
+                                        $('#plan_id').selectpicker('refresh');
+                                        return;
+                                    }
+                                    
+                                    // Hacer petición AJAX
+                                    fetch(`/contratos/getPlanes/${servidor_id}`)
+                                        .then(response => {
+                                            console.log('Response status:', response.status);
+                                            return response.json();
+                                        })
+                                        .then(data => {
+                                            console.log('Datos recibidos:', data);
+                                            
+                                            const planSelect = document.getElementById('plan_id');
+                                            planSelect.innerHTML = '<option value="">Seleccione</option>';
+                                            
+                                            if (data.success && data.planes.length > 0) {
+                                                data.planes.forEach(plan => {
+                                                    const option = document.createElement('option');
+                                                    option.value = plan.id;
+                                                    option.textContent = `${plan.name} - ${plan.download}/${plan.upload} - $${plan.price}`;
+                                                    planSelect.appendChild(option);
+                                                    console.log('Plan agregado:', plan.name);
+                                                });
+                                            } else {
+                                                console.log('No se encontraron planes para este servidor');
+                                            }
+                                            
+                                            // Refresh selectpicker
+                                            $('#plan_id').selectpicker('refresh');
+                                        })
+                                        .catch(error => {
+                                            console.error('Error en la petición:', error);
+                                            alert('Error al cargar los planes');
+                                        });
+                                }
+                            </script>
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Plan <span class="text-danger">*</span></label>
                                 <div class="input-group">
