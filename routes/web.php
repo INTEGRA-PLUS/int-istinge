@@ -52,7 +52,7 @@ Route::get('borrar-cache', function () {
 
 Route::get('contact/newcam', 'ContactosController@indexcampos')->name('contact.new');
 Route::post('contact/campos', 'ContactosController@newcampos')->name('contact.new.campos');
-Route::get('/contratos/getPlanes/{servidor_id}', [ContratoController::class, 'getPlanes'])->name('contratos.getPlanes');
+Route::get('/getPlanes/{mikrotik}', [ContratoController::class, 'getPlanes']);
 
 /* IMPORTAR API*/
 Route::post('/import_puc', 'PucController@import_puc')->name('puc.import_puc');
