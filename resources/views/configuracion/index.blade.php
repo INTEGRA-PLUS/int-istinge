@@ -953,11 +953,11 @@
 			let url = `{{ route('configuracion.consultas_mikrotik') }}`;
 
 		    if ($("#separar_numeracion").val() == 0) {
-		        $titleswal = "¿Desea deshabilitar las consultas a la mikrotik?";
+		        $titleswal = "¿Desea habilitar las consultas a la mikrotik?";
 		    }
 
 		    if ($("#separar_numeracion").val() == 1) {
-		        $titleswal = "¿Desea habilitar las consultas a la mikrotik?";
+		        $titleswal = "¿Desea deshabilitar las consultas a la mikrotik?";
 		    }
 
 		    Swal.fire({
