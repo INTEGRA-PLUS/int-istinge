@@ -1833,7 +1833,7 @@ class FacturasController extends Controller{
                 "NitFac:"  . $data['Empresa']['nit']   . "\n" .
                 "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
                 "FecFac:" . Carbon::parse($factura->created_at)->format('Y-m-d') .  "\n" .
-                "HoraFactura" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
+                "HoraFactura:" . Carbon::parse($factura->created_at)->format('H:i:s').'-05:00' . "\n" .
                 "ValorFactura:" .  number_format($factura->total()->subtotal, 2, '.', '') . "\n" .
                 "ValorIVA:" .  number_format($impuesto, 2, '.', '') . "\n" .
                 "ValorOtrosImpuestos:" .  0.00 . "\n" .
@@ -1869,8 +1869,8 @@ class FacturasController extends Controller{
             // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
             if (!$contrato) {
                 $contrato = Contrato::where('cliente_id', $factura->cliente)
-                                  ->where('estado', 'activo') // o el campo que uses para estado
-                                  ->first();
+                                ->where('estado', 'activo') // o el campo que uses para estado
+                                ->first();
             }
 
             // Agregar datos del contrato al array $data
