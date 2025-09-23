@@ -617,19 +617,30 @@ class ContratosController extends Controller
             ->toJson();
     }
 
-    public function getPlanes($servidor_id)
+   public function getPlanes($mikrotik)
     {
         try {
+            // Obtener los planes filtrados por mikrotik
             $planes = PlanesVelocidad::where('status', 1)
                                     ->where('empresa', Auth::user()->empresa)
-                                    ->where('mikrotik', $servidor_id)
+                                    ->where('mikrotik', $mikrotik)
                                     ->get();
-            
+
+            // Obtener información del servidor Mikrotik
+            $mikrotikServer = Mikrotik::find($mikrotik);
+
+            // Obtener profiles del servidor (esto parece ser una funcionalidad adicional)
+            // Si tienes una API de Mikrotik, puedes obtener los profiles aquí
+            // Por ahora lo dejaré como array vacío
+            $profiles = [];
+
             return response()->json([
                 'success' => true,
-                'planes' => $planes
+                'planes' => $planes,
+                'mikrotik' => $mikrotikServer,
+                'profile' => $profiles
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
