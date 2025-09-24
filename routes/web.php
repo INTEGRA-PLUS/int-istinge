@@ -589,7 +589,28 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('facturas-whatsapp-envio', 'FacturasController@facturasWhastappEnvio')->name('cronjob.whatsapp-facturas-envio');
 		Route::get('facturas-whatsapp-reiniciar', 'FacturasController@facturasWhastappReiniciar')->name('cronjob.whatsapp-facturas-reiniciar');
 	});
-	Route::resource('facturas', 'FacturasController');
+
+	// Listar todas las facturas
+    Route::get('factura-index', 'FacturasController@index')->name('facturas.index');
+
+    // Formulario para crear factura
+    Route::get('facturas/create', 'FacturasController@create')->name('facturas.create');
+
+    // Guardar factura nueva
+    Route::post('facturas', 'FacturasController@store')->name('facturas.store');
+
+    // Mostrar una factura específica
+    Route::get('facturas/{factura}', 'FacturasController@show')->name('facturas.show');
+
+    // Formulario para editar una factura
+    Route::get('facturas/{factura}/edit', 'FacturasController@edit')->name('facturas.edit');
+
+    // Actualizar factura (PUT o PATCH)
+    Route::put('facturas/{factura}', 'FacturasController@update')->name('facturas.update');
+    Route::patch('facturas/{factura}', 'FacturasController@update');
+
+    // Eliminar factura
+    Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
