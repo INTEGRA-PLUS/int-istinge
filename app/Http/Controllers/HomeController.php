@@ -55,7 +55,7 @@ class HomeController extends Controller
             return redirect('master/usuarios');
         } else if (Auth::user()->rol == 2 || Auth::user()->rol >= 2) {
             $this->getAllPermissions(Auth::user()->id);
-            return redirect()->route('empresa');
+            return $this->index();
         }
         return view('welcome');
     }
