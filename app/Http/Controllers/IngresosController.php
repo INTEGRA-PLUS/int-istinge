@@ -1214,9 +1214,9 @@ class IngresosController extends Controller
             ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
             $empresa = Empresa::find($ingreso->empresa);
             $paper_size = array(0,-10,270, 650);
-
+            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
              $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
-            'itemscount','empresa', 'resolucion'));
+            'itemscount','empresa', 'resolucion', 'contratoNro'));
              $pdf->setPaper($paper_size, 'portrait');
              $pdf->save(public_path() . "/convertidor/recibo" . $ingreso->nro . ".pdf")->output();
              $pdf64 = base64_encode($pdf->stream());
