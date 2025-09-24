@@ -3815,7 +3815,6 @@ class FacturasController extends Controller{
 
         $factura = Factura::where('id', $request->id)->first();
         $contrato = $factura->contratoAsociado();
-        dd($contrato);
 
         $numero = 0;
         $numero = PromesaPago::all()->count();
