@@ -2005,7 +2005,7 @@ class FacturasController extends Controller{
     public function imprimirFe($id){
         return $this->Imprimir($id, 'original', true);
     }
-    
+
     public function imprimirTirilla($id, $tipo='original'){
         $tipo1=$tipo;
 
@@ -2037,7 +2037,7 @@ class FacturasController extends Controller{
             $itemscount=ItemsFactura::where('factura',$factura->id)->count();
             $retenciones = FacturaRetencion::where('factura', $factura->id)->get();
             $ingreso = IngresosFactura::where('factura',$factura->id)->first();
-        
+
             // NUEVO: Inicializar array $data y obtener información básica
             $data = [];
 
@@ -2046,7 +2046,7 @@ class FacturasController extends Controller{
             $data['Empresa'] = $infoEmpresa->toArray();
             $infoCliente = Contacto::find($factura->cliente);
             $data['Cliente'] = $infoCliente->toArray();
-        
+
             // NUEVO: Obtener información del contrato
             $contrato = null;
 
@@ -2071,7 +2071,7 @@ class FacturasController extends Controller{
                 $contrato = Contrato::where('client_id', $factura->cliente)
                                   ->first(); // Cambiado para buscar cualquier contrato, no solo activos
             }
-        
+
             // Agregar datos del contrato al array $data
             if ($contrato) {
                 $data['Contrato'] = [
@@ -2080,7 +2080,7 @@ class FacturasController extends Controller{
                     // Puedes agregar más campos del contrato si los necesitas
                 ];
             }
-        
+
             $paper_size = array(0,0,270,580);
             $pdf = PDF::loadView('pdf.plantillas.factura_tirilla', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','ingreso','data'));
             $pdf->setPaper($paper_size, 'portrait');
@@ -3817,7 +3817,10 @@ class FacturasController extends Controller{
             'hora_pago' => 'required',
         ]);
 
+
         $factura = Factura::where('id', $request->id)->first();
+        $contrato = $factura->contratoAsociado();
+        dd($contrato);
 
         $numero = 0;
         $numero = PromesaPago::all()->count();

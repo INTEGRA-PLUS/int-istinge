@@ -135,6 +135,13 @@ class Factura extends Model
     public function contratoAsociado(){
         $contrato = Contrato::find($this->contrato_id);
 
+        if(!$contrato){
+            $idContrato = DB::table('facturas_contratos')->where('factura_id',$this->id)->first();
+            if($idContrato){
+                $contrato = Contrato::where('nro',$idContrato->contrato_nro)->first();
+            }
+        }
+
         if($contrato){return $contrato;}
     }
 
