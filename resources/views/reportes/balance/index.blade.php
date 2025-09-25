@@ -74,32 +74,34 @@
 
 	<div class="row card-description">
 		<div class="col-md-12 table-responsive">
-			<table class="table table-striped table-hover " id="table-facturas">
-			<thead class="thead-dark">
-				<tr>
-					<th>Nombre <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==1?'':'no_order'}}" campo="1" order="@if($request->orderby==1){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==1){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button> </th>
-                    <th>Código <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==2?'':'no_order'}}" campo="2" order="@if($request->orderby==2){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==2){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button> </th>
-                    <th>Débito <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==3?'':'no_order'}}" campo="3" order="@if($request->orderby==3){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==3){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button></th>
-                    <th>Crédito<button type="button" class="btn btn-link no-padding orderby {{$request->orderby==4?'':'no_order'}}" campo="4" order="@if($request->orderby==4){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==4){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button></th>
-                    <th>Saldo Final <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==5?'':'no_order'}}" campo="5" order="@if($request->orderby==5){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==5){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button> </th>
-	          </tr>
-			</thead>
-			<tbody>
-
-				@foreach($movimientosContables as $mov)
+  			<table class="table table-striped table-hover table-bordered" id="table-facturas">
+				<thead class="thead-dark">
 					<tr>
-						<td>{{$mov->cuentacontable}}</td>
-						<td>{{$mov->codigo_cuenta}}</td>
-						<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->totaldebito)}}</td>
-						<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->totalcredito)}}</td>
-						<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->totalfinal)}}</td>
+						<th>Código</th>
+						<th>Nombre</th>
+						<th>Saldo Inicial</th>
+						<th>Débito</th>
+						<th>Crédito</th>
+						<th>Saldo Final</th>
 					</tr>
-				@endforeach
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					@foreach($movimientosContables as $mov)
+						<tr>
+							<td>{{$mov->codigo_cuenta}}</td>
+							<td>{{$mov->cuentacontable}}</td>
+							<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->saldo_inicial)}}</td>
+							<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->totaldebito)}}</td>
+							<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->totalcredito)}}</td>
+							<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($mov->saldo_final)}}</td>
+						</tr>
+					@endforeach
+				</tbody>
+
+			</table>
             {!! $movimientosContables->render() !!}
+		</div>
 	</div>
-</div>
 </form>
 <input type="hidden" id="urlgenerar" value="{{route('reportes.balance')}}">
 <input type="hidden" id="urlexportar" value="{{route('exportar.balance')}}">
