@@ -74,7 +74,7 @@
 
 	<div class="row card-description">
 		<div class="col-md-12 table-responsive">
-  			<table class="table table-striped table-hover table-bordered" id="table-facturas">
+			<table class="table table-striped table-hover " id="table-facturas">
 				<thead class="thead-dark">
 					<tr>
 						<th>Código</th>
