@@ -215,10 +215,12 @@
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <th width="15%" class="right smalltd">Periodo Cobrado:</th>
-                <td>{{$ingreso->ingresofactura()->factura()->periodoCobradoTexto()}}</td>
-            </tr>
+            @if($ingreso->ingresofactura())
+                <tr>
+                    <th width="15%" class="right smalltd">Periodo Cobrado:</th>
+                    <td>{{$ingreso->ingresofactura()->factura()->periodoCobradoTexto()}}</td>
+                </tr>
+            @endif
             @if($ingreso->ingresofactura())
             <tr>
                 <th class="right smalltd">No. Contrato:</th>
@@ -251,8 +253,16 @@
             @foreach($items as $item)
             @php $cont++; @endphp
             <tr>
-                <td colspan="2" class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$item->detalle('Pago a ')}}</td>
-                <td class="right padding-right border_right @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$empresa->moneda}}{{App\Funcion::Parsear($item->pago())}}</td>
+                @if(isset($item->categoria) && $item->categoria != null)
+                <td colspan="2" class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">
+                    {{$item->categoria()->nombre}} - {{$item->categoria()->codigo}}
+                    </td>
+                @else
+                <td colspan="2" class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$item->detalle('Pago a')}}</td>
+                @endif
+                <td class="right padding-right border_right @if($cont==$itemscount && $cont>6) border_bottom @endif">
+                    {{$empresa->moneda}}{{App\Funcion::Parsear($item->pago())}}
+                </td>
             </tr>
             @endforeach
 
