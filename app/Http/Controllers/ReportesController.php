@@ -2798,9 +2798,9 @@ class ReportesController extends Controller
         ->select(
             'p.nombre as cuentacontable',
             'p.codigo as codigo_cuenta',
-            DB::raw("SUM(CASE WHEN puc_movimiento.fecha < '$desde' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_inicial"),
-            DB::raw("SUM(CASE WHEN puc_movimiento.fecha BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.debito ELSE 0 END) as totaldebito"),
-            DB::raw("SUM(CASE WHEN puc_movimiento.fecha BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.credito ELSE 0 END) as totalcredito"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion < '$desde' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_inicial"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.debito ELSE 0 END) as totaldebito"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.credito ELSE 0 END) as totalcredito"),
             DB::raw("SUM(CASE WHEN puc_movimiento.fecha <= '$hasta' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_final")
         )
         ->groupBy('p.id','p.nombre','p.codigo')
