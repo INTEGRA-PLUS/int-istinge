@@ -217,34 +217,22 @@
         <tbody>
             <tr>
                 <th width="15%" class="right smalltd">Periodo Cobrado:</th>
-                <td>
-                    @if($ingreso->ingresofactura && $ingreso->ingresofactura->factura)
-                        {{ $ingreso->ingresofactura->factura->periodoCobradoTexto() }}
-                    @else
-                        N/A
-                    @endif
-                </td>
+                <td>{{$ingreso->ingresofactura()->factura()->periodoCobradoTexto()}}</td>
             </tr>
-            @if($ingreso->ingresofactura && $ingreso->ingresofactura->factura)
+            @if($ingreso->ingresofactura())
             <tr>
                 <th class="right smalltd">No. Contrato:</th>
-                <td>
-                    @if($ingreso->ingresofactura->factura->contratoAsociado)
-                        {{ $ingreso->ingresofactura->factura->contratoAsociado->nro }}
-                    @else
-                        N/A
-                    @endif
-                </td>
+                <td>{{ isset($ingreso->ingresofactura()->factura()->contratoAsociado()->nro) ? $ingreso->ingresofactura()->factura()->contratoAsociado()->nro : 'N/A' }}</td>
             </tr>
             @endif
             <tr>
                 <th class="right smalltd">Monto pagado:</th>
                 <td>{{ $empresa->moneda }} {{ App\Funcion::Parsear($ingreso->pago()) }}</td>
             </tr>
-            @if($ingreso->ingresofactura && $ingreso->ingresofactura->factura && $ingreso->ingresofactura->factura->porpagar() > 0)
+            @if($ingreso->ingresofactura() && $ingreso->ingresofactura()->factura()->porpagar() > 0)
             <tr>
                 <th class="right smalltd">Saldo pendiente:</th>
-                <td style="font-weight: bold;">{{ $empresa->moneda }} {{ App\Funcion::Parsear($ingreso->ingresofactura->factura->porpagar()) }}</td>
+                <td style="font-weight: bold;">{{ $empresa->moneda }} {{ App\Funcion::Parsear($ingreso->ingresofactura()->factura()->porpagar()) }}</td>
             </tr>
             @endif
         </tbody>

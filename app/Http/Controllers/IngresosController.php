@@ -1603,46 +1603,28 @@ class IngresosController extends Controller
 
     public function Imprimir(Request $request, $id){
         view()->share(['title' => 'Imprimir Ingreso']);
-
-        // Cargar el ingreso con todas las relaciones necesarias
-        $ingreso = Ingreso::with([
-            'ingresofactura.factura.contratoAsociado',
-            'retenciones.retencion',
-            'cliente' // Si necesitas datos del cliente
-        ])
-        ->where('empresa', Auth::user()->empresa)
-        ->where('nro', $id)
-        ->first();
-        
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
         if ($ingreso) {
-            if ($ingreso->tipo == 1) {
-                $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
-                // Cargar items con sus relaciones si es necesario
-                $items = IngresosFactura::with(['factura'])
-                    ->where('ingreso', $ingreso->id)
-                    ->get();
-            } else if ($ingreso->tipo == 2) {
-                $itemscount = IngresosCategoria::where('ingreso', $ingreso->id)->count();
-                $items = IngresosCategoria::where('ingreso', $ingreso->id)->get();
-            } else {
-                $itemscount = 1;
-                $items = collect([$ingreso]); // Usar colección en lugar de query adicional
+            if ($ingreso->tipo==1) {
+                $itemscount=IngresosFactura::where('ingreso',$ingreso->id)->count();
+                $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
+            }else if ($ingreso->tipo==2){
+                $itemscount=IngresosCategoria::where('ingreso',$ingreso->id)->count();
+                $items = IngresosCategoria::where('ingreso',$ingreso->id)->get();
+            }else{
+                $itemscount=1;
+                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->get();
             }
-
-            // Las retenciones ya están cargadas con la relación, pero si necesitas más datos:
-            $retenciones = $ingreso->retenciones; // Usar la relación cargada
-
+            $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
             $empresa = Empresa::find($ingreso->empresa);
 
             // Verificar si se solicita versión detallada
             $detalle = $request->query('detalle', 0);
             $vista = $detalle ? 'pdf.ingreso_detallado' : 'pdf.ingreso';
 
-            $pdf = PDF::loadView($vista, compact('ingreso', 'items', 'retenciones', 'itemscount', 'empresa'));
-            return response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf']);
+            $pdf = PDF::loadView($vista, compact('ingreso', 'items', 'retenciones', 'itemscount','empresa'));
+            return  response ($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf',]);
         }
-        
-        abort(404, 'Ingreso no encontrado');
     }
 
     public function imprimirTirilla($id, $tipo='original')
