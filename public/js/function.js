@@ -540,6 +540,7 @@ function autocomplete(id) {
 /* Funciones del modulo de facturas*/
 
 function factura_pendiente(ingreso = false) {
+
     if (($('input:radio[name=tipo]:checked').val() != 1 && $('#inputremision').length == 0) || ($('#inputremision').length == 0 && $('#tipo1').length == 0)) {
 
         return false;
@@ -568,6 +569,7 @@ function factura_pendiente(ingreso = false) {
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
              * */
+            console.log(data);
             $('#factura_pendiente').html(data);
             $('.precio').mask('0000000000.00', { reverse: true });
 

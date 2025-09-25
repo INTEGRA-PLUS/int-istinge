@@ -13,6 +13,7 @@
       <th class="text-center">Factura</th>
       <th class="text-center">F. Creación</th>
       <th class="text-center">F. Vencimiento</th>
+      <th class="text-center">Dirección</th>
       <th class="text-center">Total</th>
       <th class="text-center">Pagado</th>
       <th class="text-center">Por Pagar</th>
@@ -24,6 +25,15 @@
     @php $count = count($facturas); @endphp
 
     @foreach($facturas as $factura)
+
+        @php
+            $contratos = $factura->relationContracts;
+            $direccion  = $contratos->first() ? $contratos->first()->address_street : null;
+            if($direccion == null){
+                $direccion  = $factura->cliente()->direccion;
+            }
+        @endphp
+
       <tr id="{{$factura->id}}" @if($factura->nro==$id || $count == 1) class="active_table" @endif>
         <input type="hidden" id="retencion_previas_{{$factura->id}}" value="{{$factura->retenciones_previas()}}">
         <input type="hidden" id="impuestos_factura_{{$factura->id}}" value="{{$factura->impuestos_totales()}}">
@@ -31,6 +41,18 @@
         <td class="text-center"><input type="hidden" name="factura_pendiente[]" value="{{$factura->id}}"><a href="{{route('facturas.show',$factura->id)}}" target="_blank">{{$factura->codigo}}</a></td>
         <td class="text-center">{{date('d-m-Y', strtotime($factura->fecha))}}</td>
         <td class="text-center">{{date('d-m-Y', strtotime($factura->vencimiento))}}</td>
+        <td class="text-center">
+            <a href="#"
+               title="{{ $direccion }}"
+               style="display:inline-block;
+                      max-width:180px;
+                      font-size:12px;
+                      white-space:nowrap;
+                      overflow:hidden;
+                      text-overflow:ellipsis;">
+                {{ $direccion }}
+            </a>
+        </td>
         <td class="text-center">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total)}}</td>
         <td class="text-center">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->pagado())}}</td>
         <td class="text-center">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->porpagar())}}
