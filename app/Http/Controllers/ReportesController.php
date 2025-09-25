@@ -2795,13 +2795,17 @@ class ReportesController extends Controller
         }
 
         $movimientosContables = PucMovimiento::join('puc as p','p.id','puc_movimiento.cuenta_id')
-            ->select('puc_movimiento.*','p.nombre as cuentacontable',
-            DB::raw("SUM((`debito`)) as totaldebito"),
-            DB::raw("SUM((`credito`)) as totalcredito"),
-            DB::raw("ABS(SUM((`credito`)) -  SUM((`debito`))) as totalfinal"))
-            ->orderBy($orderby, $order)
-            ->groupBy('cuenta_id')
-            ->get();
+        ->select(
+            'p.nombre as cuentacontable',
+            'p.codigo as codigo_cuenta',
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha < '$desde' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_inicial"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.debito ELSE 0 END) as totaldebito"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.credito ELSE 0 END) as totalcredito"),
+            DB::raw("SUM(CASE WHEN puc_movimiento.fecha <= '$hasta' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_final")
+        )
+        ->groupBy('p.id','p.nombre','p.codigo')
+        ->orderBy($orderby, $order)
+        ->get();
 
         // if (
         //     $request->orderby == 4 || $request->orderby == 5 || $request->orderby == 6 || $request->orderby == 7 || $request->orderby == 8
