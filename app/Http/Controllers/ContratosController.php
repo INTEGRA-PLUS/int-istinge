@@ -721,6 +721,7 @@ class ContratosController extends Controller
         $cliente = Contacto::find($request->client_id);
         $servicio = $cliente->nombre . ' ' . $cliente->apellido1 . ' ' . $cliente->apellido2;
         $empresa = Empresa::Find(Auth::user()->empresa);
+        $ip_autorizada = 0;
 
         if ($mikrotik) {
             $API = new RouterosAPI();
@@ -1000,8 +1001,6 @@ class ContratosController extends Controller
                             )
                         );
                     }
-
-                    $ip_autorizada = 0;
 
                     if ($mikrotik->regla_ips_autorizadas == 1) {
                         $API->comm("/ip/firewall/address-list/add\n=list=ips_autorizadas\n=address=" . $request->ip);
