@@ -597,7 +597,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
     Route::get('facturas/create', 'FacturasController@create')->name('facturas.create');
 
     // Guardar factura nueva
-    Route::post('facturas', 'FacturasController@store')->name('facturas.store');
+    Route::post('facturas-store', 'FacturasController@store')->name('facturas.store');
 
     // Mostrar una factura específica
     Route::get('facturas/{factura}', 'FacturasController@show')->name('facturas.show');
