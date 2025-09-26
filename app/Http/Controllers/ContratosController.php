@@ -2304,6 +2304,7 @@ class ContratosController extends Controller
                 $API->port = $mikrotik->puerto_api;
                 //$API->debug = true;
 
+                if($empresa->consultas_mk == 1){
                 if ($API->connect($mikrotik->ip, $mikrotik->usuario, $mikrotik->clave)) {
                     if ($contrato->conexion == 1) {
                         //OBTENEMOS AL CONTRATO MK
@@ -2478,7 +2479,15 @@ class ContratosController extends Controller
                     $mensaje = 'NO SE HA PODIDO ELIMINAR EL CONTRATO DE SERVICIOS';
                     return redirect('empresa/contratos')->with('danger', $mensaje);
                 }
-            } else {
+            }else{
+                Ping::where('contrato', $contrato->id)->delete();
+
+                $cliente = Contacto::find($contrato->client_id);
+                $cliente->fecha_contrato = Carbon::now();
+                $cliente->save();
+                $contrato->delete();
+            }
+        } else {
                 $cliente = Contacto::find($contrato->client_id);
                 $cliente->fecha_contrato = Carbon::now();
                 $cliente->save();
