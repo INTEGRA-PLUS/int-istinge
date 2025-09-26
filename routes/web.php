@@ -1743,7 +1743,6 @@ Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name(
 
 
 //  RUTAS PARA EL ACS (Auto Configuration Server)
-
 use App\Http\Controllers\ACSController;
 
 Route::get('/acs', [ACSController::class, 'index'])->name('acs.index');

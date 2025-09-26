@@ -9,7 +9,8 @@ class ACSController extends Controller
     public function index()
     {
         return view('acs.index', [
-            'title' => 'ACS'
+            'title' => 'ACS',
+            'icon'  => 'fa fa-cogs'
         ]);
     }
 }
