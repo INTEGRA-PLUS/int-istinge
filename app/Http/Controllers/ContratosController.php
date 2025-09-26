@@ -2296,6 +2296,7 @@ class ContratosController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         $contrato = Contrato::find($id);
+        $empresa = Empresa::find(Auth::user()->empresa);
         if ($contrato) {
             if ($contrato->server_configuration_id) {
                 $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
