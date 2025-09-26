@@ -2486,6 +2486,8 @@ class ContratosController extends Controller
                 $cliente->fecha_contrato = Carbon::now();
                 $cliente->save();
                 $contrato->delete();
+                $mensaje = 'SE HA ELIMINADO EL CONTRATO DE SERVICIOS SATISFACTORIAMENTE';
+                return redirect('empresa/contratos')->with('success', $mensaje);
             }
         } else {
                 $cliente = Contacto::find($contrato->client_id);
