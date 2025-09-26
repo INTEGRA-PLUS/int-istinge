@@ -1369,6 +1369,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		//rutas para expotar excel contable
 		Route::get('/balance', 'ExportarReportesController@balance')->name('exportar.balance');
 		Route::get('/exogena', 'ExportarReportesController@exogena')->name('exportar.exogena');
+		Route::get('/exogena', 'ExportarReportesController@terceros')->name('exportar.terceros');
 
 		Route::get('/contratoperiodo', 'ExportarReportesController@contratoPeriodo')->name('exportar.contratoperiodo');
         Route::get('/personassincontrato', 'ExportarReportesController@personaSinContrato')->name('exportar.personasincontrato');
