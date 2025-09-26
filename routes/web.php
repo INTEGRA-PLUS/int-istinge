@@ -1740,3 +1740,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 // RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
+
+
+
+// ACS ROUTER
+Route::get('/acs', function () {
+    return view('acs.index');
+})->name('acs.index');
