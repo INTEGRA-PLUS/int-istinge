@@ -652,7 +652,7 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
 
     <li class="nav-item" id="acs">
         <a class="nav-link" href="{{ route('acs.index') }}">
-            <i class="menu-icon fas fa-network-wired"></i>
+            <i class="menu-icon fa-sitemap"></i>
             <span class="menu-title">ACS</span>
         </a>
     </li>
