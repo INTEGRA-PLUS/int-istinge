@@ -75,7 +75,7 @@
                 <ul class="list-report">
                     <li><a href="{{route('reportes.balance')}}">Reporte de Balances</a></li>
                     <li><a href="{{route('reportes.exogena')}}">Reporte exógena principal</a></li>
-                    <li><a href="#">Reporte de terceros</a></li>
+                    <li><a href="{{route('reportes.terceros')}}">Reporte de terceros</a></li>
                     <li><a href="#">Reportes de balances por terceros</a></li>
                     <li><a href="#">Estados financieros </a></li>
                     <li><a href="#">Libros auxiliares</a></li>
