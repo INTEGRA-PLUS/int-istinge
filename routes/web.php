@@ -1626,6 +1626,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::resource('tipos-gastos', 'TiposGastosController');
 
+	// ACS
+	// RUTAS PARA EL ACS (Auto Configuration Server)
+	Route::get('/acs', 'ACSController@index')->name('acs.index');
+
 	//CRM
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
@@ -1698,8 +1702,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('barrios', 'BarriosController');
 	Route::post('/delete-barrio/{id}', 'BarriosController@delete');
 });
-// RUTAS PARA EL ACS (Auto Configuration Server)
-Route::get('/acs', 'ACSController@index')->name('acs.index');
+
 
 
 Route::get('/graficos/{id?}', 'GraficosController@index');
