@@ -15,6 +15,8 @@ use App\Http\Controllers\TecnicoController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\ACSController;
+
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 
@@ -1695,6 +1697,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('barrios', 'BarriosController');
 	Route::post('/delete-barrio/{id}', 'BarriosController@delete');
 });
+// RUTAS PARA EL ACS (Auto Configuration Server)
+Route::get('/acs', 'ACSController@index')->name('acs.index');
 
 
 Route::get('/graficos/{id?}', 'GraficosController@index');
@@ -1742,7 +1746,4 @@ Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
 
 
-//  RUTAS PARA EL ACS (Auto Configuration Server)
-use App\Http\Controllers\ACSController;
 
-Route::get('/acs', [ACSController::class, 'index'])->name('acs.index');
