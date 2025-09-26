@@ -11,6 +11,7 @@ class ACSController extends Controller
         return view('acs.index', [
             'title' => 'ACS',
             'icon'  => 'fa fa-cogs'
+            'seccion' => 'Panel ACS'
         ]);
     }
 }
