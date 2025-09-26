@@ -656,7 +656,6 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             <span class="menu-title">ACS</span>
         </a>
     </li>
-    @endif
 
 @if(Auth::user()->rol > 1 && auth()->user()->rol == 8)
 <li class="nav-item" id="reporte-facturas-pagas">
