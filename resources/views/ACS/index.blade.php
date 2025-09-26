@@ -30,7 +30,7 @@
 
     <div class="container">
         <h3>Panel ACS</h3>
-        <p>Aquí va la integración con el ACS.</p>
+        <p>Panel de configuracion ACS.</p>
     </div>
 @endsection
 
