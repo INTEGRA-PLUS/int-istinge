@@ -4960,7 +4960,7 @@ class ExportarReportesController extends Controller
         }
 
         // Consulta de terceros
-        $contactos = \App\Models\Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
+        $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
             ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
             ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
             ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
