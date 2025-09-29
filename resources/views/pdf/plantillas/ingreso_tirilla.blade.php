@@ -229,7 +229,9 @@
 <hr class="tirilla-hr">
 <div class="tirilla-section" style="text-align: left;">
     <span class="tirilla-label">Señor(es):</span> {{$ingreso->cliente()->nombre}} {{$ingreso->cliente()->apellidos()}}<br>
-    @if($ingreso->cliente()->direccion) <span class="tirilla-label">Dirección:</span> {{$ingreso->cliente()->direccion}}<br>@endif
+    @if($direccionMostrar) 
+        <span class="tirilla-label">Dirección:</span> {{$direccionMostrar}}<br>
+    @endif
     @if($ingreso->cliente()->ciudad) <span class="tirilla-label">Ciudad:</span> {{$ingreso->cliente()->ciudad}}<br>@endif
     @if($ingreso->cliente()->telefono1) <span class="tirilla-label">Teléfono:</span> {{$ingreso->cliente()->telefono1}}<br>@endif
     @if($ingreso->cliente()->nit) <span class="tirilla-label">{{ $ingreso->cliente()->tip_iden('mini')}}:</span> {{$ingreso->cliente()->nit}}<br>@endif

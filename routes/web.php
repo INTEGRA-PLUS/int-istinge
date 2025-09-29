@@ -1626,9 +1626,14 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::resource('tipos-gastos', 'TiposGastosController');
 
+
+	//---------------------------------------------------------------
 	// ACS
 	// RUTAS PARA EL ACS (Auto Configuration Server)
 	Route::get('/acs', 'ACSController@index')->name('acs.index');
+	//---------------------------------------------------------------
+
+
 
 	//CRM
 	Route::group(['prefix' => 'crm'], function () {

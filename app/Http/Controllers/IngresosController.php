@@ -1633,7 +1633,7 @@ class IngresosController extends Controller
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
                         ->where('nro', $id)
                         ->first();
-
+    
         if ($ingreso) {
             if ($ingreso->tipo == 1) {
                 $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
@@ -1650,7 +1650,7 @@ class IngresosController extends Controller
                                 ->where('nro', $id)
                                 ->get();
             }
-
+        
             $retenciones = IngresosRetenciones::where('ingreso', $ingreso->id)->get();
             $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
                                         ->where('num_equivalente', 0)
@@ -1659,21 +1659,58 @@ class IngresosController extends Controller
                                         ->where('preferida', 1)
                                         ->first();
             $empresa = Empresa::find($ingreso->empresa);
-
-            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+        
+            // Obtener el contrato correcto desde la factura asociada al ingreso
+            $contratoNro = null;
+            $direccionMostrar = null; // NUEVA VARIABLE
+            
+            if ($ingreso->tipo == 1) {
+                $primeraFactura = IngresosFactura::where('ingreso', $ingreso->id)->first();
+                
+                if ($primeraFactura) {
+                    // Opción 1: Buscar en la tabla facturas_contratos
+                    $contratoRelacion = DB::table('facturas_contratos')
+                        ->where('factura_id', $primeraFactura->factura)
+                        ->first();
+                    
+                    if ($contratoRelacion) {
+                        $contratoNro = $contratoRelacion->contrato_nro;
+                        // Obtener la dirección del contrato
+                        $contratoObj = Contrato::where('nro', $contratoNro)->first();
+                        if ($contratoObj) {
+                            $direccionMostrar = $contratoObj->address_street ?? $contratoObj->direccion_instalacion ?? null;
+                        }
+                    } else {
+                        // Opción 2: Buscar desde el contrato_id directo de la factura
+                        $factura = Factura::find($primeraFactura->factura);
+                        if ($factura && $factura->contrato_id) {
+                            $contrato = Contrato::find($factura->contrato_id);
+                            if ($contrato) {
+                                $contratoNro = $contrato->nro;
+                                $direccionMostrar = $contrato->address_street ?? $contrato->direccion_instalacion ?? null;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Si no hay dirección del contrato, usar la del cliente como fallback
+            if (!$direccionMostrar) {
+                $direccionMostrar = $ingreso->cliente()->direccion;
+            }
             
             $paper_size = [0, 0, 270, 580];
-
+        
             if ($ingreso->valor_anticipo > 0) {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             } else {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             }
-
+        
             $pdf->setPaper($paper_size, 'portrait');
             return response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf']);
         }
