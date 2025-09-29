@@ -884,7 +884,53 @@ class ContactosController extends Controller
             $i++;
         }
 
-        // ... resto del código igual (estilos, headers, etc.) ...
+        // ✅ Estilo general
+        $estilo = [
+            'font' => ['size' => 12, 'name' => 'Times New Roman'],
+            'borders' => [
+                'allborders' => [
+                    'style' => PHPExcel_Style_Border::BORDER_THIN,
+                ],
+            ],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]
+        ];
+        $objPHPExcel->getActiveSheet()->getStyle('A3:T'.$i)->applyFromArray($estilo);
+
+        // ✅ Estilo especial para columna Contrato (U)
+        $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->applyFromArray([
+            'font' => ['size' => 12, 'name' => 'Times New Roman'],
+            'alignment' => [
+                'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                'vertical'   => PHPExcel_Style_Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allborders' => [
+                    'style' => PHPExcel_Style_Border::BORDER_THIN,
+                ],
+            ]
+        ]);
+        $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->getAlignment()->setWrapText(true);
+        $objPHPExcel->getActiveSheet()->getColumnDimension($letras[20])->setAutoSize(true);
+
+        for ($j = 'A'; $j <= $letras[20]; $j++) {
+            $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($j)->setAutoSize(true);
+        }
+
+        $objPHPExcel->getActiveSheet()->setTitle('Reporte de Contactos');
+        $objPHPExcel->setActiveSheetIndex(0);
+
+        $objPHPExcel->getActiveSheet(0)->freezePane('A5');
+        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
+        $objPHPExcel->setActiveSheetIndex(0);
+
+        header('Pragma: no-cache');
+        header('Content-type: application/vnd.ms-excel');
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="Reporte_Contactos.xlsx"');
+        header('Cache-Control: max-age=0');
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+        $objWriter->save('php://output');
+        exit;
     }
 
 
