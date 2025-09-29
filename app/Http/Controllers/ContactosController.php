@@ -801,8 +801,8 @@ class ContactosController extends Controller
     {
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto', 'Contrato'];
-        $letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto', 'Contrato', 'Etiqueta'];
+        $letras = range('A', 'Z');
 
         $objPHPExcel->getProperties()->setCreator('Sistema')
             ->setLastModifiedBy('Sistema')
@@ -844,7 +844,14 @@ class ContactosController extends Controller
         }
 
         $i = 4;
-        $contactos = Contacto::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+
+        // 🔹 Cargar contactos con JOIN a etiquetas
+        $contactos = Contacto::leftJoin('etiquetas', 'etiquetas.id', '=', 'contactos.etiqueta_id')
+            ->where('contactos.empresa', Auth::user()->empresa)
+            ->where('contactos.status', 1)
+            ->select('contactos.*', 'etiquetas.nombre as etiqueta_nombre')
+            ->get();
+
         if ($tipo != 2) {
             $contactos = $contactos->whereIn('tipo_contacto', [$tipo, 2]);
         }
@@ -871,7 +878,9 @@ class ContactosController extends Controller
                 ->setCellValue($letras[17].$i, $contacto->estrato)
                 ->setCellValue($letras[18].$i, $contacto->observaciones)
                 ->setCellValue($letras[19].$i, $contacto->tipo_contacto())
-                ->setCellValue($letras[20].$i, strip_tags($contacto->contract() ?? 'N/A'));
+                ->setCellValue($letras[20].$i, strip_tags($contacto->contract() ?? 'N/A'))
+                ->setCellValue($letras[21].$i, $contacto->etiqueta_nombre ?? 'Sin etiqueta'); // 🔹 aquí el cambio
+
             $i++;
         }
 
@@ -923,6 +932,7 @@ class ContactosController extends Controller
         $objWriter->save('php://output');
         exit;
     }
+
 
 
     /**
