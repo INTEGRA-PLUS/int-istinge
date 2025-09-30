@@ -1207,66 +1207,105 @@ class IngresosController extends Controller
                 $items = IngresosCategoria::where('ingreso',$ingreso->id)->get();
             }else{
                 $itemscount=1;
-                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->get();
+                $items = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $nro)->get();
             }
             $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
             $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
             ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
             $empresa = Empresa::find($ingreso->empresa);
+            
+            // Obtener el contrato correcto desde la factura asociada al ingreso
+            $contratoNro = null;
+            $direccionMostrar = null;
+            
+            if ($ingreso->tipo == 1) {
+                $primeraFactura = IngresosFactura::where('ingreso', $ingreso->id)->first();
+                
+                if ($primeraFactura) {
+                    // Opción 1: Buscar en la tabla facturas_contratos
+                    $contratoRelacion = DB::table('facturas_contratos')
+                        ->where('factura_id', $primeraFactura->factura)
+                        ->first();
+                    
+                    if ($contratoRelacion) {
+                        $contratoNro = $contratoRelacion->contrato_nro;
+                        // Obtener la dirección del contrato
+                        $contratoObj = Contrato::where('nro', $contratoNro)->first();
+                        if ($contratoObj) {
+                            $direccionMostrar = $contratoObj->address_street ?? $contratoObj->direccion_instalacion ?? null;
+                        }
+                    } else {
+                        // Opción 2: Buscar desde el contrato_id directo de la factura
+                        $factura = Factura::find($primeraFactura->factura);
+                        if ($factura && $factura->contrato_id) {
+                            $contrato = Contrato::find($factura->contrato_id);
+                            if ($contrato) {
+                                $contratoNro = $contrato->nro;
+                                $direccionMostrar = $contrato->address_street ?? $contrato->direccion_instalacion ?? null;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Si no hay dirección del contrato, usar la del cliente como fallback
+            if (!$direccionMostrar) {
+                $direccionMostrar = $ingreso->cliente()->direccion;
+            }
+            
             $paper_size = array(0,-10,270, 650);
-
-             $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
-            'itemscount','empresa', 'resolucion'));
-             $pdf->setPaper($paper_size, 'portrait');
-             $pdf->save(public_path() . "/convertidor/recibo" . $ingreso->nro . ".pdf")->output();
-             $pdf64 = base64_encode($pdf->stream());
-             $instance = Instance::where('company_id', auth()->user()->empresa)->first();
-
-             if(is_null($instance) || empty($instance)){
+        
+            $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact('ingreso', 'items', 'retenciones',
+            'itemscount','empresa', 'resolucion', 'contratoNro', 'direccionMostrar'));
+            $pdf->setPaper($paper_size, 'portrait');
+            $pdf->save(public_path() . "/convertidor/recibo" . $ingreso->nro . ".pdf")->output();
+            $pdf64 = base64_encode($pdf->stream());
+            $instance = Instance::where('company_id', auth()->user()->empresa)->first();
+        
+            if(is_null($instance) || empty($instance)){
                 return back()->with('danger', 'Aún no ha creado una instancia, por favor pongase en contacto con el administrador.');
             }
-
+        
             if($instance->status !== "PAIRED") {
                 return back()->with('danger', 'La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
             }
-
+        
             $file = [
                 "mimeType" => "application/pdf",
                 "file" => $pdf64,
             ];
-
+        
             $cliente = $ingreso->cliente();
-
+        
             if($cliente->celular == null){
                 $cliente->celular = $cliente->telefono;
             }
-
+        
             $contact = [
                 "phone" => "57" . $cliente->celular,
                 "name" => $cliente->nombre . " " . $cliente->apellido1
             ];
-
+        
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
             $message = "$nameEmpresa Le informa que su soporte de pago ha sido generado bajo el numero $ingreso->nro por un monto de $$total pesos.";
-
+        
             $body = [
                 "contact" => $contact,
                 "message" => $message,
                 "media" => $file
             ];
-
-
+        
             $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
             if(isset($response->statusCode)) {
                 return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
             }
             $response = json_decode($response->scalar);
-
+        
             if($response->status != "success") {
                 return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
             }
-
+        
             return back()->with('success', 'Mensaje enviado correctamente.');
         }
     }
@@ -1633,7 +1672,7 @@ class IngresosController extends Controller
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)
                         ->where('nro', $id)
                         ->first();
-
+    
         if ($ingreso) {
             if ($ingreso->tipo == 1) {
                 $itemscount = IngresosFactura::where('ingreso', $ingreso->id)->count();
@@ -1650,7 +1689,7 @@ class IngresosController extends Controller
                                 ->where('nro', $id)
                                 ->get();
             }
-
+        
             $retenciones = IngresosRetenciones::where('ingreso', $ingreso->id)->get();
             $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
                                         ->where('num_equivalente', 0)
@@ -1659,21 +1698,58 @@ class IngresosController extends Controller
                                         ->where('preferida', 1)
                                         ->first();
             $empresa = Empresa::find($ingreso->empresa);
-
-            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+        
+            // Obtener el contrato correcto desde la factura asociada al ingreso
+            $contratoNro = null;
+            $direccionMostrar = null; // NUEVA VARIABLE
+            
+            if ($ingreso->tipo == 1) {
+                $primeraFactura = IngresosFactura::where('ingreso', $ingreso->id)->first();
+                
+                if ($primeraFactura) {
+                    // Opción 1: Buscar en la tabla facturas_contratos
+                    $contratoRelacion = DB::table('facturas_contratos')
+                        ->where('factura_id', $primeraFactura->factura)
+                        ->first();
+                    
+                    if ($contratoRelacion) {
+                        $contratoNro = $contratoRelacion->contrato_nro;
+                        // Obtener la dirección del contrato
+                        $contratoObj = Contrato::where('nro', $contratoNro)->first();
+                        if ($contratoObj) {
+                            $direccionMostrar = $contratoObj->address_street ?? $contratoObj->direccion_instalacion ?? null;
+                        }
+                    } else {
+                        // Opción 2: Buscar desde el contrato_id directo de la factura
+                        $factura = Factura::find($primeraFactura->factura);
+                        if ($factura && $factura->contrato_id) {
+                            $contrato = Contrato::find($factura->contrato_id);
+                            if ($contrato) {
+                                $contratoNro = $contrato->nro;
+                                $direccionMostrar = $contrato->address_street ?? $contrato->direccion_instalacion ?? null;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Si no hay dirección del contrato, usar la del cliente como fallback
+            if (!$direccionMostrar) {
+                $direccionMostrar = $ingreso->cliente()->direccion;
+            }
             
             $paper_size = [0, 0, 270, 580];
-
+        
             if ($ingreso->valor_anticipo > 0) {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             } else {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             }
-
+        
             $pdf->setPaper($paper_size, 'portrait');
             return response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf']);
         }
