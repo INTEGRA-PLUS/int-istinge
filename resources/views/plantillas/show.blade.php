@@ -19,7 +19,7 @@
             @csrf
         </form>
     @endif
-    
+
     <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
         <div class="btn-group" role="group">
             <button id="btnGroupDrop1" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -48,7 +48,7 @@
 		</div>
 
 		<script type="text/javascript">
-			setTimeout(function(){ 
+			setTimeout(function(){
 			    $('.alert').hide();
 			    $('.active_table').attr('class', ' ');
 			}, 5000);
@@ -60,13 +60,13 @@
 		</div>
 
 		<script type="text/javascript">
-			setTimeout(function(){ 
+			setTimeout(function(){
 			    $('.alert').hide();
 			    $('.active_table').attr('class', ' ');
 			}, 5000);
 		</script>
 	@endif
-	
+
 	<div class="row card-description">
     	<div class="col-md-12">
     		<div class="table-responsive">
@@ -90,7 +90,11 @@
     					</tr>
     					<tr>
     						<th>Creado por</th>
+                            @if($plantilla->created_by())
     						<td>{{ $plantilla->created_by()->nombres }}</td>
+                            @else
+                            <td>Usuario no encontrado.</td>
+                            @endif
     					</tr>
     					<tr>
     					<tr>
@@ -100,7 +104,7 @@
     				</tbody>
     			</table>
     		</div>
-    		
+
     		<div class="mt-3 p-3" style="border: 1px solid rgba(0, 0, 0, 0.125);border-radius: 0.25rem;">
     		    @php echo($plantilla->contenido); @endphp
     		</div>

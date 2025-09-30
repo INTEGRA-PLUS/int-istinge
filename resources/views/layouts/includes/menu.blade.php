@@ -337,6 +337,8 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
 </li>
 @endif
 
+
+
 @if(isset($_SESSION['permisos']['427']) || isset($_SESSION['permisos']['200']) || isset($_SESSION['permisos']['300']) || isset($_SESSION['permisos']['425']))
 <li class="nav-item" id="atencion_cliente">
     <a class="nav-link" data-toggle="collapse" href="#ui-atencion_cliente" aria-expanded="false" aria-controls="ui-atencion_cliente">
@@ -645,6 +647,15 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
     </a>
 </li>
 @endif
+
+    <!-- APARTADO PARA ACS -->
+
+    <li class="nav-item" id="acs">
+        <a class="nav-link" href="{{ route('acs.index') }}">
+            <i class="menu-icon fa fa-wifi"></i>
+            <span class="menu-title">ACS</span>
+        </a>
+    </li>
 
 @if(Auth::user()->rol > 1 && auth()->user()->rol == 8)
 <li class="nav-item" id="reporte-facturas-pagas">

@@ -138,12 +138,12 @@
 			// Obtener el parámetro 'estado' de la URL
 			const urlParams = new URLSearchParams(window.location.search);
 			const estado = urlParams.get('estado');
-			
+
 			// Si el estado es 'Solventado', activar la pestaña correspondiente
 			if (estado === 'Solventado') {
 				// Usar Bootstrap tab API para cambiar la pestaña
 				$('#gestionados-tab').tab('show');
-				
+
 				// Actualizar la tabla con el filtro de estado
 				if (typeof getDataTableG === 'function') {
 					setTimeout(getDataTableG, 100); // Dar tiempo a que la tabla se inicialice
@@ -186,6 +186,8 @@
                                         <a class="dropdown-item" href="javascript:void(0)" id="btn_modal_tecnico"><i
                                                 class="fas fa-exchange-alt" style="margin-left:4px; "></i> Asignar técnico
                                             masivamente</a>
+                                            <a class="dropdown-item" href="javascript:void(0)" id="btn_delete_tecnico"><i
+                                                class="fas fa-times fa-fw" style="margin-left:4px; "></i> Quitar técnico masivamente</a>
                                         <a class="dropdown-item" href="javascript:void(0)" id="btn_solventar"><i
                                                 class="fas fa-check-double fa-fw" style="margin-left:4px; "></i> Solventar
                                             Casos</a>
@@ -732,6 +734,10 @@
                 destroy();
             });
 
+            $('#btn_delete_tecnico').click(function() {
+                deleteTecnico();
+            });
+
             $('#codigo, #contrato, #telefono').on('keyup', function(e) {
                 if (e.which > 32 || e.which == 8) {
                     getDataTable();
@@ -1043,6 +1049,70 @@
                         var url = `/software/empresa/radicados/` + radicados + `/destroy_lote`;
                     } else {
                         var url = `/empresa/radicados/` + radicados + `/destroy_lote`;
+                    }
+
+                    $.ajax({
+                        url: url,
+                        method: 'GET',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(data) {
+                            cargando(false);
+                            swal({
+                                title: 'PROCESO REALIZADO',
+                                html: '<strong>' + data.correctos + ' radicados ' + data.state +
+                                    '</strong><br><strong>' + data.fallidos + ' radicados no ' +
+                                    data.state + '</strong>',
+                                type: 'success',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#1A59A1',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                            getDataTable();
+                            getDataTableG();
+                        }
+                    })
+                }
+            })
+        }
+
+        function deleteTecnico() {
+            var radicados = [];
+
+            var table = $('#table_sin_gestionar').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if (nro <= 1) {
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar dos radicados',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            for (i = 0; i < nro; i++) {
+                radicados.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '¿Desea eliminar ' + nro + ' tencicos asociados en lote?',
+                text: 'Al Aceptar, no podrá cancelar el proceso',
+                type: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00ce68',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    if (window.location.pathname.split("/")[1] == "software") {
+                        var url = `/software/empresa/radicados/` + radicados + `/destroy_tecnicos_asociados`;
+                    } else {
+                        var url = `/empresa/radicados/` + radicados + `/destroy_tecnicos_asociados`;
                     }
 
                     $.ajax({

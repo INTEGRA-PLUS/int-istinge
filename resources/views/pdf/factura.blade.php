@@ -169,6 +169,22 @@
                     @endif</td>
                 <td class="center" style="border-right: 2px solid #ccc;">{{--{{date('d/m/Y', strtotime($factura->fecha))}}--}}{{Carbon\Carbon::parse($factura->fecha)->format('d/m/Y')}}</td>
 
+
+            <tr>
+                <th class="right smalltd" width="10%">DIRECCION</th>
+                <td colspan="">
+                    @if(isset($data['Contrato']['direccion_instalacion']))
+                        {{$data['Contrato']['direccion_instalacion']}}
+                    @else
+                        {{$factura->cliente()->direccion}}
+                    @endif
+                </td>
+                <th class="right smalltd" width="15%" style="padding-right: 2px;">{{$factura->cliente()->tip_iden('mini')}}</th>
+                <td style="border-bottom: 2px solid #ccc;" width="20%" >{{$factura->cliente()->nit }}
+                    @if($factura->cliente()->dv != null)
+                        - {{$factura->cliente()->dv }}
+                    @endif</td>
+                <td class="center" style="border-right: 2px solid #ccc;">{{Carbon\Carbon::parse($factura->fecha)->format('d/m/Y')}}</td>
             </tr>
             <tr>
                 <th class="right smalltd">CIUDAD</th>
@@ -176,13 +192,6 @@
                 <th class="right" style="padding-right: 2px; font-size: 9px">FECHA DE SUSPENSIÓN</th>
                 <td style="border-bottom: 2px solid #ccc;" >{{date('d/m/Y', strtotime($factura->suspension))}}</td>
                 <th class="center" style="font-size: 8px"><b>FECHA DE VENCIMIENTO (DD/MM/AA)</b></th>
-            </tr>
-            <tr>
-                <th class="right smalltd">TELÉFONO</th>
-                <td style="border-bottom: 2px solid #ccc;">{{$factura->cliente()->celular}}</td>
-                <th class="right smalltd" style="padding-right: 2px;">EMAIL</th>
-                <td style="border-bottom: 2px solid #ccc;" >{{$factura->cliente()->email}}</td>
-                <td class="center" style="border-right: 2px solid #ccc; border-bottom: 2px solid #ccc;">{{date('d/m/Y', strtotime($factura->vencimiento))}}</td>
             </tr>
 
 

@@ -730,6 +730,7 @@ class ExportarReportesController extends Controller
 
             $facturas = Factura::where('factura.empresa',Auth::user()->empresa)
             ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+            ->leftjoin('contracts as ctr', 'ctr.nro', '=', 'fc.contrato_nro')
             ->join('contactos as c', 'factura.cliente', '=', 'c.id')
             ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
             ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
@@ -756,7 +757,7 @@ class ExportarReportesController extends Controller
                 }
             }
             if($request->grupo){
-                $facturas=$facturas->where('contracts.grupo_corte', $request->grupo);
+                $facturas=$facturas->where('ctr.grupo_corte', $request->grupo);
             }
 
             if($request->formapago){
@@ -3720,8 +3721,8 @@ class ExportarReportesController extends Controller
             }
 
             $barrio = "";
-            if($movimiento->cliente() != ""){
-                $movimiento->cliente()->barrio()->nombre;
+            if ($movimiento->cliente() && $movimiento->cliente()->barrio()) {
+                $barrio = $movimiento->cliente()->barrio()->nombre;
             }
 
 
@@ -4879,6 +4880,180 @@ class ExportarReportesController extends Controller
          $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
          $objWriter->save('php://output');
          exit;
+    }
+
+    public function terceros(Request $request)
+    {
+        DB::enableQueryLog();
+
+        $objPHPExcel = new \PHPExcel();
+        $tituloReporte = "Reporte de Terceros desde " . ($request->fecha ?? '') . " hasta " . ($request->hasta ?? '');
+
+        $titulosColumnas = array(
+            'Tipo ID',
+            'NIT',
+            'DV',
+            'Nombre / Razón Social',
+            'Apellido 1',
+            'Apellido 2',
+            'Dirección',
+            'Municipio',
+            'Departamento',
+            'Teléfono',
+            'Celular',
+            'Email',
+            'Ingresos Brutos',
+            'Primera Factura',
+            'Última Factura'
+        );
+
+        $letras = range('A', 'Z');
+
+        // Propiedades del archivo
+        $objPHPExcel->getProperties()->setCreator("Sistema")
+            ->setLastModifiedBy("Sistema")
+            ->setTitle("Reporte Excel Terceros")
+            ->setSubject("Reporte Excel Terceros")
+            ->setDescription("Reporte de Terceros")
+            ->setKeywords("reporte terceros")
+            ->setCategory("Reporte excel");
+
+        // Encabezado
+        $objPHPExcel->setActiveSheetIndex(0)
+            ->mergeCells('A1:O1')
+            ->setCellValue('A1', $tituloReporte);
+
+        $estiloTitulo = array(
+            'font' => array('bold' => true, 'size' => 12, 'name' => 'Times New Roman'),
+            'alignment' => array('horizontal' => \PHPExcel_Style_Alignment::HORIZONTAL_CENTER)
+        );
+        $objPHPExcel->getActiveSheet()->getStyle('A1:O1')->applyFromArray($estiloTitulo);
+
+        // Estilo de cabecera
+        $estiloCabecera = array(
+            'fill' => array(
+                'type' => \PHPExcel_Style_Fill::FILL_SOLID,
+                'color' => array('rgb' => 'd08f50')
+            ),
+            'font' => array('bold' => true)
+        );
+        $objPHPExcel->getActiveSheet()->getStyle('A3:O3')->applyFromArray($estiloCabecera);
+
+        // Titulos de columnas
+        foreach ($titulosColumnas as $i => $titulo) {
+            $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '3', utf8_decode($titulo));
+        }
+
+        // Fechas
+        if ($request->fechas != 8) {
+            if (!$request->fecha) {
+                $arrayDate = $this->setDateRequest($request);
+                $desde = $arrayDate['inicio'];
+                $hasta = $arrayDate['fin'];
+            } else {
+                $desde = \Carbon\Carbon::parse($request->fecha)->format('Y-m-d');
+                $hasta = \Carbon\Carbon::parse($request->hasta)->format('Y-m-d');
+            }
+        } else {
+            $desde = '2000-01-01';
+            $hasta = now()->format('Y-m-d');
+        }
+
+        // Consulta de terceros
+        $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
+            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
+            ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
+            ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
+            ->whereIn('f.tipo', [2]) // facturas de venta
+            ->whereBetween('f.fecha', [$desde, $hasta])
+            ->select(
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.dv',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2',
+                'contactos.direccion',
+                'm.nombre as municipio',
+                'd.nombre as departamento',
+                'contactos.telefono1',
+                'contactos.celular',
+                'contactos.email',
+                DB::raw('SUM(ig.pago) as ingresosBrutos'),
+                DB::raw('MIN(f.fecha) as fechaPrimeraFactura'),
+                DB::raw('MAX(f.fecha) as fechaUltimaFactura')
+            )
+            ->groupBy(
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.dv',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2',
+                'contactos.direccion',
+                'm.nombre',
+                'd.nombre',
+                'contactos.telefono1',
+                'contactos.celular',
+                'contactos.email'
+            )
+            ->get();
+
+        // Escribir datos
+        $i = 4;
+        foreach ($contactos as $c) {
+            $objPHPExcel->setActiveSheetIndex(0)
+                ->setCellValue($letras[0] . $i, $c->tip_iden)
+                ->setCellValue($letras[1] . $i, $c->nit)
+                ->setCellValue($letras[2] . $i, $c->dv)
+                ->setCellValue($letras[3] . $i, $c->nombre)
+                ->setCellValue($letras[4] . $i, $c->apellido1)
+                ->setCellValue($letras[5] . $i, $c->apellido2)
+                ->setCellValue($letras[6] . $i, $c->direccion)
+                ->setCellValue($letras[7] . $i, $c->municipio)
+                ->setCellValue($letras[8] . $i, $c->departamento)
+                ->setCellValue($letras[9] . $i, $c->telefono1)
+                ->setCellValue($letras[10] . $i, $c->celular)
+                ->setCellValue($letras[11] . $i, $c->email)
+                ->setCellValue($letras[12] . $i, Auth::user()->empresa()->moneda . \App\Funcion::Parsear($c->ingresosBrutos))
+                ->setCellValue($letras[13] . $i, $c->fechaPrimeraFactura)
+                ->setCellValue($letras[14] . $i, $c->fechaUltimaFactura);
+            $i++;
+        }
+
+        // Estilos generales
+        $estilo = array(
+            'font' => array('size' => 11, 'name' => 'Times New Roman'),
+            'borders' => array(
+                'allborders' => array(
+                    'style' => \PHPExcel_Style_Border::BORDER_THIN
+                )
+            ),
+            'alignment' => array('horizontal' => \PHPExcel_Style_Alignment::HORIZONTAL_CENTER)
+        );
+        $objPHPExcel->getActiveSheet()->getStyle('A3:O' . $i)->applyFromArray($estilo);
+
+        // AutoSize
+        foreach ($letras as $col) {
+            $objPHPExcel->getActiveSheet()->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Nombre de hoja
+        $objPHPExcel->getActiveSheet()->setTitle('Reporte de Terceros');
+        $objPHPExcel->setActiveSheetIndex(0);
+        $objPHPExcel->getActiveSheet(0)->freezePane('A2');
+        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
+
+        // Salida del archivo
+        header("Pragma: no-cache");
+        header('Content-type: application/vnd.ms-excel');
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="Reporte_terceros.xlsx"');
+        header('Cache-Control: max-age=0');
+
+        $objWriter = \PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+        $objWriter->save('php://output');
+        exit;
     }
 
     public function descargar_resumen_prestacion_social(Request $request)

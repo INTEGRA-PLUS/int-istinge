@@ -4337,12 +4337,19 @@ function getPlanes(mikrotik) {
             getInterfaces(mikrotik);
             $("#amarre_mac").val(data.mikrotik.amarre_mac);
             $('#conexion').val('').selectpicker('refresh');
-
-              // Vaciar el select para evitar duplicados
+            // Vaciar el select para evitar duplicados
             $("#div_profile_select").empty();
 
+            // Asegurarnos de que profile sea un array
+            var profiles = data.profile;
+            if (typeof profiles === "number" || typeof profiles === "string") {
+                profiles = [ { name: profiles } ];
+            } else if (!Array.isArray(profiles)) {
+                profiles = []; // fallback a vacío
+            }
+
             // Iterar sobre los perfiles y agregar cada uno como una opción al select
-            $.each(data.profile, function(key, value) {
+            $.each(profiles, function(key, value) {
                 $("#div_profile_select").append($('<option>', {
                     value: value.name,
                     text: value.name

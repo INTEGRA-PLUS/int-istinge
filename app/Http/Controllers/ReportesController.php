@@ -2465,6 +2465,8 @@ class ReportesController extends Controller
             $appends['hasta']=$request->hasta;
         }
 
+            $appends['documento'] = $request->documento;
+
         if($request->documento == 1){
             $documentos = Factura::leftjoin('contactos as c', 'cliente', '=', 'c.id')
             ->select('factura.*', 'c.nombre', 'factura.codigo as nro')
@@ -2793,12 +2795,21 @@ class ReportesController extends Controller
         }
 
         $movimientosContables = PucMovimiento::join('puc as p','p.id','puc_movimiento.cuenta_id')
-            ->select('puc_movimiento.*','p.nombre as cuentacontable',
-            DB::raw("SUM((`debito`)) as totaldebito"),
-            DB::raw("SUM((`credito`)) as totalcredito"),
-            DB::raw("ABS(SUM((`credito`)) -  SUM((`debito`))) as totalfinal"))
-            ->orderBy($orderby, $order)
-            ->groupBy('cuenta_id')
+            ->select(
+                'p.nombre as cuentacontable',
+                'p.codigo as codigo_cuenta',
+                DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion < '$desde' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_inicial"),
+                DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.debito ELSE 0 END) as totaldebito"),
+                DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion BETWEEN '$desde' AND '$hasta' THEN puc_movimiento.credito ELSE 0 END) as totalcredito"),
+                DB::raw("SUM(CASE WHEN puc_movimiento.fecha_elaboracion <= '$hasta' THEN (puc_movimiento.debito - puc_movimiento.credito) ELSE 0 END) as saldo_final")
+            )
+            ->where(function($query) {
+                $query->where('p.codigo', 'LIKE', '1%')
+                    ->orWhere('p.codigo', 'LIKE', '2%')
+                    ->orWhere('p.codigo', 'LIKE', '3%');
+            })
+            ->groupBy('p.id','p.nombre','p.codigo')
+            ->orderByRaw("LEFT(p.codigo, 1) $order, p.codigo $order")
             ->get();
 
         // if (
@@ -2975,84 +2986,154 @@ class ReportesController extends Controller
         $objWriter->save('php://output');
     }
 
-    public function exogena(Request $request){
+    public function terceros(Request $request)
+    {
         $this->getAllPermissions(Auth::user()->id);
-        DB::enableQueryLog();
-        if ($request->nro == 'remisiones'){
-            return $this->remisiones($request);
-        }else{
+        view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Terceros', 'icon' => '']);
 
-            $numeraciones=NumeracionFactura::where('empresa',Auth::user()->empresa)->get();
-            $cajas = Banco::where('estatus',1)->get();
-            $cajasUsuario = auth()->user()->cuentas();
+        // Fechas
+        $dates = $this->setDateRequest($request);
 
-            if(Auth::user()->rol > 1 && auth()->user()->rol == 8){
-                $cajas = Banco::whereIn('id', $cajasUsuario)->get();
-            }
+        // Campos para ordenar (ajusta si necesitas otras columnas)
+        $campos = [
+            'contactos.tip_iden',
+            'contactos.nit',
+            'contactos.nombre',
+            'm.nombre',
+            'd.nombre',
+            'contactos.direccion',   // 👈 dirección antes
+            'ingresosBrutos'         // 👈 ingresos después
+        ];
 
-            view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Exógena', 'icon' =>'fas fa-chart-line']);
-            $campos=array( '','nombre', 'f.fecha', 'f.vencimiento', 'nro', 'nro', 'nro', 'nro');
-            if (!$request->orderby) {
-                $request->orderby=1; $request->order=1;
-            }
-            $orderby=$campos[$request->orderby];
-            $order=$request->order==1?'DESC':'ASC';
-
-            $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
-            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
-            ->whereIn('f.tipo', [2])
-            // ->where('contactos.id',1518)
-            ->select('contactos.id as idContacto','contactos.nombre','contactos.apellido1','contactos.apellido2','contactos.nit',
-            'contactos.tip_iden')
-            ->selectRaw('SUM(ig.pago) as ingresosBrutos')
-            ->groupBy('contactos.id')
-            ;
-
-            $dates = $this->setDateRequest($request);
-
-            if($request->input('fechas') != 8 || (!$request->has('fechas'))){
-                $contactos=$contactos->where('f.fecha','>=', $dates['inicio'])->where('f.fecha','<=', $dates['fin']);
-            }
-
-            $ides=array();
-            $contactos=$contactos->OrderBy($orderby, $order)->get();
-
-            // foreach ($facturas as $factura) {
-            //     $ides[]=$factura->id;
-            // }
-
-            if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
-                switch ($request->orderby){
-                    case 4:
-                        $contactos = $request->order  ? $contactos->sortBy('subtotal') : $contactos = $contactos->sortByDesc('subtotal');
-                        break;
-                    case 5:
-                        $contactos = $request->order ? $contactos->sortBy('iva') : $contactos = $contactos->sortByDesc('iva');
-                        break;
-                    case 6:
-                        $contactos = $request->order ? $contactos->sortBy('retenido') : $contactos = $contactos->sortByDesc('retenido');
-                        break;
-                    case 7:
-                        $contactos = $request->order ? $contactos->sortBy('total') : $contactos = $contactos->sortByDesc('total');
-                        break;
-                }
-            }
-            $contactos = $this->paginate($contactos, 15, $request->page, $request);
-
-            $subtotal=$total=0;
-            // if ($ides) {
-            //     $result=DB::table('items_factura')->whereIn('factura', $ides)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
-            //     $subtotal=$this->precision($result->total-$result->descuento);
-            //     $total=$this->precision((float)$subtotal+$result->impuesto);
-            // }
-
-            $empresa = Empresa::Find(1);
-
-            return view('reportes.exogena.index')->with(compact('contactos', 'request','empresa'));
-
+        // Ordenamiento por defecto
+        if (!$request->orderby) {
+            $request->orderby = 2; // por nombre
+            $request->order = 0;   // ascendente
         }
 
+        $orderby = $campos[$request->orderby] ?? 'contactos.nombre';
+        $order   = $request->order == 1 ? 'DESC' : 'ASC';
+
+        // Consulta
+        $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
+            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
+            ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
+            ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
+            ->whereIn('f.tipo', [2])
+            ->select(
+                'contactos.id as idContacto',
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.dv',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2',
+                'contactos.direccion',  // 👈 dirección aquí
+                'contactos.vereda',
+                'contactos.barrio',
+                'contactos.cod_postal',
+                'contactos.telefono1',
+                'contactos.telefono2',
+                'contactos.celular',
+                'contactos.fax',
+                'contactos.email',
+                'contactos.fk_idpais',
+                'm.nombre as municipio',
+                'd.nombre as departamento',
+                'contactos.status',
+                DB::raw('SUM(ig.pago) as ingresosBrutos') // 👈 ingresos brutos al final
+            )
+            ->groupBy(
+                'contactos.id',
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.dv',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2',
+                'contactos.direccion',
+                'contactos.vereda',
+                'contactos.barrio',
+                'contactos.cod_postal',
+                'contactos.telefono1',
+                'contactos.telefono2',
+                'contactos.celular',
+                'contactos.fax',
+                'contactos.email',
+                'contactos.fk_idpais',
+                'm.nombre',
+                'd.nombre',
+                'contactos.status'
+            );
+
+        // Filtro por fechas
+        if ($request->input('fechas') != 8 || (!$request->has('fechas'))) {
+            $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
+        }
+
+        // Ordenar
+        $contactos = $contactos->orderBy($orderby, $order)->get();
+
+        // Paginar igual que en balance
+        $contactos = $this->paginate($contactos, 15, $request->page, $request);
+
+        $empresa = Empresa::find(Auth::user()->empresa);
+
+        return view('reportes.terceros.index')
+            ->with(compact('contactos', 'request', 'empresa'));
     }
+
+
+    public function exogena(Request $request)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+
+        // Fechas por defecto
+        $dates = $this->setDateRequest($request);
+
+        // Construcción de la consulta base
+        $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
+            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
+            ->whereIn('f.tipo', [2])
+            ->select(
+                'contactos.id as idContacto',
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2',
+                DB::raw('SUM(ig.pago) as ingresosBrutos'),
+                DB::raw('MIN(f.fecha) as fechaPrimeraFactura'),
+                DB::raw('MAX(f.fecha) as fechaUltimaFactura')
+            )
+            ->groupBy(
+                'contactos.id',
+                'contactos.tip_iden',
+                'contactos.nit',
+                'contactos.nombre',
+                'contactos.apellido1',
+                'contactos.apellido2'
+            );
+
+        // Filtro por rango de fechas
+        if ($request->input('fechas') != 8 || (!$request->has('fechas'))) {
+            $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
+        }
+
+        // Ordenamiento
+        $orderBy = $request->orderby ?? 'contactos.nombre';
+        $order   = $request->order == 1 ? 'DESC' : 'ASC';
+        $contactos = $contactos->orderBy($orderBy, $order);
+
+        // Obtener datos
+        $contactos = $contactos->get();
+
+        $empresa = Empresa::find(Auth::user()->empresa);
+
+        return view('reportes.exogena.index')
+            ->with(compact('contactos', 'request', 'empresa'));
+    }
+
 
     public function contratoPeriodo(Request $request){
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Empresa;
 use App\Suscripcion;
 use App\SuscripcionPago;
 use Carbon\Carbon;
@@ -29,6 +30,7 @@ class SuscripcionController extends Controller
         }
 
         $empresa_id = Auth::user()->empresa;
+        $empresa = Empresa::Find($empresa_id);
         $today = Carbon::now()->day;
 
         $suscripcion = Suscripcion::where('id_empresa', $empresa_id)
@@ -41,6 +43,10 @@ class SuscripcionController extends Controller
 
         // Check if today is the billing day and subscription is inactive (estado = 0)
         $showModal = ($today == $suscripcion->dia_facturacion && $suscripcion->estado == 0);
+
+        if($empresa->activo_mensaje == 1){
+            $showModal = true;
+        }
 
         return response()->json(['showModal' => $showModal]);
     }

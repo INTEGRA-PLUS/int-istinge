@@ -15,6 +15,8 @@ use App\Http\Controllers\TecnicoController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\ACSController;
+
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 
@@ -52,7 +54,7 @@ Route::get('borrar-cache', function () {
 
 Route::get('contact/newcam', 'ContactosController@indexcampos')->name('contact.new');
 Route::post('contact/campos', 'ContactosController@newcampos')->name('contact.new.campos');
-
+Route::get('/software/api/getPlanes/{mikrotik_id}', [PlanesVelocidadController::class, 'getPlanesPorMikrotik']);
 
 /* IMPORTAR API*/
 Route::post('/import_puc', 'PucController@import_puc')->name('puc.import_puc');
@@ -589,7 +591,28 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('facturas-whatsapp-envio', 'FacturasController@facturasWhastappEnvio')->name('cronjob.whatsapp-facturas-envio');
 		Route::get('facturas-whatsapp-reiniciar', 'FacturasController@facturasWhastappReiniciar')->name('cronjob.whatsapp-facturas-reiniciar');
 	});
-	Route::resource('facturas', 'FacturasController');
+
+	// Listar todas las facturas
+    Route::get('factura-index', 'FacturasController@index')->name('facturas.index');
+
+    // Formulario para crear factura
+    Route::get('facturas/create', 'FacturasController@create')->name('facturas.create');
+
+    // Guardar factura nueva
+    Route::post('facturas-store', 'FacturasController@store')->name('facturas.store');
+
+    // Mostrar una factura específica
+    Route::get('facturas/{factura}', 'FacturasController@show')->name('facturas.show');
+
+    // Formulario para editar una factura
+    Route::get('facturas/{factura}/edit', 'FacturasController@edit')->name('facturas.edit');
+
+    // Actualizar factura (PUT o PATCH)
+    Route::put('facturas/{factura}', 'FacturasController@update')->name('facturas.update');
+    Route::patch('facturas/{factura}', 'FacturasController@update');
+
+    // Eliminar factura
+    Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
@@ -1305,7 +1328,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		//Reportes contables
 		Route::get('/balances', 'ReportesController@balance')->name('reportes.balance');
 		Route::get('/exogena', 'ReportesController@exogena')->name('reportes.exogena');
-
+		Route::get('/terceros', 'ReportesController@terceros')->name('reportes.terceros');
 
 		Route::get('/contratoperiodo', 'ReportesController@contratoPeriodo')->name('reportes.contratoperiodo');
 		Route::get('/personassincontrato', 'ReportesController@personaSinContrato')->name('reportes.personasincontrato');
@@ -1348,6 +1371,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		//rutas para expotar excel contable
 		Route::get('/balance', 'ExportarReportesController@balance')->name('exportar.balance');
 		Route::get('/exogena', 'ExportarReportesController@exogena')->name('exportar.exogena');
+		Route::get('/exogena', 'ExportarReportesController@terceros')->name('exportar.terceros');
 
 		Route::get('/contratoperiodo', 'ExportarReportesController@contratoPeriodo')->name('exportar.contratoperiodo');
         Route::get('/personassincontrato', 'ExportarReportesController@personaSinContrato')->name('exportar.personasincontrato');
@@ -1380,6 +1404,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		Route::get('/{radicados}/{state}/state_lote', 'RadicadosController@state_lote')->name('radicados.state_lote');
 		Route::get('/{radicados}/destroy_lote', 'RadicadosController@destroy_lote')->name('radicados.destroy_lote');
+		Route::get('/{radicados}/destroy_tecnicos_asociados', 'RadicadosController@destroy_tecnicos_asociados')->name('radicados.destroy_tecnicos_asociados');
 		Route::get('{id}/log', 'RadicadosController@log')->name('radicados.log');
 		Route::post('/asignacion-tecnico', 'RadicadosController@asignacionTecnico')->name('radicados.asignaciontecnico');
 	});
@@ -1602,6 +1627,15 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::resource('tipos-gastos', 'TiposGastosController');
 
+
+	//---------------------------------------------------------------
+	// ACS
+	// RUTAS PARA EL ACS (Auto Configuration Server)
+	Route::get('/acs', 'ACSController@index')->name('acs.index');
+	//---------------------------------------------------------------
+
+
+
 	//CRM
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
@@ -1676,6 +1710,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 });
 
 
+
 Route::get('/graficos/{id?}', 'GraficosController@index');
 Route::get('/data-grafica/', 'GraficosController@data');
 
@@ -1719,3 +1754,6 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 // RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
+
+
+

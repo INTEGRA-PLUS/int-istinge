@@ -42,6 +42,31 @@ class PlanesVelocidadController extends Controller
         view()->share(['seccion' => 'mikrotik', 'subseccion' => 'gestion_planes', 'title' => 'Planes de Velocidad', 'icon' =>'fas fa-server']);
     }
 
+    public function getPlanesPorMikrotik($mikrotik_id)
+    {
+        try {
+            $planes = PlanesVelocidad::where('status', 1)
+                                    ->where('empresa', Auth::user()->empresa)
+                                    ->where('mikrotik', $mikrotik_id)
+                                    ->get();
+
+            $mikrotikServer = Mikrotik::find($mikrotik_id);
+
+            return response()->json([
+                'success' => true,
+                'planes' => $planes,
+                'mikrotik' => $mikrotikServer,
+                'profile' => []
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener los planes: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function index(Request $request){
         $this->getAllPermissions(Auth::user()->id);
 

@@ -511,33 +511,25 @@
                      </div>
 
                      <!-- Modal Suscripción Vencida -->
-                     <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true">
+                     @if((Auth::user()->empresa()) && Auth::user()->empresa()->activo_mensaje == 1)
+                     <div class="modal fade" id="modalSuscripcion" tabindex="-1" role="dialog" aria-labelledby="modalSuscripcionLabel" aria-hidden="true"
+                     data-backdrop="static" data-keyboard="false">
                          <div class="modal-dialog" role="document">
                              <div class="modal-content">
                                  <div class="modal-header bg-danger text-white">
                                      <h4 class="modal-title text-uppercase">Integra Colombia: Suscripción Vencida</h4>
-                                     <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                     {{-- <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                                          <span aria-hidden="true">&times;</span>
-                                     </button>
+                                     </button> --}}
                                  </div>
                                  <div class="modal-body">
-                                     <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-                                     <p>Medios de pago:</p>
-                                     <ul class="list-unstyled">
-                                         <li><strong>Nequi:</strong> 3206909290 <strong>CC:</strong> 1045740096</li>
-                                         <li><strong>Cuenta de ahorros Bancolombia:</strong> 42081411021</li>
-                                         <li><strong>CC:</strong> 1001912928</li>
-                                         <li><strong>Representante legal:</strong> Ximena Herrera</li>
-                                     </ul>
-                                     <div class="text-center mt-3">
-                                         <a href="https://wa.me/573206909290?text=Adjunto comprobante de pago para reactivar membresía" target="_blank" class="btn btn-success">
-                                             <i class="fab fa-whatsapp mr-2"></i>Enviar comprobante por WhatsApp
-                                         </a>
-                                     </div>
+                                     <p>Tu suscripción ha vencido. Para mantener el acceso a nuestros servicios,
+                                        recuerda realizar tu pago a la brevedad.</p>
                                  </div>
                              </div>
                          </div>
                      </div>
+                     @endif
 
                      <!-- NOTIFICACIONES -->
                      <input type="hidden" name="nro_notificacionesR" id="nro_notificacionesR" value="0">
@@ -946,13 +938,13 @@
         // Esperar a que el DOM esté completamente cargado
         $(document).ready(function() {
             console.log('Layout principal cargado - verificando asistencias...');
-            
+
             // Dar tiempo a que se ejecute el script del navbar
             setTimeout(function() {
                 // Solo ejecutar si no se inicializó desde el navbar
                 if (typeof window.asistenciaInicializada === 'undefined' || !window.asistenciaInicializada) {
                     console.log('Sistema de asistencias no inicializado, ejecutando desde layout principal...');
-                    
+
                     // Solo ejecutar si existe el botón de asistencia
                     if ($('#btn-asistencia').length > 0) {
                         console.log('Botón de asistencia encontrado, inicializando...');
@@ -971,16 +963,16 @@
                                 timeout: 10000,
                                 success: function(response) {
                                     console.log('Estado asistencia (backup):', response);
-                                    
+
                                     const texto = $('#texto-asistencia');
                                     const icono = $('#icono-asistencia');
                                     const boton = $('#btn-asistencia');
-                                    
+
                                     if (icono.length === 0) return;
-                                    
+
                                     if(response.ultimo_registro) {
                                         const estado = response.ultimo_registro.tipo;
-                                        
+
                                         if(estado === 'ingreso') {
                                             icono.css('color', '#28a745');
                                             texto.hide(); // Ocultar texto cuando está en el trabajo
@@ -998,9 +990,9 @@
                                         boton.attr('title', 'Sin registros hoy - Haz clic para marcar ingreso');
                                         boton.addClass('btn-pulse');
                                     }
-                                    
+
                                     console.log('Estado actualizado (backup)');
-                                    
+
                                     // Marcar como inicializado
                                     window.asistenciaInicializada = true;
                                     window.actualizarEstadoAsistencia = verificarEstadoAsistenciaBackup;
@@ -1010,10 +1002,10 @@
                                 }
                             });
                         }
-                        
+
                         // Ejecutar verificación
                         verificarEstadoAsistenciaBackup();
-                        
+
                         // Configurar tooltip
                         $('#btn-asistencia').tooltip({
                             placement: 'bottom',
@@ -1023,7 +1015,7 @@
                 } else {
                     console.log('Sistema de asistencias ya inicializado desde navbar');
                 }
-                
+
                 // Forzar actualización si existe la función global
                 if (typeof window.actualizarEstadoAsistencia === 'function') {
                     console.log('Actualizando estado desde función global...');

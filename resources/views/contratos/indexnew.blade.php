@@ -88,7 +88,7 @@
                             <input type="text" class="form-control" id="nro" name="nro" placeholder="Nro">
                         </div>
                         <div class="col-md-2 pl-1 pt-1">
-                            <input type="text" class="form-control" id="sn" name="sn" placeholder="SN">
+                            <input type="text" class="form-control" id="sn" name="sn" placeholder="Serial ONU">
                         </div>
                         <div class="col-md-2 pl-1 pt-1">
                             <input type="text" class="form-control" id="linea" name="linea" placeholder="linea">

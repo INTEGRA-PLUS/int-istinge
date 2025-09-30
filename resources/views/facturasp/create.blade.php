@@ -164,11 +164,11 @@
                   @endforeach
                 </optgroup>
               </select>
-                   <p class="text-left nomargin">
-                       <a href="" data-toggle="modal" data-target="#modalproduct" class="modalTr" tr="1">
-                           <i class="fas fa-plus"></i> Nuevo Producto
-                       </a>
-                   </p>
+              <p class="text-left nomargin">
+              <a href="#" data-toggle="modal" data-target="#modalproduct" class="modalTr" tr="1">
+                  <i class="fas fa-plus"></i> Nuevo Producto
+              </a>
+              </p>
               </div>
               </td>
               <td class="monetario">

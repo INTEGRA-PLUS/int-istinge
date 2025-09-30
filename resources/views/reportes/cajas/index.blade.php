@@ -8,16 +8,16 @@
             <div class="form-group col-md-2">
                 <label>Caja</label>
                 <select class="form-control selectpicker" name="caja" id="caja" title="Seleccione" data-live-search="true" data-size="6">
-        		    	@foreach($cajas as $caja)
-        		    		<option value="{{$caja->id}}" {{$caja->id==$request->caja?'selected':''}}>{{$caja->nombre}}</option>
-        		    	@endforeach
-        		</select>
+                    @foreach($cajas as $caja)
+                        <option value="{{$caja->id}}" {{$caja->id==$request->caja?'selected':''}}>{{$caja->nombre}}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="form-group col-md-2">
                 <label>Servidor</label>
                 <select class="form-control selectpicker" name="servidor" title="Seleccione" data-live-search="true" data-size="6">
                     @foreach($servidores as $servidor)
-                    <option value="{{$servidor->id}}" {{$request->servidor==$servidor->id?'selected':''}}>{{$servidor->nombre}}</option>
+                        <option value="{{$servidor->id}}" {{$request->servidor==$servidor->id?'selected':''}}>{{$servidor->nombre}}</option>
                     @endforeach
                     <option value="0">Ninguno</option>
                 </select>
@@ -56,97 +56,103 @@
                 <div class="row">
                     <div class="col-md-6">
                         <label>Desde <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control"  id="desde" value="{{$request->fecha}}" name="fecha" required="" >
+                        <input type="text" class="form-control" id="desde" value="{{$request->fecha}}" name="fecha" required="">
                     </div>
                     <div class="col-md-6">
-                        <label >Hasta <span class="text-danger">*</span></label>
+                        <label>Hasta <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="hasta" value="{{$request->hasta}}" name="hasta" required="">
                     </div>
-
                 </div>
             </div>
             <div class="form-group col-md-4 text-center offset-md-4">
-                <center><button type="button" id="generar" class="btn btn-outline-primary">Generar Reporte</button>
-                <button type="button" id="exportar" class="btn btn-outline-success">Exportar a Excel</button></center>
+                <center>
+                    <button type="button" id="generar" class="btn btn-outline-primary">Generar Reporte</button>
+                    <button type="button" id="exportar" class="btn btn-outline-success">Exportar a Excel</button>
+                </center>
             </div>
         </div>
         <div class="row card-description">
             <div class="col-md-12 table-responsive">
                 <table class="table" id="table-reporte">
-                <thead class="thead-dark">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Comprobante</th>
-                    <th>Contacto</th>
-                    <th>Identificación</th>
-                    <th>Realizó</th>
-                    <th>Cuenta</th>
-                    <th>Categoría</th>
-                    <th>Estado</th>
-                    <th>Observaciones</th>
-                    <th>notas</th>
-                    <th>Salida</th>
-                    <th>Entrada</th>
-                </tr>
-                </thead>
-                <tbody>
-
-                @foreach($movimientos as $movimiento)
-                    <tr>
-                        <td><a href="{{$movimiento->show_url()}}">{{date('d-m-Y', strtotime($movimiento->fecha))}}</a></td>
-                        <td>
-                            <a href="{{$movimiento->show_url()}}">
-                                {{$movimiento->id_modulo}}
-                            </a>
-                        </td>
-                        <td>
-                            {{$movimiento->contacto ? $movimiento->cliente()->nombre  . $movimiento->cliente()->apellidos() : ''}}
-                        </td>
-                        <td>
-                            {{isset($movimiento->cliente()->nit) ? $movimiento->cliente()->nit : ''}}
-                        </td>
-                        <td>
-                            @if($movimiento->padre() && $movimiento->padre()->created_by())
-                            {{ $movimiento->padre() ? $movimiento->padre()->created_by()->nombres : ''}}
-                            @endif
-                        </td>
-
-                        <td>
-                            {{$movimiento->banco()->nombre}}
-                        </td>
-                        <td>
-                            {{$movimiento->categoria()}}
-                        </td>
-                        <td>
-                            <spam class="text-{{$movimiento->estatus(true)}}">
-                                {{$movimiento->estatus()}}
-                            </spam>
-                        </td>
-                        <td>
-                            {{$movimiento->observaciones()}}
-                        </td>
-                        <td>
-                            {{$movimiento->notas()}}
-                        </td>
-                        <td>
-                            {{$movimiento->tipo==2?Auth::user()->empresa()->moneda.\App\Funcion::Parsear($movimiento->saldo):''}}
-                        </td>
-                        <td>
-                            {{$movimiento->tipo==1?Auth::user()->empresa()->moneda.\App\Funcion::Parsear($movimiento->saldo):''}}
-                        </td>
-                    </tr>
-                @endforeach
-                </tbody>
-                <tfoot class="thead-dark">
-                    <td colspan="10"></td>
-                    <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['salida'])}}</th>
-                    <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['entrada'])}}</th>
-                </tfoot>
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Comprobante</th>
+                            <th>Contacto</th>
+                            <th>Identificación</th>
+                            <th>Barrio</th>
+                            <th>Realizó</th>
+                            <th>Cuenta</th>
+                            <th>Categoría</th>
+                            <th>Estado</th>
+                            <th>Observaciones</th>
+                            <th>Notas</th>
+                            <th>Salida</th>
+                            <th>Entrada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($movimientos as $movimiento)
+                            <tr>
+                                <td>
+                                    <a href="{{$movimiento->show_url()}}">
+                                        {{date('d-m-Y', strtotime($movimiento->fecha))}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{{$movimiento->show_url()}}">
+                                        {{$movimiento->id_modulo}}
+                                    </a>
+                                </td>
+                                <td>
+                                    {{$movimiento->contacto ? $movimiento->cliente()->nombre  . $movimiento->cliente()->apellidos() : ''}}
+                                </td>
+                                <td>
+                                    {{isset($movimiento->cliente()->nit) ? $movimiento->cliente()->nit : ''}}
+                                </td>
+                                <td>
+                                    {{ $movimiento->cliente() ? $movimiento->cliente()->barrio : '' }}
+                                </td>
+                                <td>
+                                    @if($movimiento->padre() && $movimiento->padre()->created_by())
+                                        {{ $movimiento->padre() ? $movimiento->padre()->created_by()->nombres : ''}}
+                                    @endif
+                                </td>
+                                <td>
+                                    {{$movimiento->banco()->nombre}}
+                                </td>
+                                <td>
+                                    {{$movimiento->categoria()}}
+                                </td>
+                                <td>
+                                    <span class="text-{{$movimiento->estatus(true)}}">
+                                        {{$movimiento->estatus()}}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{$movimiento->observaciones()}}
+                                </td>
+                                <td>
+                                    {{$movimiento->notas()}}
+                                </td>
+                                <td>
+                                    {{$movimiento->tipo==2?Auth::user()->empresa()->moneda.\App\Funcion::Parsear($movimiento->saldo):''}}
+                                </td>
+                                <td>
+                                    {{$movimiento->tipo==1?Auth::user()->empresa()->moneda.\App\Funcion::Parsear($movimiento->saldo):''}}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot class="thead-dark">
+                        <td colspan="11"></td>
+                        <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['salida'])}}</th>
+                        <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['entrada'])}}</th>
+                    </tfoot>
                 </table>
                 <div class="text-right">
                     {!! $movimientos->render() !!}
                 </div>
-
             </div>
         </div>
     </form>

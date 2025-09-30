@@ -135,6 +135,13 @@ class Factura extends Model
     public function contratoAsociado(){
         $contrato = Contrato::find($this->contrato_id);
 
+        if(!$contrato){
+            $idContrato = DB::table('facturas_contratos')->where('factura_id',$this->id)->first();
+            if($idContrato){
+                $contrato = Contrato::where('nro',$idContrato->contrato_nro)->first();
+            }
+        }
+
         if($contrato){return $contrato;}
     }
 
@@ -1412,8 +1419,15 @@ public function forma_pago()
 
             //si este caso ocurre es por que tengo que cobrar el mes pasado
             if($empresa->periodo_facturacion == 2){
-                $finCorte = Carbon::parse($finCorte)->subMonth();
-                $inicioCorte =  $inicioCorte->subMonth();
+                // MES VENCIDO
+                $corteAnterior = Carbon::createFromDate(
+                    Carbon::parse($this->fecha)->year,
+                    Carbon::parse($this->fecha)->month,
+                    $grupo->fecha_corte
+                );
+
+                $inicioCorte = $corteAnterior->copy()->subMonth(); // inicio en el corte pasado
+                $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
             }
             else {
                 if ($empresa->periodo_facturacion == 1) {

@@ -607,120 +607,149 @@ class InventarioController extends Controller{
         }
     }
 
-    public function storeBack(Request $request){
-        $preApp = $request->toUrl != '' ? $request->toUrl : false;
+    public function storeBack(Request $request)
+    {
+        try {
+            $preApp = $request->toUrl != '' ? $request->toUrl : false;
 
-        $request->validate([
-            'producto' => 'required',
-            'categoria' => 'required|exists:categorias,id',
-            'impuesto' => 'required|numeric',
-            'tipo_producto' => 'required|numeric',
-        ]);
-        if ($request->imagen) {
             $request->validate([
-                //'imagen'=>'mimes:jpeg,jpg,png| max:1000'
-            ],['imagen.mimes' => 'La extensión del imagen debe ser jpeg, jpg, png',
-                //'imagen.max' => 'El peso máximo para el imagen es de 1000KB',
+                'producto'      => 'required',
+                'categoria' => 'required|exists:puc,id',
+                'impuesto'      => 'required|numeric',
+                'tipo_producto' => 'required|numeric',
             ]);
-        }
 
-        $errors= (object) array();
-
-        if ($request->ref) {
-            $error =Inventario::where('ref', $request->ref)->where('empresa',Auth::user()->empresa)->count();
-            if ($error>0) {
-                $arrayPost['status']  = 'error';
-                $arrayPost['mensaje'] = 'El código de referencia ya se encuentra registrado para otro producto';
-                echo json_encode($arrayPost);
-                exit;
+            if ($request->imagen) {
+                $request->validate([
+                    'imagen' => 'mimes:jpeg,jpg,png|max:1000'
+                ], [
+                    'imagen.mimes' => 'La extensión de la imagen debe ser jpeg, jpg o png',
+                    'imagen.max'   => 'El peso máximo para la imagen es de 1000KB',
+                ]);
             }
-        }
 
-        $impuesto = Impuesto::where('id', $request->impuesto)->first();
-        $inventario = new Inventario;
-        $inventario->empresa=Auth::user()->empresa;
-        $inventario->producto=ucwords($request->producto);
-        $inventario->ref=$request->ref;
-        $inventario->descripcion=mb_strtolower($request->descripcion);
-        $inventario->precio=$this->precision($request->precio);
-        $inventario->id_impuesto=$request->impuesto;
-        $inventario->type='MATERIAL';
-        if($request->publico){
-            $inventario->publico=$request->publico;
-        }
-        $inventario->impuesto=$impuesto->porcentaje;
-        $inventario->tipo_producto=$request->tipo_producto;
-        $inventario->unidad=1;$inventario->nro=0;
-        $inventario->categoria=$request->categoria;
-        $inventario->lista = 0;
-        $inventario->save();
+            // Validar referencia única
+            if ($request->ref) {
+                $error = Inventario::where('ref', $request->ref)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->count();
 
-        if ($request->tipo_producto==1) {
-            $request->validate([
-                'unidad' => 'required|exists:unidades_medida,id',
-                'costo_unidad' => 'required|numeric'
-            ]);
-            if ($request->bodega) {
-                foreach ($request->bodega as $key => $value) {
-                    $bodega = new ProductosBodega;
-                    $bodega->empresa=Auth::user()->empresa;;
-                    $bodega->bodega=$value;
-                    $bodega->producto=$inventario->id;
-                    $bodega->nro=$request->bodegavalor[$key];
-                    $bodega->inicial=$request->bodegavalor[$key];
-                    $bodega->save();
+                if ($error > 0) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'mensaje' => 'El código de referencia ya se encuentra registrado para otro producto'
+                    ], 422);
                 }
             }
-            $inventario->unidad=$request->unidad;
-            $inventario->costo_unidad=$this->precision($request->costo_unidad);
+
+            $impuesto = Impuesto::find($request->impuesto);
+
+            $inventario = new Inventario;
+            $inventario->empresa      = Auth::user()->empresa;
+            $inventario->producto     = ucwords($request->producto);
+            $inventario->ref          = $request->ref;
+            $inventario->descripcion  = mb_strtolower($request->descripcion);
+            $inventario->precio       = $this->precision($request->precio);
+            $inventario->id_impuesto  = $request->impuesto;
+            $inventario->type         = 'MATERIAL';
+            $inventario->publico      = $request->publico ?? 0;
+            $inventario->impuesto     = $impuesto->porcentaje ?? 0;
+            $inventario->tipo_producto= $request->tipo_producto;
+            $inventario->unidad       = 1;
+            $inventario->nro          = 0;
+            $inventario->categoria    = $request->categoria;
+            $inventario->lista        = 0;
             $inventario->save();
-        }
 
-        if ($request->preciolista) {
-            foreach ($request->preciolista as $key => $value) {
-                if ($request->preciolistavalor[$key]) {
-                    $precio = new ProductosPrecios;
-                    $precio->empresa=Auth::user()->empresa;;
-                    $precio->lista=$value;
-                    $precio->producto=$inventario->id;
-                    $precio->precio=$this->precision($request->preciolistavalor[$key]);
-                    $precio->save();
+            // Producto inventariable
+            if ($request->tipo_producto == 1) {
+                $request->validate([
+                    'unidad'       => 'required|exists:unidades_medida,id',
+                    'costo_unidad' => 'required|numeric'
+                ]);
+
+                if ($request->bodega) {
+                    foreach ($request->bodega as $key => $value) {
+                        $bodega = new ProductosBodega;
+                        $bodega->empresa  = Auth::user()->empresa;
+                        $bodega->bodega   = $value;
+                        $bodega->producto = $inventario->id;
+                        $bodega->nro      = $request->bodegavalor[$key];
+                        $bodega->inicial  = $request->bodegavalor[$key];
+                        $bodega->save();
+                    }
+                }
+
+                $inventario->unidad       = $request->unidad;
+                $inventario->costo_unidad = $this->precision($request->costo_unidad);
+                $inventario->save();
+            }
+
+            // Precios por lista
+            if ($request->preciolista) {
+                foreach ($request->preciolista as $key => $value) {
+                    if ($request->preciolistavalor[$key]) {
+                        $precio = new ProductosPrecios;
+                        $precio->empresa  = Auth::user()->empresa;
+                        $precio->lista    = $value;
+                        $precio->producto = $inventario->id;
+                        $precio->precio   = $this->precision($request->preciolistavalor[$key]);
+                        $precio->save();
+                    }
                 }
             }
-        }
 
-        $inserts=array();
-        $extras = CamposExtra::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
-        foreach ($extras as $campo) {
-            $extra='ext_'.$campo->campo;
-            if ($request->$extra) {
-                $insert=array('empresa'=>Auth::user()->empresa, 'id_producto'=>$inventario->id, 'meta_key'=>$campo->campo, 'meta_value'=>$request->$extra);
-                $inserts[]=$insert;
+            // Campos extras
+            $inserts = [];
+            $extras = CamposExtra::where('empresa', Auth::user()->empresa)
+                ->where('status', 1)
+                ->get();
+
+            foreach ($extras as $campo) {
+                $extra = 'ext_' . $campo->campo;
+                if ($request->$extra) {
+                    $inserts[] = [
+                        'empresa'    => Auth::user()->empresa,
+                        'id_producto'=> $inventario->id,
+                        'meta_key'   => $campo->campo,
+                        'meta_value' => $request->$extra
+                    ];
+                }
             }
-        }
 
-        if (count($inserts)>0) {
-            DB::table('inventario_meta')->insert($inserts);
-        }
+            if (count($inserts) > 0) {
+                DB::table('inventario_meta')->insert($inserts);
+            }
 
-        $productId = Inventario::all()->last()->id;
-        $product   = Inventario::all()->last()->producto;
+            $productId = $inventario->id;
+            $product   = $inventario->producto;
 
-        if($preApp != false){
-            //return redirect()->to($preApp.'?'.http_build_query(['pro' => $product]));
-            $arrayPost['status']  = 'error';
-            $arrayPost['mensaje'] = 'No se pudo realizar el registro. Verifique los datos';
-            echo json_encode($arrayPost);
-            exit;
-        }else{
-            //return $this->createModal($product);
-            $arrayPost['status']  = 'OK';
-            $arrayPost['id'] = $productId;
-            $arrayPost['producto'] = $product;
-            echo json_encode($arrayPost);
-            exit;
+            if ($preApp != false) {
+                return response()->json([
+                    'status'  => 'error',
+                    'mensaje' => 'No se pudo realizar el registro. Verifique los datos'
+                ], 422);
+            }
+
+            return response()->json([
+                'status'   => 'OK',
+                'id'       => $productId,
+                'producto' => $product
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'mensaje' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'mensaje' => $e->getMessage()
+            ], 500);
         }
     }
+
 
     public function createModal($item){
         view()->share(['icon' =>'', 'title' => 'Nueva Facturas de Proveedores', 'subseccion' => 'facturas_proveedores']);

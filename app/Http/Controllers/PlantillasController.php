@@ -173,6 +173,7 @@ class PlantillasController extends Controller
         ]);
 
         $plantilla = Plantilla::find($id);
+        $rutaArchivoNuevo = "";
 
         if($plantilla){
             $rutaCarpeta = resource_path('views/emails');
@@ -201,7 +202,7 @@ class PlantillasController extends Controller
 
            // return 'Plantilla actualizada correctamente.';
 
-        }
+            }
             // if($plantilla->tipo==1){
             //     Storage::disk('emails')->delete($plantilla->archivo.'.blade.php');
             // }
@@ -217,13 +218,16 @@ class PlantillasController extends Controller
              }elseif($request->tipo==2){
                  $plantilla->contenido = $request->contenido_whatsapp;
              }
-             if (file_put_contents($rutaArchivoNuevo, $plantilla->contenido) === false) {
+
+            if ($request->tipo != 0 && file_put_contents($rutaArchivoNuevo, $plantilla->contenido) === false) {
                 // Manejar el error aquí, como registrar un mensaje o lanzar una excepción
                 die('Error al escribir el archivo.');
             }
 
             // Actualizar el nombre del archivo en la base de datos
-            $plantilla->archivo = $nombreArchivo;
+            if($request->tipo != 0){
+                $plantilla->archivo = $nombreArchivo;
+            }
             $plantilla->save();
 
              if($plantilla->tipo==1){

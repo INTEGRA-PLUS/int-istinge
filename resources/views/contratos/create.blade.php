@@ -265,7 +265,7 @@
                     </div>
                     <div class="tab-pane fade" id="internet" role="tabpanel" aria-labelledby="internet-tab">
                         <div class="row">
-
+                            
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Servidor <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -280,7 +280,6 @@
                                     <strong>{{ $errors->first('server_configuration_id') }}</strong>
                                 </span>
                             </div>
-
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Plan <span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -745,6 +744,7 @@
                     </div>
                     <div class="tab-pane fade" id="adicionales" role="tabpanel" aria-labelledby="adicionales-tab">
                         <div class="row">
+
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Descuento %<a><i data-tippy-content="El descuento que se indique, se reflejará en la facturación recurrente del contrato" class="icono far fa-question-circle"></i></a></label>
                                 <div class="input-group mb-2">
@@ -757,19 +757,39 @@
                                     <strong>{{ $errors->first('descuento') }}</strong>
                                 </span>
                             </div>
+
                             <div class="col-md-4 form-group">
-                                <label class="control-label">Vendedor <a><i data-tippy-content="Seleccione el vendedor del contrato" class="icono far fa-question-circle"></i></a></label>
+                                <label class="control-label">Descuento $<a><i data-tippy-content="El descuento que se indique, se reflejará en la facturación recurrente del contrato pero en pesos" class="icono far fa-question-circle"></i></a></label>
                                 <div class="input-group mb-2">
-                                    <select class="form-control selectpicker" name="vendedor" id="vendedor" title="Seleccione" data-live-search="true" data-size="5">
-                                        @foreach($vendedores as $vendedor)
-                                        <option value="{{$vendedor->id}}" {{old('vendedor')==$vendedor->id?'selected':''}}>{{$vendedor->nombre}}</option>
-                                        @endforeach
-                                    </select>
-                                    <span style="color: red;">
-                                        <strong>{{ $errors->first('vendedor') }}</strong>
-                                    </span>
+                                    <input type="number" class="form-control" id="descuento_pesos" name="descuento_pesos" value="" min='0'>
+                                    <div class="input-group-prepend">
+                                        <div class="input-group-text font-weight-bold"><i class="far fa-money-bill-alt"></i></div>
+                                    </div>
                                 </div>
+                                <span style="color: red;">
+                                    <strong>{{ $errors->first('descuento_pesos') }}</strong>
+                                </span>
                             </div>
+
+
+                            @php
+                            $today = now()->format('Y-m-d');
+                            $fechaHastaDesc = old('fecha_hasta_desc', $contrato->fecha_hasta_desc ?? "");
+                            @endphp
+
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">
+                                    Fecha Hasta - Desc.
+                                    <a><i data-tippy-content="Ingresa hasta qué fecha el descuento aplicará." class="icono far fa-question-circle"></i></a>
+                                </label>
+                                <input type="date"
+                                    class="form-control"
+                                    id="fecha_hasta_desc"
+                                    name="fecha_hasta_desc"
+                                    value="{{ $fechaHastaDesc }}"
+                                    min="{{ $today }}">
+                            </div>
+
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Canal de Venta <a><i data-tippy-content="Seleccione el canal de venta del contrato" class="icono far fa-question-circle"></i></a></label>
                                 <div class="input-group mb-2">
@@ -785,17 +805,19 @@
                             </div>
 
                             <div class="col-md-4 form-group">
-                                <label class="control-label">Descuento $<a><i data-tippy-content="El descuento que se indique, se reflejará en la facturación recurrente del contrato pero en pesos" class="icono far fa-question-circle"></i></a></label>
+                                <label class="control-label">Vendedor <a><i data-tippy-content="Seleccione el vendedor del contrato" class="icono far fa-question-circle"></i></a></label>
                                 <div class="input-group mb-2">
-                                    <input type="number" class="form-control" id="descuento_pesos" name="descuento_pesos" value="" min='0'>
-                                    <div class="input-group-prepend">
-                                        <div class="input-group-text font-weight-bold"><i class="far fa-money-bill-alt"></i></div>
-                                    </div>
+                                    <select class="form-control selectpicker" name="vendedor" id="vendedor" title="Seleccione" data-live-search="true" data-size="5">
+                                        @foreach($vendedores as $vendedor)
+                                        <option value="{{$vendedor->id}}" {{old('vendedor')==$vendedor->id?'selected':''}}>{{$vendedor->nombre}}</option>
+                                        @endforeach
+                                    </select>
+                                    <span style="color: red;">
+                                        <strong>{{ $errors->first('vendedor') }}</strong>
+                                    </span>
                                 </div>
-                                <span style="color: red;">
-                                    <strong>{{ $errors->first('descuento_pesos') }}</strong>
-                                </span>
                             </div>
+
 
                             <div class="col-md-4 form-group">
                                 <label class="control-label">¿Cobro de Reconexión?</label>
