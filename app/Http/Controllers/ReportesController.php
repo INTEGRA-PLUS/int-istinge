@@ -2989,16 +2989,37 @@ class ReportesController extends Controller
     public function terceros(Request $request)
     {
         $this->getAllPermissions(Auth::user()->id);
+        view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Terceros', 'icon' => '']);
 
         // Fechas
         $dates = $this->setDateRequest($request);
 
-        // Consulta principal
+        // Campos para ordenar (ajusta si necesitas otras columnas)
+        $campos = [
+            'contactos.tip_iden',
+            'contactos.nit',
+            'contactos.nombre',
+            'm.nombre',
+            'd.nombre',
+            'contactos.direccion',   // 👈 dirección antes
+            'ingresosBrutos'         // 👈 ingresos después
+        ];
+
+        // Ordenamiento por defecto
+        if (!$request->orderby) {
+            $request->orderby = 2; // por nombre
+            $request->order = 0;   // ascendente
+        }
+
+        $orderby = $campos[$request->orderby] ?? 'contactos.nombre';
+        $order   = $request->order == 1 ? 'DESC' : 'ASC';
+
+        // Consulta
         $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
             ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
             ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
             ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
-            ->whereIn('f.tipo', [2]) // solo facturas de venta
+            ->whereIn('f.tipo', [2])
             ->select(
                 'contactos.id as idContacto',
                 'contactos.tip_iden',
@@ -3007,7 +3028,7 @@ class ReportesController extends Controller
                 'contactos.nombre',
                 'contactos.apellido1',
                 'contactos.apellido2',
-                'contactos.direccion',
+                'contactos.direccion',  // 👈 dirección aquí
                 'contactos.vereda',
                 'contactos.barrio',
                 'contactos.cod_postal',
@@ -3020,9 +3041,7 @@ class ReportesController extends Controller
                 'm.nombre as municipio',
                 'd.nombre as departamento',
                 'contactos.status',
-                DB::raw('SUM(ig.pago) as ingresosBrutos'),
-                DB::raw('MIN(f.fecha) as fechaPrimeraFactura'),
-                DB::raw('MAX(f.fecha) as fechaUltimaFactura')
+                DB::raw('SUM(ig.pago) as ingresosBrutos') // 👈 ingresos brutos al final
             )
             ->groupBy(
                 'contactos.id',
@@ -3052,12 +3071,11 @@ class ReportesController extends Controller
             $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
         }
 
-        // Ordenamiento
-        $orderBy = $request->orderby ?? 'contactos.nombre';
-        $order   = $request->order == 1 ? 'DESC' : 'ASC';
-        $contactos = $contactos->orderBy($orderBy, $order);
+        // Ordenar
+        $contactos = $contactos->orderBy($orderby, $order)->get();
 
-        $contactos = $contactos->get();
+        // Paginar igual que en balance
+        $contactos = $this->paginate($contactos, 15, $request->page, $request);
 
         $empresa = Empresa::find(Auth::user()->empresa);
 

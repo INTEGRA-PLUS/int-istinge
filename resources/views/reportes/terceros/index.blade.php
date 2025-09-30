@@ -52,7 +52,7 @@
 
     <div class="row card-description">
         <div class="col-md-12 table-responsive">
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover" id="table-facturas">
                 <thead class="thead-dark">
                     <tr>
                         <th>Tipo ID</th>
@@ -63,9 +63,8 @@
                         <th>Email</th>
                         <th>Municipio</th>
                         <th>Departamento</th>
+                        <th>Dirección</th> {{-- Dirección antes --}}
                         <th>Ingresos Brutos</th>
-                        <th>Primera Factura</th>
-                        <th>Última Factura</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -79,13 +78,13 @@
                             <td>{{$c->email}}</td>
                             <td>{{$c->municipio}}</td>
                             <td>{{$c->departamento}}</td>
+                            <td>{{$c->direccion}}</td>
                             <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($c->ingresosBrutos)}}</td>
-                            <td>{{$c->fechaPrimeraFactura}}</td>
-                            <td>{{$c->fechaUltimaFactura}}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
+            {!! $contactos->render() !!}
         </div>
     </div>
 </form>
