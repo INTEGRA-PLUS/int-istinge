@@ -2768,7 +2768,9 @@ class ContratosController extends Controller
             'Direccion MAC',
             'Interfaz',
             'Serial ONU',
+            'SN/MAC',             // 👈 NUEVA COLUMNA
             'Estado',
+            'Estado del CATV',    // 👈 NUEVA COLUMNA
             'Grupo de Corte',
             'Facturacion',
             'Costo Reconexion',
@@ -3139,36 +3141,38 @@ class ContratosController extends Controller
                 ->setCellValue($letras[14] . $i, $contrato->ip)
                 ->setCellValue($letras[15] . $i, $contrato->mac_address)
                 ->setCellValue($letras[16] . $i, $contrato->interfaz)
-                ->setCellValue($letras[17] . $i, $contrato->serial_onu)
-                ->setCellValue($letras[18] . $i, $contrato->status())
-                ->setCellValue($letras[19] . $i, $contrato->grupo_corte('true'))
-                ->setCellValue($letras[20] . $i, $contrato->facturacion())
-                ->setCellValue($letras[21] . $i, $contrato->costo_reconexion)
-                ->setCellValue($letras[22] . $i, $contrato->c_nombre_municipio)
-                ->setCellValue($letras[23] . $i, ucfirst($contrato->tipo_contrato))
-                ->setCellValue($letras[24] . $i, $contrato->iva_factura == null || $contrato->iva_factura == 0 ? 'No' : 'Si')
-                ->setCellValue($letras[25] . $i, $contrato->descuento != null ? $contrato->descuento . '%' : '0%')
-                ->setCellValue($letras[26] . $i, isset($plan->nombre) ? $plan->nombre : '')
-                ->setCellValue($letras[27] . $i, isset($plan->precio) ? $plan->precio : '')
-                ->setCellValue($letras[28] . $i, isset($servicio->nombre) && $servicio->nombre != "" ? $servicio->nombre . " - $" . number_format($servicio->precio, 0, ',', '.') : '')
-                ->setCellValue($letras[29] . $i, isset($servicio_otro->nombre) && $servicio_otro->nombre != "" ? $servicio_otro->nombre . " - $" . number_format($servicio_otro->precio, 0, ',', '.') : '')
-                ->setCellValue($letras[30] . $i, round($contrato->deudaFacturas()))
-                ->setCellValue($letras[31] . $i, round($sumaPlanes))
-                ->setCellValue($letras[32] . $i, $contrato->c_etiqueta)
-                ->setCellValue($letras[33] . $i, $contrato->fechaDesconexion())
-                ->setCellValue($letras[34] . $i, $contrato->linea ? $contrato->linea : 0)
-                ->setCellValue($letras[35] . $i, $contrato->c_latitude)
-                ->setCellValue($letras[36] . $i, $contrato->c_longitude)
-                ->setCellValue($letras[37] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
-                ->setCellValue($letras[38] . $i, $contrato->creador)
+                ->setCellValue($letras[17] . $i, $contrato->serial_onu)       // Serial ONU
+                ->setCellValue($letras[18] . $i, $contrato->serial_onu)       // SN/MAC (igual a Serial ONU)
+                ->setCellValue($letras[19] . $i, $contrato->status())         // Estado
+                ->setCellValue($letras[20] . $i, $contrato->status())         // Estado del CATV (igual a Estado)
+                ->setCellValue($letras[21] . $i, $contrato->grupo_corte('true'))
+                ->setCellValue($letras[22] . $i, $contrato->facturacion())
+                ->setCellValue($letras[23] . $i, $contrato->costo_reconexion)
+                ->setCellValue($letras[24] . $i, $contrato->c_nombre_municipio)
+                ->setCellValue($letras[25] . $i, ucfirst($contrato->tipo_contrato))
+                ->setCellValue($letras[26] . $i, $contrato->iva_factura == null || $contrato->iva_factura == 0 ? 'No' : 'Si')
+                ->setCellValue($letras[27] . $i, $contrato->descuento != null ? $contrato->descuento . '%' : '0%')
+                ->setCellValue($letras[28] . $i, isset($plan->nombre) ? $plan->nombre : '')
+                ->setCellValue($letras[29] . $i, isset($plan->precio) ? $plan->precio : '')
+                ->setCellValue($letras[30] . $i, isset($servicio->nombre) && $servicio->nombre != "" ? $servicio->nombre . " - $" . number_format($servicio->precio, 0, ',', '.') : '')
+                ->setCellValue($letras[31] . $i, isset($servicio_otro->nombre) && $servicio_otro->nombre != "" ? $servicio_otro->nombre . " - $" . number_format($servicio_otro->precio, 0, ',', '.') : '')
+                ->setCellValue($letras[32] . $i, round($contrato->deudaFacturas()))
+                ->setCellValue($letras[33] . $i, round($sumaPlanes))
+                ->setCellValue($letras[34] . $i, $contrato->c_etiqueta)
+                ->setCellValue($letras[35] . $i, $contrato->fechaDesconexion())
+                ->setCellValue($letras[36] . $i, $contrato->linea ? $contrato->linea : 0)
+                ->setCellValue($letras[37] . $i, $contrato->c_latitude)
+                ->setCellValue($letras[38] . $i, $contrato->c_longitude)
+                ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
+                ->setCellValue($letras[40] . $i, $contrato->creador)
                 ;
             $i++;
         }
 
         $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[26] . $i, $totalPlan)
-            ->setCellValue($letras[27] . $i, $totalServicio)
-            ->setCellValue($letras[28] . $i, $totalServicioOtro)
+            ->setCellValue($letras[29] . $i, $totalPlan)
+            ->setCellValue($letras[30] . $i, $totalServicio)
+            ->setCellValue($letras[31] . $i, $totalServicioOtro)
         ;
 
         $estilo = array(
