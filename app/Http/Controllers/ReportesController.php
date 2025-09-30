@@ -2809,7 +2809,7 @@ class ReportesController extends Controller
                     ->orWhere('p.codigo', 'LIKE', '3%');
             })
             ->groupBy('p.id','p.nombre','p.codigo')
-            ->orderBy($orderby, $order)
+            ->orderByRaw("LEFT(p.codigo, 1) $order, p.codigo $order")
             ->get();
 
         // if (
