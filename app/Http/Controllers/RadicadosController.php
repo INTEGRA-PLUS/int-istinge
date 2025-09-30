@@ -21,16 +21,19 @@ use DB;
 use Carbon\Carbon;
 use Session;
 use App\Campos;
+use App\Instance;
 use Barryvdh\DomPDF\Facade as PDF;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use App\MovimientoLOG;
 use App\RadicadoLOG;
+use Illuminate\Support\Facades\Log;
 
 use Mail;
 use Config;
 use App\ServidorCorreo;
 use App\Oficina;
+use App\Services\WapiService;
 
 include_once(app_path() . '/../public/PHPExcel/Classes/PHPExcel.php');
 
@@ -427,7 +430,7 @@ class RadicadosController extends Controller
     {
 
         $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
-
+        $estatusViejo = $radicado->estatus;
 
         //elminacion de un posible detalle de detalle de euqipos
         DB::table('radicados_detalles_equipos')->where('radicado_id', $radicado->id)->delete();
@@ -481,6 +484,7 @@ class RadicadosController extends Controller
                 $radicado->adjunto_1 = $nombre;
                 $radicado->update();
                 $mensaje = 'SE HA CARGADO EL ARCHIVO ADJUNTO SATISFACTORIAMENTE.';
+
 
                 $log = new RadicadoLOG;
                 $log->id_radicado = $radicado->id;
@@ -642,6 +646,40 @@ class RadicadosController extends Controller
             $log->id_usuario = Auth::user()->id;
             $log->accion = 'Actualización del caso radicado.';
             $log->save();
+
+            if($estatusViejo != $request->estatus && $request->estatus == 2 && isset($request->tecnico)){
+                //mensaje por whatsapp de que el caso se escalo al tecnico
+                //Se creo una orden de servicio bajo el nro de radicado $radicado->codigo
+                $wapiService = new WapiService();
+                $instance = Instance::where('company_id', auth()->user()->empresa)->first();
+                if(!is_null($instance) || !empty($instance)){
+                    if($instance->status !== "PAIRED") {
+                        $cliente = $radicado->cliente();
+                        $mensaje = "Hola *".$cliente->nombre."* \n\nLe informamos que se ha creado una orden de servicio bajo el N° de radicado *".$radicado->codigo."* \n\nEl técnico asignado es *".$radicado->tecnico()->nombres."* \n\nSaludos cordiales. \n\n".Empresa::find(Auth::user()->empresa)->nombre;
+
+                        if($cliente->celular != null){
+
+                            $cliente->celular = substr($cliente->celular, 1);
+
+                            $contact = [
+                                "phone" => "57" . $cliente->celular,
+                                "name" => $cliente->nombre . " " . $cliente->apellido1
+                            ];
+
+                            $body = [
+                                "contact" => $contact,
+                                "message" => $mensaje,
+                                "media" => ""
+                            ];
+
+                            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+                            Log::info($response);
+                        }
+
+                    }
+                }
+            }
+
 
             $mensaje = 'Se ha modificado satisfactoriamente el radicado #' . $radicado->codigo;
             return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
@@ -1349,6 +1387,34 @@ class RadicadosController extends Controller
                     Storage::disk('documentos')->delete($radicado->adjunto);
                 }
                 $radicado->delete();
+                $succ++;
+            } else {
+                $fail++;
+            }
+        }
+
+        return response()->json([
+            'success'   => true,
+            'fallidos'  => $fail,
+            'correctos' => $succ,
+            'state'     => 'eliminados'
+        ]);
+    }
+
+    public function destroy_tecnicos_asociados($radicados)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+
+        $succ = 0;
+        $fail = 0;
+
+        $radicados = explode(",", $radicados);
+
+        for ($i = 0; $i < count($radicados); $i++) {
+            $radicado = Radicado::find($radicados[$i]);
+            if ($radicado) {
+                $radicado->tecnico = null;
+                $radicado->save();
                 $succ++;
             } else {
                 $fail++;

@@ -3141,6 +3141,59 @@ class CronController extends Controller
         }
     }
 
+    public function creacionContratosDinamico(){
+
+        $contactos = Contacto::get();
+
+        $i = 1;
+
+        foreach($contactos as $contacto){
+
+            $contrato = new Contrato();
+            $contrato->empresa = 1;
+            $contrato->oficina = null;
+            $contrato->nro = $i;
+            $contrato->servicio = $contacto->nombre ."-" . $i;
+            $contrato->pago_siigo_contrato = 0;
+            $contrato->servicio_tv = 28;
+            $contrato->client_id = $contacto->id;
+            $contrato->rd_item_vencimiento = 0;
+            $contrato->server_configuration_id = null;
+            $contrato->state = "enabled";
+            $contrato->ip = null;
+            $contrato->latitude = 3.619790333228524;
+            $contrato->longitude = -73.79701780434284;
+            $contrato->address_street = $contacto->direccion;
+            $contrato->fecha_corte = null;
+            $contrato->usuario = null;
+            $contrato->conexion = null;
+            $contrato->direccion_local_address = null;
+            $contrato->local_address_new = null;
+            $contrato->profile = null;
+            $contrato->grupo_corte = 5;
+            $contrato->regla_ip = 0;
+            $contrato->ip_autorizada = 0;
+            $contrato->facturacion = 1;
+            $contrato->factura_individual = 1;
+            $contrato->mk = 1;
+            $contrato->contrato_permanencia = 0;
+            $contrato->contrato_permanencia_meses = 12;
+            $contrato->fact_primer_mes = 1;
+            $contrato->costo_reconexion = 1;
+            $contrato->tipo_contrato = 0;
+            $contrato->observaciones = "Contrato predeterminado";
+            $contrato->disabled = 0;
+            $contrato->opciones_dian = 1;
+            $contrato->tipo_nosuspension = 0;
+
+            $contrato->save();
+            $i++;
+        }
+
+        return "creados";
+    }
+
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
