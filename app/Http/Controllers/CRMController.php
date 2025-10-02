@@ -280,6 +280,11 @@ class CRMController extends Controller
             }
         }
 
+        if($response && isset($response['statusCode']) && $response['statusCode'] === 404) {
+            $instance->delete();
+            return back()->with('error', 'Esta instancia no existe, valida el identificador con tu proveedor.');
+        }
+
         $getResponse = json_decode($response);
         $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
         $instance->type = 1; //Es de CRM Whatsapp
