@@ -3163,6 +3163,8 @@ class NominaController extends Controller
                 $response = $this->nominaService->electronicPayrollStatus($empresa->nit, $nomina->codigo_dian);
                 if($response->statusCode == 200){
                     $nomina->cune = $response->cune;
+                    if(isset($response->statusCodeDIAN) && $response->statusCodeDIAN == 'DPA')
+                    $nomina->nota = $response->statusMessage;
                     $nomina->save();
                 }
             }
