@@ -26,13 +26,17 @@
 
     @foreach($facturas as $factura)
 
-        @php
-            $contratos = $factura->relationContracts;
-            $direccion  = $contratos->first() ? $contratos->first()->address_street : null;
-            if($direccion == null){
-                $direccion  = $factura->cliente()->direccion;
-            }
-        @endphp
+    @php
+        $contratos = $factura->contratos();
+        if($contratos != null){
+        $contrato = $contratos->first();
+        $contrato = \App\Contrato::where('nro',$contrato->contrato_nro)->first();
+        $direccion  = $contrato ? $contrato->address_street : null;
+        if($direccion == null){
+            $direccion  = $factura->cliente()->direccion;
+        }
+        }
+    @endphp
 
       <tr id="{{$factura->id}}" @if($factura->nro==$id || $count == 1) class="active_table" @endif>
         <input type="hidden" id="retencion_previas_{{$factura->id}}" value="{{$factura->retenciones_previas()}}">

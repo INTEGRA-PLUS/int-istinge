@@ -32,6 +32,7 @@ use App\Model\Nomina\NominaConfiguracionCalculos;
 use Illuminate\Support\Facades\DB as FacadesDB;
 use Illuminate\Support\Facades\Mail;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
+use App\Services\NominaService;
 
 include_once(app_path() . '/../public/Spout/Autoloader/autoload.php');
 include_once(app_path() .'/../public/PHPExcel/Classes/PHPExcel.php');
@@ -47,13 +48,15 @@ class NominaController extends Controller
 {
 
     protected $nominaDianController;
+    protected $nominaService;
 
 
-    public function __construct(NominaDianController $nominaDianController)
+    public function __construct(NominaDianController $nominaDianController, NominaService $nominaService)
     {
         $this->middleware('nomina');
         $this->middleware('payrollReadingMode')->only('store_nomina', 'liquidar');
         $this->nominaDianController = $nominaDianController;
+        $this->nominaService = $nominaService;
     }
 
     public function index()
@@ -371,9 +374,9 @@ class NominaController extends Controller
                 'empresa:id,nombre,nit',
                 'nominaperiodos'
             ]);
-        
+
             $empresa = (object) auth()->user()->empresaObj;
-        
+
             // Limpiar carpeta anterior
             Storage::disk('public')->deleteDirectory("empresa{$empresa->id}/nominas/reporte");
 
@@ -3156,6 +3159,15 @@ class NominaController extends Controller
         /* >>> Atributos para uso de la DIAN <<< */
         $codqr = null;
         if ($nomina->emitida == 1 || $nomina->emitida == 5) {
+            if($nomina->cune == 409){
+                $response = $this->nominaService->electronicPayrollStatus($empresa->nit, $nomina->codigo_dian);
+                if($response->statusCode == 200){
+                    $nomina->cune = $response->cune;
+                    if(isset($response->statusCodeDIAN) && $response->statusCodeDIAN == 'DPA')
+                    $nomina->nota = $response->statusMessage;
+                    $nomina->save();
+                }
+            }
             $codqr = "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey={$nomina->cune}";
         }
 
