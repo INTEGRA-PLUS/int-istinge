@@ -280,8 +280,7 @@ class CRMController extends Controller
             }
         }
 
-        $getResponse = json_decode($response);
-        $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
+        $instance->status = $getResponse['data']['status'] == "PAIRED" ? "PAIRED" : "UNPAIRED";
         $instance->type = 1; //Es de CRM Whatsapp
         $instance->save();
         return view('crm.whatsapp')->with(compact('instance'));
