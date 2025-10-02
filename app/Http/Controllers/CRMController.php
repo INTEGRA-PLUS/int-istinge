@@ -279,9 +279,9 @@ class CRMController extends Controller
                 ])->withInput($request->input());
             }
         }
-        
-        $getResponse = $response; // ya es un array
-        $instance->status = $getResponse['data']['status'] == "PAIRED" ? "PAIRED" : "UNPAIRED";
+
+        $getResponse = json_decode($response);
+        $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
         $instance->type = 1; //Es de CRM Whatsapp
         $instance->save();
         return view('crm.whatsapp')->with(compact('instance'));
