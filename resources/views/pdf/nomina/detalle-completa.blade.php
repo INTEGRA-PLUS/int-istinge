@@ -174,15 +174,15 @@
             <p style="font-size:9px;"><strong>cune: </strong>{{$nomina->cune}}</p>
         </div>
         @else
-        
+
         @if(!isset($isImageLogo) && !isset($codqr))
-        
+
          <div style="width: 30%; display: inline-block; vertical-align: top; text-align: center; height:100px !important;  margin-bottom: 2%; overflow:hidden; align-self: flex-start;">
             <img src="{{asset('images/Empresas/Empresa'.$empresa->id.'/'.$empresa->logo)}}" alt="{{$empresa->nombre}}" width="90%" style="max-width: 100%; max-height:100px; object-fit:contain; text-align:left;">
         </div>
-        
+
         @endif
-        
+
         @endif
         <div style="width: 40%; text-align: center; display: inline-block;  height:auto; margin-right:45px;">
             <h4>{{$user->empresaObj->nombre}}</h4>
@@ -292,7 +292,7 @@
                     @php $adicionales += $p->valor_pagar; @endphp
                 @endforeach
             @endif
-            
+
              @foreach($totalDetallesNomina as $categoria)
                         @if($categoria['fk_nomina_cuenta'] == 2 && $categoria['horas'] > 0)
                             @if($categoria['nombre'] == 'LICENCIA NO REMUNERADA')
@@ -305,7 +305,7 @@
                             @endif
                         @endif
             @endforeach
-            
+
             <tr>
                 <th width="80%" style="height: 30px;" class="left padding-left">Total neto a pagar al empleado</th>
                 <th width="20%" style="height: 30px;"
@@ -313,35 +313,41 @@
             </tr>
         </table>
     </div>
-    
+
+    @if($nomina->nota)
     <div>
-        
+        <span>Nota: {{$nomina->nota}}</span>
+    </div>
+    @endif
+
+    <div>
+
         @php $valorLiquidar = 0; @endphp
         @if($nomina->liquidacionComprobante())
             @php $valorLiquidar =  $nomina->liquidacionComprobante()->total; @endphp
             <br>
             <table border="0" class="titulo">
-                
+
                 <tr>
                     <th width="80%" style="height: 30px;" class="left padding-left">Concepto liquidación</th>
                     <th width="20%" style="height: 30px;">Valor</th>
                 </tr>
-            
-                
+
+
                    <tr>
                         <td width="80%" style="height: 20px;" class="padding-left">liquidación por retiro</td>
                         <td width="20%" style="height: 20px;"
                          class="center">{{$user->empresaObj->moneda}} {{ App\Funcion::Parsear($valorLiquidar) }}</td>
                     </tr>
-                 
-                
+
+
             </table>
         @endif
     </div>
 
-    
+
     <div style="width: 100%; display: table; height:auto; margin-top: 10px;">
-    
+
         <div style="display: table-row;">
             <div style="width: 49%; display: table-cell; height:auto">
                 @if($totalidad['pago']['extrasOrdinariasRecargos'] > 0)
