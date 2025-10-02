@@ -264,55 +264,28 @@ class CRMController extends Controller
     public function whatsapp(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
-
         $instance = Instance::where('company_id', auth()->user()->empresa)
-            ->where('type', 1)
-            ->first();
-
-        if (!$instance) {
+        ->where('type',1)
+        ->first();
+        if(!$instance) {
             return view('crm.whatsapp')->with(compact('instance'));
         }
-
         try {
-            // 🔹 Usar el ID en lugar del UUID
-            $response = $wapiService->getInstanceById($instance->id);
-
-            if (!$response) {
-                throw new \Exception("El servicio WapiService::getInstanceById devolvió null.");
-            }
-
-            $getResponse = json_decode($response);
-
-            if (!$getResponse || !isset($getResponse->data->status)) {
-                throw new \Exception("La respuesta de la API no tiene el formato esperado.");
-            }
-
-            $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
-            $instance->type = 1; // Es de CRM Whatsapp
-            $instance->save();
-
-            return view('crm.whatsapp')->with(compact('instance'));
-
+            $response = $wapiService->getInstance($instance->uuid);
         } catch (ClientException $e) {
-            if ($e->getResponse() && $e->getResponse()->getStatusCode() === 404) {
+            if($e->getResponse()->getStatusCode() === 404) {
                 return back()->withErrors([
                     'instance_id' => 'Esta instancia no existe, valida el identificador con tu proveedor.'
                 ])->withInput($request->input());
             }
-
-            \Log::error("Error en ClientException: " . $e->getMessage());
-            return back()->withErrors([
-                'instance_id' => 'Error de cliente al conectar con el servicio.'
-            ]);
-        } catch (\Exception $e) {
-            \Log::error("Error en whatsapp(): " . $e->getMessage());
-            return back()->withErrors([
-                'instance_id' => 'No se pudo conectar con el servicio de WhatsApp. Revisa el log.'
-            ]);
         }
+
+        $getResponse = json_decode($response);
+        $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
+        $instance->type = 1; //Es de CRM Whatsapp
+        $instance->save();
+        return view('crm.whatsapp')->with(compact('instance'));
     }
-
-
 
     public function whatsapp2(Request $request, WapiService $wapiService){
         $this->getAllPermissions(auth()->user()->id);
