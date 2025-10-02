@@ -60,7 +60,7 @@ class WapiService
             "POST",
             $this->baseUri . "/api/v1/send/" . $uuid,
             [],
-            $body,
+            $body, // 👈 mandas el body limpio
             $this->headers,
             true
         );
