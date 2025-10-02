@@ -54,7 +54,7 @@
             setTimeout(function() {
                 $('.alert').hide();
                 $('.active_table').attr('class', ' ');
-            }, 5000);
+            }, 25000);
         </script>
     @endif
 
@@ -66,7 +66,7 @@
             setTimeout(function() {
                 $('.alert').hide();
                 $('.active_table').attr('class', ' ');
-            }, 5000);
+            }, 25000);
         </script>
     @endif
 

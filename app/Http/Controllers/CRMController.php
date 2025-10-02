@@ -281,6 +281,11 @@ class CRMController extends Controller
                 throw new \Exception("El servicio WapiService::getInstanceById devolvió null.");
             }
 
+            if($response && isset($response['statusCode']) && $response['statusCode'] === 404) {
+                $instance->delete();
+                return back()->with('error', 'Esta instancia no existe, valida el identificador con tu proveedor.');
+            }
+
             $getResponse = json_decode($response);
 
             if (!$getResponse || !isset($getResponse->data->status)) {
