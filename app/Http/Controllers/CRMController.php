@@ -280,11 +280,9 @@ class CRMController extends Controller
             }
         }
 
-        $response = $wapiService->getInstance($instance->uuid);
-
-        // $response ya es array
-        $instance->status = ($response['data']['status'] ?? '') === "PAIRED" ? "PAIRED" : "UNPAIRED";
-        $instance->type = 1;
+        $getResponse = json_decode($response);
+        $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
+        $instance->type = 1; //Es de CRM 
         $instance->save();
         return view('crm.whatsapp')->with(compact('instance'));
     }
