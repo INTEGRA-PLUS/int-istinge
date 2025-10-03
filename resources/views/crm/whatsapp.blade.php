@@ -251,7 +251,7 @@
             }
 
             if (wbot.status == "PAIRED") {
-                fetch(`/software/empresa/instances/${wbot.uuid}`, {
+                fetch(`/software/empresa/instances/${wbot.channelId}`, {
                         method: "PUT",
                         headers: {
                             "Content-Type": "application/json",

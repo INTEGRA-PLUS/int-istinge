@@ -261,7 +261,7 @@ class CRMController extends Controller
         return [$chats,$users];
     }
 
-     public function whatsapp(Request $request, WapiService $wapiService)
+    public function whatsapp(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
         $instance = Instance::where('company_id', auth()->user()->empresa)
@@ -280,11 +280,9 @@ class CRMController extends Controller
             }
         }
 
-        $response = $wapiService->getInstance($instance->uuid);
-
-        // $response ya es array
-        $instance->status = ($response['data']['status'] ?? '') === "PAIRED" ? "PAIRED" : "UNPAIRED";
-        $instance->type = 1;
+        $getResponse = json_decode($response);
+        $instance->status = $getResponse->data->status == "PAIRED" ? "PAIRED" : "UNPAIRED";
+        $instance->type = 1; //Es de CRM Whatsapp
         $instance->save();
         return view('crm.whatsapp')->with(compact('instance'));
     }
