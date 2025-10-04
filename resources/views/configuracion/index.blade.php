@@ -185,7 +185,7 @@
                         @endif
 
                         <a href="javascript:activeConnectionSecret()">{{ Auth::user()->empresa()->activeconn_secret == 0 ? 'Habilitar' : 'Deshabilitar' }}
-                            facturacion automatica fact. abiertas</a><br>
+                            consultas active connection y secret</a><br>
                         <input type="hidden" id="activeconn_secret" value="{{ Auth::user()->empresa()->activeconn_secret }}">
 
                     @endif
