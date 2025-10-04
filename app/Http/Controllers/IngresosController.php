@@ -1061,18 +1061,16 @@ class IngresosController extends Controller
                 $API->write('/ip/firewall/address-list/print', TRUE);
                 $ARRAYS = $API->read();
 
-                #ELIMINAMOS DE MOROSOS#
-                $API->write('/ip/firewall/address-list/print', false);
-                $API->write('?address='.$contrato->ip, false);
-                $API->write("?list=morosos",false);
-                $API->write('=.proplist=.id');
-                $ARRAYS = $API->read();
 
-                if(count($ARRAYS)>0){
-                    $API->write('/ip/firewall/address-list/remove', false);
-                    $API->write('=.id='.$ARRAYS[0]['.id']);
-                    $READ = $API->read();
+                if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
+                    #HABILITACION DEL SECRET#
+                    if($contrato->conexion == 1 && $contrato->usuario != null){
+                        $API->write('/ppp/secret/enable', false);
+                        $API->write('=numbers=' . $contrato->usuario);
+                        $response = $API->read();
+                    }
+                    #HABILITACION DEL SECRET#
 
                     #AGREGAMOS A IP_AUTORIZADAS#
                     $API->comm("/ip/firewall/address-list/add", array(
@@ -1082,19 +1080,7 @@ class IngresosController extends Controller
                     );
                     #AGREGAMOS A IP_AUTORIZADAS#
 
-                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
-
-                        #HABILITACION DEL SECRET#
-                        if($contrato->conexion == 1 && $contrato->usuario != null){
-                            $API->write('/ppp/secret/enable', false);
-                            $API->write('=numbers=' . $contrato->usuario);
-                            $response = $API->read();
-                        }
-                        #HABILITACION DEL SECRET#
-
-                    }
-
-                    $mensaje = "- Se ha sacado la ip de morosos.";
+                    $mensaje = "- Se ha habilitado el secret.";
 
                     $ingreso->revalidacion_enable_internet = 1;
                     $ingreso->save();
@@ -1102,8 +1088,42 @@ class IngresosController extends Controller
                     $contrato->state = 'enabled';
                     $contrato->save();
 
+
+                }else{
+
+                    #ELIMINAMOS DE MOROSOS#
+                    $API->write('/ip/firewall/address-list/print', false);
+                    $API->write('?address='.$contrato->ip, false);
+                    $API->write("?list=morosos",false);
+                    $API->write('=.proplist=.id');
+                    $ARRAYS = $API->read();
+
+                    if(count($ARRAYS)>0){
+                        $API->write('/ip/firewall/address-list/remove', false);
+                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                        $READ = $API->read();
+
+
+                        #AGREGAMOS A IP_AUTORIZADAS#
+                        $API->comm("/ip/firewall/address-list/add", array(
+                            "address" => $contrato->ip,
+                            "list" => 'ips_autorizadas'
+                            )
+                        );
+                        #AGREGAMOS A IP_AUTORIZADAS#
+
+
+                        $mensaje = "- Se ha sacado la ip de morosos.";
+
+                        $ingreso->revalidacion_enable_internet = 1;
+                        $ingreso->save();
+
+                        $contrato->state = 'enabled';
+                        $contrato->save();
+
+                    }
+                    #ELIMINAMOS DE MOROSOS#
                 }
-                #ELIMINAMOS DE MOROSOS#
                 $API->disconnect();
             }
         }else{
