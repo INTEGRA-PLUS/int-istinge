@@ -2554,6 +2554,7 @@ class ContratosController extends Controller
                                 $ARRAYS = $API->read();
 
                                 if($contrato->state == 'enabled'){
+
                                     #AGREGAMOS A MOROSOS#
                                     $API->comm("/ip/firewall/address-list/add", array(
                                         "address" => $contrato->ip,
@@ -2575,6 +2576,35 @@ class ContratosController extends Controller
                                         $READ = $API->read();
                                     }
                                     #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #DESHABILITACION DEL PPOE#
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                            $API->write('/ppp/secret/disable', false);
+                                            $API->write('=numbers=' . $contrato->usuario);
+                                            $response = $API->read();
+                                        }
+                                        #DESHABILITACION DEL PPOE#
+
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                            $API->write('/ppp/active/print', false);
+                                            $API->write('?name=' . $contrato->usuario);
+                                            $response = $API->read();
+
+                                            if(isset($response['0']['.id'])){
+                                                $API->comm("/ppp/active/remove", [
+                                                    ".id" => $response['0']['.id']
+                                                ]);
+                                            }
+
+                                        }
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                    }
+
+
                                     $contrato->state = 'disabled';
                                     $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de Habilitado a Deshabilitado<br>';
 

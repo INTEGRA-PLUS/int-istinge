@@ -1966,6 +1966,20 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function activeconnectionSecret(Request $request){
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->status == 0) {
+      $empresa->activeconn_secret = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->activeconn_secret = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
   public function contratoNumeracion(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 

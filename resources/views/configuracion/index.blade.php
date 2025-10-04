@@ -163,6 +163,7 @@
                         Permanencia</a><br>
                     @if (isset($_SESSION['permisos']['751']))
                         <a href="javascript:parametrosContratoDigital();">Parámetros Contrato Digital</a><br>
+
                         <a href="javascript:facturacionCronAbiertas()">{{ Auth::user()->empresa()->cron_fact_abiertas == 0 ? 'Habilitar' : 'Deshabilitar' }}
                             facturacion automatica fact. abiertas</a><br>
                         <input type="hidden" id="cronAbierta" value="{{ Auth::user()->empresa()->cron_fact_abiertas }}">
@@ -182,6 +183,11 @@
                             <a href="#" data-toggle="modal" data-target="#config_reconexion">Configurar reconexion
                                 genérica</a><br>
                         @endif
+
+                        <a href="javascript:activeConnectionSecret()">{{ Auth::user()->empresa()->activeconn_secret == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                            facturacion automatica fact. abiertas</a><br>
+                        <input type="hidden" id="activeconn_secret" value="{{ Auth::user()->empresa()->activeconn_secret }}">
+
                     @endif
                 </div>
             @endif
@@ -1603,6 +1609,73 @@
                                     timer: 5000
                                 })
                                 $("#cronAbierta").val(0);
+                            }
+                            setTimeout(function() {
+                                var a = document.createElement("a");
+                                a.href = window.location.pathname;
+                                a.click();
+                            }, 1000);
+                        }
+                    });
+
+                }
+            })
+        }
+
+        function activeConnectionSecret(){
+
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion_activeconnection_secret';
+            } else {
+                var url = '/configuracion_activeconnection_secret';
+            }
+
+            if ($("#activeconn_secret").val() == 0) {
+                $titleswal = "¿Desea habilitar las consultas de active connection y secret disabled al deshabilitar contratos?";
+            }
+
+            if ($("#activeconn_secret").val() == 1) {
+                $titleswal = "¿Desea deshabilitar las consultas de active connection y secret disabled al deshabilitar contratos?";
+            }
+
+            Swal.fire({
+                title: $titleswal,
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                cancelButtonText: 'Cancelar',
+                confirmButtonText: 'Aceptar',
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: url,
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        method: 'post',
+                        data: {
+                            status: $("#activeconn_secret").val()
+                        },
+                        success: function(data) {
+                            console.log(data);
+                            if (data == 1) {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Consultas al deshabilitar contratos habilitadas correctamente.',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#activeconn_secret").val(1);
+                            } else {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Consultas al deshabilitar contratos deshabilitadas correctamente.',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#activeconn_secret").val(0);
                             }
                             setTimeout(function() {
                                 var a = document.createElement("a");
