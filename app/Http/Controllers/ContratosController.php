@@ -2640,6 +2640,19 @@ class ContratosController extends Controller
                                         )
                                     );
                                     #AGREGAMOS A IP_AUTORIZADAS#
+
+                                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #HABILITACION DEL SECRET#
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                            $API->write('/ppp/secret/enable', false);
+                                            $API->write('=numbers=' . $contrato->usuario);
+                                            $response = $API->read();
+                                        }
+                                        #HABILITACION DEL SECRET#
+
+                                    }
+
                                     $contrato->state = 'enabled';
                                     $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de Deshabilitado a Habilitado<br>';
                                 }
