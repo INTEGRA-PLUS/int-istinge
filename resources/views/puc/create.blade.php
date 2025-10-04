@@ -44,7 +44,7 @@
             <div class="col-md-6 form-group">
                 <label class="control-label">¿Tercero?<span class="text-danger">*</span></label>
                 <select class="form-control" name="tercero" id="tercero" title="¿Tercero?">
-                    <option value="0" readonly>Seleccione</option>
+                    <option value="">Seleccione</option>
                     <option value="1">Sí</option>
                     <option value="0">No</option>
                 </select>
@@ -144,7 +144,7 @@
                 erroresCliente.push('El campo Nombre es obligatorio.');
                 nombre && nombre.classList.add('is-invalid');
             }
-            if (!tercero || tercero.value === "0") {
+            if (!tercero || tercero.value === "") {
                 erroresCliente.push('Debe seleccionar si es Tercero o no.');
                 tercero && tercero.classList.add('is-invalid');
             }
