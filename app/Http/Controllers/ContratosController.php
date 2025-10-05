@@ -2636,7 +2636,6 @@ class ContratosController extends Controller
                                         #ELIMINAMOS DE MOROSOS#
                                     }
 
-
                                     #AGREGAMOS A IP_AUTORIZADAS#
                                     $API->comm("/ip/firewall/address-list/add", array(
                                         "address" => $contrato->ip,

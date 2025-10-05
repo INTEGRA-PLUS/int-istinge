@@ -3815,6 +3815,7 @@ class FacturasController extends Controller{
 
         $factura = Factura::where('id', $request->id)->first();
         $contrato = $factura->contratoAsociado();
+        $empresa = Empresa::find($factura->empresa);
 
         $numero = 0;
         $numero = PromesaPago::all()->count();
@@ -3848,7 +3849,18 @@ class FacturasController extends Controller{
                 $API->write('/ip/firewall/address-list/print', TRUE);
                 $ARRAYS = $API->read();
 
-                #ELIMINAMOS DE MOROSOS#
+                if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                    #HABILITACION DEL SECRET#
+                    if($contrato->conexion == 1 && $contrato->usuario != null){
+                        $API->write('/ppp/secret/enable', false);
+                        $API->write('=numbers=' . $contrato->usuario);
+                        $response = $API->read();
+                    }
+                    #HABILITACION DEL SECRET#
+
+                }else{
+                    #ELIMINAMOS DE MOROSOS#
                     $API->write('/ip/firewall/address-list/print', false);
                     $API->write('?address='.$contrato->ip, false);
                     $API->write("?list=morosos",false);
@@ -3861,6 +3873,7 @@ class FacturasController extends Controller{
                         $READ = $API->read();
                     }
                 #ELIMINAMOS DE MOROSOS#
+                }
 
                 #AGREGAMOS A IP_AUTORIZADAS#
                     $API->comm("/ip/firewall/address-list/add", array(
