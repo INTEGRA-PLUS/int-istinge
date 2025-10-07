@@ -251,7 +251,6 @@ class PucMovimiento extends Model
             PucMovimiento::facturaVenta($factura,1,$request,$siguienteNumero);
         }
     }
-
      /*
         OPCION:
         2: Actualizar el movimiento y borrar el anterior.
