@@ -61,6 +61,7 @@ use App\Services\WapiService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class FacturasController extends Controller{
 
@@ -3860,17 +3861,47 @@ class FacturasController extends Controller{
                     #HABILITACION DEL SECRET#
 
                 }else{
-                    #ELIMINAMOS DE MOROSOS#
-                    $API->write('/ip/firewall/address-list/print', false);
-                    $API->write('?address='.$contrato->ip, false);
-                    $API->write("?list=morosos",false);
-                    $API->write('=.proplist=.id');
-                    $ARRAYS = $API->read();
 
-                    if(count($ARRAYS)>0){
-                        $API->write('/ip/firewall/address-list/remove', false);
-                        $API->write('=.id='.$ARRAYS[0]['.id']);
-                        $READ = $API->read();
+                    $API->write('/ip/firewall/address-list/print', false);
+                    $API->write('?address=' . $contrato->ip, false);
+                    $API->write('?list=morosos', true);
+                    $result = $API->read();
+
+                    if (!empty($result)) {
+
+                        #ELIMINAMOS DE MOROSOS#
+                        $API->write('/ip/firewall/address-list/print', false);
+                        $API->write('?address='.$contrato->ip, false);
+                        $API->write("?list=morosos",false);
+                        $API->write('=.proplist=.id');
+                        $ARRAYS = $API->read();
+
+                        if(count($ARRAYS)>0){
+                            $API->write('/ip/firewall/address-list/remove', false);
+                            $API->write('=.id='.$ARRAYS[0]['.id']);
+                            $READ = $API->read();
+
+
+                            #AGREGAMOS A IP_AUTORIZADAS#
+                            $API->comm("/ip/firewall/address-list/add", array(
+                                "address" => $contrato->ip,
+                                "list" => 'ips_autorizadas'
+                                )
+                            );
+                            #AGREGAMOS A IP_AUTORIZADAS#
+
+
+                            $mensaje = "- Se ha sacado la ip de morosos.";
+
+                            $contrato->state = 'enabled';
+                            $contrato->save();
+
+                        }else{
+                            Log::info('Contrato nro:' . $contrato->nro . ' no se pudo sacar de morosos desde promesa de pago');
+                        }
+                        #ELIMINAMOS DE MOROSOS#
+                    }else{
+                        Log::info('Contrato nro:' . $contrato->nro . ' no estaba en morosos desde promesa de pago');
                     }
                 #ELIMINAMOS DE MOROSOS#
                 }
