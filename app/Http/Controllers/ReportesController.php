@@ -3127,7 +3127,7 @@ class ReportesController extends Controller
 
         // Obtener datos
         $contactos = $contactos->get();
-
+        $contactos = $this->paginate($contactos, 15, $request->page, $request);
         $empresa = Empresa::find(Auth::user()->empresa);
 
         return view('reportes.exogena.index')
