@@ -4046,7 +4046,7 @@ class CronController extends Controller
         $ingresos = Ingreso::where('fecha', $fecha)
         ->where('tipo', 1)
         ->where(function ($q) {
-            $q->where('revalidacion_enable_internet', 1)
+            $q->where('revalidacion_enable_internet', 0)
               ->orWhere('revalidacion_enable_tv', 0);
         })
         ->orderBy('updated_at', 'asc')
