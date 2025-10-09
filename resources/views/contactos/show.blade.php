@@ -352,13 +352,21 @@
 								@if($contrato->nro)
 								<tr>
 									<th width="20%">N° Contrato</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
+									<td><strong>{{ $contrato->nro }}</strong></td>
+                                    @else
 									<td><a href="{{ route('contratos.show',$contrato->id )}}"><strong>{{ $contrato->nro }}</strong></a></td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->grupo_corte)
 								<tr>
 									<th width="20%">Grupo de Corte</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
+									<td><strong>{{ $contrato->grupo_corte()->nombre }}</strong> (CORTE {{ $contrato->grupo_corte()->fecha_corte }} - SUSPENSIÓN {{ $contrato->grupo_corte()->fecha_suspension }})</td>
+                                    @else
 									<td><a href="{{ route('grupos-corte.show',$contrato->grupo_corte()->id )}}" target="_blank"><strong>{{ $contrato->grupo_corte()->nombre }}</strong></a> (CORTE {{ $contrato->grupo_corte()->fecha_corte }} - SUSPENSIÓN {{ $contrato->grupo_corte()->fecha_suspension }})</td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->state)
@@ -372,9 +380,15 @@
 								@if($contrato->ip)
 								<tr>
 									<th width="20%">Dirección IP</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
 									<td>
-										<a href="http://{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }}" target="_blank">{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i></a>
-									</td>
+                                        {{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i>
+                                    </td>
+                                    @else
+									<td>
+                                        <a href="http://{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }}" target="_blank">{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i></a>
+                                    </td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->plan_id)
