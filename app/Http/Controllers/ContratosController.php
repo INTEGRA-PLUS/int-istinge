@@ -1571,7 +1571,7 @@ class ContratosController extends Controller
         $contrato = Contrato::find($id);
         $empresa = Empresa::Find(Auth::user()->empresa);
         $ppoe_local_adress = "";
-        $descripcion = '';
+        $descripcion = null;
         $registro = false;
         $getall = '';
         if ($contrato) {
