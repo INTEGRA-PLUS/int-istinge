@@ -1304,6 +1304,16 @@ class CronController extends Controller
                                 if(isset($response->status) && $response->status == true){
                                     $contrato->state_olt_catv = false;
                                     $contrato->save();
+
+                                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado por cronjob de corte facturas (TV)<br>';
+                                    $movimiento = new MovimientoLOG();
+                                    $movimiento->contrato    = $contrato->id;
+                                    $movimiento->modulo      = 5;
+                                    $movimiento->descripcion = $descripcion;
+                                    $movimiento->created_by  = 1;
+                                    $movimiento->empresa     = $contrato->empresa;
+                                    $movimiento->save();
+
                                 }
 
                             }
@@ -3221,6 +3231,144 @@ class CronController extends Controller
 
         return "creados";
     }
+
+    public function createDuplicateFacturas(){
+
+
+        $facturas = Factura::leftJoin('contactos as c','c.id','factura.cliente')
+       ->where('fecha','>=','2025-09-01')->where('fecha','<=','2025-09-31')
+       // ->where('c.id',5911)
+       ->select('factura.*')
+       ->whereNotIn('c.tipo_contacto',[1,2])
+       ->groupBy('c.id')
+       ->get();
+
+       $fecha = '2025-10-12';
+       $vencimiento = '2025-10-26';
+       $pago_oportuno = '2025-10-15';
+       $numero = 1724;
+       $nro = NumeracionFactura::Find(9);
+       $grupo_corte = GrupoCorte::Find(1);
+
+       foreach($facturas as $f){
+
+           $ultimaF = Factura::where('cliente',$f->cliente)->orderBy('id','desc')->first();
+           // $ultimaF->fecha = '2025-10-10';
+           if($ultimaF->fecha < '2025-10-01'){
+
+               $itemAntiguo = ItemsFactura::where('factura',$f->id)->first();
+               $contrato = DB::table('facturas_contratos')->where('factura_id',$f->id)->first();
+
+               $inicio = $nro->inicio;
+
+               // Validacion para que solo asigne numero consecutivo si no existe.
+                while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
+                   $nro->save();
+                   $inicio=$nro->inicio;
+                   $nro->inicio += 1;
+               }
+
+
+               if($contrato){
+                   $contrato = Contrato::where('nro',$contrato->contrato_nro)->first();
+               }
+
+               if($contrato && $itemAntiguo){
+
+
+                   $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = $contrato->terminos_cond;
+                   $factura->facnotas      = $contrato->notas_fact;
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   if($contrato){
+                       $factura->contrato_id = $contrato->id;
+                   }
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                   DB::table('facturas_contratos')->insert([
+                       'factura_id' => $factura->id,
+                       'contrato_nro' => $contrato->nro,
+                       'created_by' => 0,
+                       'client_id' => $factura->cliente,
+                       'is_cron' => 1,
+                       'created_at' => Carbon::now()
+                   ]);
+
+                   $nro++;
+               }
+               else{
+
+                   if($itemAntiguo){
+                                       $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = "";
+                   $factura->facnotas      = "";
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   $nro++;
+                   }
+               }
+           }
+       }
+   }
 
 
     public function deleteFactura(){

@@ -442,7 +442,11 @@ class ContratosController extends Controller
 
         //Esta opción es para mirar los contratos deshabilitados con su ultima factura pagada.
         if ($request->otra_opcion && $request->otra_opcion == "opcion_1") {
-            $contratos = Contrato::where('state', 'disabled')->get();
+
+            $contratos = Contrato::where('state', 'disabled')
+            ->orWhere('state_olt_catv',0)->where('olt_sn_mac','!=','NULL')
+            ->get();
+
             $i = 0;
             $arrayContratos = array();
             foreach ($contratos as $contrato) {
@@ -2538,7 +2542,7 @@ class ContratosController extends Controller
 
         $this->getAllPermissions(Auth::user()->id);
         $contrato = Contrato::find($id);
-        
+
         $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
         $empresa = Auth::user()->empresa();
         $descripcion = "";
@@ -3101,7 +3105,11 @@ class ContratosController extends Controller
 
         //Esta opción es para mirar los contratos deshabilitados con su ultima factura pagada.
         if ($request->otra_opcion && $request->otra_opcion == "opcion_1") {
-            $contratos = Contrato::where('state', 'disabled')->get();
+
+            $contratos = Contrato::where('state', 'disabled')
+            ->orWhere('state_olt_catv',0)->where('olt_sn_mac','!=','NULL')
+            ->get();
+
             $i = 0;
             $arrayContratos = array();
             foreach ($contratos as $contrato) {
