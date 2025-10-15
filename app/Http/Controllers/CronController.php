@@ -289,6 +289,7 @@ class CronController extends Controller
                     $ultimaFactura = DB::table('facturas_contratos')
                     ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
                     ->where('facturas_contratos.contrato_nro', $contrato->nro)
+                    ->where('factura.estatus','!=',2)
                     ->select('factura.*')
                     ->orderBy('factura.fecha', 'desc')
                     ->first();
