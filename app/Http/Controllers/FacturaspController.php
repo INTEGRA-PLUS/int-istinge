@@ -1764,7 +1764,10 @@ class FacturaspController extends Controller
             })
             ->get();
 
-        $categorias = Categoria::where('empresa', $empresaActual)->where('estatus', 1)->whereNull('asociado')->get();
+        $categorias = Puc::where('empresa',auth()->user()->empresa)
+        ->whereRaw('length(codigo) > 4')
+        ->get();
+
         $extras = CamposExtra::where('empresa', $empresaActual)->where('status', 1)->get();
         $identificaciones = TipoIdentificacion::all();
         $vendedores = Vendedor::where('empresa', $empresaActual)->where('estado', 1)->get();
