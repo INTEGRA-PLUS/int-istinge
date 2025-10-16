@@ -2874,7 +2874,7 @@ class FacturasController extends Controller{
             $tituloCorreo =  $data['Empresa']['nit'] . ";" . $data['Empresa']['nombre'] . ";" . $FacturaVenta->codigo . ";01;" . $data['Empresa']['nombre'];
 
             $isImpuesto = 1;
-            // return $data;
+            return $data;
             //   if(auth()->user()->empresa == 1)
             //   {
             //       return $xml = response()->view('templates.xml.01',compact('CUFEvr','ResolucionNumeracion','FacturaVenta', 'data','items','retenciones','responsabilidades_empresa','emails','impTotal','isImpuesto'))->header('Cache-Control', 'public')
@@ -3294,6 +3294,7 @@ class FacturasController extends Controller{
     public function validate_dian(Request $request)
     {
         $factura = Factura::find($request->id);
+
         $numeracion = NumeracionFactura::where('empresa', Auth::user()->empresa)->where('tipo',2)->where('id', $factura->numeracion)->first();
         $empresa  = Empresa::select('id', 'fk_idpais', 'fk_iddepartamento', 'fk_idmunicipio', 'dv', 'fk_idpais', 'fk_iddepartamento', 'fk_idmunicipio', 'dv')
         ->with('responsabilidades')
@@ -3321,27 +3322,36 @@ class FacturasController extends Controller{
         }
 
         //-- Validación de si la ultima factura creada fue emitida o si es la primer factura a emitir que la deje --//
-        if ($numeracion->prefijo != null || $numeracion->prefijo != "") {
+        if (!empty($numeracion->prefijo)) {
+            // Extrae solo las letras del inicio del código (el prefijo)
+            $codigo = preg_replace('/[0-9]+/', '', $factura->codigo);
             $numero = intval(preg_replace('/[^0-9]+/', '', $factura->codigo), 10);
-            $codigo    = substr($factura->codigo, strlen($numeracion->prefijo), strlen($numero));
         } else {
             $codigo = $factura->codigo;
+            $numero = $factura->codigo;
         }
 
 
         //Si tenemos una pasada factura a la que estamos intentando emitir entra a este if
-        if (Factura::where('empresa', Auth::user()->empresa)->where('numeracion', $factura->numeracion)->where('codigo', $numeracion->prefijo . ($codigo - 1))->count() > 0) {
-            $ultfact = Factura::where('empresa', Auth::user()->empresa)->where('numeracion', $factura->numeracion)->where('codigo', $numeracion->prefijo . ($codigo - 1))->first();
+        if (Factura::where('empresa', Auth::user()->empresa)
+                ->where('numeracion', $factura->numeracion)
+                ->where('codigo', $codigo . ($numero - 1))
+                ->first()) {
+
+                $ultfact = Factura::where('empresa', Auth::user()->empresa)
+                ->where('numeracion', $factura->numeracion)
+                ->where('codigo', $codigo . ($numero - 1))
+                ->first();
 
             if ($ultfact->emitida == null || $ultfact->emitida == 2 || $ultfact->emitida == 0) { //-- si es null o es 2(no emitida) o 0 no emitida
                 $emitida = false;
             } else {
                 $emitida = true;
             }
-        } elseif ($codigo == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
+        } elseif ($numero == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
             $emitida = true;
         } else { //cambió el prefijo de una numeracion existente ademas hay mas facturas con esa numeración sin emitir
-              /*
+            /*
             Actualizacion: Como no es igual al inicioverdadero es muy probable que no
             se este emitiendo desde el numero de inicio verdadero si no que arranco un poco mas
             adelante.

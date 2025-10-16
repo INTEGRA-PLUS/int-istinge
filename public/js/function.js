@@ -3817,12 +3817,12 @@ function validateDian(id, rutasuccess, codigo, emails = false, facturasp = 0) {
                         $img = "total.png";
                         messageValidateDian($mensaje, $footer, $img);
                     }
-                    // else if (validate.emitida == false) {
-                    //     $mensaje = "Se debe emitir la factura anterior para no perder el consecutivo.";
-                    //     $footer = "";
-                    //     $img = "emitida.png";
-                    //     messageValidateDian($mensaje, $footer, $img);
-                    // }
+                    else if (validate.emitida == false) {
+                        $mensaje = "Se debe emitir la factura anterior para no perder el consecutivo.";
+                        $footer = "";
+                        $img = "emitida.png";
+                        messageValidateDian($mensaje, $footer, $img);
+                    }
 
                     //-- /Validaciones para la factura --//
                     else {
