@@ -254,6 +254,10 @@
 							<th>Otro servicio</th>
 							<td>{{ $servicio_otro->producto }}</td>
 						</tr>
+						<tr>
+							<th>Valor otro servicio</th>
+							<td>{{ $servicio_otro->precio }}</td>
+						</tr>
 						@endif
 						@if($contrato->costo_reconexion>0)
 						<tr>
