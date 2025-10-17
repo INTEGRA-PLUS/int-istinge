@@ -2306,8 +2306,15 @@ class ContratosController extends Controller
             if ($contrato->servicio_tv) {
                 $inventario = Inventario::where('id', $contrato->servicio_tv)->where('empresa', Auth::user()->empresa)->first();
             }
+            if ($contrato->servicio_otro) {
+                $servicio_otro = Inventario::where('id', $contrato->servicio_otro)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->first();
+            } else {
+                $servicio_otro = null;
+            }
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Detalles Contrato: ' . $contrato->nro]);
-            return view('contratos.show')->with(compact('contrato', 'inventario'));
+            return view('contratos.show')->with(compact('contrato', 'inventario', 'servicio_otro'));
         }
         return redirect('empresa/contratos')->with('danger', 'EL CONTRATO DE SERVICIOS NO HA ENCONTRADO');
     }

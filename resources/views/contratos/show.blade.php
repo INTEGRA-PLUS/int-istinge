@@ -222,7 +222,7 @@
 							<th>Nodo Asociado</th>
 							@if($contrato->nodo())
 							<td><a href="{{ route('nodos.show',$contrato->nodo()->id )}}" target="_blank"><strong>{{ $contrato->nodo()->nombre }}</strong></a></td>
-							@endif
+						@endif
 						</tr>
 						@endif
 						@if($contrato->ap)
@@ -249,6 +249,12 @@
 							<th>Precio Plan</th>
 							<td>{{ Auth::user()->empresa()->moneda }} {{ App\Funcion::Parsear($contrato->plan()->price) }}</td>
 						</tr>
+						@if($servicio_otro)
+						<tr>
+							<th>Otro servicio</th>
+							<td>{{ $servicio_otro->producto }}</td>
+						</tr>
+						@endif
 						@if($contrato->costo_reconexion>0)
 						<tr>
 							<th>Costo de Reconexión</th>
