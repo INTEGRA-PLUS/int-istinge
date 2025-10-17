@@ -2874,7 +2874,6 @@ class FacturasController extends Controller{
             $tituloCorreo =  $data['Empresa']['nit'] . ";" . $data['Empresa']['nombre'] . ";" . $FacturaVenta->codigo . ";01;" . $data['Empresa']['nombre'];
 
             $isImpuesto = 1;
-            return $data;
             //   if(auth()->user()->empresa == 1)
             //   {
             //       return $xml = response()->view('templates.xml.01',compact('CUFEvr','ResolucionNumeracion','FacturaVenta', 'data','items','retenciones','responsabilidades_empresa','emails','impTotal','isImpuesto'))->header('Cache-Control', 'public')
