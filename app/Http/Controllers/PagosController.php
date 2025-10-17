@@ -169,7 +169,7 @@ class PagosController extends Controller
         $metodos_pago =DB::table('metodos_pago')->get();
         $retenciones = Retencion::where('empresa',Auth::user()->empresa)->where('modulo',1)->get();
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-         ->whereRaw('length(codigo) > 6')
+         ->whereRaw('length(codigo) >= 6')
          ->get();
         $impuestos = Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
 
@@ -480,7 +480,7 @@ class PagosController extends Controller
             $metodos_pago =DB::table('metodos_pago')->get();
             $retenciones = Retencion::where('empresa',Auth::user()->empresa)->where('modulo',1)->get();
             $categorias = Puc::where('empresa',auth()->user()->empresa)
-            ->whereRaw('length(codigo) > 6')
+            ->whereRaw('length(codigo) >= 6')
             ->get();
             $impuestos = Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
             $items= $retencionesIngreso=array();

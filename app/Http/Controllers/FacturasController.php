@@ -1012,7 +1012,7 @@ class FacturasController extends Controller{
         $listas2 = $dataPro->listas;
         $bodegas2 = $dataPro->bodegas;
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-         ->whereRaw('length(codigo) > 6')
+         ->whereRaw('length(codigo) >= 6')
          ->get();
         $identificaciones=TipoIdentificacion::all();
         //$vendedores = Vendedor::where('empresa',$empresa->id)->where('estado', 1)->get();
