@@ -256,7 +256,7 @@
 						</tr>
 						<tr>
 							<th>Valor otro servicio</th>
-							<td>{{ $servicio_otro->precio }}</td>
+							<td>{{ Auth::user()->empresa()->moneda }} {{ App\Funcion::Parsear($servicio_otro->precio) }}</td>
 						</tr>
 						@endif
 						@if($contrato->costo_reconexion>0)
