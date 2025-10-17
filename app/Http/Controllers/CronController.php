@@ -289,6 +289,7 @@ class CronController extends Controller
                     $ultimaFactura = DB::table('facturas_contratos')
                     ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
                     ->where('facturas_contratos.contrato_nro', $contrato->nro)
+                    ->where('factura.estatus','!=',2)
                     ->select('factura.*')
                     ->orderBy('factura.fecha', 'desc')
                     ->first();
@@ -1019,14 +1020,13 @@ class CronController extends Controller
                                     );
                                     #AGREGAMOS A IP_AUTORIZADAS#
 
-                                    #HABILITACION DEL PPOE#
-                                    if($contrato->conexion == 1 && $contrato->usuario != null){
-                                        $API->write('/ppp/secret/enable', false);
-                                        $API->write('=numbers=' . $contrato->usuario);
-                                        $response = $API->read();
-                                    }
-                                    #HABILITACION DEL PPOE#
-
+                                    // #HABILITACION DEL PPOE#
+                                    // if($contrato->conexion == 1 && $contrato->usuario != null){
+                                    //     $API->write('/ppp/secret/enable', false);
+                                    //     $API->write('=numbers=' . $contrato->usuario);
+                                    //     $response = $API->read();
+                                    // }
+                                    // #HABILITACION DEL PPOE#
                                     $API->disconnect();
                                     }
                                 }
@@ -1078,29 +1078,34 @@ class CronController extends Controller
                                             }
                                             #ELIMINAMOS DE IP_AUTORIZADAS#
 
-                                            #HABILITACION DEL PPOE#
-                                            if($contrato->conexion == 1 && $contrato->usuario != null){
-                                                $API->write('/ppp/secret/disable', false);
-                                                $API->write('=numbers=' . $contrato->usuario);
-                                                $response = $API->read();
-                                            }
-                                            #HABILITACION DEL PPOE#
+                                            if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                                            #SE SACA DE LA ACTIVE CONNECTIONS
-                                               if($contrato->conexion == 1 && $contrato->usuario != null){
-
-                                                $API->write('/ppp/active/print', false);
-                                                $API->write('?name=' . $contrato->usuario);
-                                                $response = $API->read();
-
-                                                if(isset($response['0']['.id'])){
-                                                    $API->comm("/ppp/active/remove", [
-                                                        ".id" => $response['0']['.id']
-                                                    ]);
+                                                #DESHABILITACION DEL PPOE#
+                                                if($contrato->conexion == 1 && $contrato->usuario != null){
+                                                    $API->write('/ppp/secret/disable', false);
+                                                    $API->write('=numbers=' . $contrato->usuario);
+                                                    $response = $API->read();
                                                 }
+                                                #DESHABILITACION DEL PPOE#
 
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                                if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                                    $API->write('/ppp/active/print', false);
+                                                    $API->write('?name=' . $contrato->usuario);
+                                                    $response = $API->read();
+
+                                                    if(isset($response['0']['.id'])){
+                                                        $API->comm("/ppp/active/remove", [
+                                                            ".id" => $response['0']['.id']
+                                                        ]);
+                                                    }
+
+                                                }
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
                                             }
-                                            #SE SACA DE LA ACTIVE CONNECTIONS
+
+
                                         }
                                         $i++;
                                     }
@@ -1300,6 +1305,16 @@ class CronController extends Controller
                                 if(isset($response->status) && $response->status == true){
                                     $contrato->state_olt_catv = false;
                                     $contrato->save();
+
+                                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado por cronjob de corte facturas (TV)<br>';
+                                    $movimiento = new MovimientoLOG();
+                                    $movimiento->contrato    = $contrato->id;
+                                    $movimiento->modulo      = 5;
+                                    $movimiento->descripcion = $descripcion;
+                                    $movimiento->created_by  = 1;
+                                    $movimiento->empresa     = $contrato->empresa;
+                                    $movimiento->save();
+
                                 }
 
                             }
@@ -1913,9 +1928,18 @@ class CronController extends Controller
                                 $ARRAYS = $API->read();
 
                                 if(count($ARRAYS)>0){
+
                                     $API->write('/ip/firewall/address-list/remove', false);
                                     $API->write('=.id='.$ARRAYS[0]['.id']);
                                     $READ = $API->read();
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
 
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();
@@ -3157,6 +3181,197 @@ class CronController extends Controller
         }
     }
 
+    public function creacionContratosDinamico(){
+
+        $contactos = Contacto::get();
+
+        $i = 1;
+
+        foreach($contactos as $contacto){
+
+            $contrato = new Contrato();
+            $contrato->empresa = 1;
+            $contrato->oficina = null;
+            $contrato->nro = $i;
+            $contrato->servicio = $contacto->nombre ."-" . $i;
+            $contrato->pago_siigo_contrato = 0;
+            $contrato->servicio_tv = 28;
+            $contrato->client_id = $contacto->id;
+            $contrato->rd_item_vencimiento = 0;
+            $contrato->server_configuration_id = null;
+            $contrato->state = "enabled";
+            $contrato->ip = null;
+            $contrato->latitude = 3.619790333228524;
+            $contrato->longitude = -73.79701780434284;
+            $contrato->address_street = $contacto->direccion;
+            $contrato->fecha_corte = null;
+            $contrato->usuario = null;
+            $contrato->conexion = null;
+            $contrato->direccion_local_address = null;
+            $contrato->local_address_new = null;
+            $contrato->profile = null;
+            $contrato->grupo_corte = 5;
+            $contrato->regla_ip = 0;
+            $contrato->ip_autorizada = 0;
+            $contrato->facturacion = 1;
+            $contrato->factura_individual = 1;
+            $contrato->mk = 1;
+            $contrato->contrato_permanencia = 0;
+            $contrato->contrato_permanencia_meses = 12;
+            $contrato->fact_primer_mes = 1;
+            $contrato->costo_reconexion = 1;
+            $contrato->tipo_contrato = 0;
+            $contrato->observaciones = "Contrato predeterminado";
+            $contrato->disabled = 0;
+            $contrato->opciones_dian = 1;
+            $contrato->tipo_nosuspension = 0;
+
+            $contrato->save();
+            $i++;
+        }
+
+        return "creados";
+    }
+
+    public function createDuplicateFacturas(){
+
+
+        $facturas = Factura::leftJoin('contactos as c','c.id','factura.cliente')
+       ->where('fecha','>=','2025-09-01')->where('fecha','<=','2025-09-31')
+       // ->where('c.id',5911)
+       ->select('factura.*')
+       ->whereNotIn('c.tipo_contacto',[1,2])
+       ->groupBy('c.id')
+       ->get();
+
+       $fecha = '2025-10-12';
+       $vencimiento = '2025-10-26';
+       $pago_oportuno = '2025-10-15';
+       $numero = 1724;
+       $nro = NumeracionFactura::Find(9);
+       $grupo_corte = GrupoCorte::Find(1);
+
+       foreach($facturas as $f){
+
+           $ultimaF = Factura::where('cliente',$f->cliente)->orderBy('id','desc')->first();
+           // $ultimaF->fecha = '2025-10-10';
+           if($ultimaF->fecha < '2025-10-01'){
+
+               $itemAntiguo = ItemsFactura::where('factura',$f->id)->first();
+               $contrato = DB::table('facturas_contratos')->where('factura_id',$f->id)->first();
+
+               $inicio = $nro->inicio;
+
+               // Validacion para que solo asigne numero consecutivo si no existe.
+                while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
+                   $nro->save();
+                   $inicio=$nro->inicio;
+                   $nro->inicio += 1;
+               }
+
+
+               if($contrato){
+                   $contrato = Contrato::where('nro',$contrato->contrato_nro)->first();
+               }
+
+               if($contrato && $itemAntiguo){
+
+
+                   $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = $contrato->terminos_cond;
+                   $factura->facnotas      = $contrato->notas_fact;
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   if($contrato){
+                       $factura->contrato_id = $contrato->id;
+                   }
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                   DB::table('facturas_contratos')->insert([
+                       'factura_id' => $factura->id,
+                       'contrato_nro' => $contrato->nro,
+                       'created_by' => 0,
+                       'client_id' => $factura->cliente,
+                       'is_cron' => 1,
+                       'created_at' => Carbon::now()
+                   ]);
+
+                   $nro++;
+               }
+               else{
+
+                   if($itemAntiguo){
+                                       $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = "";
+                   $factura->facnotas      = "";
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   $nro++;
+                   }
+               }
+           }
+       }
+   }
+
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
@@ -3977,10 +4192,12 @@ class CronController extends Controller
         $fecha = Carbon::now()->format('Y-m-d');
 
         //ingresos asociados a facturas del dia de hoy.
-        $ingresos = Ingreso::where('fecha',$fecha)
-        ->where('tipo',1)
-        ->where('revalidacion_enable_internet',0)
-        ->where('revalidacion_enable_tv',0)
+        $ingresos = Ingreso::where('fecha', $fecha)
+        ->where('tipo', 1)
+        ->where(function ($q) {
+            $q->where('revalidacion_enable_internet', 0)
+              ->orWhere('revalidacion_enable_tv', 0);
+        })
         ->orderBy('updated_at', 'asc')
         ->get();
 
@@ -4043,10 +4260,10 @@ class CronController extends Controller
                         /* * * API CATV * * */
 
                         //Este es el de internet
+
                         /* * * API MIKROTIK * * */
                         if($contrato->server_configuration_id){
                             $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
-
                             $API = new RouterosAPI();
                             $API->port = $mikrotik->puerto_api;
 
@@ -4054,17 +4271,42 @@ class CronController extends Controller
                                 $API->write('/ip/firewall/address-list/print', TRUE);
                                 $ARRAYS = $API->read();
 
-                                #ELIMINAMOS DE MOROSOS#
                                 $API->write('/ip/firewall/address-list/print', false);
-                                $API->write('?address='.$contrato->ip, false);
-                                $API->write("?list=morosos",false);
-                                $API->write('=.proplist=.id');
-                                $ARRAYS = $API->read();
+                                $API->write('?address=' . $contrato->ip, false);
+                                $API->write('?list=morosos', true);
+                                $result = $API->read();
 
-                                if(count($ARRAYS)>0){
-                                    $API->write('/ip/firewall/address-list/remove', false);
-                                    $API->write('=.id='.$ARRAYS[0]['.id']);
-                                    $READ = $API->read();
+                                if (!empty($result)) {
+
+                                    #ELIMINAMOS DE MOROSOS#
+                                    $API->write('/ip/firewall/address-list/print', false);
+                                    $API->write('?address='.$contrato->ip, false);
+                                    $API->write("?list=morosos",false);
+                                    $API->write('=.proplist=.id');
+                                    $ARRAYS = $API->read();
+                                    #ELIMINAMOS DE MOROSOS#
+
+                                    if(count($ARRAYS)>0){
+                                        $API->write('/ip/firewall/address-list/remove', false);
+                                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                                        $READ = $API->read();
+
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+                                        $API->comm("/ip/firewall/address-list/add", array(
+                                            "address" => $contrato->ip,
+                                            "list" => 'ips_autorizadas'
+                                            )
+                                        );
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+
+                                        $ingreso->revalidacion_enable_internet = 1;
+                                        $ingreso->save();
+
+                                        $contrato->state = 'enabled';
+                                        $contrato->save();
+                                    }
+
+                                } else {
 
                                     #AGREGAMOS A IP_AUTORIZADAS#
                                     $API->comm("/ip/firewall/address-list/add", array(
@@ -4076,12 +4318,11 @@ class CronController extends Controller
 
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();
-
-                                    $contrato->state = 'enabled';
-                                    $contrato->save();
                                 }
-                                #ELIMINAMOS DE MOROSOS#
+
                                 $API->disconnect();
+                            }else{
+                                echo "no se conecto a la mikrotik";
                             }
                         }else{
                             $ingreso->revalidacion_enable_internet = 1;
