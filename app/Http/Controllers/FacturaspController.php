@@ -242,7 +242,7 @@ class FacturaspController extends Controller
         $prefijos=DB::table('prefijos_telefonicos')->get();
         $dataPro = (new InventarioController)->create();
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-         ->whereRaw('length(codigo) > 4')
+         ->whereRaw('length(codigo) >= 6')
          ->get();
         //Se crea una instancia de facturas_proveedores y se le summa 1 al codigo
         $facturaP = FacturaProveedores::where('empresa', Auth::user()->empresa)->get()->last();
@@ -521,7 +521,7 @@ class FacturaspController extends Controller
             $clientes = Contacto::where('empresa',Auth::user()->empresa)->whereIn('tipo_contacto',[1,2])->get();
             $impuestos = Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
             $categorias=Puc::where('empresa',auth()->user()->empresa)
-            ->whereRaw('length(codigo) > 4')
+            ->whereRaw('length(codigo) >= 6')
             ->get();
             $identificaciones=TipoIdentificacion::all();
             $listas = ListaPrecios::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
@@ -1765,7 +1765,7 @@ class FacturaspController extends Controller
             ->get();
 
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 4')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $extras = CamposExtra::where('empresa', $empresaActual)->where('status', 1)->get();
