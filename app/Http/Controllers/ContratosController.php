@@ -2554,23 +2554,64 @@ class ContratosController extends Controller
                                         $READ = $API->read();
                                     }
                                     #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #DESHABILITACION DEL PPOE#
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                            $API->write('/ppp/secret/disable', false);
+                                            $API->write('=numbers=' . $contrato->usuario);
+                                            $response = $API->read();
+                                        }
+                                        #DESHABILITACION DEL PPOE#
+
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                            $API->write('/ppp/active/print', false);
+                                            $API->write('?name=' . $contrato->usuario);
+                                            $response = $API->read();
+
+                                            if(isset($response['0']['.id'])){
+                                                $API->comm("/ppp/active/remove", [
+                                                    ".id" => $response['0']['.id']
+                                                ]);
+                                            }
+
+                                        }
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                    }
+
                                     $contrato->state = 'disabled';
                                     $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de Habilitado a Deshabilitado<br>';
 
                                 }else{
 
-                                    #ELIMINAMOS DE MOROSOS#
-                                    $API->write('/ip/firewall/address-list/print', false);
-                                    $API->write('?address='.$contrato->ip, false);
-                                    $API->write("?list=morosos",false);
-                                    $API->write('=.proplist=.id');
-                                    $ARRAYS = $API->read();
-                                    if(count($ARRAYS)>0){
-                                        $API->write('/ip/firewall/address-list/remove', false);
-                                        $API->write('=.id='.$ARRAYS[0]['.id']);
-                                        $READ = $API->read();
+                                if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #HABILITACION DEL SECRET#
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                            $API->write('/ppp/secret/enable', false);
+                                            $API->write('=numbers=' . $contrato->usuario);
+                                            $response = $API->read();
+                                        }
+                                        #HABILITACION DEL SECRET#
+
+                                    }else{
+
+                                        #ELIMINAMOS DE MOROSOS#
+                                        $API->write('/ip/firewall/address-list/print', false);
+                                        $API->write('?address='.$contrato->ip, false);
+                                        $API->write("?list=morosos",false);
+                                        $API->write('=.proplist=.id');
+                                        $ARRAYS = $API->read();
+                                        if(count($ARRAYS)>0){
+                                            $API->write('/ip/firewall/address-list/remove', false);
+                                            $API->write('=.id='.$ARRAYS[0]['.id']);
+                                            $READ = $API->read();
+                                        }
+                                        #ELIMINAMOS DE MOROSOS#
                                     }
-                                    #ELIMINAMOS DE MOROSOS#
 
                                     #AGREGAMOS A IP_AUTORIZADAS#
                                     $API->comm("/ip/firewall/address-list/add", array(
