@@ -252,11 +252,11 @@
 						@if($servicio_otro)
 						<tr>
 							<th>Otro servicio</th>
-							<td>{{ $servicio_otro->producto }}</td>
+							<td><a href="{{route('inventario.show', $servicio_otro->id)}}" target="_blank"><strong>{{ $servicio_otro->producto }}</strong></a></td>
 						</tr>
 						<tr>
 							<th>Valor otro servicio</th>
-							<td>{{ Auth::user()->empresa()->moneda }} {{ App\Funcion::Parsear($servicio_otro->precio) }}</td>
+							<td>{{ Auth::user()->empresa()->moneda }} {{ number_format($servicio_otro->precio, 0, ',', '.') }}</td>
 						</tr>
 						@endif
 						@if($contrato->costo_reconexion>0)

@@ -2307,9 +2307,7 @@ class ContratosController extends Controller
                 $inventario = Inventario::where('id', $contrato->servicio_tv)->where('empresa', Auth::user()->empresa)->first();
             }
             if ($contrato->servicio_otro) {
-                $servicio_otro = Inventario::where('id', $contrato->servicio_otro)
-                    ->where('empresa', Auth::user()->empresa)
-                    ->first();
+                $servicio_otro = Inventario::where('id', $contrato->servicio_otro)->where('empresa', Auth::user()->empresa)->first();
             } else {
                 $servicio_otro = null;
             }
