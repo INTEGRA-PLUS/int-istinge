@@ -7,9 +7,9 @@ use App\Puc;
 use Auth;
 use Illuminate\Http\Request;
 
-use App\Model\Inventario\Inventario; 
-use App\Impuesto; 
-use App\ProductoCuenta; 
+use App\Model\Inventario\Inventario;
+use App\Impuesto;
+use App\ProductoCuenta;
 
 class ProductoServicioController extends Controller
 {
@@ -21,7 +21,7 @@ class ProductoServicioController extends Controller
 
         //Tomar las categorias del puc que no son transaccionables.
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         return view('productoservicio.index',compact('productos','categorias'));
@@ -76,7 +76,7 @@ class ProductoServicioController extends Controller
             $pr->inventario_id = $inventario->id;
             $pr->tipo = 4;
             $pr->save();
-        } 
+        }
 
 
         $producto = new ProductoServicio;
@@ -96,7 +96,7 @@ class ProductoServicioController extends Controller
         $producto->venta = Puc::where('id',$request->venta)->first()->nombre;
         $producto->devolucion = Puc::where('id',$request->devolucion)->first()->nombre;
 
-        
+
         return response()->json($producto);
     }
 
@@ -183,7 +183,7 @@ class ProductoServicioController extends Controller
                 $inventario->unidad=1;
                 $inventario->nro=0;
                 $inventario->tipo_producto=2;
-                $inventario->save();  
+                $inventario->save();
 
                 $producto->producto_id = $inventario->id;
 
@@ -218,17 +218,17 @@ class ProductoServicioController extends Controller
                     $pr->inventario_id = $inventario->id;
                     $pr->tipo = 4;
                     $pr->save();
-                } 
+                }
             }
-         
+
 
             $producto->en_uso = $request->checkForm;
             $producto->codigo = $request->codigo;
             $producto->nombre = $request->nombre;
             $producto->inventario_id = $request->inventario;
             $producto->costo_id = $request->costo;
-            $producto->venta_id = $request->venta; 
-            $producto->devolucion_id = $request->devolucion; 
+            $producto->venta_id = $request->venta;
+            $producto->devolucion_id = $request->devolucion;
             $producto->save();
             return response()->json([
                 'producto' => $producto
@@ -244,7 +244,7 @@ class ProductoServicioController extends Controller
         if($producto){
             $producto->delete();
         }
-        
+
         return response()->json(['producto' => true]);
     }
 }
