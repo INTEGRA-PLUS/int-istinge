@@ -130,6 +130,13 @@
 								@endforeach
 							</select>
 						</div>
+                        <div class="col-md-2 pl-1 pt-1">
+                            <select title="barrio" class="form-control rounded selectpicker" id="barrio" data-size="5" data-live-search="true">
+								@foreach ($barrios as $barrio)
+									<option value="{{ $barrio->id}}">{{ $barrio->nombre}}</option>
+								@endforeach
+							</select>
+                        </div>
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
                             <label for="creacion" class="placeholder">Creación</label>
@@ -323,6 +330,7 @@
 			data.cliente = $('#cliente').val();
 			data.municipio = $('#municipio').val();
 			data.vendedor = $('#vendedor').val();
+            data.barrio = $('#barrio').val();
 			data.creacion = $('#creacion').val();
 			data.vencimiento = $('#vencimiento').val();
 			data.comparador = $('#comparador').val();
@@ -354,7 +362,7 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #grupos_corte, #fact_siigo').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #barrio, #grupos_corte, #fact_siigo').on('change',function() {
             getDataTable();
             return false;
         });
@@ -567,6 +575,7 @@
 		$('#corte').val('').selectpicker('refresh');
 		$('#cliente').val('').selectpicker('refresh');
 		$('#municipio').val('').selectpicker('refresh');
+        $('#barrio').val('').selectpicker('refresh');
 		$('#vendedor').val('').selectpicker('refresh');
 		$('#creacion').val('');
 		$('#vencimiento').val('');
@@ -584,7 +593,7 @@
 
 	function exportar() {
 		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&creacion='+$('#creacion').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
+        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
 	}
 </script>
 @endsection

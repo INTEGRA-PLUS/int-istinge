@@ -330,6 +330,7 @@ class FacturasController extends Controller{
 
         $clientes = Contacto::join('factura as f', 'contactos.id', '=', 'f.cliente')->where('contactos.status', 1)->groupBy('f.cliente')->select('contactos.*')->orderBy('contactos.nombre','asc')->get();
         $municipios = DB::table('municipios')->orderBy('nombre', 'asc')->get();
+        $barrios = DB::table('barrios')->orderBy('nombre', 'asc')->get();
         $tabla = Campos::join('campos_usuarios', 'campos_usuarios.id_campo', '=', 'campos.id')
         ->where('campos_usuarios.id_modulo', 4)->where('campos_usuarios.id_usuario', $user->id)
         ->where('campos_usuarios.estado', 1)
@@ -410,7 +411,7 @@ class FacturasController extends Controller{
 
 
         view()->share(['title' => 'Facturas de Venta Electrónica', 'subseccion' => 'venta-electronica']);
-        return view('facturas-electronica.index', compact('clientes', 'municipios', 'tabla','servidores','grupos_corte','empresa','reporteFaltantes', 'dianFecthSync'));
+        return view('facturas-electronica.index', compact('clientes', 'municipios', 'tabla','servidores','barrios','grupos_corte','empresa','reporteFaltantes', 'dianFecthSync'));
     }
 
     /*
