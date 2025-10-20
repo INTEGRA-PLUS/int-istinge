@@ -65,4 +65,16 @@ class WapiService
             true
         );
     }
+
+    public function sendTemplate(string $uuid, array $body)
+    {
+        return $this->makeRequest(
+            "POST",
+            $this->baseUri . "/api/v1/channels/waba/{$uuid}/send-template",
+            [],
+            $body,
+            $this->headers,
+            true
+        );
+    }
 }
