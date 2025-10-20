@@ -4567,6 +4567,7 @@ class FacturasController extends Controller{
 
     public function whatsapp($id, Request $request, WapiService $wapiService)
     {
+        // 1️⃣ Buscar factura y datos base
         $factura = Factura::findOrFail($id);
         $instance = Instance::where('company_id', auth()->user()->empresa)->first();
         $contacto = $factura->cliente();
@@ -4579,7 +4580,17 @@ class FacturasController extends Controller{
             return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
         }
 
-        // Construir la URL temporal del PDF
+        // 2️⃣ Consultar canal para verificar si es WABA o no
+        $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
+        $canalData = json_decode($canalResponse->scalar ?? '{}');
+
+        if (!isset($canalData->status) || $canalData->status !== "success") {
+            return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
+        }
+
+        $tipoCanal = $canalData->data->type ?? null;
+
+        // 3️⃣ Construir la URL temporal del PDF
         $token = config('app.key');
         $urlFactura = route('facturas.temp', ['id' => $id, 'token' => $token]);
 
@@ -4590,10 +4601,10 @@ class FacturasController extends Controller{
             ? $estadoCuenta->saldoMesAnterior + $total
             : $total;
 
-        // Armar cuerpo de mensaje según plantilla de VibioCRM
+        // 4️⃣ Crear cuerpo del mensaje
         $body = [
             "phone" => "+57" . $contacto->celular,
-            "templateName" => "factura", // nombre de tu plantilla en Vibio
+            "templateName" => "factura",
             "languageCode" => "es",
             "components" => [
                 [
@@ -4611,40 +4622,46 @@ class FacturasController extends Controller{
                 [
                     "type" => "body",
                     "parameters" => [
-                        [
-                            "type" => "text",
-                            "text" => $contacto->nombre . " " . $contacto->apellido1
-                        ],
-                        [
-                            "type" => "text",
-                            "text" => $nameEmpresa
-                        ],
-                        [
-                            "type" => "text",
-                            "text" => number_format($saldo, 0, ',', '.')
-                        ]
+                        ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
+                        ["type" => "text", "text" => $nameEmpresa],
+                        ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
                     ]
                 ]
             ]
         ];
 
-        // Enviar mensaje con plantilla
-        $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+        // 5️⃣ Enviar según tipo de canal
+        if ($tipoCanal === "WABA") {
+            $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+        } else {
+            // Si no es WABA, lo mandamos como documento normal
+            $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
+                "phone" => "+57" . $contacto->celular,
+                "caption" => "Factura {$factura->codigo} - {$nameEmpresa}",
+                "document" => [
+                    "url" => $urlFactura,
+                    "filename" => "Factura_{$factura->codigo}.pdf"
+                ]
+            ]);
+        }
 
+        // 6️⃣ Validar respuesta
         if (isset($response->statusCode) && $response->statusCode !== 200) {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
         }
 
         $response = json_decode($response->scalar ?? '{}');
         if (!isset($response->status) || $response->status !== "success") {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            return back()->with('danger', 'No se pudo enviar el mensaje. Revise su instancia o la plantilla.');
         }
 
+        // 7️⃣ Marcar factura como enviada por WhatsApp
         $factura->whatsapp = 1;
         $factura->save();
 
         return back()->with('success', 'Mensaje enviado correctamente.');
     }
+
 
 
     public function whatsapp2($id,Request $request )
