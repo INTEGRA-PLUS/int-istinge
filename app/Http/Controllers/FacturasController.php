@@ -4596,13 +4596,11 @@ class FacturasController extends Controller{
             // 2️⃣ Consultar canal para verificar si es WABA o no
             $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
             $canalData = json_decode($canalResponse->scalar ?? '{}');
-
+            
             if (!isset($canalData->status) || $canalData->status !== "success") {
                 return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
             }
-
-            $tipoCanal = $canalData->data->type ?? null;
-
+            $tipoCanal = $canalData->data->channel->type ?? null;
             // 3️⃣ Construir la URL temporal del PDF
             $token = config('app.key');
             $urlFactura = route('facturas.temp', ['id' => $id, 'token' => $token]);
@@ -4616,9 +4614,9 @@ class FacturasController extends Controller{
 
             // 4️⃣ Crear cuerpo del mensaje
             $body = [
-                "phone" => "+57" . $contacto->celular,
+                "phone" => "+57" . $contacto->celular, // tu columna "celular" aquí
                 "templateName" => "factura",
-                "languageCode" => "es",
+                "languageCode" => "en", // debe coincidir con el idioma de tu template en Wabi
                 "components" => [
                     [
                         "type" => "header",
@@ -4644,7 +4642,7 @@ class FacturasController extends Controller{
             ];
 
             // 5️⃣ Enviar según tipo de canal
-            if ($tipoCanal === "WABA") {
+            if ($tipoCanal === "waba") {
                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
             } else {
                 $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
@@ -4655,7 +4653,7 @@ class FacturasController extends Controller{
                         "filename" => "Factura_{$factura->codigo}.pdf"
                     ]
                 ]);
-            }
+            };
 
             // 6️⃣ Validar respuesta
             if (isset($response->statusCode) && $response->statusCode !== 200) {
