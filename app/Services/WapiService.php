@@ -88,4 +88,17 @@ class WapiService
             true
         );
     }
+
+    public function getWabaChannel(string $uuid)
+    {
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/channels/waba/{$uuid}",
+            [], 
+            [],  
+            $this->headers,
+            true    // Indica que esperas una respuesta tipo JSON
+        );
+    }
+
 }
