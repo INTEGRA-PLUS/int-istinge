@@ -1100,6 +1100,19 @@ class CronController extends Controller
                                                             ".id" => $response['0']['.id']
                                                         ]);
                                                     }
+                                                    else{ //NUEVO CODIGO
+
+                                                        //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
+                                                        $API->write('/ppp/active/print', false);
+                                                        $API->write('?name=' . $contrato->nro);
+                                                        $response = $API->read();
+
+                                                        if(isset($response['0']['.id'])){
+                                                            $API->comm("/ppp/active/remove", [
+                                                                ".id" => $response['0']['.id']
+                                                            ]);
+                                                        }
+                                                    }
 
                                                 }
                                                 #SE SACA DE LA ACTIVE CONNECTIONS

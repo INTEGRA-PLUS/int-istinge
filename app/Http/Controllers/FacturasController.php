@@ -1511,9 +1511,9 @@ class FacturasController extends Controller{
                 'contratos','contratosFacturas'
             ));
             }
-            return redirect('empresa/facturas')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
+            return redirect('empresa/factura-index')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
         }
-        return redirect('empresa/facturas')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/factura-index')->with('success', 'No existe un registro con ese id');
     }
 
   /**
@@ -4306,7 +4306,7 @@ class FacturasController extends Controller{
     {
         $FacturaVenta = Factura::find($id);
         if (!$FacturaVenta) {
-            return redirect('/empresa/facturas')->with('error', "No se ha encontrado la factura de venta, comuniquese con soporte.");
+            return redirect('/empresa/factura-index')->with('error', "No se ha encontrado la factura de venta, comuniquese con soporte.");
         }
 
         //Validacion de dia 00 en vencimiento
@@ -4433,7 +4433,7 @@ class FacturasController extends Controller{
             }
 
             if (!isset($res['statusCode']) && isset($res['message'])) {
-                return redirect('/empresa/facturas')->with('message_denied', $res['message']);
+                return redirect('/empresa/factura-index')->with('message_denied', $res['message']);
             }
 
             $statusCode = $res['statusCode'] ?? null; //200
@@ -5264,7 +5264,7 @@ class FacturasController extends Controller{
             return redirect('empresa/facturas/' . $factura->id)->with('danger', $mensaje);
         }
 
-        return redirect('empresa/facturas')->with('danger', 'LA FACTURA DE SERVICIOS NO HA ENCONTRADO');
+        return redirect('empresa/factura-index')->with('danger', 'LA FACTURA DE SERVICIOS NO HA ENCONTRADO');
     }
 
 
