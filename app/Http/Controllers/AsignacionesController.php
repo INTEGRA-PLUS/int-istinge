@@ -1508,7 +1508,7 @@ class AsignacionesController extends Controller
                 }
             }
 
-            $link = config('app.url')."/api/contrato-digital/".$ref;
+            $link = config('app.url')."api/contrato-digital/".$ref;
 
             return response()->json([
                 'success'  => true,
