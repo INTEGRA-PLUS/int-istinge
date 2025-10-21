@@ -4615,7 +4615,19 @@ class FacturasController extends Controller{
         }
 
         $contacto = $factura->cliente();
+        $prefijo = '57'; // valor por defecto (Colombia)
+        if (!empty($contacto->fk_idpais)) {
+            $prefijoData = \DB::table('prefijos_telefonicos')
+                ->where('iso2', strtoupper($contacto->fk_idpais))
+                ->first();
+            if ($prefijoData && !empty($prefijoData->phone_code)) {
+                $prefijo = $prefijoData->phone_code;
+            }
+        }
 
+        // 📱 Construir número completo con prefijo dinámico
+        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
+        
         /**
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
          * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
@@ -4668,7 +4680,7 @@ class FacturasController extends Controller{
                 : $total;
     
             $body = [
-                "phone" => "+57" . $contacto->celular,
+                "phone" => $telefonoCompleto,
                 "templateName" => "factura",
                 "languageCode" => "en", // asegúrate de usar el idioma correcto del template
                 "components" => [
@@ -4742,7 +4754,7 @@ class FacturasController extends Controller{
             ];
 
             $contact = [
-                "phone" => "57" . $contacto->celular,
+                "phone" => $prefijo . ltrim($contacto->celular, '0'),
                 "name" => $contacto->nombre . " " . $contacto->apellido1
             ];
 
@@ -4781,9 +4793,6 @@ class FacturasController extends Controller{
             return back()->with('success', 'Mensaje enviado correctamente.');
         }
     }
-
-
-
 
     public function whatsapp2($id,Request $request )
     {
