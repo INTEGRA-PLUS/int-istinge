@@ -4552,18 +4552,47 @@ class FacturasController extends Controller{
         if ($token !== config('app.key')) {
             abort(403, 'Token inválido');
         }
-
-        // Buscar la factura
+    
         $factura = Factura::findOrFail($id);
-
-        // Generar el PDF directamente (sin guardarlo en disco)
+    
+        // nombre estándar (sin timestamp) para previsualización directa
+        $fileName = 'Factura_' . $factura->codigo . '.pdf';
+        $relativePath = 'temp/' . $fileName;
+        $storagePath = storage_path('app/public/' . $relativePath);
+    
+        // Si ya existe el archivo en storage, devuélvelo (esto es útil para debugging/manual)
+        if (file_exists($storagePath)) {
+            return response()->file($storagePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            ]);
+        }
+    
+        // Generar el PDF binario
         $facturaPDF = $this->getPdfFactura($id);
-
-        // Retornar el PDF como descarga temporal
-        return response($facturaPDF)
-            ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'inline; filename="Factura_' . $factura->codigo . '.pdf"');
+    
+        // ======================================================
+        // 🔧 OPCIÓN 2: Copiar directamente al path público del hosting
+        // ======================================================
+        $publicPath = '/home/smoptica/interfibrasas.site/software/storage/temp/' . $fileName;
+    
+        // Asegurar que la carpeta exista
+        if (!file_exists(dirname($publicPath))) {
+            mkdir(dirname($publicPath), 0775, true);
+        }
+    
+        // Guardar el archivo binario en el path público
+        file_put_contents($publicPath, $facturaPDF);
+    
+        // ======================================================
+        // ✅ Retornar el archivo directamente al navegador
+        // ======================================================
+        return response()->file($publicPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+        ]);
     }
+
 
     public function whatsapp($id, Request $request, WapiService $wapiService)
     {
@@ -4587,32 +4616,57 @@ class FacturasController extends Controller{
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
          * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
          */
-        if ($instance->meta == 0) {
-            // 🚀 === FLUJO NORMAL (WABA) ===
-            // 2️⃣ Consultar canal para verificar si es WABA o no
+       if ($instance->meta == 0) {
+
+            // 2️⃣ Verificar tipo de canal
             $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
             $canalData = json_decode($canalResponse->scalar ?? '{}');
             
             if (!isset($canalData->status) || $canalData->status !== "success") {
                 return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
             }
+    
             $tipoCanal = $canalData->data->channel->type ?? null;
-            // 3️⃣ Construir la URL temporal del PDF
+    
+            // ============================================================
+            // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
+            // ============================================================
             $token = config('app.key');
-            $urlFactura = route('facturas.temp', ['id' => $id, 'token' => $token]);
+            $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
+    
+            // Asegurar que el archivo fue generado y accesible
+            $fileName = 'Factura_' . $factura->codigo . '.pdf';
+            $relativePath = 'temp/' . $fileName;
+            $storagePath = storage_path('app/public/' . $relativePath);
+    
+            // Esperar hasta que el archivo exista (máx. 5 intentos)
+            $attempts = 0;
+            while (!file_exists($storagePath) && $attempts < 5) {
+                usleep(300000); // 0.3 segundos
+                $attempts++;
+            }
+    
+            if (!file_exists($storagePath)) {
+                return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
+            }
+    
+            // Generar la URL pública accesible
+            $urlFactura = url('storage/temp/' . $fileName);
 
+            // ============================================================
+            // 📦 CONSTRUIR BODY PARA WAPI
+            // ============================================================
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $estadoCuenta = $factura->estadoCuenta();
             $total = $factura->total()->total;
             $saldo = $estadoCuenta->saldoMesAnterior > 0
                 ? $estadoCuenta->saldoMesAnterior + $total
                 : $total;
-
-            // 4️⃣ Crear cuerpo del mensaje
+    
             $body = [
-                "phone" => "+57" . $contacto->celular, // tu columna "celular" aquí
+                "phone" => "+57" . $contacto->celular,
                 "templateName" => "factura",
-                "languageCode" => "en", // debe coincidir con el idioma de tu template en Wabi
+                "languageCode" => "en", // asegúrate de usar el idioma correcto del template
                 "components" => [
                     [
                         "type" => "header",
@@ -4636,8 +4690,10 @@ class FacturasController extends Controller{
                     ]
                 ]
             ];
-
-            // 5️⃣ Enviar según tipo de canal
+    
+            // ============================================================
+            // 🚀 ENVIAR MENSAJE
+            // ============================================================
             if ($tipoCanal === "waba") {
                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
             } else {
@@ -4649,22 +4705,26 @@ class FacturasController extends Controller{
                         "filename" => "Factura_{$factura->codigo}.pdf"
                     ]
                 ]);
-            };
-
-            // 6️⃣ Validar respuesta
+            }
+            
+            // ============================================================
+            // ✅ VALIDAR RESPUESTA
+            // ============================================================
             if (isset($response->statusCode) && $response->statusCode !== 200) {
                 return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
             }
-
+    
             $response = json_decode($response->scalar ?? '{}');
             if (!isset($response->status) || $response->status !== "success") {
-                return back()->with('danger', 'No se pudo enviar el mensaje. Revise su instancia o la plantilla.');
+                return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
-
-            // 7️⃣ Marcar factura como enviada por WhatsApp
+    
+            // ============================================================
+            // 🟢 ACTUALIZAR FACTURA
+            // ============================================================
             $factura->whatsapp = 1;
             $factura->save();
-
+    
             return back()->with('success', 'Mensaje enviado correctamente.');
 
         } else {

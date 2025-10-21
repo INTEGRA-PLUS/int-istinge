@@ -36,6 +36,19 @@ Route::get('clear', function () {
 	return redirect()->back();
 });
 
+Route::get('/storage/temp/{filename}', function ($filename) {
+    $path = storage_path('app/public/temp/' . $filename);
+
+    if (!file_exists($path)) {
+        abort(404, 'Archivo no encontrado');
+    }
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $filename . '"',
+    ]);
+})->where('filename', '.*');
+
 Route::get('borrar-cache', function () {
 
 	$cacheFiles = [
