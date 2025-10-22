@@ -1064,10 +1064,20 @@ class IngresosController extends Controller
                 if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
                     #HABILITACION DEL SECRET#
-                    if($contrato->conexion == 1 && $contrato->usuario != null){
-                        $API->write('/ppp/secret/enable', false);
-                        $API->write('=numbers=' . $contrato->usuario);
-                        $response = $API->read();
+                    if ($contrato->conexion == 1 && $contrato->usuario != null) {
+                        // Buscar el ID interno del secret
+                        $API->write('/ppp/secret/print', false);
+                        $API->write('?name=' . $contrato->usuario, true);
+                        $ARRAYS = $API->read();
+
+                        if (count($ARRAYS) > 0) {
+                            $id = $ARRAYS[0]['.id'];
+                            // Habilitar el secret
+                            $API->write('/ppp/secret/enable', false);
+                            $API->write('=numbers=' . $id, true);
+                            $response = $API->read();
+                            // Log::info("[MIKROTIK] Usuario {$contrato->usuario} habilitado correctamente");
+                        }
                     }
                     #HABILITACION DEL SECRET#
 
