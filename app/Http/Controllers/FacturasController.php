@@ -4552,51 +4552,44 @@ class FacturasController extends Controller{
 
     public function getFacturaTemp($id, $token)
     {
-        // Validar token de seguridad
+        // 1️⃣ Validar token de seguridad
         if ($token !== config('app.key')) {
             abort(403, 'Token inválido');
         }
-    
+
+        // 2️⃣ Buscar factura
         $factura = Factura::findOrFail($id);
-    
-        // nombre estándar (sin timestamp) para previsualización directa
+
+        // 3️⃣ Generar nombre y rutas relativas
         $fileName = 'Factura_' . $factura->codigo . '.pdf';
-        $relativePath = 'temp/' . $fileName;
+        $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
         $storagePath = storage_path('app/public/' . $relativePath);
-    
-        // Si ya existe el archivo en storage, devuélvelo (esto es útil para debugging/manual)
+
+        // 4️⃣ Si ya existe, devolver directamente
         if (file_exists($storagePath)) {
             return response()->file($storagePath, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"',
             ]);
         }
-    
-        // Generar el PDF binario
+
+        // 5️⃣ Generar el PDF en binario
         $facturaPDF = $this->getPdfFactura($id);
-    
-        // ======================================================
-        // 🔧 OPCIÓN 2: Copiar directamente al path público del hosting
-        // ======================================================
-        $publicPath = '/home/smoptica/interfibrasas.site/software/storage/temp/' . $fileName;
-    
-        // Asegurar que la carpeta exista
-        if (!file_exists(dirname($publicPath))) {
-            mkdir(dirname($publicPath), 0775, true);
+
+        // 6️⃣ Crear carpeta si no existe
+        if (!Storage::disk('public')->exists('temp')) {
+            Storage::disk('public')->makeDirectory('temp');
         }
-    
-        // Guardar el archivo binario en el path público
-        file_put_contents($publicPath, $facturaPDF);
-    
-        // ======================================================
-        // ✅ Retornar el archivo directamente al navegador
-        // ======================================================
-        return response()->file($publicPath, [
+
+        // 7️⃣ Guardar el archivo usando el Filesystem de Laravel
+        Storage::disk('public')->put($relativePath, $facturaPDF);
+
+        // 8️⃣ Retornar el archivo directamente
+        return response()->file($storagePath, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $fileName . '"',
         ]);
     }
-
 
     public function whatsapp($id, Request $request, WapiService $wapiService)
     {
