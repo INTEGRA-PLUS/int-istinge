@@ -2589,13 +2589,25 @@ class ContratosController extends Controller
 
                                     if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                                        #DESHABILITACION DEL PPOE#
-                                        if($contrato->conexion == 1 && $contrato->usuario != null){
-                                            $API->write('/ppp/secret/disable', false);
-                                            $API->write('=numbers=' . $contrato->usuario);
-                                            $response = $API->read();
+                                        #DESHABILITACION DEL PPPoE#
+                                        if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                            // Buscar el ID interno del secret con ese nombre
+                                            $API->write('/ppp/secret/print', false);
+                                            $API->write('?name=' . $contrato->usuario, true);
+                                            $ARRAYS = $API->read();
+
+                                            if (count($ARRAYS) > 0) {
+                                                $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                // Deshabilitar el secret
+                                                $API->write('/ppp/secret/disable', false);
+                                                $API->write('=numbers=' . $id, true);
+                                                $response = $API->read();
+
+                                            }
                                         }
-                                        #DESHABILITACION DEL PPOE#
+                                        #DESHABILITACION DEL PPPoE#
 
                                         #SE SACA DE LA ACTIVE CONNECTIONS
                                         if($contrato->conexion == 1 && $contrato->usuario != null){

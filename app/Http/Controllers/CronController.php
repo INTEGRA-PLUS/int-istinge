@@ -1080,13 +1080,25 @@ class CronController extends Controller
 
                                             if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                                                #DESHABILITACION DEL PPOE#
-                                                if($contrato->conexion == 1 && $contrato->usuario != null){
-                                                    $API->write('/ppp/secret/disable', false);
-                                                    $API->write('=numbers=' . $contrato->usuario);
-                                                    $response = $API->read();
+                                                #DESHABILITACION DEL PPPoE#
+                                                if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                                    // Buscar el ID interno del secret con ese nombre
+                                                    $API->write('/ppp/secret/print', false);
+                                                    $API->write('?name=' . $contrato->usuario, true);
+                                                    $ARRAYS = $API->read();
+
+                                                    if (count($ARRAYS) > 0) {
+                                                        $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                        // Deshabilitar el secret
+                                                        $API->write('/ppp/secret/disable', false);
+                                                        $API->write('=numbers=' . $id, true);
+                                                        $response = $API->read();
+
+                                                    }
                                                 }
-                                                #DESHABILITACION DEL PPOE#
+                                                #DESHABILITACION DEL PPPoE#
 
                                                 #SE SACA DE LA ACTIVE CONNECTIONS
                                                 if($contrato->conexion == 1 && $contrato->usuario != null){
@@ -3385,6 +3397,56 @@ class CronController extends Controller
    }
 
 
+   public function habilitacionMasivaTV(){
+        $contratos = Contrato::where('contracts.state_olt_catv', 0)
+            ->where('contracts.updated_at', 'like', '%2025-10-21%')
+            ->where('contracts.olt_sn_mac', '!=', 'NULL')
+            ->select('contracts.*')
+            ->get();
+
+        // $logs = MovimientoLOG::where('modulo',5)->where('descripcion','LIKE','%de habilitado a deshabilitado%')->where('created_at','>','2025-08-16')->pluck('contrato');
+        // $contratos = Contrato::whereIn('id',$logs)->where('state','disabled')->get();
+
+        //Habilitando contratos masivamente segun unas especificaciones
+        $empresa = Empresa::find(1);
+        foreach($contratos as $contrato){
+            if($contrato->state_olt_catv == 0){
+
+                //Este es el de habilitacion de CATV
+                /* * * API CATV * * */
+                if($contrato->olt_sn_mac && $empresa->adminOLT != null){
+
+                    $curl = curl_init();
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: '.$empresa->smartOLT
+                        ),
+                        ));
+
+                    $response = curl_exec($curl);
+                    $response = json_decode($response);
+
+                    if(isset($response->status) && $response->status == true){
+
+                        $contrato->state_olt_catv = 1;
+                        $contrato->save();
+                    }
+                }
+
+            }
+        }
+
+        return "ok habilitacion de contratos";
+    }
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
@@ -3663,6 +3725,7 @@ class CronController extends Controller
            /// FIN ELIMINAR FACTURAS REPETIDAS EN UN MISMO MES PARA UN MISMO CONTRATO QUE NO ESTEN PAGAS ///
 
     }
+
 
     public function envioFacturaWpp(WapiService $wapiService){
 
