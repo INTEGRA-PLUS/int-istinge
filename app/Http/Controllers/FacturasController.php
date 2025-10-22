@@ -2345,7 +2345,7 @@ class FacturasController extends Controller{
         $data = array();
         foreach ($facturas as $factura) {
             $nestedData = array();
-            $nestedData[] = '<a href="'.route('facturas.show',$factura->nro).'">'.$factura->codigo.'</a>';
+            $nestedData[] = '<a href="'.route('facturas.show',$factura->id).'">'.$factura->codigo.'</a>';
             $nestedData[] = '<a href="'.route('contactos.show',$factura->cliente).'" target="_blank">'.$factura->nombrecliente.' '.$factura->ape1cliente.' '.$factura->ape2cliente.'</a>';
             $nestedData[] = date('d-m-Y', strtotime($factura->fecha));
             $nestedData[] = date('d-m-Y', strtotime($factura->vencimiento));
