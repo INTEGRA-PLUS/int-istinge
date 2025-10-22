@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Builders\JsonBuilders\InvoiceJsonBuilder;
 use App\CamposExtra;
+use Illuminate\Support\Facades\Storage;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
 use Illuminate\Http\Request;
