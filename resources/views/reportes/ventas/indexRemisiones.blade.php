@@ -76,7 +76,7 @@
 
                     @foreach($facturas as $factura)
                         <tr>
-                            <td><a href="{{ route('remisiones.show', $remision->nro) }}" target="_blank">{{ $remision->nro }}</a></td>
+                            <td><a href="{{route('remisiones.show',$factura->id)}}" target="_blank">{{$factura->nro}}</a> </td>
                             <td><a href="{{route('contactos.show',$factura->cliente()->id)}}" target="_blank">{{$factura->cliente()->nombre}} {{$factura->cliente()->apellidos()}}</a></td>
                             <td>{{date('d-m-Y', strtotime($factura->fecha))}}</td>
                             <td>{{$factura->itemsRemisionText()}}</td>
