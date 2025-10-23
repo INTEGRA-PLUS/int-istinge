@@ -1872,7 +1872,7 @@ class FacturasController extends Controller{
             // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
             if (!$contrato) {
                 $contrato = Contrato::where('cliente_id', $factura->cliente)
-                                ->where('estado', 'activo') // o el campo que uses para estado
+                                ->where('state', 'enabled') // o el campo que uses para estado
                                 ->first();
             }
 
@@ -4600,10 +4600,6 @@ class FacturasController extends Controller{
             return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
         }
 
-        if ($instance->status !== "PAIRED") {
-            return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
-        }
-
         $contacto = $factura->cliente();
         $prefijo = '57'; // valor por defecto (Colombia)
         if (!empty($contacto->fk_idpais)) {
@@ -4735,6 +4731,9 @@ class FacturasController extends Controller{
 
         } else {
             // 🚀 === FLUJO META (manual con PDF en base64) ===
+            if ($instance->status !== "PAIRED" ) {
+                return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
+            }
             $facturaPDF = $this->getPdfFactura($id);
             $facturaBase64 = base64_encode($facturaPDF);
 
