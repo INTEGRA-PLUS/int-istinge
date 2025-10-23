@@ -1871,7 +1871,7 @@ class FacturasController extends Controller{
             }
             // Opción 3: Buscar contrato activo del cliente (si no hay relación directa)
             if (!$contrato) {
-                $contrato = Contrato::where('cliente_id', $factura->cliente)
+                $contrato = Contrato::where('client_id', $factura->cliente)
                                 ->where('state', 'enabled') // o el campo que uses para estado
                                 ->first();
             }
