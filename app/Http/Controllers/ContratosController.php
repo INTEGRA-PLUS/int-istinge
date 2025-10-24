@@ -2857,6 +2857,7 @@ class ContratosController extends Controller
             'Direccion MAC',
             'Interfaz',
             'Serial ONU',
+            'SN_MAC',
             'Estado',
             'Estado de CATV',
             'Grupo de Corte',
@@ -2882,7 +2883,7 @@ class ContratosController extends Controller
             'Ultimo pago'
         );
 
-        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO');
+        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP');
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
             ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific171717
@@ -2907,12 +2908,12 @@ class ContratosController extends Controller
         $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman'), 'alignment' => array(
             'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A1:AO1')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A1:AP1')->applyFromArray($estilo);
         $estilo = array('fill' => array(
             'type' => PHPExcel_Style_Fill::FILL_SOLID,
             'color' => array('rgb' => 'd08f50')
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AO2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
 
         $estilo = array(
             'fill' => array(
@@ -2931,7 +2932,7 @@ class ContratosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER
             )
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AO2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '2', utf8_decode($titulosColumnas[$i]));
@@ -3231,37 +3232,38 @@ class ContratosController extends Controller
                 ->setCellValue($letras[15] . $i, $contrato->mac_address)
                 ->setCellValue($letras[16] . $i, $contrato->interfaz)
                 ->setCellValue($letras[17] . $i, $contrato->serial_onu)
-                ->setCellValue($letras[18] . $i, $contrato->status())
-                ->setCellValue($letras[19] . $i, $contrato->state_olt_catv == 1 ? 'Activo' : 'Inactivo')
-                ->setCellValue($letras[20] . $i, $contrato->grupo_corte('true'))
-                ->setCellValue($letras[21] . $i, $contrato->facturacion())
-                ->setCellValue($letras[22] . $i, $contrato->costo_reconexion)
-                ->setCellValue($letras[23] . $i, $contrato->c_nombre_municipio)
-                ->setCellValue($letras[24] . $i, ucfirst($contrato->tipo_contrato))
-                ->setCellValue($letras[25] . $i, $contrato->iva_factura == null || $contrato->iva_factura == 0 ? 'No' : 'Si')
-                ->setCellValue($letras[26] . $i, $contrato->descuento != null ? $contrato->descuento . '%' : '0%')
-                ->setCellValue($letras[27] . $i, isset($plan->nombre) ? $plan->nombre : '')
-                ->setCellValue($letras[28] . $i, isset($plan->precio) ? $plan->precio : '')
-                ->setCellValue($letras[29] . $i, isset($servicio->nombre) && $servicio->nombre != "" ? $servicio->nombre . " - $" . number_format($servicio->precio, 0, ',', '.') : '')
-                ->setCellValue($letras[30] . $i, isset($servicio_otro->nombre) && $servicio_otro->nombre != "" ? $servicio_otro->nombre . " - $" . number_format($servicio_otro->precio, 0, ',', '.') : '')
-                ->setCellValue($letras[31] . $i, round($contrato->deudaFacturas()))
-                ->setCellValue($letras[32] . $i, round($sumaPlanes))
-                ->setCellValue($letras[33] . $i, $contrato->c_etiqueta)
-                ->setCellValue($letras[34] . $i, $contrato->fechaDesconexion())
-                ->setCellValue($letras[35] . $i, $contrato->linea ? $contrato->linea : 0)
-                ->setCellValue($letras[36] . $i, $contrato->c_latitude)
-                ->setCellValue($letras[37] . $i, $contrato->c_longitude)
-                ->setCellValue($letras[38] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
-                ->setCellValue($letras[39] . $i, $contrato->creador)
-                ->setCellValue($letras[40] . $i, $contrato->fechaUltimoPago())
+                ->setCellValue($letras[18] . $i, $contrato->olt_sn_mac)
+                ->setCellValue($letras[19] . $i, $contrato->status())
+                ->setCellValue($letras[20] . $i, $contrato->state_olt_catv == 1 ? 'Activo' : 'Inactivo')
+                ->setCellValue($letras[21] . $i, $contrato->grupo_corte('true'))
+                ->setCellValue($letras[22] . $i, $contrato->facturacion())
+                ->setCellValue($letras[23] . $i, $contrato->costo_reconexion)
+                ->setCellValue($letras[24] . $i, $contrato->c_nombre_municipio)
+                ->setCellValue($letras[25] . $i, ucfirst($contrato->tipo_contrato))
+                ->setCellValue($letras[26] . $i, $contrato->iva_factura == null || $contrato->iva_factura == 0 ? 'No' : 'Si')
+                ->setCellValue($letras[27] . $i, $contrato->descuento != null ? $contrato->descuento . '%' : '0%')
+                ->setCellValue($letras[28] . $i, isset($plan->nombre) ? $plan->nombre : '')
+                ->setCellValue($letras[29] . $i, isset($plan->precio) ? $plan->precio : '')
+                ->setCellValue($letras[30] . $i, isset($servicio->nombre) && $servicio->nombre != "" ? $servicio->nombre . " - $" . number_format($servicio->precio, 0, ',', '.') : '')
+                ->setCellValue($letras[31] . $i, isset($servicio_otro->nombre) && $servicio_otro->nombre != "" ? $servicio_otro->nombre . " - $" . number_format($servicio_otro->precio, 0, ',', '.') : '')
+                ->setCellValue($letras[32] . $i, round($contrato->deudaFacturas()))
+                ->setCellValue($letras[33] . $i, round($sumaPlanes))
+                ->setCellValue($letras[34] . $i, $contrato->c_etiqueta)
+                ->setCellValue($letras[35] . $i, $contrato->fechaDesconexion())
+                ->setCellValue($letras[36] . $i, $contrato->linea ? $contrato->linea : 0)
+                ->setCellValue($letras[37] . $i, $contrato->c_latitude)
+                ->setCellValue($letras[38] . $i, $contrato->c_longitude)
+                ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
+                ->setCellValue($letras[40] . $i, $contrato->creador)
+                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago())
                 ;
             $i++;
         }
 
         $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[27] . $i, $totalPlan)
-            ->setCellValue($letras[28] . $i, $totalServicio)
-            ->setCellValue($letras[29] . $i, $totalServicioOtro)
+            ->setCellValue($letras[28] . $i, $totalPlan)
+            ->setCellValue($letras[29] . $i, $totalServicio)
+            ->setCellValue($letras[30] . $i, $totalServicioOtro)
         ;
 
         $estilo = array(
@@ -3273,9 +3275,9 @@ class ContratosController extends Controller
             ),
             'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,)
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A3:AO' . $i)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:AP' . $i)->applyFromArray($estilo);
 
-        for ($i = 'A'; $i <= $letras[39]; $i++) {
+        for ($i = 'A'; $i <= $letras[41]; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
         }
 
