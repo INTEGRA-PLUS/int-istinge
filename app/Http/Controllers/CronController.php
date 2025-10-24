@@ -3447,6 +3447,167 @@ class CronController extends Controller
         return "ok habilitacion de contratos";
     }
 
+    public function CrearItemsFactura(){
+
+        //las facturas que les vamos a crear los items son de facturas que estan emitidas en la dian.
+        return $facturas = DB::table('factura')
+        ->where('estatus',0)
+        ->whereNotIn('id', function($query) {
+            $query->select('factura')
+                  ->distinct()
+                  ->from('items_factura')
+                  ->whereNotNull('factura');
+        })
+        ->get();
+
+
+        foreach($facturas as $factura){
+
+            $ingreso = DB::table('ingresos_factura')->where('factura',$factura->id)->first();
+            $cm = Contrato::where('client_id',$factura->cliente)->first();
+
+            if($cm){
+
+                $descuentoPesos = 0;
+                $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+                $fechaActual = Carbon::now()->format('Y-m-d');
+
+                ## Se carga el item a la factura (Plan de Internet) ##
+                if($cm->plan_id){
+                    $plan = PlanesVelocidad::find($cm->plan_id);
+                    $item = Inventario::find($plan->item);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $plan->name;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    if($cm->iva_factura == 1){
+                        $item_reg->id_impuesto = 1;
+                        $item_reg->impuesto = 19;
+                    }
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }else if($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item a la factura (Plan de Televisión) ##
+                if($cm->servicio_tv){
+                    $item = Inventario::find($cm->servicio_tv);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item de otro tipo de servicio ##
+                if($cm->servicio_otro){
+                    $item = Inventario::find($cm->servicio_otro);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+
+                    if($cm->rd_item_vencimiento == 1){
+
+                        if($cm->dt_item_hasta > now()){
+                            $item_reg->save();
+                        }
+                    }else{
+                        $item_reg->save();
+                    }
+                }
+
+                    //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $cm->nro,
+                        'created_by' => 0,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 1,
+                        'created_at' => Carbon::now()
+                    ]);
+
+            }else if($ingreso){
+                    $item = Inventario::Find(170);
+                if($item){
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $ingreso->pagado;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = 0;
+                    $item_reg->impuesto    = 0;
+                    $item_reg->save();
+                }
+            }
+
+        }
+
+        return "ookok";
+
+   }
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
