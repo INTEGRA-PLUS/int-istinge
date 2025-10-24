@@ -3853,6 +3853,37 @@ class FacturasController extends Controller{
 
         $contrato = $factura->contratoAsociado();
         if ($contrato) {
+
+            //Este es el de habilitacion de CATV
+            /* * * API CATV * * */
+            if($contrato->olt_sn_mac && $empresa->adminOLT != null){
+
+                $curl = curl_init();
+                curl_setopt_array($curl, array(
+                    CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_ENCODING => '',
+                    CURLOPT_MAXREDIRS => 10,
+                    CURLOPT_TIMEOUT => 0,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_CUSTOMREQUEST => 'POST',
+                    CURLOPT_HTTPHEADER => array(
+                        'X-token: '.$empresa->smartOLT
+                    ),
+                    ));
+
+                $response = curl_exec($curl);
+                $response = json_decode($response);
+
+                if(isset($response->status) && $response->status == true){
+                    $contrato->state_olt_catv = 1;
+                    $contrato->save();
+                }
+            }
+            /* * * API CATV * * */
+
+
             $mikrotik = Mikrotik::find($contrato->server_configuration_id);
             $API = new RouterosAPI();
             $API->port = $mikrotik->puerto_api;
@@ -3861,13 +3892,22 @@ class FacturasController extends Controller{
                 $API->write('/ip/firewall/address-list/print', TRUE);
                 $ARRAYS = $API->read();
 
+                #HABILITACION DEL SECRET#
                 if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                    #HABILITACION DEL SECRET#
                     if($contrato->conexion == 1 && $contrato->usuario != null){
+                                       // Buscar el ID interno del secret
+                    $API->write('/ppp/secret/print', false);
+                    $API->write('?name=' . $contrato->usuario, true);
+                    $ARRAYS = $API->read();
+
+                    if (count($ARRAYS) > 0) {
+                        $id = $ARRAYS[0]['.id'];
+                        // Habilitar el secret
                         $API->write('/ppp/secret/enable', false);
-                        $API->write('=numbers=' . $contrato->usuario);
+                        $API->write('=numbers=' . $id, true);
                         $response = $API->read();
+                    }
                     }
                     #HABILITACION DEL SECRET#
 
@@ -3903,7 +3943,6 @@ class FacturasController extends Controller{
 
 
                             $mensaje = "- Se ha sacado la ip de morosos.";
-
                             $contrato->state = 'enabled';
                             $contrato->save();
 
@@ -3929,38 +3968,6 @@ class FacturasController extends Controller{
                 $contrato->save();
                 $API->disconnect();
             }
-
-            //Este es el de habilitacion de CATV
-            /* * * API CATV * * */
-            $empresa = Empresa::find(1);
-            if($contrato->olt_sn_mac && $empresa->adminOLT != null){
-
-                $curl = curl_init();
-                curl_setopt_array($curl, array(
-                    CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_ENCODING => '',
-                    CURLOPT_MAXREDIRS => 10,
-                    CURLOPT_TIMEOUT => 0,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                    CURLOPT_CUSTOMREQUEST => 'POST',
-                    CURLOPT_HTTPHEADER => array(
-                        'X-token: '.$empresa->smartOLT
-                    ),
-                    ));
-
-                $response = curl_exec($curl);
-                $response = json_decode($response);
-
-                if(isset($response->status) && $response->status == true){
-                    $contrato->state_olt_catv = 1;
-                    $contrato->save();
-                }
-            }
-            /* * * API CATV * * */
-
-
         }
 
         return response()->json([
@@ -4613,7 +4620,7 @@ class FacturasController extends Controller{
 
         // 📱 Construir número completo con prefijo dinámico
         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-        
+
         /**
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
          * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
@@ -4623,35 +4630,35 @@ class FacturasController extends Controller{
             // 2️⃣ Verificar tipo de canal
             $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
             $canalData = json_decode($canalResponse->scalar ?? '{}');
-            
+
             if (!isset($canalData->status) || $canalData->status !== "success") {
                 return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
             }
-    
+
             $tipoCanal = $canalData->data->channel->type ?? null;
-    
+
             // ============================================================
             // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
             // ============================================================
             $token = config('app.key');
             $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
-    
+
             // Asegurar que el archivo fue generado y accesible
             $fileName = 'Factura_' . $factura->codigo . '.pdf';
             $relativePath = 'temp/' . $fileName;
             $storagePath = storage_path('app/public/' . $relativePath);
-    
+
             // Esperar hasta que el archivo exista (máx. 5 intentos)
             $attempts = 0;
             while (!file_exists($storagePath) && $attempts < 5) {
                 usleep(300000); // 0.3 segundos
                 $attempts++;
             }
-    
+
             if (!file_exists($storagePath)) {
                 return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
             }
-    
+
             // Generar la URL pública accesible
             $urlFactura = url('storage/temp/' . $fileName);
 
@@ -4664,7 +4671,7 @@ class FacturasController extends Controller{
             $saldo = $estadoCuenta->saldoMesAnterior > 0
                 ? $estadoCuenta->saldoMesAnterior + $total
                 : $total;
-    
+
             $body = [
                 "phone" => $telefonoCompleto,
                 "templateName" => "factura",
@@ -4692,7 +4699,7 @@ class FacturasController extends Controller{
                     ]
                 ]
             ];
-    
+
             // ============================================================
             // 🚀 ENVIAR MENSAJE
             // ============================================================
@@ -4708,25 +4715,25 @@ class FacturasController extends Controller{
                     ]
                 ]);
             }
-            
+
             // ============================================================
             // ✅ VALIDAR RESPUESTA
             // ============================================================
             if (isset($response->statusCode) && $response->statusCode !== 200) {
                 return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
             }
-    
+
             $response = json_decode($response->scalar ?? '{}');
             if (!isset($response->status) || $response->status !== "success") {
                 return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
-    
+
             // ============================================================
             // 🟢 ACTUALIZAR FACTURA
             // ============================================================
             $factura->whatsapp = 1;
             $factura->save();
-    
+
             return back()->with('success', 'Mensaje enviado correctamente.');
 
         } else {
