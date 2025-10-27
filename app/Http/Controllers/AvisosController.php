@@ -289,6 +289,7 @@ class AvisosController extends Controller
                         $wapiService = new WapiService();
                         $instance = Instance::where('company_id', $empresa->id)
                                             ->where('activo', 1)
+                                            ->where('meta', 0)
                                             ->first();
                         
                         // Validar instancia solo una vez (antes del loop sería mejor, pero lo dejamos aquí)
@@ -567,7 +568,10 @@ class AvisosController extends Controller
                         // ========================================
                         
                         $wapiService = new WapiService();
-                        $instance = Instance::where('company_id', $empresa->id)->first();
+                        $instance = Instance::where('company_id', $empresa->id)
+                        ->where('activo', 1)
+                        ->where('meta', 1)
+                        ->first();
                         
                         if($i == 0 && (is_null($instance) || empty($instance))){
                             return back()->with('danger','Instancia no está creada');
