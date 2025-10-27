@@ -237,15 +237,21 @@
 			$plantillaNormal
 				.prop('disabled', true)
 				.prop('required', false)
-				.attr('hidden', true);
-			$plantillaNormal.next('.bootstrap-select').attr('hidden', true);
+				.attr('hidden', true)
+				.css('display', 'none');
+			$plantillaNormal.next('.bootstrap-select')
+				.attr('hidden', true)
+				.css('display', 'none');
 
 			// Mostrar y habilitar select Meta
 			$plantillaMeta
 				.prop('disabled', false)
 				.prop('required', true)
-				.removeAttr('hidden');
-			$plantillaMeta.next('.bootstrap-select').removeAttr('hidden');
+				.removeAttr('hidden')
+				.css('display', '');
+			$plantillaMeta.next('.bootstrap-select')
+				.removeAttr('hidden')
+				.css('display', '');
 		} 
 		else {
 			// Mostrar y habilitar campos normales
@@ -259,15 +265,21 @@
 			$plantillaMeta
 				.prop('disabled', true)
 				.prop('required', false)
-				.attr('hidden', true);
-			$plantillaMeta.next('.bootstrap-select').attr('hidden', true);
+				.attr('hidden', true)
+				.css('display', 'none');
+			$plantillaMeta.next('.bootstrap-select')
+				.attr('hidden', true)
+				.css('display', 'none');
 
 			// Mostrar y habilitar select Normal
 			$plantillaNormal
 				.prop('disabled', false)
 				.prop('required', true)
-				.removeAttr('hidden');
-			$plantillaNormal.next('.bootstrap-select').removeAttr('hidden');
+				.removeAttr('hidden')
+				.css('display', '');
+			$plantillaNormal.next('.bootstrap-select')
+				.removeAttr('hidden')
+				.css('display', '');
 		}
 
 		// Refrescar selectpickers si existen
