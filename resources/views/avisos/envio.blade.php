@@ -225,54 +225,62 @@
 		var $plantillaNormal = $('#plantilla_normal');
 		var $plantillaMeta = $('#plantilla_meta');
 
-		var $plantillaNormalGroup = $plantillaNormal.closest('.form-group');
-		var $plantillaMetaGroup = $plantillaMeta.closest('.form-group'); // Nota: el select meta está dentro del mismo .form-group en tu HTML
+		if (isMetaMode) {			
+			// Ocultar los campos de filtro
+			$('.filtro-campo')
+				.addClass('hidden')
+				.attr('hidden', true)
+				.find('input,select,textarea')
+				.prop('disabled', true);
 
-		if (isMetaMode) {
-			// --- MODO META (Checkbox chequeado) ---
-			
-			// 1. Ocultar y deshabilitar otros campos de filtro (si existen)
-			$('.filtro-campo').addClass('hidden').hide().find('input,select,textarea').prop('disabled', true);
+			// Ocultar y deshabilitar select Normal
+			$plantillaNormal
+				.prop('disabled', true)
+				.prop('required', false)
+				.attr('hidden', true);
+			$plantillaNormal.next('.bootstrap-select').attr('hidden', true);
 
-			// 2. Ocultar y deshabilitar select Normal
-			$plantillaNormal.prop('disabled', true).prop('required', false).hide();
-			// Si usas el selectpicker, el elemento que oculta es el div que genera
-			$plantillaNormal.next('.bootstrap-select').hide();
-			
-			// 3. Mostrar y habilitar select Meta
-			$plantillaMeta.prop('disabled', false).prop('required', true).show();
-			$plantillaMeta.next('.bootstrap-select').show();
+			// Mostrar y habilitar select Meta
+			$plantillaMeta
+				.prop('disabled', false)
+				.prop('required', true)
+				.removeAttr('hidden');
+			$plantillaMeta.next('.bootstrap-select').removeAttr('hidden');
+		} 
+		else {
+			// Mostrar y habilitar campos normales
+			$('.filtro-campo')
+				.removeClass('hidden')
+				.removeAttr('hidden')
+				.find('input,select,textarea')
+				.prop('disabled', false);
 
+			// Ocultar y deshabilitar select Meta
+			$plantillaMeta
+				.prop('disabled', true)
+				.prop('required', false)
+				.attr('hidden', true);
+			$plantillaMeta.next('.bootstrap-select').attr('hidden', true);
 
-		} else {
-			// --- MODO NORMAL (Checkbox NO chequeado) ---
-
-			// 1. Mostrar y habilitar otros campos de filtro
-			$('.filtro-campo').removeClass('hidden').show().find('input,select,textarea').prop('disabled', false);
-
-			// 2. Ocultar y deshabilitar select Meta
-			$plantillaMeta.prop('disabled', true).prop('required', false).hide();
-			$plantillaMeta.next('.bootstrap-select').hide();
-			
-			// 3. Mostrar y habilitar select Normal
-			$plantillaNormal.prop('disabled', false).prop('required', true).show();
-			$plantillaNormal.next('.bootstrap-select').show();
+			// Mostrar y habilitar select Normal
+			$plantillaNormal
+				.prop('disabled', false)
+				.prop('required', true)
+				.removeAttr('hidden');
+			$plantillaNormal.next('.bootstrap-select').removeAttr('hidden');
 		}
-		
-		// 4. Refrescar ambos selectpickers
-		// Esto es CRUCIAL cuando se cambia la visibilidad con Bootstrap Select.
-		if(typeof $.fn.selectpicker === 'function'){
+
+		// Refrescar selectpickers si existen
+		if (typeof $.fn.selectpicker === 'function') {
 			$plantillaNormal.selectpicker('refresh');
 			$plantillaMeta.selectpicker('refresh');
 		}
 	}
 
 	// ----------------------------------------------------------------------
-	// Inicialización y Event Handler
+	// Inicialización
 	// ----------------------------------------------------------------------
-
 	$(document).ready(function() {
-
 		toggleMetaMode();
 
 		$('#enviarConMeta').on('change', function() {
