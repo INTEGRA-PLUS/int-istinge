@@ -28,15 +28,6 @@
 	    @csrf
 	    <input type="hidden" value="{{$opcion}}" name="type">
 	    <div class="row">
-
-			<!-- Checkbox Enviar con Meta -->
-			<div class="col-md-3">
-				<div class="form-check form-check-inline d-flex p-3">
-					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
-					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
-				</div>
-			</div>
-
 			<div class="col-md-3 form-group filtro-campo">
 				@if(!request()->vencimiento)
 					<label>Facturas vencidas (opcional)</label>
@@ -179,6 +170,14 @@
 				<div class="form-check form-check-inline d-flex p-3">
 					<input class="form-check-input" type="checkbox" id="isAbierta" name="isAbierta" value="true" onclick="refreshClient()">
 					<label class="form-check-label" for="isAbierta"  style="font-weight:bold">Solo facturas abiertas</label>
+				</div>
+			</div>
+
+			<!-- Checkbox Enviar con Meta -->
+			<div class="col-md-3">
+				<div class="form-check form-check-inline d-flex p-3">
+					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
+					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
 				</div>
 			</div>
 
