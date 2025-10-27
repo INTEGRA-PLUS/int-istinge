@@ -624,12 +624,12 @@ class ContratosController extends Controller
                                     ->where('empresa', Auth::user()->empresa)
                                     ->where('mikrotik', $servidor_id)
                                     ->get();
-            
+
             return response()->json([
                 'success' => true,
                 'planes' => $planes
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2582,13 +2582,25 @@ class ContratosController extends Controller
 
                                     if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                                        #DESHABILITACION DEL PPOE#
-                                        if($contrato->conexion == 1 && $contrato->usuario != null){
-                                            $API->write('/ppp/secret/disable', false);
-                                            $API->write('=numbers=' . $contrato->usuario);
-                                            $response = $API->read();
+                                        #DESHABILITACION DEL PPPoE#
+                                        if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                            // Buscar el ID interno del secret con ese nombre
+                                            $API->write('/ppp/secret/print', false);
+                                            $API->write('?name=' . $contrato->usuario, true);
+                                            $ARRAYS = $API->read();
+
+                                            if (count($ARRAYS) > 0) {
+                                                $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                // Deshabilitar el secret
+                                                $API->write('/ppp/secret/disable', false);
+                                                $API->write('=numbers=' . $id, true);
+                                                $response = $API->read();
+
+                                            }
                                         }
-                                        #DESHABILITACION DEL PPOE#
+                                        #DESHABILITACION DEL PPPoE#
 
                                         #SE SACA DE LA ACTIVE CONNECTIONS
                                         if($contrato->conexion == 1 && $contrato->usuario != null){
@@ -2626,13 +2638,21 @@ class ContratosController extends Controller
 
                                 if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
-                                        #HABILITACION DEL SECRET#
-                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                    if ($contrato->conexion == 1 && $contrato->usuario != null) {
+                                        // Buscar el ID interno del secret
+                                        $API->write('/ppp/secret/print', false);
+                                        $API->write('?name=' . $contrato->usuario, true);
+                                        $ARRAYS = $API->read();
+
+                                        if (count($ARRAYS) > 0) {
+                                            $id = $ARRAYS[0]['.id'];
+                                            // Habilitar el secret
                                             $API->write('/ppp/secret/enable', false);
-                                            $API->write('=numbers=' . $contrato->usuario);
+                                            $API->write('=numbers=' . $id, true);
                                             $response = $API->read();
+                                            // Log::info("[MIKROTIK] Usuario {$contrato->usuario} habilitado correctamente");
                                         }
-                                        #HABILITACION DEL SECRET#
+                                    }
 
                                     }else{
 
