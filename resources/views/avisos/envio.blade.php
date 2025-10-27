@@ -211,15 +211,6 @@
 <script type="text/javascript">
 
 	var ultimoVencimiento = null;
-	// Detectar cambios en el checkbox y alternar el modo Meta
-	$('#enviarConMeta').on('change', function() {
-		toggleMetaMode();
-	});
-
-	// Ejecutar al cargar la página
-	$(document).ready(function() {
-		toggleMetaMode(); // <-- Esto asegura que solo se vea el select correcto al inicio
-	});
 
 	// Función para mostrar/ocultar campos según el modo Meta
 	function toggleMetaMode() {
@@ -229,21 +220,24 @@
 			// Ocultar todos los campos de filtro
 			$('.filtro-campo').hide();
 			
-			// Mostrar solo el select de plantillas Meta
-			$('#plantilla_normal').hide().prop('disabled', true);
-			$('#plantilla_meta').show().prop('disabled', false);
+			// Cambiar select de plantillas
+			$('#plantilla_normal').hide();
+			$('#plantilla_normal').prop('disabled', true);
+			$('#plantilla_meta').show();
+			$('#plantilla_meta').prop('disabled', false);
 			$('#plantilla_meta').selectpicker('refresh');
 		} else {
 			// Mostrar todos los campos de filtro
 			$('.filtro-campo').show();
 			
-			// Mostrar solo el select normal
-			$('#plantilla_meta').hide().prop('disabled', true);
-			$('#plantilla_normal').show().prop('disabled', false);
+			// Cambiar select de plantillas
+			$('#plantilla_meta').hide();
+			$('#plantilla_meta').prop('disabled', true);
+			$('#plantilla_normal').show();
+			$('#plantilla_normal').prop('disabled', false);
 			$('#plantilla_normal').selectpicker('refresh');
 		}
 	}
-
 
 	window.addEventListener('load', function() {
 

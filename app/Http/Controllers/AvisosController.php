@@ -9,6 +9,7 @@ use App\Empresa;
 use Carbon\Carbon;
 use App\Aviso;
 use App\Plantilla;
+use Illuminate\Support\Facades\Storage;
 use App\Contrato;
 use App\Model\Ingresos\Factura;
 use Mail;
