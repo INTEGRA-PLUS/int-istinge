@@ -220,46 +220,68 @@
 
 	var ultimoVencimiento = null;
 
-	// Función para mostrar/ocultar campos según el modo Meta
 	function toggleMetaMode() {
-		var isMetaMode = $('#enviarConMeta').is(':checked');
+        var isMetaMode = $('#enviarConMeta').is(':checked');
 
-		if (isMetaMode) {
-			// Ocultar todos los campos de filtro
-			$('.filtro-campo')
-				.addClass('hidden')
-				.hide();
+        // Tomamos los contenedores (por si no tienes .filtro-campo)
+        var $plantillaNormalGroup = $('#plantilla_normal').closest('.form-group');
+        var $plantillaMetaGroup   = $('#plantilla_meta').closest('.form-group');
 
-			// Cambiar select de plantillas
-			$('#plantilla_normal')
-				.addClass('hidden')
-				.hide()
-				.prop('disabled', true);
+        // Si no existe .form-group como padre directo, fallback al propio select
+        if ($plantillaNormalGroup.length === 0) {
+            $plantillaNormalGroup = $('#plantilla_normal');
+        }
+        if ($plantillaMetaGroup.length === 0) {
+            $plantillaMetaGroup = $('#plantilla_meta');
+        }
 
-			$('#plantilla_meta')
-				.removeClass('hidden')
-				.show()
-				.prop('disabled', false)
-				.selectpicker('refresh');
-		} else {
-			// Mostrar todos los campos de filtro
-			$('.filtro-campo')
-				.removeClass('hidden')
-				.show();
+        if (isMetaMode) {
+            // Ocultar todos los campos de filtro (si existen)
+            $('.filtro-campo').addClass('hidden').hide().find('input,select,textarea').prop('disabled', true);
 
-			// Cambiar select de plantillas
-			$('#plantilla_meta')
-				.addClass('hidden')
-				.hide()
-				.prop('disabled', true);
+            // Mostrar solo Plantilla Meta
+            $plantillaNormalGroup.addClass('hidden').hide();
+            // desactivar el select normal para evitar validación
+            $('#plantilla_normal').prop('disabled', true).prop('required', false);
 
-			$('#plantilla_normal')
-				.removeClass('hidden')
-				.show()
-				.prop('disabled', false)
-				.selectpicker('refresh');
-		}
-	}
+            $plantillaMetaGroup.removeClass('hidden').show();
+            $('#plantilla_meta').prop('disabled', false).prop('required', true);
+
+            // Refrescar selectpickers (si usas bootstrap-select)
+            if(typeof $('#plantilla_meta').selectpicker === 'function'){
+                $('#plantilla_meta').selectpicker('refresh');
+            }
+            if(typeof $('#plantilla_normal').selectpicker === 'function'){
+                $('#plantilla_normal').selectpicker('refresh');
+            }
+
+        } else {
+            // Mostrar todos los campos de filtro
+            $('.filtro-campo').removeClass('hidden').show().find('input,select,textarea').prop('disabled', false);
+
+            // Mostrar select normal y ocultar select meta
+            $plantillaMetaGroup.addClass('hidden').hide();
+            $('#plantilla_meta').prop('disabled', true).prop('required', false);
+
+            $plantillaNormalGroup.removeClass('hidden').show();
+            $('#plantilla_normal').prop('disabled', false).prop('required', true);
+
+            if(typeof $('#plantilla_meta').selectpicker === 'function'){
+                $('#plantilla_meta').selectpicker('refresh');
+            }
+            if(typeof $('#plantilla_normal').selectpicker === 'function'){
+                $('#plantilla_normal').selectpicker('refresh');
+            }
+        }
+    }
+
+    // Ejecutar al cargar para forzar estado correcto
+    toggleMetaMode();
+
+    // Cuando cambie el checkbox
+    $('#enviarConMeta').on('change', function() {
+        toggleMetaMode();
+    });
 
 
 	window.addEventListener('load', function() {
