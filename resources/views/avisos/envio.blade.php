@@ -28,6 +28,15 @@
 	    @csrf
 	    <input type="hidden" value="{{$opcion}}" name="type">
 	    <div class="row">
+
+			<!-- Checkbox Enviar con Meta -->
+			<div class="col-md-3">
+				<div class="form-check form-check-inline d-flex p-3">
+					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
+					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
+				</div>
+			</div>
+
 			<div class="col-md-3 form-group filtro-campo">
 				@if(!request()->vencimiento)
 					<label>Facturas vencidas (opcional)</label>
@@ -46,11 +55,22 @@
 
 	        <div class="col-md-3 form-group">
 	            <label class="control-label">Plantilla <span class="text-danger">*</span></label>
-        	    <select name="plantilla" id="plantilla" class="form-control selectpicker " title="Seleccione" data-live-search="true" data-size="5" required>
+        	    
+				<!-- Plantillas normales (desde BD) -->
+				<select name="plantilla" id="plantilla_normal" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required>
         	        @foreach($plantillas as $plantilla)
         	        <option {{old('plantilla')==$plantilla->id?'selected':''}} value="{{$plantilla->id}}">{{$plantilla->title}}</option>
         	        @endforeach
         	    </select>
+
+				<!-- Plantillas Meta (opciones fijas) -->
+				<select name="plantilla" id="plantilla_meta" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required style="display: none;">
+					<option value="suspension">Suspensión de Servicio</option>
+					<option value="corte">Corte</option>
+					<option value="recordatorio">Recordatorio</option>
+					<option value="factura">Factura</option>
+        	    </select>
+
         	    <span class="help-block error">
         	        <strong>{{ $errors->first('plantilla') }}</strong>
         	    </span>
@@ -173,14 +193,6 @@
 				</div>
 			</div>
 
-			<!-- Checkbox Enviar con Meta -->
-			<div class="col-md-3">
-				<div class="form-check form-check-inline d-flex p-3">
-					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
-					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
-				</div>
-			</div>
-
        </div>
 
 	   <small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
@@ -208,9 +220,23 @@
 		if (isMetaMode) {
 			// Ocultar todos los campos de filtro
 			$('.filtro-campo').hide();
+			
+			// Cambiar select de plantillas
+			$('#plantilla_normal').hide();
+			$('#plantilla_normal').prop('disabled', true);
+			$('#plantilla_meta').show();
+			$('#plantilla_meta').prop('disabled', false);
+			$('#plantilla_meta').selectpicker('refresh');
 		} else {
 			// Mostrar todos los campos de filtro
 			$('.filtro-campo').show();
+			
+			// Cambiar select de plantillas
+			$('#plantilla_meta').hide();
+			$('#plantilla_meta').prop('disabled', true);
+			$('#plantilla_normal').show();
+			$('#plantilla_normal').prop('disabled', false);
+			$('#plantilla_normal').selectpicker('refresh');
 		}
 	}
 
@@ -232,7 +258,7 @@
 		$('#barrio').on('keyup',function(e) {
         	if(e.which > 32 || e.which == 8) {
         		if($('#barrio').val().length > 3){
-        			if (window.location.pathname.split("/")[1] === "software") {
+        		if (window.location.pathname.split("/")[1] === "software") {
         				var url = '/software/getContractsBarrio/'+$('#barrio').val();
         			}else{
         				var url = '/getContractsBarrio/'+$('#barrio').val();

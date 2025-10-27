@@ -318,12 +318,14 @@ class AvisosController extends Controller
                         
                         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
                         
-                        // Obtener el título de la plantilla para determinar el tipo
-                        $tipoPlantilla = strtolower($plantilla->title);
+                        // Obtener el tipo de plantilla
+                        // Si viene del select Meta, $request->plantilla será 'suspension', 'corte', 'recordatorio' o 'factura'
+                        // Si viene del select normal, será un ID numérico
+                        $tipoPlantilla = is_numeric($request->plantilla) ? strtolower($plantilla->title) : $request->plantilla;
                         
                         try {
                             // Lógica según el tipo de plantilla
-                            if(str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
+                            if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
                                 // ========================================
                                 // CASO: SUSPENSIÓN DE SERVICIO
                                 // ========================================
@@ -356,7 +358,7 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif(str_contains($tipoPlantilla, 'corte')){
+                            } elseif($tipoPlantilla == 'corte' || str_contains($tipoPlantilla, 'corte')){
                                 // ========================================
                                 // CASO: CORTE
                                 // ========================================
@@ -389,7 +391,7 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif(str_contains($tipoPlantilla, 'recordatorio')){
+                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')){
                                 // ========================================
                                 // CASO: RECORDATORIO
                                 // ========================================
@@ -422,7 +424,7 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif(str_contains($tipoPlantilla, 'factura')){
+                            } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
                                 // ========================================
