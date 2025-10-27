@@ -29,7 +29,15 @@
 	    <input type="hidden" value="{{$opcion}}" name="type">
 	    <div class="row">
 
-			<div class="col-md-3 form-group">
+			<!-- Checkbox Enviar con Meta -->
+			<div class="col-md-3">
+				<div class="form-check form-check-inline d-flex p-3">
+					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
+					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
+				</div>
+			</div>
+
+			<div class="col-md-3 form-group filtro-campo">
 				@if(!request()->vencimiento)
 					<label>Facturas vencidas (opcional)</label>
 					<input type="text" class="form-control datepicker"  id="vencimiento" value="" name="vencimiento">
@@ -58,7 +66,7 @@
         	</div>
 
 			@if(isset($servidores))
-			<div class="col-md-3 form-group">
+			<div class="col-md-3 form-group filtro-campo">
 	            <label class="control-label">Servidor<span class="text-danger"></span></label>
         	    <select name="servidor" id="servidor" class="form-control selectpicker " onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
         	        @foreach($servidores as $servidor)
@@ -72,7 +80,7 @@
 			@endif
 
 			@if(isset($gruposCorte))
-			<div class="col-md-3 form-group">
+			<div class="col-md-3 form-group filtro-campo">
 	            <label class="control-label">Grupo corte<span class="text-danger"></span></label>
         	    <select name="corte" id="corte" class="form-control selectpicker" onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
         	        @foreach($gruposCorte as $corte)
@@ -85,7 +93,7 @@
         	</div>
 			@endif
 
-        	<div class="col-md-3 form-group">
+        	<div class="col-md-3 form-group filtro-campo">
 	            <label class="control-label">Barrio</label>
         	    <input class="form-control" type="text" name="barrio" id="barrio">
         	    <span class="help-block error">
@@ -93,7 +101,7 @@
         	    </span>
         	</div>
 
-            <div class="col-md-3 form-group">
+            <div class="col-md-3 form-group filtro-campo">
 	            <label class="control-label">ESTADO CLIENTE<span class="text-danger"></span></label>
         	    <select name="options" id="options" class="form-control selectpicker" onchange="chequeo()" title="Seleccione" data-live-search="true" data-size="5">
         	        <option {{old('options')==1?'selected':''}} value="1" id='radio_1'>HABILITADOS</option>
@@ -105,7 +113,7 @@
         	    </span>
         	</div>
 
-            <div class="col-md-3 form-group">
+            <div class="col-md-3 form-group filtro-campo">
                 <label class="control-label">OPCIONES SALDO<span class="text-danger"></span></label>
                 <select name="opciones_saldo" id="opciones_saldo" class="form-control selectpicker" onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
                     <option {{old('opciones_saldo')=='mayor_a'?'selected':''}} value="mayor_a">SALDO MAYOR A</option>
@@ -119,7 +127,7 @@
         	    </span>
             </div>
 
-            <div class="col-md-3 form-group">
+            <div class="col-md-3 form-group filtro-campo">
                 <label class="control-label">Corregimiento / Vereda</label>
                 <input class="form-control" type="text" name="vereda" id="vereda" autocomplete="off">
                 <span class="help-block error">
@@ -127,7 +135,7 @@
         	    </span>
             </div>
 
-            <div class="col-md-3 form-group">
+            <div class="col-md-3 form-group filtro-campo">
                 <label class="control-label">Valor Saldo</label>
                 <input class="form-control" type="text" name="valor_saldo" id="valor_saldo"  oninput="refreshClient()">
                 <span class="help-block error">
@@ -167,7 +175,7 @@
         	</div>
 
 
-			<div class="col-md-3">
+			<div class="col-md-3 filtro-campo">
 				<div class="form-check form-check-inline d-flex p-3">
 					<input class="form-check-input" type="checkbox" id="isAbierta" name="isAbierta" value="true" onclick="refreshClient()">
 					<label class="form-check-label" for="isAbierta"  style="font-weight:bold">Solo facturas abiertas</label>
@@ -194,8 +202,23 @@
 
 	var ultimoVencimiento = null;
 
+	// Función para mostrar/ocultar campos según el modo Meta
+	function toggleMetaMode() {
+		var isMetaMode = $('#enviarConMeta').is(':checked');
+		
+		if (isMetaMode) {
+			// Ocultar todos los campos de filtro
+			$('.filtro-campo').hide();
+		} else {
+			// Mostrar todos los campos de filtro
+			$('.filtro-campo').show();
+		}
+	}
 
 	window.addEventListener('load', function() {
+
+		// Inicializar el estado del checkbox al cargar la página
+		toggleMetaMode();
 
 		$('#vencimiento').on('change', function(){
 			if($(this).val() == ultimoVencimiento){
