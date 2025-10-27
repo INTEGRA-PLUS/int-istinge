@@ -207,6 +207,14 @@
     </form>
 @endsection
 
+<style>
+	.hidden {
+		display: none !important;
+		visibility: hidden;
+		opacity: 0;
+	}
+</style>
+
 @section('scripts')
 <script type="text/javascript">
 
@@ -215,29 +223,44 @@
 	// Función para mostrar/ocultar campos según el modo Meta
 	function toggleMetaMode() {
 		var isMetaMode = $('#enviarConMeta').is(':checked');
-		
+
 		if (isMetaMode) {
 			// Ocultar todos los campos de filtro
-			$('.filtro-campo').hide();
-			
+			$('.filtro-campo')
+				.addClass('hidden')
+				.hide();
+
 			// Cambiar select de plantillas
-			$('#plantilla_normal').hide();
-			$('#plantilla_normal').prop('disabled', true);
-			$('#plantilla_meta').show();
-			$('#plantilla_meta').prop('disabled', false);
-			$('#plantilla_meta').selectpicker('refresh');
+			$('#plantilla_normal')
+				.addClass('hidden')
+				.hide()
+				.prop('disabled', true);
+
+			$('#plantilla_meta')
+				.removeClass('hidden')
+				.show()
+				.prop('disabled', false)
+				.selectpicker('refresh');
 		} else {
 			// Mostrar todos los campos de filtro
-			$('.filtro-campo').show();
-			
+			$('.filtro-campo')
+				.removeClass('hidden')
+				.show();
+
 			// Cambiar select de plantillas
-			$('#plantilla_meta').hide();
-			$('#plantilla_meta').prop('disabled', true);
-			$('#plantilla_normal').show();
-			$('#plantilla_normal').prop('disabled', false);
-			$('#plantilla_normal').selectpicker('refresh');
+			$('#plantilla_meta')
+				.addClass('hidden')
+				.hide()
+				.prop('disabled', true);
+
+			$('#plantilla_normal')
+				.removeClass('hidden')
+				.show()
+				.prop('disabled', false)
+				.selectpicker('refresh');
 		}
 	}
+
 
 	window.addEventListener('load', function() {
 
