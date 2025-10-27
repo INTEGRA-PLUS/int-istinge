@@ -221,62 +221,55 @@
 	var ultimoVencimiento = null;
 
 	function toggleMetaMode() {
-        var isMetaMode = $('#enviarConMeta').is(':checked');
+		var isMetaMode = $('#enviarConMeta').is(':checked');
 
-        // Tomamos los contenedores (por si no tienes .filtro-campo)
-        var $plantillaNormalGroup = $('#plantilla_normal').closest('.form-group');
-        var $plantillaMetaGroup   = $('#plantilla_meta').closest('.form-group');
+		if (isMetaMode) {
+			// Mostrar solo select META
+			$('#plantilla_normal')
+				.addClass('hidden')
+				.prop('disabled', true)
+				.prop('required', false)
+				.hide();
 
-        // Si no existe .form-group como padre directo, fallback al propio select
-        if ($plantillaNormalGroup.length === 0) {
-            $plantillaNormalGroup = $('#plantilla_normal');
-        }
-        if ($plantillaMetaGroup.length === 0) {
-            $plantillaMetaGroup = $('#plantilla_meta');
-        }
+			$('#plantilla_meta')
+				.removeClass('hidden')
+				.prop('disabled', false)
+				.prop('required', true)
+				.show();
 
-        if (isMetaMode) {
-            // Ocultar todos los campos de filtro (si existen)
-            $('.filtro-campo').addClass('hidden').hide().find('input,select,textarea').prop('disabled', true);
+			// Refrescar si usas bootstrap-select
+			if (typeof $('#plantilla_meta').selectpicker === 'function') {
+				$('#plantilla_meta').selectpicker('refresh');
+			}
+			if (typeof $('#plantilla_normal').selectpicker === 'function') {
+				$('#plantilla_normal').selectpicker('refresh');
+			}
 
-            // Mostrar solo Plantilla Meta
-            $plantillaNormalGroup.addClass('hidden').hide();
-            // desactivar el select normal para evitar validación
-            $('#plantilla_normal').prop('disabled', true).prop('required', false);
+		} else {
+			// Mostrar solo select NORMAL
+			$('#plantilla_meta')
+				.addClass('hidden')
+				.prop('disabled', true)
+				.prop('required', false)
+				.hide();
 
-            $plantillaMetaGroup.removeClass('hidden').show();
-            $('#plantilla_meta').prop('disabled', false).prop('required', true);
+			$('#plantilla_normal')
+				.removeClass('hidden')
+				.prop('disabled', false)
+				.prop('required', true)
+				.show();
 
-            // Refrescar selectpickers (si usas bootstrap-select)
-            if(typeof $('#plantilla_meta').selectpicker === 'function'){
-                $('#plantilla_meta').selectpicker('refresh');
-            }
-            if(typeof $('#plantilla_normal').selectpicker === 'function'){
-                $('#plantilla_normal').selectpicker('refresh');
-            }
+			if (typeof $('#plantilla_meta').selectpicker === 'function') {
+				$('#plantilla_meta').selectpicker('refresh');
+			}
+			if (typeof $('#plantilla_normal').selectpicker === 'function') {
+				$('#plantilla_normal').selectpicker('refresh');
+			}
+		}
+	}
 
-        } else {
-            // Mostrar todos los campos de filtro
-            $('.filtro-campo').removeClass('hidden').show().find('input,select,textarea').prop('disabled', false);
-
-            // Mostrar select normal y ocultar select meta
-            $plantillaMetaGroup.addClass('hidden').hide();
-            $('#plantilla_meta').prop('disabled', true).prop('required', false);
-
-            $plantillaNormalGroup.removeClass('hidden').show();
-            $('#plantilla_normal').prop('disabled', false).prop('required', true);
-
-            if(typeof $('#plantilla_meta').selectpicker === 'function'){
-                $('#plantilla_meta').selectpicker('refresh');
-            }
-            if(typeof $('#plantilla_normal').selectpicker === 'function'){
-                $('#plantilla_normal').selectpicker('refresh');
-            }
-        }
-    }
-
-    // Ejecutar al cargar para forzar estado correcto
-    toggleMetaMode();
+	// Llamar al cargar
+	toggleMetaMode();
 
     // Cuando cambie el checkbox
     $('#enviarConMeta').on('change', function() {
