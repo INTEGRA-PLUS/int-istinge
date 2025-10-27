@@ -318,10 +318,6 @@ class AvisosController extends Controller
                         }
                         
                         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-                        
-                        // Obtener el tipo de plantilla
-                        // Si viene del select Meta, $request->plantilla será 'suspension', 'corte', 'recordatorio' o 'factura'
-                        // Si viene del select normal, será un ID numérico
                         $tipoPlantilla = is_numeric($request->plantilla) ? strtolower($plantilla->title) : $request->plantilla;
                         
                         try {
@@ -347,10 +343,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
+                                // Validar respuesta de forma más completa
                                 if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -380,10 +383,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
+                                // Validar respuesta de forma más completa
                                 if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -413,10 +423,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
+                                // Validar respuesta de forma más completa
                                 if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -424,7 +441,6 @@ class AvisosController extends Controller
                                 } else {
                                     $enviadosFallidos++;
                                 }
-                                
                             } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
@@ -511,12 +527,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Actualizar estado de la factura y contador
+                                // Validar respuesta de forma más completa
                                 if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
-                                        $factura->whatsapp = 1;
-                                        $factura->save();
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
