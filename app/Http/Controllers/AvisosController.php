@@ -345,7 +345,7 @@ class AvisosController extends Controller
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
                                 // Validar respuesta de forma más completa
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
+                                if (isset($response->scalar)) {
                                     $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
                                     
                                     $esExitoso = (
@@ -385,7 +385,7 @@ class AvisosController extends Controller
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
                                 // Validar respuesta de forma más completa
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
+                                if (isset($response->scalar)) {
                                     $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
                                     
                                     $esExitoso = (
@@ -425,7 +425,7 @@ class AvisosController extends Controller
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
                                 // Validar respuesta de forma más completa
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
+                                if (isset($response->scalar)) {
                                     $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
                                     
                                     $esExitoso = (
@@ -529,7 +529,7 @@ class AvisosController extends Controller
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
                                 // Validar respuesta de forma más completa
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
+                                if (isset($response->scalar)) {
                                     $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
                                     
                                     $esExitoso = (
