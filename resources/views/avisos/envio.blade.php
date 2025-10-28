@@ -27,16 +27,7 @@
 	<form method="POST" action="{{ route('avisos.envio_aviso') }}" style="padding: 2% 3%;" role="form" class="forms-sample" novalidate id="form-retencion">
 	    @csrf
 	    <input type="hidden" value="{{$opcion}}" name="type">
-	    <div class="row">
-
-			<!-- Checkbox Enviar con Meta -->
-			<div class="col-md-3">
-				<div class="form-check form-check-inline d-flex p-3">
-					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
-					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
-				</div>
-			</div>
-
+	    <div class="row">			
 			<div class="col-md-3 form-group filtro-campo">
 				@if(!request()->vencimiento)
 					<label>Facturas vencidas (opcional)</label>
@@ -55,11 +46,22 @@
 
 	        <div class="col-md-3 form-group">
 	            <label class="control-label">Plantilla <span class="text-danger">*</span></label>
-        	    <select name="plantilla" id="plantilla" class="form-control selectpicker " title="Seleccione" data-live-search="true" data-size="5" required>
+        	    
+				<!-- Plantillas normales (desde BD) -->
+				<select name="plantilla" id="plantilla_normal" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required>
         	        @foreach($plantillas as $plantilla)
         	        <option {{old('plantilla')==$plantilla->id?'selected':''}} value="{{$plantilla->id}}">{{$plantilla->title}}</option>
         	        @endforeach
         	    </select>
+
+				<!-- Plantillas Meta (opciones fijas) -->
+				<select name="plantilla" id="plantilla_meta" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required style="display: none;">
+					<option value="suspension">Suspensión de Servicio</option>
+					<option value="corte">Corte</option>
+					<option value="recordatorio">Recordatorio</option>
+					<option value="factura">Factura</option>
+        	    </select>
+
         	    <span class="help-block error">
         	        <strong>{{ $errors->first('plantilla') }}</strong>
         	    </span>
@@ -181,7 +183,17 @@
 					<label class="form-check-label" for="isAbierta"  style="font-weight:bold">Solo facturas abiertas</label>
 				</div>
 			</div>
-
+			
+			<!-- Checkbox Enviar con Meta -->
+			<div class="col-md-3">
+				<div class="form-check form-check-inline d-flex p-3">
+					<input class="form-check-input" type="checkbox" id="enviarConMeta" name="enviarConMeta" value="true" onchange="toggleMetaMode()">
+					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
+				</div>
+			</div>
+			<div class="col-md-12" id="preview-mensaje-meta" style="display: none;">
+				<!-- Aquí se mostrará la vista previa dinámicamente -->
+			</div>
        </div>
 
 	   <small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
@@ -197,23 +209,149 @@
     </form>
 @endsection
 
+<style>
+	.hidden {
+		display: none !important;
+		visibility: hidden;
+		opacity: 0;
+	}
+</style>
+
 @section('scripts')
 <script type="text/javascript">
 
-	var ultimoVencimiento = null;
+	const mensajesPlantillasMeta = {
+		suspension: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de hoy, Para evitar la suspensión del servicio efectúe el pago",
+		corte: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de mañana, Para evitar la suspensión del servicio efectúe el pago",
+		recordatorio: "Buenos Dias, INTEGRA le recuerda que para restablecer el servicio, recuerda efectuar el pago en nuestra oficina o consignando a la cuenta, si lo haces por este ultimo medio recuerda enviar el comprobante. Muchas Gracias.",
+		factura: "Estimado cliente Juan Perez. INTEGRA le informa que se ha generado su factura por valor de 40.000 $ puedes realizar el pago a través del siguiente link."
+	};
 
-	// Función para mostrar/ocultar campos según el modo Meta
-	function toggleMetaMode() {
-		var isMetaMode = $('#enviarConMeta').is(':checked');
+	// Función para mostrar la vista previa
+	function mostrarVistaPrevia() {
+		const plantillaSeleccionada = $('#plantilla_meta').val();
+		const $contenedorPreview = $('#preview-mensaje-meta');
 		
-		if (isMetaMode) {
-			// Ocultar todos los campos de filtro
-			$('.filtro-campo').hide();
+		if (plantillaSeleccionada && mensajesPlantillasMeta[plantillaSeleccionada]) {
+			const mensaje = mensajesPlantillasMeta[plantillaSeleccionada];
+			$contenedorPreview.html(`
+				<div class="alert alert-info mt-3">
+					<strong><i class="fa fa-eye"></i> Vista Previa del Mensaje:</strong>
+					<p class="mb-0 mt-2">${mensaje}</p>
+				</div>
+			`).show();
 		} else {
-			// Mostrar todos los campos de filtro
-			$('.filtro-campo').show();
+			$contenedorPreview.hide();
 		}
 	}
+
+	// Event listener para cuando cambie la selección
+	$(document).ready(function() {
+		// Agregar el evento change al select de plantilla_meta
+		$('#plantilla_meta').on('change', function() {
+			mostrarVistaPrevia();
+		});
+		
+		// También ejecutar al cambiar el checkbox para mostrar/ocultar
+		$('#enviarConMeta').on('change', function() {
+			if ($(this).is(':checked')) {
+				mostrarVistaPrevia();
+			} else {
+				$('#preview-mensaje-meta').hide();
+			}
+		});
+	});
+
+	var ultimoVencimiento = null;
+	function toggleMetaMode() {
+		var isMetaMode = $('#enviarConMeta').is(':checked');
+
+		var $plantillaNormal = $('#plantilla_normal');
+		var $plantillaMeta = $('#plantilla_meta');
+
+		if (isMetaMode) {			
+			// Ocultar los campos de filtro
+			$('.filtro-campo')
+				.addClass('hidden')
+				.attr('hidden', true)
+				.find('input,select,textarea')
+				.prop('disabled', true);
+
+			// Ocultar y deshabilitar select Normal
+			$plantillaNormal
+				.prop('disabled', true)
+				.prop('required', false)
+				.attr('hidden', true)
+				.css('display', 'none');
+			$plantillaNormal.next('.bootstrap-select')
+				.attr('hidden', true)
+				.css('display', 'none');
+
+			// Mostrar y habilitar select Meta
+			$plantillaMeta
+				.prop('disabled', false)
+				.prop('required', true)
+				.removeAttr('hidden')
+				.css('display', '');
+			$plantillaMeta.next('.bootstrap-select')
+				.removeAttr('hidden')
+				.css('display', '');
+		} 
+		else {
+			// Mostrar y habilitar campos normales
+			$('.filtro-campo')
+				.removeClass('hidden')
+				.removeAttr('hidden')
+				.find('input,select,textarea')
+				.prop('disabled', false);
+
+			// Ocultar y deshabilitar select Meta
+			$plantillaMeta
+				.prop('disabled', true)
+				.prop('required', false)
+				.attr('hidden', true)
+				.css('display', 'none');
+			$plantillaMeta.next('.bootstrap-select')
+				.attr('hidden', true)
+				.css('display', 'none');
+
+			// Mostrar y habilitar select Normal
+			$plantillaNormal
+				.prop('disabled', false)
+				.prop('required', true)
+				.removeAttr('hidden')
+				.css('display', '');
+			$plantillaNormal.next('.bootstrap-select')
+				.removeAttr('hidden')
+				.css('display', '');
+		}
+
+		// Refrescar selectpickers si existen
+		if (typeof $.fn.selectpicker === 'function') {
+			$plantillaNormal.selectpicker('refresh');
+			$plantillaMeta.selectpicker('refresh');
+		}
+	}
+
+	// ----------------------------------------------------------------------
+	// Inicialización
+	// ----------------------------------------------------------------------
+	$(document).ready(function() {
+		toggleMetaMode();
+
+		$('#enviarConMeta').on('change', function() {
+			toggleMetaMode();
+		});
+	});
+
+    // Ejecutar al cargar para forzar estado correcto
+    toggleMetaMode();
+
+    // Cuando cambie el checkbox
+    $('#enviarConMeta').on('change', function() {
+        toggleMetaMode();
+    });
+
 
 	window.addEventListener('load', function() {
 
@@ -233,7 +371,7 @@
 		$('#barrio').on('keyup',function(e) {
         	if(e.which > 32 || e.which == 8) {
         		if($('#barrio').val().length > 3){
-        			if (window.location.pathname.split("/")[1] === "software") {
+        		if (window.location.pathname.split("/")[1] === "software") {
         				var url = '/software/getContractsBarrio/'+$('#barrio').val();
         			}else{
         				var url = '/getContractsBarrio/'+$('#barrio').val();

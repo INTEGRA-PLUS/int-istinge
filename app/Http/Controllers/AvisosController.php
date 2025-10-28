@@ -9,6 +9,7 @@ use App\Empresa;
 use Carbon\Carbon;
 use App\Aviso;
 use App\Plantilla;
+use Illuminate\Support\Facades\Storage;
 use App\Contrato;
 use App\Model\Ingresos\Factura;
 use Mail;
@@ -288,6 +289,7 @@ class AvisosController extends Controller
                         $wapiService = new WapiService();
                         $instance = Instance::where('company_id', $empresa->id)
                                             ->where('activo', 1)
+                                            ->where('meta', 0)
                                             ->first();
                         
                         // Validar instancia solo una vez (antes del loop sería mejor, pero lo dejamos aquí)
@@ -317,13 +319,11 @@ class AvisosController extends Controller
                         }
                         
                         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-                        
-                        // Obtener el título de la plantilla para determinar el tipo
-                        $tipoPlantilla = strtolower($plantilla->title);
+                        $tipoPlantilla = is_numeric($request->plantilla) ? strtolower($plantilla->title) : $request->plantilla;
                         
                         try {
                             // Lógica según el tipo de plantilla
-                            if(str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
+                            if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
                                 // ========================================
                                 // CASO: SUSPENSIÓN DE SERVICIO
                                 // ========================================
@@ -344,10 +344,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -356,7 +363,7 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif(str_contains($tipoPlantilla, 'corte')){
+                            } elseif($tipoPlantilla == 'corte' || str_contains($tipoPlantilla, 'corte')){
                                 // ========================================
                                 // CASO: CORTE
                                 // ========================================
@@ -377,10 +384,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -389,7 +403,7 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif(str_contains($tipoPlantilla, 'recordatorio')){
+                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')){
                                 // ========================================
                                 // CASO: RECORDATORIO
                                 // ========================================
@@ -397,7 +411,7 @@ class AvisosController extends Controller
                                 $body = [
                                     "phone" => $telefonoCompleto,
                                     "templateName" => "recordatorio",
-                                    "languageCode" => "en",
+                                    "languageCode" => "es",
                                     "components" => [
                                         [
                                             "type" => "body",
@@ -410,10 +424,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -421,8 +442,7 @@ class AvisosController extends Controller
                                 } else {
                                     $enviadosFallidos++;
                                 }
-                                
-                            } elseif(str_contains($tipoPlantilla, 'factura')){
+                            } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
                                 // ========================================
@@ -508,12 +528,17 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Actualizar estado de la factura y contador
-                                if (isset($response->statusCode) && $response->statusCode === 200) {
-                                    $responseData = json_decode($response->scalar ?? '{}');
-                                    if (isset($responseData->status) && $responseData->status === "success") {
-                                        $factura->whatsapp = 1;
-                                        $factura->save();
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
                                         $enviadosExito++;
                                     } else {
                                         $enviadosFallidos++;
@@ -543,7 +568,10 @@ class AvisosController extends Controller
                         // ========================================
                         
                         $wapiService = new WapiService();
-                        $instance = Instance::where('company_id', $empresa->id)->first();
+                        $instance = Instance::where('company_id', $empresa->id)
+                        ->where('activo', 1)
+                        ->where('meta', 1)
+                        ->first();
                         
                         if($i == 0 && (is_null($instance) || empty($instance))){
                             return back()->with('danger','Instancia no está creada');
