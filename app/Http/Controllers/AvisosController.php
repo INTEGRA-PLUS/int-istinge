@@ -500,7 +500,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "factura",
+                                    "templateName" => "facturas",
                                     "languageCode" => "en",
                                     "components" => [
                                         [
