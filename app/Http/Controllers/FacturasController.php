@@ -7,6 +7,7 @@ use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Empresa; use App\Contacto; use App\TipoIdentificacion;
 use App\Impuesto; use App\NumeracionFactura;
 use App\TerminosPago; use App\Funcion; use App\Vendedor;
