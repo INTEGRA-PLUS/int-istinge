@@ -65,69 +65,69 @@ Route::get('borrar-cache', function () {
 	return redirect()->back()->with('success', 'Cache borrado correctamente y recargada la vista.');
 })->name('borrar-cache');
 
-Route::get('/crear-symlink/{token}', function ($token) {
+// Route::get('/crear-symlink/{token}', function ($token) {
     
-    // Validar token de seguridad
-    if ($token !== config('app.key')) {
-        abort(403, 'Token inválido. No tienes permiso para ejecutar esta acción.');
-    }
+//     // Validar token de seguridad
+//     if ($token !== config('app.key')) {
+//         abort(403, 'Token inválido. No tienes permiso para ejecutar esta acción.');
+//     }
 
-    $targetFolder = storage_path('app/public');
-    $linkFolder = public_path('storage');
+//     $targetFolder = storage_path('app/public');
+//     $linkFolder = public_path('storage');
 
-    try {
-        // Verificar si ya existe el symlink
-        if (file_exists($linkFolder)) {
-            if (is_link($linkFolder)) {
-                return response()->json([
-                    'status' => 'info',
-                    'message' => 'El symlink ya existe',
-                    'target' => $targetFolder,
-                    'link' => $linkFolder,
-                    'readable' => is_readable($linkFolder)
-                ]);
-            } else {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Existe un directorio/archivo con ese nombre, no es un symlink',
-                    'path' => $linkFolder,
-                    'suggestion' => 'Elimina o renombra: ' . $linkFolder
-                ], 409);
-            }
-        }
+//     try {
+//         // Verificar si ya existe el symlink
+//         if (file_exists($linkFolder)) {
+//             if (is_link($linkFolder)) {
+//                 return response()->json([
+//                     'status' => 'info',
+//                     'message' => 'El symlink ya existe',
+//                     'target' => $targetFolder,
+//                     'link' => $linkFolder,
+//                     'readable' => is_readable($linkFolder)
+//                 ]);
+//             } else {
+//                 return response()->json([
+//                     'status' => 'error',
+//                     'message' => 'Existe un directorio/archivo con ese nombre, no es un symlink',
+//                     'path' => $linkFolder,
+//                     'suggestion' => 'Elimina o renombra: ' . $linkFolder
+//                 ], 409);
+//             }
+//         }
 
-        // Verificar que el directorio target existe
-        if (!file_exists($targetFolder)) {
-            mkdir($targetFolder, 0755, true);
-        }
+//         // Verificar que el directorio target existe
+//         if (!file_exists($targetFolder)) {
+//             mkdir($targetFolder, 0755, true);
+//         }
 
-        // Crear el symlink
-        if (symlink($targetFolder, $linkFolder)) {
-            return response()->json([
-                'status' => 'success',
-                'message' => '✅ Symlink creado exitosamente',
-                'target' => $targetFolder,
-                'link' => $linkFolder,
-                'test_url' => url('storage/')
-            ]);
-        } else {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se pudo crear el symlink. Verifica permisos del servidor.',
-                'target' => $targetFolder,
-                'link' => $linkFolder
-            ], 500);
-        }
+//         // Crear el symlink
+//         if (symlink($targetFolder, $linkFolder)) {
+//             return response()->json([
+//                 'status' => 'success',
+//                 'message' => '✅ Symlink creado exitosamente',
+//                 'target' => $targetFolder,
+//                 'link' => $linkFolder,
+//                 'test_url' => url('storage/')
+//             ]);
+//         } else {
+//             return response()->json([
+//                 'status' => 'error',
+//                 'message' => 'No se pudo crear el symlink. Verifica permisos del servidor.',
+//                 'target' => $targetFolder,
+//                 'link' => $linkFolder
+//             ], 500);
+//         }
 
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Error al crear symlink: ' . $e->getMessage(),
-            'line' => $e->getLine(),
-            'file' => $e->getFile()
-        ], 500);
-    }
-});
+//     } catch (\Exception $e) {
+//         return response()->json([
+//             'status' => 'error',
+//             'message' => 'Error al crear symlink: ' . $e->getMessage(),
+//             'line' => $e->getLine(),
+//             'file' => $e->getFile()
+//         ], 500);
+//     }
+// });
 
 Route::get('contact/newcam', 'ContactosController@indexcampos')->name('contact.new');
 Route::post('contact/campos', 'ContactosController@newcampos')->name('contact.new.campos');
