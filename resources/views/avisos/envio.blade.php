@@ -191,7 +191,9 @@
 					<label class="form-check-label" for="enviarConMeta" style="font-weight:bold">Enviar con Meta</label>
 				</div>
 			</div>
-
+			<div class="col-md-12" id="preview-mensaje-meta" style="display: none;">
+				<!-- Aquí se mostrará la vista previa dinámicamente -->
+			</div>
        </div>
 
 	   <small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
@@ -217,6 +219,48 @@
 
 @section('scripts')
 <script type="text/javascript">
+
+	const mensajesPlantillasMeta = {
+		suspension: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de hoy, Para evitar la suspensión del servicio efectúe el pago",
+		corte: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de mañana, Para evitar la suspensión del servicio efectúe el pago",
+		recordatorio: "Buenos Dias, INTEGRA le recuerda que para restablecer el servicio, recuerda efectuar el pago en nuestra oficina o consignando a la cuenta, si lo haces por este ultimo medio recuerda enviar el comprobante. Muchas Gracias.",
+		factura: "Estimado cliente Juan Perez. INTEGRA le informa que se ha generado su factura por valor de 40.000 $ puedes realizar el pago a través del siguiente link."
+	};
+
+	// Función para mostrar la vista previa
+	function mostrarVistaPrevia() {
+		const plantillaSeleccionada = $('#plantilla_meta').val();
+		const $contenedorPreview = $('#preview-mensaje-meta');
+		
+		if (plantillaSeleccionada && mensajesPlantillasMeta[plantillaSeleccionada]) {
+			const mensaje = mensajesPlantillasMeta[plantillaSeleccionada];
+			$contenedorPreview.html(`
+				<div class="alert alert-info mt-3">
+					<strong><i class="fa fa-eye"></i> Vista Previa del Mensaje:</strong>
+					<p class="mb-0 mt-2">${mensaje}</p>
+				</div>
+			`).show();
+		} else {
+			$contenedorPreview.hide();
+		}
+	}
+
+	// Event listener para cuando cambie la selección
+	$(document).ready(function() {
+		// Agregar el evento change al select de plantilla_meta
+		$('#plantilla_meta').on('change', function() {
+			mostrarVistaPrevia();
+		});
+		
+		// También ejecutar al cambiar el checkbox para mostrar/ocultar
+		$('#enviarConMeta').on('change', function() {
+			if ($(this).is(':checked')) {
+				mostrarVistaPrevia();
+			} else {
+				$('#preview-mensaje-meta').hide();
+			}
+		});
+	});
 
 	var ultimoVencimiento = null;
 	function toggleMetaMode() {
