@@ -4492,64 +4492,240 @@ class FacturasController extends Controller{
         exit;
     }
 
+    public function getFacturaTemp($id, $token)
+    {
+        // 1️⃣ Validar token de seguridad
+        if ($token !== config('app.key')) {
+            abort(403, 'Token inválido');
+        }
+
+        // 2️⃣ Buscar factura
+        $factura = Factura::findOrFail($id);
+
+        // 3️⃣ Generar nombre y rutas relativas
+        $fileName = 'Factura_' . $factura->codigo . '.pdf';
+        $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
+        $storagePath = storage_path('app/public/' . $relativePath);
+
+        // 4️⃣ Si ya existe, devolver directamente
+        if (file_exists($storagePath)) {
+            return response()->file($storagePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            ]);
+        }
+
+        // 5️⃣ Generar el PDF en binario
+        $facturaPDF = $this->getPdfFactura($id);
+
+        // 6️⃣ Crear carpeta si no existe
+        if (!Storage::disk('public')->exists('temp')) {
+            Storage::disk('public')->makeDirectory('temp');
+        }
+
+        // 7️⃣ Guardar el archivo usando el Filesystem de Laravel
+        Storage::disk('public')->put($relativePath, $facturaPDF);
+
+        // 8️⃣ Retornar el archivo directamente
+        return response()->file($storagePath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+        ]);
+    }
+
     public function whatsapp($id, Request $request, WapiService $wapiService)
     {
-        $factura = Factura::find($id);
-        $facturaPDF = $this->getPdfFactura($id);
-        $facturabase64 = base64_encode($facturaPDF);
-        $instance = Instance::where('company_id', auth()->user()->empresa)->first();
+        // 1️⃣ Buscar instancia activa y factura base
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+                            ->where('activo', 1)
+                            ->first();
+        $factura = Factura::findOrFail($id);
+
+        if (is_null($instance) || empty($instance)) {
+            return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
+        }
+
         $contacto = $factura->cliente();
-
-        if(is_null($instance) || empty($instance)){
-            return back()->with('danger', 'Aún no ha creado una instancia, por favor pongase en contacto con el administrador.');
+        $prefijo = '57'; // valor por defecto (Colombia)
+        if (!empty($contacto->fk_idpais)) {
+            $prefijoData = \DB::table('prefijos_telefonicos')
+                ->where('iso2', strtoupper($contacto->fk_idpais))
+                ->first();
+            if ($prefijoData && !empty($prefijoData->phone_code)) {
+                $prefijo = $prefijoData->phone_code;
+            }
         }
 
-        if($instance->status !== "PAIRED") {
-            return back()->with('danger', 'La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
+        // 📱 Construir número completo con prefijo dinámico
+        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
+
+        /**
+         * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
+         * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
+         */
+       if ($instance->meta == 0) {
+
+            // 2️⃣ Verificar tipo de canal
+            $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
+            $canalData = json_decode($canalResponse->scalar ?? '{}');
+
+            if (!isset($canalData->status) || $canalData->status !== "success") {
+                return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
+            }
+
+            $tipoCanal = $canalData->data->channel->type ?? null;
+
+            // ============================================================
+            // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
+            // ============================================================
+            $token = config('app.key');
+            $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
+
+            // Asegurar que el archivo fue generado y accesible
+            $fileName = 'Factura_' . $factura->codigo . '.pdf';
+            $relativePath = 'temp/' . $fileName;
+            $storagePath = storage_path('app/public/' . $relativePath);
+
+            // Esperar hasta que el archivo exista (máx. 5 intentos)
+            $attempts = 0;
+            while (!file_exists($storagePath) && $attempts < 5) {
+                usleep(300000); // 0.3 segundos
+                $attempts++;
+            }
+
+            if (!file_exists($storagePath)) {
+                return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
+            }
+
+            // Generar la URL pública accesible
+            $urlFactura = url('storage/temp/' . $fileName);
+
+            // ============================================================
+            // 📦 CONSTRUIR BODY PARA WAPI
+            // ============================================================
+            $nameEmpresa = auth()->user()->empresa()->nombre;
+            $estadoCuenta = $factura->estadoCuenta();
+            $total = $factura->total()->total;
+            $saldo = $estadoCuenta->saldoMesAnterior > 0
+                ? $estadoCuenta->saldoMesAnterior + $total
+                : $total;
+
+            $body = [
+                "phone" => $telefonoCompleto,
+                "templateName" => "factura",
+                "languageCode" => "en", // asegúrate de usar el idioma correcto del template
+                "components" => [
+                    [
+                        "type" => "header",
+                        "parameters" => [
+                            [
+                                "type" => "document",
+                                "document" => [
+                                    "link" => $urlFactura,
+                                    "filename" => "Factura_{$factura->codigo}.pdf"
+                                ]
+                            ]
+                        ]
+                    ],
+                    [
+                        "type" => "body",
+                        "parameters" => [
+                            ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
+                            ["type" => "text", "text" => $nameEmpresa],
+                            ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                        ]
+                    ]
+                ]
+            ];
+
+            // ============================================================
+            // 🚀 ENVIAR MENSAJE
+            // ============================================================
+            if ($tipoCanal === "waba") {
+                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+            } else {
+                $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
+                    "phone" => "+57" . $contacto->celular,
+                    "caption" => "Factura {$factura->codigo} - {$nameEmpresa}",
+                    "document" => [
+                        "url" => $urlFactura,
+                        "filename" => "Factura_{$factura->codigo}.pdf"
+                    ]
+                ]);
+            }
+
+            // ============================================================
+            // ✅ VALIDAR RESPUESTA
+            // ============================================================
+            if (isset($response->statusCode) && $response->statusCode !== 200) {
+                return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
+            }
+
+            $response = json_decode($response->scalar ?? '{}');
+            if (!isset($response->status) || $response->status !== "success") {
+                return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
+            }
+
+            // ============================================================
+            // 🟢 ACTUALIZAR FACTURA
+            // ============================================================
+            $factura->whatsapp = 1;
+            $factura->save();
+
+            return back()->with('success', 'Mensaje enviado correctamente.');
+
+        } else {
+            // 🚀 === FLUJO META (manual con PDF en base64) ===
+            if ($instance->status !== "PAIRED" ) {
+                return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
+            }
+            $facturaPDF = $this->getPdfFactura($id);
+            $facturaBase64 = base64_encode($facturaPDF);
+
+            $file = [
+                "mimeType" => "application/pdf",
+                "file" => $facturaBase64,
+            ];
+
+            $contact = [
+                "phone" => $prefijo . ltrim($contacto->celular, '0'),
+                "name" => $contacto->nombre . " " . $contacto->apellido1
+            ];
+
+            $nameEmpresa = auth()->user()->empresa()->nombre;
+            $estadoCuenta = $factura->estadoCuenta();
+
+            $msg_deuda = "";
+            $total = $factura->total()->total;
+            if ($estadoCuenta->saldoMesAnterior > 0) {
+                $msg_deuda = "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $total);
+            }
+
+            $message = "$nameEmpresa le informa que su factura ha sido generada bajo el número $factura->codigo por un monto de $$total pesos. " . $msg_deuda;
+
+            $body = [
+                "contact" => $contact,
+                "message" => $message,
+                "media" => $file
+            ];
+
+            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+
+            if (isset($response->statusCode)) {
+                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            }
+
+            $response = json_decode($response->scalar);
+
+            if ($response->status != "success") {
+                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+            }
+
+            $factura->whatsapp = 1;
+            $factura->save();
+
+            return back()->with('success', 'Mensaje enviado correctamente.');
         }
-
-        $file = [
-            "mimeType" => "application/pdf",
-            "file" => $facturabase64,
-        ];
-
-        $contact = [
-            "phone" => "57" . $contacto->celular,
-            "name" => $contacto->nombre . " " . $contacto->apellido1
-        ];
-
-        $nameEmpresa = auth()->user()->empresa()->nombre;
-        $estadoCuenta = $factura->estadoCuenta();
-
-        $msg_deuda = "";
-        $total = $factura->total()->total;
-        if($estadoCuenta->saldoMesAnterior > 0){
-            $msg_deuda = "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $total);
-        }
-
-        $message = "$nameEmpresa Le informa que su factura ha sido generada bajo el número $factura->codigo por un monto de $$total pesos. " . $msg_deuda;
-
-        $body = [
-            "contact" => $contact,
-            "message" => $message,
-            "media" => $file
-        ];
-
-        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-
-        if(isset($response->statusCode)) {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-        }
-        $response = json_decode($response->scalar);
-
-        if($response->status != "success") {
-            return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-        }
-
-        $factura->whatsapp = 1;
-        $factura->save();
-        return back()->with('success', 'Mensaje enviado correctamente.');
-
     }
 
     public function whatsapp2($id,Request $request )
