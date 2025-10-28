@@ -4674,7 +4674,7 @@ class FacturasController extends Controller{
 
             $body = [
                 "phone" => $telefonoCompleto,
-                "templateName" => "factura",
+                "templateName" => "facturas",
                 "languageCode" => "en", // asegúrate de usar el idioma correcto del template
                 "components" => [
                     [
