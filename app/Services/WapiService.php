@@ -42,37 +42,6 @@ class WapiService
         );
     }
 
-    public function getInstanceById(int $id)
-    {
-        $instance = \App\Instance::find($id); // asegúrate que el namespace sea correcto
-
-        if (!$instance) {
-            throw new \Exception("No se encontró la instancia con id $id");
-        }
-
-        if (!$instance->uuid) {
-            throw new \Exception("La instancia encontrada no tiene UUID asignado");
-        }
-
-        // Llamar al endpoint de Wapi usando el UUID
-        $response = $this->makeRequest(
-            "GET",
-            $this->baseUri . "/api/v1/channel/wbot/" . $instance->uuid,
-            [],
-            [],
-            $this->headers
-        );
-
-        // Convertir a JSON si viene como array
-        if (is_array($response)) {
-            return json_encode($response);
-        }
-
-        return $response;
-    }
-
-
-
     public function initSession(string $uuid)
     {
         return $this->makeRequest(
@@ -91,9 +60,34 @@ class WapiService
             "POST",
             $this->baseUri . "/api/v1/send/" . $uuid,
             [],
-            $body, // 👈 mandas el body limpio
+            $body,
             $this->headers,
             true
         );
     }
+
+    public function sendTemplate(string $uuid, array $body)
+    {
+        return $this->makeRequest(
+            "POST",
+            $this->baseUri . "/api/v1/channels/waba/{$uuid}/send-template",
+            [],
+            $body,
+            $this->headers,
+            true
+        );
+    }
+
+    public function getWabaChannel(string $uuid)
+    {
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/channels/waba/{$uuid}",
+            [], 
+            [],  
+            $this->headers,
+            true    // Indica que esperas una respuesta tipo JSON
+        );
+    }
+
 }
