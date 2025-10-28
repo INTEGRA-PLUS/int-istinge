@@ -9,6 +9,7 @@ use App\Empresa;
 use Carbon\Carbon;
 use App\Aviso;
 use App\Plantilla;
+use Illuminate\Support\Facades\Storage;
 use App\Contrato;
 use App\Model\Ingresos\Factura;
 use Mail;
@@ -242,24 +243,34 @@ class AvisosController extends Controller
     }
 
     public function envio_aviso(Request $request){
-
         Ini_set ('max_execution_time', 500);
         $empresa = Empresa::find(1);
-        $type = ''; $mensaje = '';
+        $type = ''; 
+        $mensaje = '';
         $fail = 0;
         $succ = 0;
         $cor = 0;
         $numeros = [];
         $bulk = '';
 
+        // Contadores para WhatsApp con Meta
+        $enviadosExito = 0;
+        $enviadosFallidos = 0;
+
+        $enviarConMeta = $request->has('enviarConMeta') && $request->enviarConMeta == 'true';
+
+        // Validar que se hayan seleccionado contratos
+        if (!$request->contrato || count($request->contrato) == 0) {
+            return back()->with('danger', 'Debe seleccionar al menos un cliente para enviar notificaciones');
+        }
+
         for ($i = 0; $i < count($request->contrato); $i++) {
             $contrato = Contrato::find($request->contrato[$i]);
 
             if($request->isAbierta && $request->type != 'whatsapp'){
-                $factura =  Factura::where('contrato_id')->latest()
-                                             ->first();
+                $factura = Factura::where('contrato_id', $contrato->id)->latest()->first();
 
-                if($factura->estatus == 3 || $factura->estatus == 4 || $factura->estatus == 0 || $factura->estatus == 2){
+                if($factura && ($factura->estatus == 3 || $factura->estatus == 4 || $factura->estatus == 0 || $factura->estatus == 2)){
                     continue;
                 }
             }
@@ -267,46 +278,340 @@ class AvisosController extends Controller
             if ($contrato) {
                 $plantilla = Plantilla::find($request->plantilla);
 
+                // ===================================
+                // SECCIÓN DE WHATSAPP
+                // ===================================
                 if($request->type == 'whatsapp'){
+                    
+                    // Si el envío es con Meta
+                    if($enviarConMeta){
+                        
+                        $wapiService = new WapiService();
+                        $instance = Instance::where('company_id', $empresa->id)
+                                            ->where('activo', 1)
+                                            ->where('meta', 0)
+                                            ->first();
+                        
+                        // Validar instancia solo una vez (antes del loop sería mejor, pero lo dejamos aquí)
+                        if($i == 0 && (is_null($instance) || empty($instance))){
+                            return back()->with('danger','Instancia no está creada o no está activa');
+                        }
+                        
+                        $contacto = $contrato->cliente();
+                        
+                        // Validar que el contacto tenga celular
+                        if(!$contacto->celular || empty($contacto->celular)){
+                            $enviadosFallidos++;
+                            continue;
+                        }
+                        
+                        $nameEmpresa = $empresa->nombre;
+                        
+                        // Obtener prefijo dinámico
+                        $prefijo = '57'; // valor por defecto (Colombia)
+                        if (!empty($contacto->fk_idpais)) {
+                            $prefijoData = \DB::table('prefijos_telefonicos')
+                                ->where('iso2', strtoupper($contacto->fk_idpais))
+                                ->first();
+                            if ($prefijoData && !empty($prefijoData->phone_code)) {
+                                $prefijo = $prefijoData->phone_code;
+                            }
+                        }
+                        
+                        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
+                        $tipoPlantilla = is_numeric($request->plantilla) ? strtolower($plantilla->title) : $request->plantilla;
+                        
+                        try {
+                            // Lógica según el tipo de plantilla
+                            if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
+                                // ========================================
+                                // CASO: SUSPENSIÓN DE SERVICIO
+                                // ========================================
+                                
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "suspensionservicio",
+                                    "languageCode" => "en",
+                                    "components" => [
+                                        [
+                                            "type" => "body",
+                                            "parameters" => [
+                                                ["type" => "text", "text" => $nameEmpresa]
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                                
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                                
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                    } else {
+                                        $enviadosFallidos++;
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                }
+                                
+                            } elseif($tipoPlantilla == 'corte' || str_contains($tipoPlantilla, 'corte')){
+                                // ========================================
+                                // CASO: CORTE
+                                // ========================================
+                                
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "corte",
+                                    "languageCode" => "en",
+                                    "components" => [
+                                        [
+                                            "type" => "body",
+                                            "parameters" => [
+                                                ["type" => "text", "text" => $nameEmpresa]
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                                
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                                
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                    } else {
+                                        $enviadosFallidos++;
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                }
+                                
+                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')){
+                                // ========================================
+                                // CASO: RECORDATORIO
+                                // ========================================
+                                
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "recordatorio",
+                                    "languageCode" => "es",
+                                    "components" => [
+                                        [
+                                            "type" => "body",
+                                            "parameters" => [
+                                                ["type" => "text", "text" => $nameEmpresa]
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                                
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                                
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                    } else {
+                                        $enviadosFallidos++;
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                }
+                            } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
+                                // ========================================
+                                // CASO: FACTURA
+                                // ========================================
+                                
+                                // Obtener la factura del contrato
+                                $factura = Factura::where('contrato_id', $contrato->id)
+                                                ->latest()
+                                                ->first();
+                                
+                                if(!$factura){
+                                    $enviadosFallidos++;
+                                    continue; // Si no tiene factura, saltar al siguiente contrato
+                                }
+                                
+                                // Generar PDF temporal
+                                $token = config('app.key');
+                                $fileName = 'Factura_' . $factura->codigo . '.pdf';
+                                $relativePath = 'temp/' . $fileName;
+                                $storagePath = storage_path('app/public/' . $relativePath);
+                                
+                                // Generar el PDF si no existe
+                                if (!file_exists($storagePath)) {
+                                    $facturaPDF = $this->getPdfFactura($factura->id);
+                                    
+                                    // Crear carpeta si no existe
+                                    if (!Storage::disk('public')->exists('temp')) {
+                                        Storage::disk('public')->makeDirectory('temp');
+                                    }
+                                    
+                                    // Guardar el archivo
+                                    Storage::disk('public')->put($relativePath, $facturaPDF);
+                                    
+                                    // Esperar hasta que el archivo exista (máx. 5 intentos)
+                                    $attempts = 0;
+                                    while (!file_exists($storagePath) && $attempts < 5) {
+                                        usleep(300000); // 0.3 segundos
+                                        $attempts++;
+                                    }
+                                }
+                                
+                                if (!file_exists($storagePath)) {
+                                    $enviadosFallidos++;
+                                    continue; // Si no se pudo generar el PDF, saltar al siguiente
+                                }
+                                
+                                // Generar la URL pública accesible
+                                $urlFactura = url('storage/temp/' . $fileName);
+                                
+                                // Obtener datos de la factura
+                                $estadoCuenta = $factura->estadoCuenta();
+                                $total = $factura->total()->total;
+                                $saldo = $estadoCuenta->saldoMesAnterior > 0
+                                    ? $estadoCuenta->saldoMesAnterior + $total
+                                    : $total;
+                                
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "factura",
+                                    "languageCode" => "en",
+                                    "components" => [
+                                        [
+                                            "type" => "header",
+                                            "parameters" => [
+                                                [
+                                                    "type" => "document",
+                                                    "document" => [
+                                                        "link" => $urlFactura,
+                                                        "filename" => "Factura_{$factura->codigo}.pdf"
+                                                    ]
+                                                ]
+                                            ]
+                                        ],
+                                        [
+                                            "type" => "body",
+                                            "parameters" => [
+                                                ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
+                                                ["type" => "text", "text" => $nameEmpresa],
+                                                ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                                
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                                
+                                // Validar respuesta de forma más completa
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    
+                                    $esExitoso = (
+                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
+                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
+                                        (!isset($responseData['error']) && !isset($responseData['errors']))
+                                    );
+                                    
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                    } else {
+                                        $enviadosFallidos++;
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                }
+                                
+                            } else {
+                                // ========================================
+                                // CASO: PLANTILLA NO RECONOCIDA
+                                // ========================================
+                                $enviadosFallidos++;
+                            }
+                            
+                            // Pequeña pausa entre envíos para no saturar la API
+                            usleep(100000); // 0.1 segundos
+                            
+                        } catch (\Exception $e) {
+                            $enviadosFallidos++;
+                            \Log::error('Error enviando WhatsApp Meta a contrato ' . $contrato->id . ': ' . $e->getMessage());
+                        }
+                        
+                    } else {
+                        // ========================================
+                        // ENVÍO NORMAL DE WHATSAPP (SIN META)
+                        // ========================================
+                        
+                        $wapiService = new WapiService();
+                        $instance = Instance::where('company_id', $empresa->id)
+                        ->where('activo', 1)
+                        ->where('meta', 1)
+                        ->first();
+                        
+                        if($i == 0 && (is_null($instance) || empty($instance))){
+                            return back()->with('danger','Instancia no está creada');
+                        }
+                        
+                        if($i == 0 && $instance->status !== "PAIRED") {
+                            return back()->with('danger','La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
+                        }
+                        
+                        $contacto = $contrato->cliente();
 
-                    $wapiService = new WapiService();
-                    $instance = Instance::where('company_id', $empresa->id)->first();
-                     if(is_null($instance) || empty($instance)){
-                        return back()->with('danger','Instancia no está creada');
-                        return;
+                        $contact = [
+                            "phone" => "57" . $contacto->celular,
+                            "name" => $contacto->nombre . " " . $contacto->apellido1
+                        ];
+
+                        $nameEmpresa = $empresa->nombre;
+
+                        // Reemplazar los placeholders en el contenido de la plantilla
+                        $contenido = $plantilla->contenido;
+                        $contenido = str_replace('{{$name}}', $contacto->nombre, $contenido);
+                        $contenido = str_replace('{{$company}}', $nameEmpresa, $contenido);
+                        $contenido = str_replace('{{$nit}}', $empresa->nit, $contenido);
+                        $contenido = str_replace('{{$date}}', date('Y-m-d'), $contenido);
+
+                        $message = $plantilla->title . "\r\n" . $contenido;
+
+                        $body = [
+                            "contact" => $contact,
+                            "message" => $message,
+                            "media" => ''
+                        ];
+
+                        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     }
-                    if($instance->status !== "PAIRED") {
-                        return back()->with('danger','La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
-                        return;
-                    }
-                    $contacto = $contrato->cliente();
-
-                    $contact = [
-                        "phone" =>  "57" . $contacto->celular,
-                        "name" => $contacto->nombre . " " . $contacto->apellido1
-                    ];
-
-                    $nameEmpresa = $empresa->nombre;
-
-                    // Reemplazar los placeholders en el contenido de la plantilla
-                    $contenido = $plantilla->contenido;
-                    $contenido = str_replace('{{$name}}', $contacto->nombre, $contenido);
-                    $contenido = str_replace('{{$company}}', $nameEmpresa, $contenido);
-                    $contenido = str_replace('{{$nit}}', $empresa->nit, $contenido);
-                    $contenido = str_replace('{{$date}}', date('Y-m-d'), $contenido);
-
-                    $message = $plantilla->title . "\r\n" . $contenido;
-
-                    $body = [
-                        "contact" => $contact,
-                        "message" => $message,
-                        "media" => ''
-                    ];
-
-                    $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-
 
                 }
+                // ===================================
+                // SECCIÓN DE SMS
+                // ===================================
                 else if($request->type == 'SMS'){
                     $numero = str_replace('+','',$contrato->cliente()->celular);
                     $numero = str_replace(' ','',$numero);
@@ -315,13 +620,17 @@ class AvisosController extends Controller
                         $bulk .= '{"numero": "57'.$numero.'", "sms": "'.$plantilla->contenido.'"},';
                     }
 
-                }elseif($request->type == 'EMAIL'){
+                }
+                // ===================================
+                // SECCIÓN DE EMAIL
+                // ===================================
+                elseif($request->type == 'EMAIL'){
 
                     $host = ServidorCorreo::where('estado', 1)->where('empresa', Auth::user()->empresa)->first();
 
                     if($host){
                         $existing = config('mail');
-                        $new =array_merge(
+                        $new = array_merge(
                             $existing, [
                                 'host' => $host->servidor,
                                 'port' => $host->puerto,
@@ -353,46 +662,41 @@ class AvisosController extends Controller
                     if($mailC = $contrato->cliente()->email){
                         $tituloCorreo = $plantilla->title;
                         if(str_contains($mailC, '@')){
-                            // Mail::send($email, $data, function($message) use ($to_name, $to_email) {
-                            //     $message->to($to_email, $to_name)
-                            //             ->subject('Prueba de correo electrónico');
-                            //     $message->from(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-                            // });
-                            // try {
-                                // $cor++;
-                      $template = 'emails.'.$plantilla->archivo;
-                      $content = View::make($template, $datos)->render();
-                                 self::sendInBlue($content, $correo->subject, [$mailC], $correo->name, []);
-
-                                //  self::sendMail($mailC, $tituloCorreo, $correo, function($message) use ($mailC, $tituloCorreo, $correo) {
-                                //      $message->to($mailC)
-                                //              ->subject($tituloCorreo)
-                                //              ->setBody($correo);
-                                //  });
-                                // self::sendMail(function($message) use ($mailC, $tituloCorreo){
-                                //     $message->to($mailC)
-                                //             ->subject($tituloCorreo)
-                                //             ->setBody($correo);
-                                // });
-                                // Mail::to($mailC)->send($correo);
-
-                            // } catch (\Throwable $th) {
-
-                            // }
+                            $template = 'emails.'.$plantilla->archivo;
+                            $content = View::make($template, $datos)->render();
+                            self::sendInBlue($content, $correo->subject, [$mailC], $correo->name, []);
                         }
                     }
                 }
             }
         }
 
+        // ===================================
+        // RESPUESTAS SEGÚN EL TIPO DE ENVÍO
+        // ===================================
+        
         if($request->type == 'whatsapp'){
-            return redirect('empresa/avisos')->with('success', 'Proceso de envío realizado con exito notificaciones de email');
+            if($enviarConMeta){
+                $totalEnviados = $enviadosExito + $enviadosFallidos;
+                $mensaje = "Proceso de envío completado a través de Meta WhatsApp API. ";
+                $mensaje .= "Total procesados: {$totalEnviados} | ";
+                $mensaje .= "Enviados exitosamente: {$enviadosExito} | ";
+                $mensaje .= "Fallidos: {$enviadosFallidos}";
+                
+                if($enviadosFallidos > 0 && $enviadosExito > 0){
+                    return redirect('empresa/avisos')->with('warning', $mensaje);
+                } elseif($enviadosFallidos > 0 && $enviadosExito == 0){
+                    return redirect('empresa/avisos')->with('danger', $mensaje);
+                } else {
+                    return redirect('empresa/avisos')->with('success', $mensaje);
+                }
+            } else {
+                return redirect('empresa/avisos')->with('success', 'Proceso de envío realizado con éxito notificaciones de WhatsApp');
+            }
         }
 
         if($request->type == 'EMAIL'){
-            // return redirect('empresa/avisos')->with('success', 'Proceso de envío realizado con '.$cor.' notificaciones de email');
             return redirect('empresa/avisos')->with('success', 'Proceso de envío realizado con exito notificaciones de email');
-
         }
 
         if($request->type == 'SMS'){
@@ -417,7 +721,7 @@ class AvisosController extends Controller
                                     'account: '.$servicio->user,
                                     'apiKey: '.$servicio->api_key,
                                     'token: '.$servicio->pass,
-                                    ],
+                                ],
                             ]);
                         }else{
                             $post['toNumber'] = $numero;
@@ -549,9 +853,9 @@ class AvisosController extends Controller
                     }
                 }
                 return redirect('empresa/avisos')->with('success', 'Proceso de envío realizado. SMS Enviados: '.$fail.' - SMS Fallidos: '.$succ);
-            }
-        }else{
+            }else{
                 return redirect('empresa/avisos')->with('danger', 'DISCULPE, NO POSEE NINGUN SERVICIO DE SMS HABILITADO. POR FAVOR HABILÍTELO PARA DISFRUTAR DEL SERVICIO');
+            }
         }
     }
 
