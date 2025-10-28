@@ -411,7 +411,7 @@ class AvisosController extends Controller
                                 $body = [
                                     "phone" => $telefonoCompleto,
                                     "templateName" => "recordatorio",
-                                    "languageCode" => "en",
+                                    "languageCode" => "es",
                                     "components" => [
                                         [
                                             "type" => "body",
