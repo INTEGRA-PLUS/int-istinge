@@ -292,7 +292,7 @@ class AvisosController extends Controller
                                             ->where('meta', 0)
                                             ->first();
                         
-                        // Validar instancia solo una vez (antes del loop sería mejor, pero lo dejamos aquí)
+                        // Validar instancia solo una vez
                         if($i == 0 && (is_null($instance) || empty($instance))){
                             return back()->with('danger','Instancia no está creada o no está activa');
                         }
@@ -302,6 +302,7 @@ class AvisosController extends Controller
                         // Validar que el contacto tenga celular
                         if(!$contacto->celular || empty($contacto->celular)){
                             $enviadosFallidos++;
+                            \Log::warning('Contrato ' . $contrato->id . ': Sin número de celular');
                             continue;
                         }
                         
@@ -330,7 +331,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "suspensionservicio",
+                                    "templateName" => "suspensionservicios",
                                     "languageCode" => "en",
                                     "components" => [
                                         [
@@ -344,23 +345,52 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta de forma más completa
+                                // ========================================
+                                // VALIDACIÓN CORRECTA DE RESPUESTA
+                                // ========================================
                                 if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
                                     
-                                    $esExitoso = (
-                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
-                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
-                                        (!isset($responseData['error']) && !isset($responseData['errors']))
-                                    );
+                                    $esExitoso = false;
+                                    
+                                    // Validar respuesta de Meta/WhatsApp Business API
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) || 
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+                                    
+                                    // Respuesta directa con message_id
+                                    if (isset($responseData['messages'][0]['id']) || 
+                                        isset($responseData['message_id']) || 
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+                                    
+                                    // Verificar que NO haya errores reales
+                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+                                    
+                                    // Si "error" es un string con mensaje de éxito
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') || 
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
                                     
                                     if ($esExitoso) {
                                         $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Suspensión');
                                     } else {
                                         $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
+                                    \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto);
                                 }
                                 
                             } elseif($tipoPlantilla == 'corte' || str_contains($tipoPlantilla, 'corte')){
@@ -370,7 +400,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "corte",
+                                    "templateName" => "cortes",
                                     "languageCode" => "en",
                                     "components" => [
                                         [
@@ -384,20 +414,40 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta de forma más completa
                                 if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
+                                    $esExitoso = false;
                                     
-                                    $esExitoso = (
-                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
-                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
-                                        (!isset($responseData['error']) && !isset($responseData['errors']))
-                                    );
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) || 
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+                                    
+                                    if (isset($responseData['messages'][0]['id']) || 
+                                        isset($responseData['message_id']) || 
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') || 
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
                                     
                                     if ($esExitoso) {
                                         $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Corte');
                                     } else {
                                         $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
@@ -410,7 +460,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "recordatorio",
+                                    "templateName" => "recordatorios",
                                     "languageCode" => "es",
                                     "components" => [
                                         [
@@ -424,37 +474,58 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta de forma más completa
                                 if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
+                                    $esExitoso = false;
                                     
-                                    $esExitoso = (
-                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
-                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
-                                        (!isset($responseData['error']) && !isset($responseData['errors']))
-                                    );
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) || 
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+                                    
+                                    if (isset($responseData['messages'][0]['id']) || 
+                                        isset($responseData['message_id']) || 
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') || 
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
                                     
                                     if ($esExitoso) {
                                         $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio');
                                     } else {
                                         $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
                                 }
+                                
                             } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
                                 // ========================================
                                 
-                                // Obtener la factura del contrato
                                 $factura = Factura::where('contrato_id', $contrato->id)
                                                 ->latest()
                                                 ->first();
                                 
                                 if(!$factura){
                                     $enviadosFallidos++;
-                                    continue; // Si no tiene factura, saltar al siguiente contrato
+                                    \Log::warning('Contrato ' . $contrato->id . ': Sin factura');
+                                    continue;
                                 }
                                 
                                 // Generar PDF temporal
@@ -463,35 +534,30 @@ class AvisosController extends Controller
                                 $relativePath = 'temp/' . $fileName;
                                 $storagePath = storage_path('app/public/' . $relativePath);
                                 
-                                // Generar el PDF si no existe
                                 if (!file_exists($storagePath)) {
                                     $facturaPDF = $this->getPdfFactura($factura->id);
                                     
-                                    // Crear carpeta si no existe
                                     if (!Storage::disk('public')->exists('temp')) {
                                         Storage::disk('public')->makeDirectory('temp');
                                     }
                                     
-                                    // Guardar el archivo
                                     Storage::disk('public')->put($relativePath, $facturaPDF);
                                     
-                                    // Esperar hasta que el archivo exista (máx. 5 intentos)
                                     $attempts = 0;
                                     while (!file_exists($storagePath) && $attempts < 5) {
-                                        usleep(300000); // 0.3 segundos
+                                        usleep(300000);
                                         $attempts++;
                                     }
                                 }
                                 
                                 if (!file_exists($storagePath)) {
                                     $enviadosFallidos++;
-                                    continue; // Si no se pudo generar el PDF, saltar al siguiente
+                                    \Log::error('No se pudo generar PDF para factura: ' . $factura->codigo);
+                                    continue;
                                 }
                                 
-                                // Generar la URL pública accesible
                                 $urlFactura = url('storage/temp/' . $fileName);
                                 
-                                // Obtener datos de la factura
                                 $estadoCuenta = $factura->estadoCuenta();
                                 $total = $factura->total()->total;
                                 $saldo = $estadoCuenta->saldoMesAnterior > 0
@@ -528,38 +594,55 @@ class AvisosController extends Controller
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
-                                // Validar respuesta de forma más completa
                                 if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true); // true para array asociativo
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
+                                    $esExitoso = false;
                                     
-                                    $esExitoso = (
-                                        (isset($responseData['status']) && $responseData['status'] === "success") ||
-                                        (isset($responseData['id']) || isset($responseData['message_id']) || isset($responseData['messageId'])) ||
-                                        (!isset($responseData['error']) && !isset($responseData['errors']))
-                                    );
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) || 
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+                                    
+                                    if (isset($responseData['messages'][0]['id']) || 
+                                        isset($responseData['message_id']) || 
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+                                    
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') || 
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
                                     
                                     if ($esExitoso) {
                                         $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Factura: ' . $factura->codigo);
                                     } else {
                                         $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
                                 }
                                 
                             } else {
-                                // ========================================
-                                // CASO: PLANTILLA NO RECONOCIDA
-                                // ========================================
                                 $enviadosFallidos++;
+                                \Log::warning('Plantilla no reconocida: ' . $tipoPlantilla);
                             }
                             
-                            // Pequeña pausa entre envíos para no saturar la API
-                            usleep(100000); // 0.1 segundos
+                            usleep(100000); // 0.1 segundos entre envíos
                             
                         } catch (\Exception $e) {
                             $enviadosFallidos++;
-                            \Log::error('Error enviando WhatsApp Meta a contrato ' . $contrato->id . ': ' . $e->getMessage());
+                            \Log::error('Excepción WhatsApp Meta contrato ' . $contrato->id . ': ' . $e->getMessage());
                         }
                         
                     } else {
@@ -590,7 +673,6 @@ class AvisosController extends Controller
 
                         $nameEmpresa = $empresa->nombre;
 
-                        // Reemplazar los placeholders en el contenido de la plantilla
                         $contenido = $plantilla->contenido;
                         $contenido = str_replace('{{$name}}', $contacto->nombre, $contenido);
                         $contenido = str_replace('{{$company}}', $nameEmpresa, $contenido);
@@ -610,7 +692,7 @@ class AvisosController extends Controller
 
                 }
                 // ===================================
-                // SECCIÓN DE SMS
+                // SECCIÓN DE SMS Y EMAIL (sin cambios)
                 // ===================================
                 else if($request->type == 'SMS'){
                     $numero = str_replace('+','',$contrato->cliente()->celular);
@@ -619,13 +701,8 @@ class AvisosController extends Controller
                     if(strlen($numero) >= 10  && $plantilla->contenido){
                         $bulk .= '{"numero": "57'.$numero.'", "sms": "'.$plantilla->contenido.'"},';
                     }
-
                 }
-                // ===================================
-                // SECCIÓN DE EMAIL
-                // ===================================
                 elseif($request->type == 'EMAIL'){
-
                     $host = ServidorCorreo::where('estado', 1)->where('empresa', Auth::user()->empresa)->first();
 
                     if($host){
