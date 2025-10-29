@@ -529,10 +529,8 @@
 		    				<table class="text-center table table-light table-striped table-hover" id="table-show-facturas" style="width: 100%; border: 1px solid #e9ecef;">
 		    					<thead class="thead-light">
 		    						<tr>
-		    							<th>Factura</th>
+                                        <th>Factura</th>
 		    							<th>Cliente</th>
-		    							<th>Contrato(s)</th>
-		    							<th>Dirección</th>
 		    							<th>Creación</th>
 		    							<th>Vencimiento</th>
 		    							<th>Fecha Pago</th>
@@ -540,6 +538,8 @@
 		    							<th>Pagado</th>
 		    							<th>Por Pagar</th>
 		    							<th>Estado</th>
+		    							<th>Contrato(s)</th>
+		    							<th>Dirección</th>
 		    							<th>Acciones</th>
 		    						</tr>
 		    					</thead>
