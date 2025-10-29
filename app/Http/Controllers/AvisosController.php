@@ -652,7 +652,7 @@ class AvisosController extends Controller
                         
                         $wapiService = new WapiService();
                         $instance = Instance::where('company_id', $empresa->id)
-                        ->where('activo', 1)
+                        ->where('type', 1)
                         ->where('meta', 1)
                         ->first();
                         
