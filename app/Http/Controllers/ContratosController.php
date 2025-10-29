@@ -176,8 +176,7 @@ class ContratosController extends Controller
             $contratos->where(function ($query) use ($servers) {
                 $query->whereIn('server_configuration_id', $servers)
                     ->orWhere(function ($subQuery) use ($servers) {
-                        $subQuery->whereNotIn('server_configuration_id', $servers)
-                            ->whereNotNull('servicio_tv');
+                        $subQuery->whereNotNull('servicio_tv');
                     });
             });
         }
