@@ -28,7 +28,7 @@
 	    @csrf
 	    <input type="hidden" value="{{$opcion}}" name="type">
 	    <div class="row">			
-			<div class="col-md-3 form-group filtro-campo">
+			<div class="col-md-3 form-group">
 				@if(!request()->vencimiento)
 					<label>Facturas vencidas (opcional)</label>
 					<input type="text" class="form-control datepicker"  id="vencimiento" value="" name="vencimiento">
@@ -47,19 +47,12 @@
 	        <div class="col-md-3 form-group">
 	            <label class="control-label">Plantilla <span class="text-danger">*</span></label>
         	    
-				<!-- Plantillas normales (desde BD) -->
-				<select name="plantilla" id="plantilla_normal" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required>
+				<!-- UN SOLO SELECT DINÁMICO -->
+				<select name="plantilla" id="plantilla_dinamico" class="form-control selectpicker" title="Seleccione" data-live-search="true" data-size="5" required>
+					<!-- Las opciones se cargarán dinámicamente con JavaScript -->
         	        @foreach($plantillas as $plantilla)
-        	        <option {{old('plantilla')==$plantilla->id?'selected':''}} value="{{$plantilla->id}}">{{$plantilla->title}}</option>
+        	        <option {{old('plantilla')==$plantilla->id?'selected':''}} value="{{$plantilla->id}}" data-tipo="normal">{{$plantilla->title}}</option>
         	        @endforeach
-        	    </select>
-
-				<!-- Plantillas Meta (opciones fijas) -->
-				<select name="plantilla" id="plantilla_meta" class="form-control selectpicker plantilla-select" title="Seleccione" data-live-search="true" data-size="5" required style="display: none;">
-					<option value="suspension">Suspensión de Servicio</option>
-					<option value="corte">Corte</option>
-					<option value="recordatorio">Recordatorio</option>
-					<option value="factura">Factura</option>
         	    </select>
 
         	    <span class="help-block error">
@@ -68,7 +61,7 @@
         	</div>
 
 			@if(isset($servidores))
-			<div class="col-md-3 form-group filtro-campo">
+			<div class="col-md-3 form-group">
 	            <label class="control-label">Servidor<span class="text-danger"></span></label>
         	    <select name="servidor" id="servidor" class="form-control selectpicker " onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
         	        @foreach($servidores as $servidor)
@@ -82,7 +75,7 @@
 			@endif
 
 			@if(isset($gruposCorte))
-			<div class="col-md-3 form-group filtro-campo">
+			<div class="col-md-3 form-group">
 	            <label class="control-label">Grupo corte<span class="text-danger"></span></label>
         	    <select name="corte" id="corte" class="form-control selectpicker" onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
         	        @foreach($gruposCorte as $corte)
@@ -95,7 +88,7 @@
         	</div>
 			@endif
 
-        	<div class="col-md-3 form-group filtro-campo">
+        	<div class="col-md-3 form-group">
 	            <label class="control-label">Barrio</label>
         	    <input class="form-control" type="text" name="barrio" id="barrio">
         	    <span class="help-block error">
@@ -103,7 +96,7 @@
         	    </span>
         	</div>
 
-            <div class="col-md-3 form-group filtro-campo">
+            <div class="col-md-3 form-group">
 	            <label class="control-label">ESTADO CLIENTE<span class="text-danger"></span></label>
         	    <select name="options" id="options" class="form-control selectpicker" onchange="chequeo()" title="Seleccione" data-live-search="true" data-size="5">
         	        <option {{old('options')==1?'selected':''}} value="1" id='radio_1'>HABILITADOS</option>
@@ -115,7 +108,7 @@
         	    </span>
         	</div>
 
-            <div class="col-md-3 form-group filtro-campo">
+            <div class="col-md-3 form-group">
                 <label class="control-label">OPCIONES SALDO<span class="text-danger"></span></label>
                 <select name="opciones_saldo" id="opciones_saldo" class="form-control selectpicker" onchange="refreshClient()" title="Seleccione" data-live-search="true" data-size="5">
                     <option {{old('opciones_saldo')=='mayor_a'?'selected':''}} value="mayor_a">SALDO MAYOR A</option>
@@ -129,7 +122,7 @@
         	    </span>
             </div>
 
-            <div class="col-md-3 form-group filtro-campo">
+            <div class="col-md-3 form-group">
                 <label class="control-label">Corregimiento / Vereda</label>
                 <input class="form-control" type="text" name="vereda" id="vereda" autocomplete="off">
                 <span class="help-block error">
@@ -137,7 +130,7 @@
         	    </span>
             </div>
 
-            <div class="col-md-3 form-group filtro-campo">
+            <div class="col-md-3 form-group">
                 <label class="control-label">Valor Saldo</label>
                 <input class="form-control" type="text" name="valor_saldo" id="valor_saldo"  oninput="refreshClient()">
                 <span class="help-block error">
@@ -177,7 +170,7 @@
         	</div>
 
 
-			<div class="col-md-3 filtro-campo">
+			<div class="col-md-3">
 				<div class="form-check form-check-inline d-flex p-3">
 					<input class="form-check-input" type="checkbox" id="isAbierta" name="isAbierta" value="true" onclick="refreshClient()">
 					<label class="form-check-label" for="isAbierta"  style="font-weight:bold">Solo facturas abiertas</label>
@@ -209,16 +202,18 @@
     </form>
 @endsection
 
-<style>
-	.hidden {
-		display: none !important;
-		visibility: hidden;
-		opacity: 0;
-	}
-</style>
-
 @section('scripts')
 <script type="text/javascript">
+
+	// ============================================================
+	// PLANTILLAS META (Opciones estáticas)
+	// ============================================================
+	const plantillasMeta = [
+		{ value: 'suspension', text: 'Suspensión de Servicio' },
+		{ value: 'corte', text: 'Corte' },
+		{ value: 'recordatorio', text: 'Recordatorio' },
+		{ value: 'factura', text: 'Factura' }
+	];
 
 	const mensajesPlantillasMeta = {
 		suspension: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de hoy, Para evitar la suspensión del servicio efectúe el pago",
@@ -227,9 +222,78 @@
 		factura: "Estimado cliente Juan Perez. INTEGRA le informa que se ha generado su factura por valor de 40.000 $ puedes realizar el pago a través del siguiente link."
 	};
 
-	// Función para mostrar la vista previa
+	// ============================================================
+	// GUARDAR PLANTILLAS NORMALES (desde el backend)
+	// ============================================================
+	let plantillasNormalesOriginal = [];
+
+	$(document).ready(function() {
+		// Guardar las opciones originales al cargar la página
+		$('#plantilla_dinamico option[data-tipo="normal"]').each(function() {
+			plantillasNormalesOriginal.push({
+				value: $(this).val(),
+				text: $(this).text(),
+				selected: $(this).is(':selected')
+			});
+		});
+
+		// Inicializar el estado
+		toggleMetaMode();
+	});
+
+	// ============================================================
+	// FUNCIÓN PARA CAMBIAR ENTRE PLANTILLAS NORMALES Y META
+	// ============================================================
+	function toggleMetaMode() {
+		const isMetaMode = $('#enviarConMeta').is(':checked');
+		const $select = $('#plantilla_dinamico');
+
+		if (isMetaMode) {
+			// MODO META: Cargar plantillas estáticas
+			$select.empty();
+			
+			plantillasMeta.forEach(function(plantilla) {
+				$select.append(
+					$('<option>', {
+						value: plantilla.value,
+						text: plantilla.text,
+						'data-tipo': 'meta'
+					})
+				);
+			});
+
+			// Mostrar vista previa si hay algo seleccionado
+			mostrarVistaPrevia();
+		} else {
+			// MODO NORMAL: Restaurar plantillas desde backend
+			$select.empty();
+			
+			plantillasNormalesOriginal.forEach(function(plantilla) {
+				$select.append(
+					$('<option>', {
+						value: plantilla.value,
+						text: plantilla.text,
+						selected: plantilla.selected,
+						'data-tipo': 'normal'
+					})
+				);
+			});
+
+			// Ocultar vista previa
+			$('#preview-mensaje-meta').hide();
+		}
+
+		// Refrescar el selectpicker
+		if (typeof $.fn.selectpicker === 'function') {
+			$select.selectpicker('refresh');
+		}
+	}
+
+	// ============================================================
+	// FUNCIÓN PARA MOSTRAR VISTA PREVIA (solo en modo Meta)
+	// ============================================================
 	function mostrarVistaPrevia() {
-		const plantillaSeleccionada = $('#plantilla_meta').val();
+		const plantillaSeleccionada = $('#plantilla_dinamico').val();
 		const $contenedorPreview = $('#preview-mensaje-meta');
 		
 		if (plantillaSeleccionada && mensajesPlantillasMeta[plantillaSeleccionada]) {
@@ -245,118 +309,24 @@
 		}
 	}
 
-	// Event listener para cuando cambie la selección
-	$(document).ready(function() {
-		// Agregar el evento change al select de plantilla_meta
-		$('#plantilla_meta').on('change', function() {
+	// Event listener para cuando cambie la selección de plantilla
+	$(document).on('change', '#plantilla_dinamico', function() {
+		if ($('#enviarConMeta').is(':checked')) {
 			mostrarVistaPrevia();
-		});
-		
-		// También ejecutar al cambiar el checkbox para mostrar/ocultar
-		$('#enviarConMeta').on('change', function() {
-			if ($(this).is(':checked')) {
-				mostrarVistaPrevia();
-			} else {
-				$('#preview-mensaje-meta').hide();
-			}
-		});
+		}
 	});
 
-	var ultimoVencimiento = null;
-	function toggleMetaMode() {
-		var isMetaMode = $('#enviarConMeta').is(':checked');
-
-		var $plantillaNormal = $('#plantilla_normal');
-		var $plantillaMeta = $('#plantilla_meta');
-
-		if (isMetaMode) {			
-			// Ocultar los campos de filtro
-			$('.filtro-campo')
-				.addClass('hidden')
-				.attr('hidden', true)
-				.find('input,select,textarea')
-				.prop('disabled', true);
-
-			// Ocultar y deshabilitar select Normal
-			$plantillaNormal
-				.prop('disabled', true)
-				.prop('required', false)
-				.attr('hidden', true)
-				.css('display', 'none');
-			$plantillaNormal.next('.bootstrap-select')
-				.attr('hidden', true)
-				.css('display', 'none');
-
-			// Mostrar y habilitar select Meta
-			$plantillaMeta
-				.prop('disabled', false)
-				.prop('required', true)
-				.removeAttr('hidden')
-				.css('display', '');
-			$plantillaMeta.next('.bootstrap-select')
-				.removeAttr('hidden')
-				.css('display', '');
-		} 
-		else {
-			// Mostrar y habilitar campos normales
-			$('.filtro-campo')
-				.removeClass('hidden')
-				.removeAttr('hidden')
-				.find('input,select,textarea')
-				.prop('disabled', false);
-
-			// Ocultar y deshabilitar select Meta
-			$plantillaMeta
-				.prop('disabled', true)
-				.prop('required', false)
-				.attr('hidden', true)
-				.css('display', 'none');
-			$plantillaMeta.next('.bootstrap-select')
-				.attr('hidden', true)
-				.css('display', 'none');
-
-			// Mostrar y habilitar select Normal
-			$plantillaNormal
-				.prop('disabled', false)
-				.prop('required', true)
-				.removeAttr('hidden')
-				.css('display', '');
-			$plantillaNormal.next('.bootstrap-select')
-				.removeAttr('hidden')
-				.css('display', '');
-		}
-
-		// Refrescar selectpickers si existen
-		if (typeof $.fn.selectpicker === 'function') {
-			$plantillaNormal.selectpicker('refresh');
-			$plantillaMeta.selectpicker('refresh');
-		}
-	}
-
-	// ----------------------------------------------------------------------
-	// Inicialización
-	// ----------------------------------------------------------------------
-	$(document).ready(function() {
+	// Event listener para el checkbox
+	$('#enviarConMeta').on('change', function() {
 		toggleMetaMode();
-
-		$('#enviarConMeta').on('change', function() {
-			toggleMetaMode();
-		});
 	});
 
-    // Ejecutar al cargar para forzar estado correcto
-    toggleMetaMode();
-
-    // Cuando cambie el checkbox
-    $('#enviarConMeta').on('change', function() {
-        toggleMetaMode();
-    });
-
+	// ============================================================
+	// RESTO DEL CÓDIGO ORIGINAL (sin cambios)
+	// ============================================================
+	var ultimoVencimiento = null;
 
 	window.addEventListener('load', function() {
-
-		// Inicializar el estado del checkbox al cargar la página
-		toggleMetaMode();
 
 		$('#vencimiento').on('change', function(){
 			if($(this).val() == ultimoVencimiento){
@@ -442,16 +412,13 @@
                                 apellidos += ' ' + value.apellido2;
                             }
 
-                            // Definimos los valores adicionales que quieres mostrar
                             var grupoCorte = value.grupo_corte && value.grupo_corte.id ? 'grupo-' + value.grupo_corte.id : 'grupo-no';
                             var servidor = value.server_configuration_id && value.server_configuration_id ? 'servidor-' + value.server_configuration_id : 'servidor-no';
                             var factura = value.factura_id != null ? 'factura-si' : 'factura-no';
                             var vereda = value.vereda != null ? 'vereda-' + value.vereda : 'vereda-no';
 
-                            // Construimos la clase completa
                             var clasesExtra = value.state + ' ' + grupoCorte + ' ' + servidor + ' ' + factura + ' ' + vereda;
 
-                            // Agregamos todo eso en la opción
                             $select.append('<option value="' + value.id + '" class="' + clasesExtra + '">' + value.nombre + apellidos + ' - ' + value.nit + '</option>');
                         });
                         $select.selectpicker('refresh');
@@ -550,8 +517,6 @@
 			}
 		}
 
-        // Filtrar por valor de factura si se ingresa un valor en el input
-        // Si el tipo de saldo y el valor están definidos
         if (tipoSaldo && !isNaN(valorSaldo)) {
             options = options.filter(function() {
                 let saldo = parseFloat($(this).data('saldo'));
