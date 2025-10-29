@@ -331,7 +331,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "suspensionservicio",
+                                    "templateName" => "suspensionservicios",
                                     "languageCode" => "en",
                                     "components" => [
                                         [
@@ -400,7 +400,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "corte",
+                                    "templateName" => "cortes",
                                     "languageCode" => "en",
                                     "components" => [
                                         [
@@ -460,7 +460,7 @@ class AvisosController extends Controller
                                 
                                 $body = [
                                     "phone" => $telefonoCompleto,
-                                    "templateName" => "recordatorio",
+                                    "templateName" => "recordatorios",
                                     "languageCode" => "es",
                                     "components" => [
                                         [
