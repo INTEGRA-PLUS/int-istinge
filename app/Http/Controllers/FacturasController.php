@@ -2521,8 +2521,6 @@ class FacturasController extends Controller{
             $nestedData = array();
             $nestedData[] = '<a href="'.route('facturas.show',$factura->id).'">'.$factura->codigo.'</a>';
             $nestedData[] = '<a href="'.route('contactos.show',$factura->cliente).'" target="_blank">'.$factura->nombrecliente.' '.$factura->ape1cliente.' '.$factura->ape2cliente.'</a>';
-            $nestedData[] = $textContratos;
-            $nestedData[] = $textDireccion;
             $nestedData[] = date('d-m-Y', strtotime($factura->fecha));
             if(date('Y-m-d') > $factura->vencimiento && $factura->estatus==1){
                 $nestedData[] = '<spam class="text-danger">'.date('d-m-Y', strtotime($factura->vencimiento)).'</spam>';
@@ -2539,6 +2537,8 @@ class FacturasController extends Controller{
             $nestedData[] = $empresa->moneda.Funcion::Parsear($pagado);
             $nestedData[] = $empresa->moneda.Funcion::Parsear($factura->porpagar());
             $nestedData[] = '<spam class="text-'.$factura->estatus(true).'">'.$factura->estatus().'</spam>';
+            $nestedData[] = $textContratos;
+            $nestedData[] = $textDireccion;
             $boton = '<a href="'.route('facturas.show',$factura->id).'" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
             <a href="'.route('facturas.imprimir',['id' => $factura->id, 'name'=> 'Factura No. '.$factura->codigo.'.pdf']).'" target="_blank" class="btn btn-outline-primary btn-icons"title="Imprimir"><i class="fas fa-print"></i></a> ';
 
