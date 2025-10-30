@@ -1224,7 +1224,11 @@ class ContratosController extends Controller
                 $contrato->pago_siigo_contrato = 0;
             }
             $contrato->save();
-
+            if ($contratoMk) {
+                $nro_contrato = $contratoMk->nro + 1;
+            }else{
+                $nro_contrato = 0;
+            }
             $nro->contrato = $nro_contrato + 1;
             $nro->save();
 
