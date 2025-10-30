@@ -3945,7 +3945,7 @@ class CronController extends Controller
                 view()->share(['title' => 'Imprimir Factura']);
 
                 // Buscar instancia activa
-                $instance = Instance::where('company_id', $empresa->id)->where('type',1)->first();
+                $instance = Instance::where('company_id', $empresa->id)->where('type',1)->where('activo',1)->first();
 
                 $factura->updated_at = now();
                 $factura->save();
