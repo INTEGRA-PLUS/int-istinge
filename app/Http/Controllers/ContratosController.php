@@ -764,7 +764,7 @@ class ContratosController extends Controller
                 if ($contratoMk) {
                     $nro_contrato = $contratoMk->nro + 1;
                 }else{
-                    $nro_contrato = 0
+                    $nro_contrato = 0;
                 }
 
                 $existe = Contrato::where('nro', $nro_contrato)->count();
