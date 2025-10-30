@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Funcion;
 use Illuminate\Support\Facades\Hash;
-
+use Illuminate\Support\Facades\Storage;
 use App\Model\Ingresos\Factura;
 use App\NumeracionFactura;
 use App\Model\Ingresos\ItemsFactura;
