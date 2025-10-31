@@ -1493,6 +1493,7 @@ class RadicadosController extends Controller
             $radicado->etiqueta_id = $etiqueta;
         }
 
+
         $radicado->update();
         return $radicado->etiqueta;
     }
