@@ -2726,8 +2726,10 @@ class ContratosController extends Controller
                             $crm->factura = $lastFact->id;
                         }
                         $crm->save();
-                        $mensaje='EL CONTRATO NRO. '.$contrato->nro.' HA SIDO '.$contrato->status();
-                        $type = 'success';
+                        if(!isset($type)){
+                            $mensaje='EL CONTRATO NRO. '.$contrato->nro.' HA SIDO '.$contrato->status();
+                            $type = 'success';
+                        }
 
                         return back()->with($type, $mensaje);
                     }
