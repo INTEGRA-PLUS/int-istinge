@@ -62,6 +62,10 @@ class Radicado extends Model
         return 'No asociado';
     }
 
+    public function etiqueta(){
+        return $this->belongsTo(Etiqueta::class);
+    }
+
     public function responsable()
     {
         return User::where('id', $this->responsable)->first();

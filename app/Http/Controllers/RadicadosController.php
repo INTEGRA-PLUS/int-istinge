@@ -21,6 +21,7 @@ use DB;
 use Carbon\Carbon;
 use Session;
 use App\Campos;
+use App\Etiqueta;
 use App\Instance;
 use Barryvdh\DomPDF\Facade as PDF;
 use Illuminate\Support\Facades\Storage;
@@ -97,6 +98,7 @@ class RadicadosController extends Controller
             ->join('servicios as s', 's.id', '=', 'radicados.servicio')
             ->select('radicados.*', 's.nombre as nombre_servicio')
             ->where('radicados.empresa', Auth::user()->empresa);
+        $etiquetas = Etiqueta::where('empresa_id', auth()->user()->empresa)->get();
 
         if ($request->filtro == true) {
             if ($request->codigo) {
@@ -289,6 +291,9 @@ class RadicadosController extends Controller
                 return ($radicado->tiempo_fin) ? date('d-m-Y g:i:s A', strtotime($radicado->tiempo_fin)) : 'N/A';
             })
             ->addColumn('acciones', $modoLectura ?  "" : "radicados.acciones")
+            ->addColumn('etiqueta', function(Radicado $radicado)use ($etiquetas){
+                return view('radicados.etiqueta', compact('etiquetas','radicado'));
+            })
             ->rawColumns(['ip', 'codigo', 'estatus', 'acciones', 'creado', 'prioridad', 'tecnico', 'desconocido', 'tiempo_fin'])
             ->toJson();
     }
@@ -1477,5 +1482,18 @@ class RadicadosController extends Controller
         }
 
         return response()->json(['message' => 'Técnico asignado a los radicados correctamente.']);
+    }
+
+    public function cambiarEtiqueta($etiqueta, $radicado){
+
+        $radicado =  Radicado::where('id', $radicado)->where('empresa', Auth::user()->empresa)->first();
+        if($etiqueta == 0){
+            $radicado->etiqueta_id = null;
+        }else{
+            $radicado->etiqueta_id = $etiqueta;
+        }
+
+        $radicado->update();
+        return $radicado->etiqueta;
     }
 }

@@ -1402,6 +1402,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	//RADICADOS
 	Route::group(['prefix' => 'radicados'], function () {
+        Route::get('/cambiar-etiqueta/{etiqueta}/{contrato}', 'RadicadosController@cambiarEtiqueta')->name('radicados.cambiar.etiqueta');
 		Route::post('/escalar/{id}', 'RadicadosController@escalar')->name('radicados.escalar');
 		Route::post('/solventar/{id}', 'RadicadosController@solventar')->name('radicados.solventar');
 		Route::get('/{id}/imprimir', 'RadicadosController@imprimir')->name('radicados.imprimir');

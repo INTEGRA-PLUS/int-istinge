@@ -4625,6 +4625,7 @@ function storePromesa(id) {
                 confirmButtonColor: '#1A59A1',
                 confirmButtonText: 'ACEPTAR',
             });
+            location.reload();
         }
     });
 }
