@@ -595,7 +595,7 @@ class ContactosController extends Controller
 
         if ($contacto) {
             $identificaciones = TipoIdentificacion::all();
-            $paises = DB::table('pais')->whereIn('codigo', 'CO','VE')->get();
+            $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
             $departamentos = DB::table('departamentos')->get();
 
             $vendedores = Vendedor::where('empresa', Auth::user()->empresa)->where('estado', 1)->get();
