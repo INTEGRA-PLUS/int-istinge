@@ -355,7 +355,7 @@ class ContactosController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         $identificaciones = TipoIdentificacion::all();
-        $paises = DB::table('pais')->where('codigo', 'CO')->get();
+        $paises = DB::table('pais')->whereIn('codigo', 'CO','VE')->get();
         $departamentos = DB::table('departamentos')->get();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $barrios = DB::table('barrios')->where('status',1)->get();
@@ -595,7 +595,7 @@ class ContactosController extends Controller
 
         if ($contacto) {
             $identificaciones = TipoIdentificacion::all();
-            $paises = DB::table('pais')->get();
+            $paises = DB::table('pais')->whereIn('codigo', 'CO','VE')->get();
             $departamentos = DB::table('departamentos')->get();
 
             $vendedores = Vendedor::where('empresa', Auth::user()->empresa)->where('estado', 1)->get();
