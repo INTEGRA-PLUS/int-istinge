@@ -38,7 +38,7 @@ use App\Model\Ingresos\IngresosFactura;
 use App\Banco;
 use App\Instance;
 use App\Model\Gastos\FacturaProveedores;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
@@ -4171,7 +4171,7 @@ class CronController extends Controller
                     ];
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-                    
+
                     if(isset($response->statusCode)) {
                         Log::error('No se pudo enviar el mensaje, por favor intente nuevamente. Cliente: ' . $contacto->nit);
                         continue;
@@ -4195,10 +4195,10 @@ class CronController extends Controller
                     }
                 }
             }
-            
+
             Log::info("Lote de facturas enviadas por whatsapp correctamente.");
         }
-        
+
         //Validacion de ingresos creados y no habilitado el catv o internet
         $this->refreshCorteIntertTV();
     }
@@ -4429,7 +4429,7 @@ class CronController extends Controller
             ->where('emitida',1)
             ->where('dian_service',0);
 
-            $notasDebito = NotaDedito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
+            $notasDebito = NotaDebito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
             ->where('emitida',1)
             ->where('dian_service',0);
 

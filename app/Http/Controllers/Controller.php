@@ -8,7 +8,7 @@ use App\Contacto;
 use App\Cotizacion;
 use App\Model\Gastos\FacturaProveedores;
 use App\Model\Gastos\Gastos;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Gastos\Ordenes_Compra;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\Ingreso;
@@ -43,6 +43,7 @@ use App\Mikrotik;
 use App\Model\Ingresos\FacturaRetencion;
 use App\Model\Ingresos\ItemsFactura;
 use App\PlanesVelocidad;
+use App\Services\BTWService;
 use App\TerminosPago;
 use Barryvdh\DomPDF\Facade as PDF;
 use Mail;
@@ -406,7 +407,7 @@ class Controller extends BaseController
 
     private function getAllDebit($empresa, $request)
     {
-        return NotaDedito::leftjoin('contactos as c', 'c.id', '=', 'notas_debito.proveedor')->select('notas_debito.*',
+        return NotaDebito::leftjoin('contactos as c', 'c.id', '=', 'notas_debito.proveedor')->select('notas_debito.*',
             'c.nombre as nombrecliente')
             ->where('notas_debito.empresa', $empresa)
             ->where(function ($query) use ($request){
@@ -2569,5 +2570,101 @@ if ($mikrotik) {
 
     }
 
+        /**
+     * tipos:
+     *  1 = factura
+     *  2 = nota credito
+     *  3 = documento soporte
+     *  4 = nota ajuste
+     * **/
+
+     public static function sendPdfEmailBTW($btw, $documento,$cliente,$empresa, $tipo){
+
+        //Correos para envio de factura.
+        $email = $cliente->email;
+        $emails = [];
+
+        if ($email) {
+            $emails[] = $email;
+        }
+
+        if ($documento->cliente()->asociados('number') > 0) {
+
+            foreach ($documento->cliente()->asociados() as $asociado) {
+                if ($asociado->notificacion == 1 && $asociado->email) {
+                    $emails[] = $asociado->email;
+                }
+            }
+        }
+        $emailsString = implode(';', $emails);
+        //Correos para envio de factura.
+
+        $id = $documento->id;
+        $mensaje = '';
+
+        if($tipo == 1){
+            $pdf = FacturasController::Imprimir($id, 'original', true,true);
+        }else if($tipo == 2){
+            $documento->uuid = $documento->dian_response;
+            $pdf = NotascreditoController::Imprimir($id, 'original', true,true);
+        }else if($tipo == 3){
+            $pdf = FacturaspController::Imprimir($id, 'original', true,true);
+        }
+
+        $pdfContent = $pdf->output();
+        $pdfBase64 = base64_encode($pdfContent);
+        $requestData = [
+            'pdfBase64File'  => $pdfBase64,
+            'uuid'           => $documento->uuid,
+            'additionalEmail'=> $emailsString,
+            'nit'            => $empresa->nit,
+            'btw_login'      => $empresa->btw_login,
+        ];
+
+        $responseEmail = $btw->sendPdfEmail($requestData);
+
+        if(isset($responseEmail->success) && $responseEmail->success == true){
+            $mensaje= "Documento enviado al correo del cliente correctamente.";
+        }else{
+            $mensaje= "Documento no pudo ser enviado al correo.";
+        }
+
+        return $mensaje;
+
+    }
+
+    /**
+     * tipos:
+     * 1 = factura de venta
+     * 5 = documento soporte
+     * 7 nomina individual
+     * 8 nomina de ajuste
+     * 9 nomina de cancelacion
+     * 10 factura pos
+    **/
+    public static function saveResolutionBTW($numeracion,$empresa, $tipo){
+        $payload = [
+            "name" => $numeracion->nombre,
+            "prefix" => $numeracion->prefijo,
+            "status" => 1,
+            "numberFrom" => (int) $numeracion->inicioverdadero,
+            "numberTo" => $numeracion->final,
+            "dateFrom" => $numeracion->desde,
+            "dateTo" => $numeracion->hasta,
+            "number" => $numeracion->nroresolucion,
+            "description" => $numeracion->resolucion,
+            "companyId" => $empresa->nit ?? '',
+            "companyNit" => $empresa->nit,
+            "companyName" => $empresa->nombre,
+            "type_emission_id"=>$tipo
+        ];
+
+        $btwApi =  new BTWService();
+        $responseBTW = $btwApi->saveResolution($payload);
+        if(isset($responseBTW->status) && $responseBTW->status == 200){
+            $numeracion->btw_id = $responseBTW->data->id;
+            return true;
+        }else return false;
+    }
 
 }

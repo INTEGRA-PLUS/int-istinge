@@ -4177,10 +4177,10 @@ class ContratosController extends Controller
 
                                 $rate_limit      = '';
                                 $priority        = $plan->prioridad;
-                                $burst_limit     = (strlen($plan->burst_limit_subida) > 1) ? $plan->burst_limit_subida . '/' . $plan->burst_limit_bajada : '';
-                                $burst_threshold = (strlen($plan->burst_threshold_subida) > 1) ? $plan->burst_threshold_subida . '/' . $plan->burst_threshold_bajada : '';
-                                $burst_time      = ($plan->burst_time_subida) ? $plan->burst_time_subida . '/' . $plan->burst_time_bajada : '';
-                                $limit_at        = (strlen($plan->limit_at_subida) > 1) ? $plan->limit_at_subida . '/' . $plan->limit_at_bajada : '';
+                                $burst_limit     = (strlen($plan->burst_limit_subida) > 1) ? $plan->burst_limit_subida . '/' . $plan->burst_limit_bajada : 0;
+                                $burst_threshold = (strlen($plan->burst_threshold_subida) > 1) ? $plan->burst_threshold_subida . '/' . $plan->burst_threshold_bajada : 0;
+                                $burst_time      = ($plan->burst_time_subida) ? $plan->burst_time_subida . '/' . $plan->burst_time_bajada : 0;
+                                $limit_at        = (strlen($plan->limit_at_subida) > 1) ? $plan->limit_at_subida . '/' . $plan->limit_at_bajada : 0;
                                 $max_limit       = $plan->upload . '/' . $plan->download;
 
                                 if ($max_limit) {
@@ -4277,6 +4277,8 @@ class ContratosController extends Controller
                                             )
                                         );
 
+
+
                                         $getall = $API->comm(
                                             "/ip/arp/getall",
                                             array(
@@ -4284,7 +4286,38 @@ class ContratosController extends Controller
                                             )
                                         );
                                     }
+
+                                    if (!empty($plan->queue_type_subida) && !empty($plan->queue_type_bajada)) {
+                                        // Si tienen datos, asignar "queue" con los valores de subida y bajada
+                                        $queue_edit = $plan->queue_type_subida . '/' . $plan->queue_type_bajada;
+                                    } else {
+                                        // Si no tienen datos, asignar "queue" con los valores predeterminados
+                                        $queue_edit = "default-small/default-small";
+                                    }
+
+                                    // Eliminar todas las colas asociadas a la IP
+                                    foreach ($queue as $q) {
+                                        $API->comm("/queue/simple/remove", array(
+                                            ".id" => $q['.id']
+                                        ));
+                                    }
+
+                                    $response = $API->comm(
+                                        "/queue/simple/add",
+                                        array(
+                                            "name"            => $this->normaliza($servicio) . '-' . $contrato->nro,
+                                            "target"          => $contrato->ip,
+                                            "max-limit"       => $plan->upload . '/' . $plan->download,
+                                            "burst-limit"     => $burst_limit,
+                                            "burst-threshold" => $burst_threshold,
+                                            "burst-time"      => $burst_time,
+                                            "priority"        => $priority,
+                                            "limit-at"        => $limit_at,
+                                            "queue"           => $queue_edit
+                                        )
+                                    );
                                 }
+
 
                                 /*VLAN*/
                                 if ($contrato->conexion == 4) {

@@ -9,7 +9,7 @@ use App\Model\Inventario\ListaPrecios;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\Remision;
 use App\Model\Ingresos\NotaCredito;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Gastos\FacturaProveedores;
 use App\Model\Gastos\Gastos;
 use App\Model\Gastos\GastosFactura;
@@ -162,7 +162,7 @@ class Contacto extends Model
            $saldo['credito']+=$factura->por_aplicar();
         }
 
-        $facturas=NotaDedito::where('proveedor', $this->id)->get();
+        $facturas=NotaDebito::where('proveedor', $this->id)->get();
         foreach ($facturas as $factura) {
            $saldo['debito']+=$factura->por_aplicar();
         }

@@ -1,6 +1,7 @@
 @if(Auth::user()->modo_lectura())
 
 @else
+    @php $empresaObj = Auth::user()->empresa(); @endphp
     <a href="{{route('facturasp.showid', $id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></i></a>
     @if($tipo ==1 && $estatus==1)
         <a  href="{{route('pagos.create_id', ['cliente'=> $proveedor, 'factura'=> $id])}}" class="btn btn-outline-primary btn-icons" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
@@ -14,8 +15,22 @@
     @else
         <a href="{{route('facturasp.imprimir.nombre', ['id' => $id, 'name'=> 'Factura Proveedor No. '.$nro.'.pdf'])}}"  class="btn btn-outline-primary btn-icons" title="Imprimir"><i class="fas fa-print"></i></a>
     @endif
-    @if(Auth::user()->empresaObj->form_fe == 1 && $emitida == 0 && Auth::user()->empresaObj->estado_dian == 1 && Auth::user()->empresaObj->technicalkey != null && $codigo_dian != null)
-    <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura" onclick="validateDian({{ $id }}, '{{route('xml.facturaproveedor',$id)}}', '{{$codigo_dian}}', {{0}}, {{1}})"><i class="fas fa-sitemap"></i></a>
+
+    @if ($emitida == 0 && Auth::user()->empresaObj->estado_dian == 1 && $codigo_dian != null)
+
+        @if($proveedor == 2)
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir factura de proveedor... {{ $nro }}"
+            onclick="validateDian({{ $id }}, '{{ route('json.dian-documento-soporte', $id) }}', '{{ $codigo_dian }}', {{ 0 }}, {{ 1 }})"><i
+            class="fas fa-sitemap"></i>
+        </a>
+
+        @else
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir factura de proveedor {{ $nro }}"
+            onclick="validateDian({{ $id }}, '{{ route('xml.facturaproveedor', $id) }}', '{{ $codigo_dian }}', {{ 0 }}, {{ 1 }})"><i
+            class="fas fa-sitemap"></i>
+        </a>
+        @endif
+
     @endif
     <a href="{{route('facturasp.showmovimiento', $id)}}" class="btn btn-outline-info btn-icons" title="Ver movimientos"><i class="far fa-sticky-note"></i></a>
 @endif

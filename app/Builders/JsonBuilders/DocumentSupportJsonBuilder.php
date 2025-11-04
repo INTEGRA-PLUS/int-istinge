@@ -3,18 +3,18 @@
 namespace App\Builders\JsonBuilders;
 
 use App\Empresa;
-use App\Http\Controllers\Controller;
 use App\Impuesto;
+use App\Model\Gastos\FacturaProveedoresRetenciones;
 use App\Model\Ingresos\FacturaRetencion;
 use App\NotaRetencion;
 use Carbon\Carbon;
 use DB;
 use InvalidArgumentException;
 
-class InvoiceJsonBuilder
+class DocumentSupportJsonBuilder
 {
 
-    public static function buildFromHeadInvoice($factura,$resolucion, $modoBTW){
+    public static function buildFromHeadDocument($factura,$resolucion, $modoBTW){
 
         $empresa = Empresa::Find($factura->empresa);
         $totales = $factura->total();
@@ -23,9 +23,15 @@ class InvoiceJsonBuilder
         $resolucion_vigencia_meses = intval(Carbon::parse($resolucion->desde)->diffInMonths($resolucion->hasta));
         $resolucion_msj = 'Resolución DIAN No. ' . $resolucion->nroresolucion . ' de ' . $resolucion->desde . ' Prefijo ' . $resolucion->prefijo . ' - Numeración ' . $resolucion->inicioverdadero . ' a la ' . $resolucion->final . ', vigencia ' . $resolucion_vigencia_meses . ' meses.';
 
+        if(strtolower($factura->plazo()) == 'de contado'){
+            $plazo = $factura->fecha_factura;
+        }else{
+            $plazo = $factura->fecha_factura;
+        }
+
         $totalIva = 0;
         $totalInc = 0;
-        $retenciones = FacturaRetencion::where('factura', $factura->id)->get();
+        $retenciones = FacturaProveedoresRetenciones::where('factura', $factura->id)->get();
         $totalRetenciones = 0;
 
         foreach($retenciones as $retencion){
@@ -47,82 +53,54 @@ class InvoiceJsonBuilder
         }
 
         $moneda = 'COP';
-        $monedaCambio  = 'COP';
-        if($factura->tipo == 4 && isset($factura->datosExportacion)){
-            $monedaCambio = $factura->datosExportacion->data_moneda->codigo;
-        }
-
-        $codigo = $factura->codigo;
-        $prefijo = $resolucion->prefijo;
-
-        if (str_starts_with($codigo, $prefijo)) {
-            $nroFactura = substr($codigo, strlen($prefijo));
-        } else {
-            $nroFactura = $codigo;
-        }
-
-        if (preg_match('/\d/', $prefijo)) {
-            $legalNumber = $prefijo . '-' . $nroFactura;
-        } else {
-            $legalNumber = $prefijo . $nroFactura;
-        }
 
         return [
             'head' => [
                 'company' => $empresa->nit,
+                'nit' => $empresa->nit,
+                'invoiceType' => '05',
+                'invoiceNum' => $factura->codigo_dian,
+                'legalNumber' => $factura->codigo_dian,
                 'custNum' => $empresa->nit,
-                'invoiceType' => 'InvoiceType',
-                'invoiceNum' => $factura->codigo,
-                'legalNumber' => $legalNumber,
-                'invoiceDate' => $factura->fecha,
-                'dueDate' => $factura->vencimiento,
+                'customerName' => $factura->cliente()->nombre,
+                'invoiceDate' => $factura->fecha_factura,
+                'dueDate' => $plazo,
                 'dspDocSubTotal' => round($totales->subtotal - $totales->descuento, 2),
+                'discount' => round($totales->descuento),
                 'docTaxAmt' => round($totalIva,2),
                 'docWHTaxAmt' => round($totalRetenciones,2),
                 'dspDocInvoiceAmt' => round($totalIva,2) + round($totales->subtotal - $totales->descuento,2),
-                'discount' => round($totales->descuento),
-                'currencyCodeCurrencyID' => $monedaCambio,
                 'currencyCode' => $moneda,
-                'salesRepCode1' => null,
-                'salesRepName1' => $factura->vendedorObj->nombre,
-                'invoiceComment' => $factura->observaciones,
-                'resolution1' => $resolucion_msj,
-                'resolution2' => '',
-                'resolutionDateInvoice' => $resolucion->desde,
-                'resolutionNumber' => $resolucion->nroresolucion,
                 'paymentMeansID_c' => $forma_pago,
                 'paymentMeansDescription' => $forma_pago == 1 ? 'Contado' : 'Crédito',
                 'paymentMeansCode_c' => $forma_pago == 1 ? '10' : '1',
-                'paymentDurationMeasure' => $plazo,
+                'invoiceComment' => $factura->observaciones,
+                'resolutionNumber' => $resolucion->nroresolucion,
+                'resolution1' => $resolucion_msj,
+                'resolutionDateInvoice' => $resolucion->desde,
                 'paymentDueDate' => $factura->vencimiento,
-                'invoiceComment' => $factura->tipo_operacion == 3
-                ? $factura->notaDetalleXml()
-                : $factura->nota,
-                'contingencyInvoiceDian_c' => false,
-                'contingencyInvoiceOF_c' => false,
-                'issueDateContingency' => null,
-                'invoiceRefDate' => null,
-                'calculationRate_c' => isset($factura->trmActual) ? round($factura->trmActual->valor_cop) : null,
-                'dateCalculationRate_c' => isset($factura->trmActual) ? $factura->trmActual->fecha : null,
-                'netWeight' => isset($factura->datosExportacion) ? $factura->datosExportacion->peso_neto : null,
-                'grossWeight' => isset($factura->datosExportacion) ? $factura->datosExportacion->peso_bruto : null,
-                'portofEntry' => isset($factura->datosExportacion) ? $factura->datosExportacion->destino : null,
-                'shipViaCodeDescription' => isset($factura->datosExportacion) ? $factura->datosExportacion->medio_transporte : null,
             ]
         ];
     }
 
-    public static function buildFromHeadCreditNote($nota, $factura, $resolucion, $modoBTW){
-        $empresa = Empresa::Find($factura->empresa);
+    public static function buildFromHeadAdjustmentNote($nota,$documento, $resolucion, $modoBTW){
+
+        $empresa = Empresa::Find($nota->empresa);
         $totales = $nota->total();
-        $forma_pago = $factura->forma_pago();
-        $plazo = intval(Carbon::parse($factura->fecha)->diffinDays($factura->vencimiento));
+        $forma_pago = $documento->forma_pago();
+        $plazo = intval(Carbon::parse($documento->fecha)->diffinDays($documento->vencimiento));
         $resolucion_vigencia_meses = intval(Carbon::parse($resolucion->desde)->diffInMonths($resolucion->hasta));
         $resolucion_msj = 'Resolución DIAN No. ' . $resolucion->nroresolucion . ' de ' . $resolucion->desde . ' Prefijo ' . $resolucion->prefijo . ' - Numeración ' . $resolucion->inicioverdadero . ' a la ' . $resolucion->final . ', vigencia ' . $resolucion_vigencia_meses . ' meses.';
 
+        if(strtolower($documento->plazo()) == 'de contado'){
+            $plazo = $nota->fecha_factura;
+        }else{
+            $plazo = $nota->fecha_factura;
+        }
+
         $totalIva = 0;
         $totalInc = 0;
-        $retenciones = NotaRetencion::where('notas', $nota->id)->where('tipo',1)->get();
+        $retenciones = NotaRetencion::where('notas', $nota->id)->where('tipo',2)->get();
         $totalRetenciones = 0;
 
         foreach($retenciones as $retencion){
@@ -137,92 +115,64 @@ class InvoiceJsonBuilder
                 $totalInc+= round($imp->total,2);
             }
         }
+
         if($modoBTW == 'test'){
             $empresa->nit = '901548158';
             $resolucion->nroresolucion = '18762008997356';
         }
 
-        //Validaciones cuando la factura no es de BTW.
-        if($factura->fecha < '2025-10-05'){
-
-            $controller = new Controller;
-            // $controller->validateStatusDian($empresa->nit, $factura->codigo, "01", $resolucion->prefijo);
-            $cadena = $controller->validateStatusDian($empresa->nit, $factura->codigo, "01", $resolucion->prefijo);
-            $cadena = json_decode($cadena);
-
-            $newsFields = [];
-            if(isset($cadena->uuid)){
-                $newsFields = [
-                    'invoiceRefCufe' => $cadena->uuid,
-                    'invoiceRefDate' => $factura->fecha,
-                    'documentRefType' => '01'
-                ];
-            }
-
-        }
+        $moneda = 'COP';
 
         return [
-            'head' => ($newsFields ?? []) + [
+            'head' => [
                 'company' => $empresa->nit,
+                'nit' => $empresa->nit,
+                'invoiceType' => '95',
+                'invoiceNum' => $nota->nro,
+                'legalNumber' => $nota->nro,
                 'custNum' => $empresa->nit,
-                'invoiceType' => 'CreditNoteType',
-                'invoiceNum' => (string) $nota->nro,
-                'legalNumber' => (string) $nota->nro,
+                'customerName' => $nota->cliente()->nombre,
                 'invoiceDate' => $nota->fecha,
-                "invoiceRef" => $factura->codigo,
-                "cmReasonCode_c" => $nota->tipo,
-                "cmReasonDesc_c" => $nota->tipo(),
-                'dueDate' => $nota->fecha,
-                'dspDocSubTotal' => round($totales->subtotal - $totales->descuento,2),
-                'docTaxAmt' => round($totalIva,2),
-                'dspDocInvoiceAmt' => round($totalIva,2) + round($totales->subtotal - $totales->descuento,2),
+                'dueDate' => $documento->vencimiento_factura,
+                'dspDocSubTotal' => round($totales->subtotal - $totales->descuento, 2),
                 'discount' => round($totales->descuento),
-                'currencyCodeCurrencyID' => 'COP',
-                'currencyCode' => 'COP',
-                'salesRepCode1' => null,
+                'docTaxAmt' => round($totalIva,2),
                 'docWHTaxAmt' => round($totalRetenciones,2),
-                'salesRepName1' => $factura->vendedorObj->nombre,
-                'invoiceComment' => $nota->observaciones,
-                'resolution1' => $resolucion_msj,
-                'resolution2' => '',
-                'resolutionDateInvoice' => $resolucion->desde,
-                'resolutionNumber' => $resolucion->nroresolucion,
+                'dspDocInvoiceAmt' => round($totalIva,2) + round($totales->subtotal - $totales->descuento,2),
+                'currencyCode' => $moneda,
                 'paymentMeansID_c' => $forma_pago,
                 'paymentMeansDescription' => $forma_pago == 1 ? 'Contado' : 'Crédito',
                 'paymentMeansCode_c' => $forma_pago == 1 ? '10' : '1',
-                'paymentDurationMeasure' => $plazo,
-                'paymentDueDate' => $factura->vencimiento,
-                'contingencyInvoiceDian_c' => false,
-                'contingencyInvoiceOF_c' => false,
-                'issueDateContingency' => null,
-                'invoiceRefDate' => null,
-                'calculationRate_c' => null,
-                'dateCalculationRate_c' => null
+                'invoiceComment' => $nota->observaciones,
+                'resolutionNumber' => $resolucion->nroresolucion,
+                'resolution1' => $resolucion_msj,
+                'resolutionDateInvoice' => $resolucion->desde
             ]
         ];
+
     }
 
-    public static function buildFromDetails($factura, $modoBTW){
+    public static function buildFromDetails($documento, $modoBTW){
 
-        $items = $factura->items;
+        $items = $documento->items;
 
         if($modoBTW == 'test'){
             $nit = '901548158';
         }else{
-            $nit = Empresa::Find($factura->empresa)->nit;
+            $nit = Empresa::Find($documento->empresa)->nit;
         }
 
         $monedaCambio  = 'COP';
         $datosExportacion = null;
 
-        if($factura->tipo == 4 && isset($factura->datosExportacion)){
-            $datosExportacion = $factura->datosExportacion;
+        if($documento->tipo == 4 && isset($documento->datosExportacion)){
+            $datosExportacion = $documento->datosExportacion;
             $monedaCambio = $datosExportacion->data_moneda->codigo;
         }
 
 
         return [
-            'details' => array_map(function ($item,$index) use ($nit,$factura,$monedaCambio){
+            'details' => array_map(function ($item,$index) use ($nit,$documento,$monedaCambio){
 
                 $subtotal = $item->precio * $item->cant;
                 $discount = round(($item->desc / 100) * $subtotal, 2);
@@ -231,15 +181,14 @@ class InvoiceJsonBuilder
                 //Fact. Exportacion.
                 $precioExtranjero = "0.00";
                 $precioExntranjeroCompleto = "0.00";
-                if($factura->tipo == 4){
-                    $precioExtranjero = self::convertirPrecioUSD($item->precio, $factura->trmActual);
-                    $precioExntranjeroCompleto = self::convertirPrecioUSD($item->precio * $item->cant - $discount, $factura->trmActual);
+                if($documento->tipo == 4){
+                    $precioExtranjero = self::convertirPrecioUSD($item->precio, $documento->trmActual);
+                    $precioExntranjeroCompleto = self::convertirPrecioUSD($item->precio * $item->cant - $discount, $documento->trmActual);
                 }
-
 
                 return [
                     'company' => $nit,
-                    'invoiceNum' => isset($factura->codigo) ? $factura->codigo : $factura->nro,
+                    'invoiceNum' => isset($documento->codigo_dian) ? $documento->codigo_dian : $documento->nro,
                     'invoiceLine' => $index + 1,
                     'partNum' => $item->ref,
                     'lineDesc' => $item->producto() ?? $item->descripcion,
@@ -255,13 +204,24 @@ class InvoiceJsonBuilder
                     'currencyCode' => $monedaCambio,
                     'idSupplier' => null,
                     'codInvima' => null,
-                    'lineDesc3' => isset($item->ex_codigo_arancelario) ? $item->ex_codigo_arancelario : null,
-                    'lineDesc2' => isset($item->ex_modelo) ? $item->ex_modelo : null,
-                    'standardItemID' => '999',
-                    'brandName' => isset($item->ex_marca) ? $item->ex_marca : null,
+                    'dspDocTotalMiscChrg' => 0,
+                    'startDate' => $documento->fecha_factura,
+                    'invoicePeriodCode' => 1
                 ];
             },$items->all(), array_keys($items->all()))
         ];
+    }
+
+    public static function buildFromReferenceDocument($documento, $nota, $cliente){
+
+        return [
+            'invcRef' => [
+                'company' => $cliente->nit,
+                'invoiceNum' => $nota->nro,
+                'docRef' => $documento->codigo_dian,
+            ]
+        ];
+
     }
 
     public static function convertirPrecioUSD(float $precioCOP, object $trm): float {
@@ -277,7 +237,7 @@ class InvoiceJsonBuilder
 
         $additionalTags[] = (object)[
             'company'          => $empresa->nit,
-            'invoiceNum'       => isset($factura->codigo) ? $factura->codigo : $factura->nro,
+            'invoiceNum'       => $factura->codigo_dian,
             'name'             => 'Note',
             'value'            => $factura->tipo_operacion == 3
                                     ? $factura->notaDetalleXml()
@@ -289,7 +249,7 @@ class InvoiceJsonBuilder
     }
 
 
-    public static function buildFromCompany($empresa, $modoBTW, $operacionCodigo){
+    public static function buildFromCompany($cliente, $empresa, $modoBTW, $operacionCodigo){
 
         $municipio = $empresa->municipio();
         $departamento = $empresa->departamento();
@@ -319,7 +279,7 @@ class InvoiceJsonBuilder
         return [
             'company' => [
                 'company' => $empresa->nit,
-                'stateTaxID' => $empresa->nit,
+                'stateTaxID' => $cliente->nit,
                 'name' => $empresa->nombre,
                 'regimeType_c' => '05',
                 'fiscalResposability_c' => $responsabilidades,
@@ -354,6 +314,7 @@ class InvoiceJsonBuilder
 
         if($modoBTW == 'test'){
             $empresa->nit = '901548158';
+            $cliente->nit = '901548158';
         }
 
         $monedaCambio  = 'COP';
@@ -363,10 +324,8 @@ class InvoiceJsonBuilder
 
         return [
             'customer' => [
-                'company' => $empresa->nit,
-                'custID' => $cliente->nit,
-                'resaleID' => $cliente->nit,
-                'custNum' => $cliente->nit,
+                'company' => $cliente->nit,
+                'resaleID' => $empresa->nit,
                 'name' => $cliente->nombre,
                 'identificationType' => $cliente->identificacion->codigo_dian,
                 'address1' => $cliente->direccion,
@@ -395,18 +354,18 @@ class InvoiceJsonBuilder
 
     }
 
-    public static function buildFromTaxes($isNota, $factura, $empresa, $modoBTW){
+    public static function buildFromTaxes($isNota, $documento, $empresa, $modoBTW){
 
-        $total = $factura->total();
+        $total = $documento->total();
+        // dd($taxes);
         $withholdingTaxInvoice = $total->reten;
 
-        $items = $factura->items;
+        $items = $documento->items;
 
         $k = 1;
         $totalImpuestos = 0;
         $rateCode = '01';
         $taxes = [];
-
         foreach($items as $item){
 
             if($item->impuesto > 0){
@@ -432,7 +391,7 @@ class InvoiceJsonBuilder
 
                     $taxes[] = (object) [
                         'company' => $nit,
-                        'invoiceNum' => isset($factura->codigo) ? $factura->codigo : $factura->nro,
+                        'invoiceNum' => isset($documento->codigo_dian) ? $documento->codigo_dian : $documento->nro,
                         'invoiceLine' => $k,
                         'currencyCode' => 'COP',
                         'rateCode' => $rateCode,
@@ -464,7 +423,7 @@ class InvoiceJsonBuilder
                     if($retencion->tipo == 1){
                         $sobre_quien_retiene = round($totalImpuestos,2);
                     }else{
-                        $sobre_quien_retiene = round($total->resul,2);
+                        $sobre_quien_retiene = round($total->subtotal2,2);
                     }
 
                     if($retencion->tipo == 1){
@@ -480,7 +439,7 @@ class InvoiceJsonBuilder
 
                     $taxes[] = (object) [
                         'company' => $nit,
-                        'invoiceNum' => isset($factura->codigo) ? $factura->codigo : $factura->nro,
+                        'invoiceNum' => isset($documento->codigo_dian) ? $documento->codigo_dian : $documento->nro,
                         'invoiceLine' => 0,
                         'currencyCode' => 'COP',
                         'rateCode' => $rateCode,
@@ -506,9 +465,22 @@ class InvoiceJsonBuilder
             'customer' => $data['customer']['customer'] ?? [],
             'details'  => $data['details']['details'] ?? [],
             'taxes'    => $data['taxes'] ?? [],
-            'additionalTags'   => $data['additionalTags'] ?? [],
+            'invcRef'   => $data['invcRef']['invcRef'] ?? [],
+            'discrepancyResponse' => $data['discrepancyResponse']['discrepancyResponse'] ?? [],
             'mode'     => $data['mode'] ?? 'no',
             'btw_login'=> $data['btw_login'] ?? '',
+        ];
+    }
+
+
+    public static function buildFromDiscrepancyResponse($nota,$empresa){
+
+        return [
+            'discrepancyResponse' => [
+                'company' => $empresa->nit,
+                'invoiceNum' => $nota->nro,
+                'responseCode' => $nota->tipo,
+            ]
         ];
     }
 

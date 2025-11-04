@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('content')
-  <form method="POST" action="{{ route('notasdebito.update', $nota->id) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-factura" > 
+  <form method="POST" action="{{ route('notasdebito.update', $nota->id) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-factura" >
     {{ csrf_field() }}
     {{--<input name="_method" type="hidden" value="PATCH">
     <input type="hidden" value="1" name="cotizacion" id="cotizacion_si">
@@ -28,17 +28,17 @@
                 <option {{$nota->proveedor==$proveedor->id?'selected':''}} value="{{$proveedor->id}}">{{$proveedor->nombre}} - {{$proveedor->nit}}</option>
               @endforeach
             </select>
-          </div>            
+          </div>
           <span class="help-block error">
                 <strong>{{ $errors->first('proveedor') }}</strong>
           </span>
-        </div>    
+        </div>
         <div class="form-group row">
           <label class="col-sm-4 col-form-label">Observaciones <br><small>(no visible en la nota crédito)</small> </label>
           <div class="col-sm-8">
             <textarea  class="form-control form-control-sm min_max_100" name="observaciones">{{$nota->observaciones}}</textarea>
           </div>
-        </div>         
+        </div>
       </div>
       <div class="col-md-5 offset-md-1">
         <div class="form-group row">
@@ -48,10 +48,25 @@
           </div>
         </div>
         <div class="form-group row">
+            <label class="col-sm-4 col-form-label">Tipo de nota débito</label>
+            <div class="col-sm-8">
+                <select class="form-control form-control-sm selectpicker" name="tipo" id="tipo"
+                    title="Seleccione" data-live-search="true" data-size="5" required>
+                    @foreach ($tipos as $tipo)
+                        <option value="{{ $tipo->id }}" {{ $nota->tipo == $tipo->id ? 'selected' : '' }}>
+                            {{ $tipo->tipo }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <span class="help-block error">
+                <strong>{{ $errors->first('tipo') }}</strong>
+            </span>
+        </div>
+        <div class="form-group row">
           <label class="col-sm-4 col-form-label">Bodega <span class="text-danger">*</span></label>
           <div class="col-sm-8">
             <select name="bodega" id="bodega" class="form-control" required="">
-              @foreach($bodegas as $bodega)  
+              @foreach($bodegas as $bodega)
                 <option value="{{$bodega->id}}" {{$nota->bodega==$bodega->id?'selected':''}}>{{$bodega->bodega}}</option>
               @endforeach
             </select>
@@ -78,11 +93,11 @@
           </thead>
           <tbody>
             @php $cont=0; @endphp
-            @foreach($items as $item) 
+            @foreach($items as $item)
             @php $cont+=1; @endphp
-            <tr id="{{$cont}}">                          
+            <tr id="{{$cont}}">
               <td  class="no-padding">
-                  <input type="hidden" name="id_item{{$cont}}" value="{{$item->id}}">                           
+                  <input type="hidden" name="id_item{{$cont}}" value="{{$item->id}}">
                 <select class="form-control form-control-sm selectpicker no-padding"  title="Seleccione" data-live-search="true" data-size="5" name="item[]" id="item{{$cont}}" onchange="rellenar(1, this.value);" required="">
                 <optgroup label="Ítems inventariables">
                 @foreach($inventario as $itemm)
@@ -113,14 +128,14 @@
               <td>
                 <input type="text" class="form-control form-control-sm nro" id="desc{{$cont}}" name="desc[]" placeholder="%" onkeyup="total({{$cont}})" value="{{$item->desc}}">
               </td>
-              <td>        
+              <td>
                 <select class="form-control form-control-sm selectpicker" name="impuesto[]" id="impuesto{{$cont}}" title="Impuesto" onchange="totalall();" required="">
                   @foreach($impuestos as $impuesto)
                     <option value="{{$impuesto->id}}" porc="{{$impuesto->porcentaje}}" {{$item->id_impuesto==$impuesto->id?'selected':''}}>{{$impuesto->nombre}} - {{$impuesto->porcentaje}}%</option>
                   @endforeach
                 </select>
               </td>
-              <td  style="padding-top: 1% !important;">                           
+              <td  style="padding-top: 1% !important;">
                 <textarea  class="form-control form-control-sm" id="descripcion{{$cont}}" name="descripcion[]" placeholder="Descripción" >{{$item->descripcion}}</textarea>
               </td>
               <td width="5%">
@@ -137,7 +152,7 @@
         <div class="alert alert-danger" style="display: none;" id="error-items"></div>
       </div>
     </div>
- 
+
     <button class="btn btn-outline-primary" onclick="createRow();" type="button" style="margin-top: 5%">Agregar línea</button>
     <div class="row"  style="margin-top: 10%; margin-left:0px;">
       <div class="col-md-7 no-padding">
@@ -271,11 +286,11 @@
 
       @php $cont=0; @endphp
       @php $tipos_cuentas=\App\Banco::tipos();@endphp
-      @foreach($DevolucionesDebito as $devolucion) 
+      @foreach($DevolucionesDebito as $devolucion)
         @php $cont+=1; @endphp
         <tr id="devol_{{$cont}}">
           <td class="form-group ">
-            <input type="hidden" name="id_devolucion{{$cont}}" value="{{$devolucion->id}}">      
+            <input type="hidden" name="id_devolucion{{$cont}}" value="{{$devolucion->id}}">
             <input type="text" class="form-control" value="{{date('d-m-Y', strtotime($devolucion->fecha))}}" name="fecha_dev[]" id="fecha_dev{{$cont}}" disabled=""  style="border: 1px solid #a6b6bd52  !important;">
           </td>
           <td>
@@ -293,22 +308,22 @@
             </select>
           </td>
           <td class="monetario"><input type="number" class="form-control form-control-sm" id="monto{{$cont}}" name="montoa_dev[]" placeholder="Monto" onchange="function_totales_facturas();" value="{{$devolucion->monto}}"></td>
-          <td  style="padding-top: 1% !important;">                           
+          <td  style="padding-top: 1% !important;">
             <textarea  class="form-control form-control-sm" id="descripcion{{$cont}}" name="descripciona_dev[]" placeholder="Descripción" >{{$devolucion->observaciones}}</textarea></td>
           <td>
             <button type="button" class="btn btn-link btn-icons" onclick="Eliminar('devol_{{$cont}}');">X</button>
           </td>
         </tr>
 
-      @endforeach        
+      @endforeach
       </tbody>
     </table>
     <button class="btn btn-link"  type="button" onclick="agregardevolucion();"><i class="fas fa-plus"></i>Agregar devolución de dinero</button>
   </div>
-  <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">    
+  <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
     <table class="table table-striped table-hover pagos" width="100%" id="facturas-cliente">
       <thead>
-        <th width="20%">Número</th>   
+        <th width="20%">Número</th>
         <th width="20%">Total</th>
         <th width="20%">Pagado</th>
         <th width="20%">Por pagar</th>
@@ -357,7 +372,7 @@
           <button type="submit" class="btn btn-success" id="boton-guardar">Guardar</button>
         </div>
       </div>
-    </form> 
+    </form>
 
   <input type="hidden" id="impuestos" value="{{json_encode($impuestos)}}">
   <input type="hidden" id="allproductos" value="{{json_encode($inventario)}}">

@@ -425,6 +425,8 @@ class FacturasController extends Controller{
         $identificadorEmpresa = $user->empresa;
         $moneda = $user->empresa()->moneda;
 
+        $empresa = Empresa::Find($identificadorEmpresa);
+
         $orderByDefault = null;
         $orderDefault = null;
 
@@ -678,7 +680,9 @@ class FacturasController extends Controller{
         ->editColumn('nitcliente', function (Factura $factura) {
             return  $factura->cliente ? "<a href=" . route('contactos.show', $factura->cliente) . ">{$factura->cliente()->tip_iden('mini')} {$factura->nitcliente}</a>" : "";
         })
-        ->addColumn('acciones', $modoLectura ?  "" : "facturas.acciones-facturas")
+        ->addColumn('acciones', function ($factura) use ($empresa) {
+            return view('facturas.acciones-facturas', compact('factura', 'empresa'));
+        })
         ->rawColumns(['codigo', 'cliente', 'nitcliente', 'estado', 'acciones', 'vencimiento'])
         ->toJson();
     }
@@ -692,6 +696,23 @@ class FacturasController extends Controller{
 
         $orderByDefault = null;
         $orderDefault = null;
+
+        $empresa = Empresa::select(
+            'id',
+            'moneda',
+            'estado_dian',
+            'detalle_recaudo',
+            'tirilla',
+            'form_fe',
+            'guiaenvio',
+            'estado_dian',
+            'technicalkey',
+            'proveedor',
+            'oficina',
+            'codigo'
+        )
+        ->where('id', auth()->user()->empresa)
+        ->first();
 
         if ($request->order && is_array($request->order)) {
             foreach ($request->order as $or) {
@@ -898,7 +919,7 @@ class FacturasController extends Controller{
         $facturas->where('factura.tipo', '!=', 2)->where('factura.tipo', '!=', 5)->where('factura.tipo', '!=', 6)
                  ->where('factura.lectura',1);
 
-        if(Auth::user()->empresa()->oficina){
+        if($empresa->oficina){
             if(auth()->user()->oficina){
                 $facturas->where('cs1.oficina', auth()->user()->oficina);
             }
@@ -951,7 +972,9 @@ class FacturasController extends Controller{
         ->editColumn('nitcliente', function (Factura $factura) {
             return  $factura->cliente ? "<a href=" . route('contactos.show', $factura->cliente) . ">{$factura->cliente()->tip_iden('mini')} {$factura->nitcliente}</a>" : "";
         })
-        ->addColumn('acciones', $modoLectura ?  "" : "facturas.acciones-facturas")
+        ->addColumn('acciones', function ($factura) use ($empresa) {
+            return view('facturas.acciones-facturas', compact('factura', 'empresa'));
+        })
         ->rawColumns(['codigo', 'cliente', 'nitcliente', 'estado', 'acciones', 'vencimiento'])
         ->toJson();
     }
@@ -1901,7 +1924,7 @@ class FacturasController extends Controller{
         return $this->Imprimir($id, 'copia');
     }
 
-    public function Imprimir($id, $tipo='original', $especialFe = false){
+    public static function Imprimir($id, $tipo='original', $especialFe = false){
         $tipo1=$tipo;
 
         /**
@@ -2100,7 +2123,10 @@ class FacturasController extends Controller{
         $empresa = Auth::user()->empresaObj;
 
         view()->share(['title' => 'Imprimir Factura']);
+
         $factura = Factura::where('empresa',$empresa->id)->where('id', $id)->first();
+        $cliente = Contacto::where('id', $factura->cliente)->first();
+
         if ($factura) {
             if (!$emails) {
                 $emails=$factura->cliente()->email;
@@ -2118,6 +2144,18 @@ class FacturasController extends Controller{
 
             if (!$emails) {
                 return redirect('empresa/facturas/'.$factura->id)->with('error', 'El Cliente ni sus contactos asociados tienen correo registrado');
+            }
+
+            if($factura->fecha >= '2025-10-01' && $factura->emitida == 1){
+
+                $btw = new BTWService();
+
+                // Envio de correo con el zip.
+                $mensajeCorreo = $this->sendPdfEmailBTW($btw,$factura,$cliente,$empresa,1);
+                // Fin envio de correo con el zip.
+
+                return back()->with('success', $mensajeCorreo);
+                // Fin envio de correo con el zip.
             }
 
             $items = ItemsFactura::where('factura',$factura->id)->get();
@@ -2609,13 +2647,44 @@ class FacturasController extends Controller{
     }
 
     public function jsonDianFacturaVenta($id, $emails = false) {
-
         try {
 
-            $factura = Factura::Find($id);
+            if(request()->code){
+                $factura = Factura::where('empresa', auth()->user()->empresa)->where('codigo', $id)->first();
+            }else{
+
+                $factura = Factura::Find($id);
+            }
             $empresa = Empresa::Find($factura->empresa);
             $cliente = $factura->clienteObj;
+            $operacionCodigo = "10";
             $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+            $resolucion = false;
+
+            //Factura Exportacion.
+            if($factura->tipo == 4){
+
+                $operacionCodigo = "04";
+
+                $trmActual = DB::table('ex_valor_moneda_diario')->where('empresa_id',$empresa->id)
+                ->where('fecha',Carbon::now()->format('Y-m-d'))->first();
+
+                if(!$trmActual){
+                    if(request()->ajax()){
+                        return response()->json(['status'=>'error', 'message' => 'No hay TRM registrada para la fecha actual'], 404);
+                    }else{
+                        return redirect('/empresa/facturas')->with('message_denied', 'No hay TRM registrada para la fecha actual');
+                    }
+                }else{
+                    $factura->trmActual =  $trmActual;
+                    $factura->datosExportacion = $factura->getInfoFactuExpo();
+                }
+            }
+
+            //Factura Servicios AIU.
+            if($factura->tipo_operacion == 2){
+                $operacionCodigo = "09";
+            }
 
             if (!$factura && !$empresa) {
                 if(request()->ajax()){
@@ -2627,7 +2696,6 @@ class FacturasController extends Controller{
 
             // Numeracion Factura o POS
             if($factura->tipo == 6){
-
                 $resolucion = NumeracionPos::where('empresa', Auth::user()->empresa)
                 ->where('preferida', 1)->first();
                 $factura->technicalkey = $resolucion->technical_key;
@@ -2642,47 +2710,94 @@ class FacturasController extends Controller{
 
             }
 
+            if(!$resolucion){
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'No hay resolucion de facturacion activa, por favor verifique'], 404);
+                }else{
+                    return redirect('/empresa/facturas')->with('message_denied', 'No hay resolucion de facturacion activa, por favor verifique');
+                }
+            }
+
+            if($empresa->btw_login == null){
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'La empresa no tiene configurado el login para el servicio de BTW'], 404);
+                }else{
+                    return redirect('/empresa/facturas')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
+                }
+            }
+
             // Construccion del json por partes.
             $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW);
             $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($factura,$resolucion,$modoBTW);
-            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW);
-            $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW);
+            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW, $operacionCodigo);
+            $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW, $factura);
+            $jsonInvoiceTaxes = InvoiceJsonBuilder::buildFromTaxes(false,$factura,$empresa,$modoBTW);
 
             $fullJson = InvoiceJsonBuilder::buildFullInvoice([
-                'head'     => $jsonInvoiceHead,
-                'details'  => $jsonInvoiceDetails,
-                'company'  => $jsonInvoiceCompany,
-                'customer' => $jsonInvoiceCustomer,
-                'mode'     => $modoBTW
+                'head'              => $jsonInvoiceHead,
+                'details'           => $jsonInvoiceDetails,
+                'company'           => $jsonInvoiceCompany,
+                'customer'          => $jsonInvoiceCustomer,
+                'taxes'             => $jsonInvoiceTaxes,
+                'mode'              => $modoBTW,
+                'btw_login'         => $empresa->btw_login,
             ]);
-            // return $fullJson;
 
             // Envio de json completo a microservicio de gestoru.
             $btw = new BTWService;
             $response = (object)$btw->sendInvoiceBTW($fullJson);
 
+            //Validacion de que no existe la resolucion.
+            if(isset($response->statusCode) && $response->statusCode == 422){
+                return redirect('/empresa/facturas')->with('message_denied_btw', $response->th['message']);
+            }
+
             if(isset($response->status) && $response->status == 'success'){
 
                 $factura->emitida = 1;
                 $factura->uuid = $response->cufe;
+                unset($factura->trmActual, $factura->datosExportacion);
                 $factura->save();
+                $mensaje = "Factura emitida correctamente con el cufe: " . $factura->uuid;
+                $mensajeCorreo = '';
+
+                // Envio de correo con el zip.
+                if($modoBTW =='prod'){
+                    $mensajeCorreo = $this->sendPdfEmailBTW($btw,$factura,$cliente,$empresa,1);
+                }
+                // Fin envio de correo con el zip.
+
+                if(request()->code){
+                    return response()->json(['status' => 1, 'codigo' => $factura->codigo, 'mensaje' => 'ya fue emitida']);
+                }
 
                 if(request()->ajax()){
                     return response()->json([
                         'status' => 'success',
-                        'message' => 'Factura enviada correctamente',
+                        'message' => $mensaje . " " . $mensajeCorreo,
                         'data' => $response
                     ]);
+
                 }else{
-                    return redirect('/empresa/facturas')->with('message_success', 'Factura emitida correctamente con el cufe: ' .$response->cufe);
+                    return redirect('/empresa/facturas')->with('message_success', $mensaje);
                 }
             }
+
 
             if(isset($response->success) && $response->success == false){
 
                 if(isset($response->result)){
 
-                    $message = $this->formatedResponseErrorBTW($response->result->descResponseDian);
+                    if($response->result->descResponseDian != ""){
+                        $message = $this->formatedResponseErrorBTW($response->result->descResponseDian);
+                    }else{
+                        $message = $this->formatedResponseErrorBTW($response->result->tracer);
+                    }
+
+                    if(request()->code){
+                        return response()->json(['status' => 0, 'codigo' => $factura->codigo, 'mensaje' => 'Error en campos mandatorios.']);
+                    }
+
                     if(request()->ajax()){
                     return response()->json([
                         'status' => 'success',
@@ -2692,6 +2807,10 @@ class FacturasController extends Controller{
                     }else{
                         return redirect('/empresa/facturas')->with('message_denied_btw', $message);
                     }
+                }
+
+                if(request()->code){
+                    return response()->json(['status' => 0, 'codigo' => $factura->codigo, 'mensaje' => 'Error al enviar la factura.']);
                 }
 
                 if(request()->ajax()){
@@ -2706,9 +2825,19 @@ class FacturasController extends Controller{
 
             }else{
 
+
                 if(isset($response->statusCode) && $response->statusCode == 500){
 
-                    $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
+                    if(isset($response->th['btw_response'])){
+                        $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
+                    }else{
+                        $message = $this->formatedResponseErrorBTW($response->th);
+                    }
+
+                    if(request()->code){
+                        return response()->json(['status' => 0, 'codigo' => $factura->codigo, 'mensaje' => 'Error al procesar la solicitud.']);
+                    }
+
                     if(request()->ajax()){
                         return response()->json([
                             'status' => 'error',
@@ -2724,6 +2853,10 @@ class FacturasController extends Controller{
             }
 
         } catch (\Throwable $th) {
+
+            if(request()->code){
+                return response()->json(['status' => 0, 'codigo' => 'n/a', 'mensaje' => 'Error al procesar la solicitud: ' . $th->getMessage()]);
+            }
 
             if(request()->ajax()){
                 return response()->json([
@@ -2972,6 +3105,7 @@ class FacturasController extends Controller{
             return back()->with('message_success', $message);
         }
     }
+
 
    /**
      * Metodo de consulta
@@ -5013,19 +5147,19 @@ class FacturasController extends Controller{
 
 
         try {
-            $empresa = Auth::user()->empresa;
+            $empresa = Auth::user()->empresaObj;
             $facturas = explode(",", $facturas);
             set_time_limit(0);
 
             for ($i=0; $i < count($facturas) ; $i++) {
-                $factura = Factura::where('empresa', $empresa)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
+                $factura = Factura::where('empresa', $empresa->id)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
 
                 if(isset($factura)){
                     $factura->modificado = 1;
                     $factura->fecha = Carbon::now()->format('Y-m-d');
                     $factura->save();
 
-                    $this->xmlFacturaVentaMasivo($factura->id, $empresa);
+                    $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
                 }
             }
 

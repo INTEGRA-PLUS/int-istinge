@@ -2,7 +2,7 @@
 
 namespace App;
 
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\NominaConfiguracionCalculos;
@@ -274,7 +274,7 @@ public function firstuuidfact(){
 public function totalEmissions(){
     $facturas = Factura::where('empresa',$this->id)->where('emitida',1)->count();
     $notasc   = NotaCredito::where('empresa',$this->id)->where('emitida',1)->count();
-    $notasd   = NotaDedito::where('empresa',$this->id)->where('emitida',1)->count();
+    $notasd   = NotaDebito::where('empresa',$this->id)->where('emitida',1)->count();
 
     return $total = $facturas + $notasc + $notasd;
 }
