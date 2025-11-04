@@ -108,13 +108,14 @@ class NotascreditoController extends Controller
     }
 
     public function notascredito (Request $request){
-        $modoLectura = auth()->user()->modo_lectura();
-        $moneda = auth()->user()->empresa()->moneda;
+
+        $empresa = Empresa::find(Auth::user()->empresa);
+        $moneda = $empresa->moneda;
         $notas = NotaCredito::query()->
             leftjoin('contactos as c', 'c.id', '=', 'notas_credito.cliente')->
             join('items_notas as if', 'notas_credito.id', '=', 'if.nota')->
             select('notas_credito.*', 'c.nombre as nombrecliente', 'c.apellido1 as ape1cliente', 'c.apellido2 as ape2cliente', DB::raw('SUM((if.cant*if.precio)-(if.precio*(if(if.desc,if.desc,0)/100)*if.cant)+(if.precio-(if.precio*(if(if.desc,if.desc,0)/100)))*(if.impuesto/100)*if.cant) as total'), DB::raw('(SUM((if.cant*if.precio)-(if.precio*(if(if.desc,if.desc,0)/100)*if.cant)+(if.precio-(if.precio*(if(if.desc,if.desc,0)/100)))*(if.impuesto/100)*if.cant) - if((Select SUM(monto) from notas_devolucion_dinero where nota=notas_credito.id),(Select SUM(monto) from notas_devolucion_dinero where nota=notas_credito.id), 0)) as por_aplicar'))->
-            where('notas_credito.empresa',Auth::user()->empresa);
+            where('notas_credito.empresa',$empresa->id);
 
         if ($request->filtro == true) {
             if($request->nro){
@@ -161,7 +162,9 @@ class NotascreditoController extends Controller
         ->addColumn('emitida', function (NotaCredito $notas) {
             return   '<span class="font-weight-bold text-' . $notas->emitida(true) . '">' . $notas->emitida(). '</span>';
         })
-        ->addColumn('acciones', $modoLectura ?  "" : "notascredito.acciones")
+        ->addColumn('acciones', function ($nota) use ($empresa) {
+            return view('notascredito.acciones', compact('nota', 'empresa'));
+        })
         ->rawColumns(['nro','cliente','fecha','total','por_aplicar','emitida', 'acciones'])
         ->toJson();
     }
@@ -1029,7 +1032,7 @@ class NotascreditoController extends Controller
     /**
      * Funcion para generar el pdf
      */
-    public function Imprimir($id){
+    public static function Imprimir($id){
         /**
          * toma en cuenta que para ver los mismos
          * datos debemos hacer la misma consulta
@@ -1421,12 +1424,12 @@ public function facturas_retenciones($id){
         return json_encode($json_data);
     }
 
-
     public function jsonDianNotaCredito($id, $emails = false) {
 
         try {
 
             $nota = NotaCredito::Find($id);
+            $operacionCodigo = "20";
             $empresa = Empresa::Find($nota->empresa);
             $cliente = $nota->clienteObj;
             $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
@@ -1435,7 +1438,7 @@ public function facturas_retenciones($id){
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'Nota crédito o empresa no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'Nota crédito o empresa no encontrada');
+                    return redirect('/empresa/notascredito')->with('message_denied', 'Nota crédito o empresa no encontrada');
                 }
             }
 
@@ -1443,9 +1446,9 @@ public function facturas_retenciones($id){
 
             if (!$factura) {
                 if(request()->ajax()){
-                    return response()->json(['status'=>'error', 'message' => 'Factura relacionada no encontrada'], 404);
+                    return response()->json(['status'=>'error', 'message' => 'Nota crédito relacionada no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'Factura relacionada no encontrada');
+                    return redirect('/empresa/notascredito')->with('message_denied', 'Nota crédito relacionada no encontrada');
                 }
             }
 
@@ -1466,22 +1469,32 @@ public function facturas_retenciones($id){
 
             }
 
+            if($empresa->btw_login == null){
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'La empresa no tiene configurado el login para el servicio de BTW'], 404);
+                }else{
+                    return redirect('/empresa/notascredito')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
+                }
+            }
+
             // Construccion del json por partes.
             $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadCreditNote($nota,$factura,$resolucion,$modoBTW);
-            $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($factura,$resolucion,$modoBTW);
-            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW);
-            $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW);
+            $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($nota,$resolucion,$modoBTW);
+            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW, $operacionCodigo);
+            $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW, $factura);
+            $jsonInvoiceTaxes = InvoiceJsonBuilder::buildFromTaxes(true, $nota,$empresa,$modoBTW);
 
             $fullJson = InvoiceJsonBuilder::buildFullInvoice([
                 'head'     => $jsonInvoiceHead,
                 'details'  => $jsonInvoiceDetails,
                 'company'  => $jsonInvoiceCompany,
                 'customer' => $jsonInvoiceCustomer,
-                'mode'     => $modoBTW
+                'taxes'    => $jsonInvoiceTaxes,
+                'mode'     => $modoBTW,
+                'btw_login'=> $empresa->btw_login,
             ]);
 
             // Envio de json completo a microservicio de gestoru.
-            // return $fullJson;
             $btw = new BTWService;
             $response = (object)$btw->sendInvoiceBTW($fullJson);
 
@@ -1490,11 +1503,19 @@ public function facturas_retenciones($id){
                 $nota->emitida = 1;
                 $nota->dian_response = $response->cufe;
                 $nota->save();
+                $mensaje = "Nota crédito emitida correctamente con el cufe: " . $nota->dian_response;
+                $mensajeCorreo = '';
+
+                // Envio de correo con el zip.
+                if($modoBTW == 'prod'){
+                    $mensajeCorreo = $this->sendPdfEmailBTW($btw,$nota,$cliente,$empresa,2);
+                }
+                // Fin envio de correo con el zip.
 
                 if(request()->ajax()){
                     return response()->json([
                         'status' => 'success',
-                        'message' => 'Nota crédito enviada correctamente',
+                        'message' => $mensaje . " " . $mensajeCorreo,
                         'data' => $response
                     ]);
                 }else{
@@ -1521,7 +1542,7 @@ public function facturas_retenciones($id){
                 if(request()->ajax()){
                     return response()->json([
                         'status' => 'error',
-                        'message' => 'Error al enviar la factura',
+                        'message' => 'Error al enviar la nota crédito',
                         'error' => $response->message
                     ], 500);
                 }else{

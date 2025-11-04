@@ -91,4 +91,38 @@ class BTWService
         }
     }
 
+    public function sendDocumentBTW($json){
+        try {
+            return $this->makeRequest('POST', 'api/senddocument', [], $json, [], true);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la factura",
+                'th' => $th
+            ]);
+        }
+    }
+
+    public function sendPdfEmail($data)
+    {
+        try {
+
+            return $this->makeRequest(
+                'POST',
+                '/api/sendpdfemail',
+                ['Content-Type' => 'application/json'], // headers
+                $data,                              // body en JSON
+                [],                                     // query params
+                true                                    // auth si es necesario
+            );
+
+        } catch (\Throwable $th) {
+            return [
+                'status'  => 'error',
+                'message' => 'Error al enviar la factura',
+                'error'   => $th->getMessage(),
+            ];
+        }
+    }
+
 }

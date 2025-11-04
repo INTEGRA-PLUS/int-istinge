@@ -17,9 +17,17 @@
 			{{Session::get('success')}}
 		</div>
 	@endif
+
+    @if (session('message_denied_btw'))
+    <div class="alert alert-danger">
+        {!! session('message_denied_btw') !!}
+    </div>
+@endif
+
+
 @if(Session::has('message_denied'))
 <div class="alert alert-danger" role="alert">
-	{{Session::get('message_denied')}} 
+	{{Session::get('message_denied')}}
 	@if(Session::get('errorReason'))<br> <strong>Razon(es): <br></strong>
 	@if(count(Session::get('errorReason')) > 0)
 	@php $cont = 0 @endphp
@@ -47,7 +55,7 @@
 	              <th>Total</th>
 	              <th>Por aplicar</th>
 	              <th>Acciones</th>
-	          </tr>                              
+	          </tr>
 			</thead>
 			<tbody>
 				@foreach($notas as $nota)
@@ -55,7 +63,7 @@
 
 						<td><a href="{{route('notasdebito.show',$nota->id)}}" >{{$nota->nro}}</a> </td>
 						<td><a href="{{route('contactos.show',$nota->proveedor()->id)}}" target="_blanck">{{$nota->proveedor()->nombre}}
-						</a></td> 
+						</a></td>
 						<td>{{date('d-m-Y', strtotime($nota->fecha))}}</td>
 						<td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($nota->total()->total)}}</td>
 						<td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($nota->por_aplicar())}}</td>
@@ -65,9 +73,22 @@
 
 							@else
                                 <a href="{{route('notasdebito.imprimir.nombre',['id' => $nota->id, 'name'=> 'Nota Debito No. '.$nota->nro.'.pdf'])}}" target="_blanck" class="btn btn-outline-primary btn-icons" title="Imprimir"><i class="fas fa-print"></i></a>
-                                @if(Auth::user()->empresa()->form_fe == 1 && $nota->emitida == 0 && Auth::user()->empresa == 1)
-								<a onclick="confirmSendDian('{{route('xml.notadebito',$nota->id)}}','{{$nota->nro}}')" href="#"  class="btn btn-outline-primary btn-icons"title="Emitir Nota Debito"><i class="fas fa-sitemap"></i></a>
-								@endif
+
+                                @if($empresa->proveedor == 2 && $empresa->estado_dian == 1)
+                                    <a onclick="confirmSendDian('{{ route('json.dian-nota-ajuste', $nota->id, true) }}','{{ $nota->nro }}')"
+                                        href="#" class="btn btn-outline-primary btn-icons"
+                                        title="Emitir nota débito {{ $nota->nro }}">
+                                        <i class="fas fa-sitemap"></i>
+                                    </a>
+                                @else
+                                    @if ($nota->emitida == 0 && $empresa->estado_dian == 1 && $empresa->technicalkey != null)
+                                        <a onclick="confirmSendDian('{{ route('xml.notadebito', $nota->id, true) }}','{{ $nota->nro }}')"
+                                            href="#" class="btn btn-outline-primary btn-icons"
+                                            title="Emitir nota débito {{ $nota->nro }}">
+                                            <i class="fas fa-sitemap"></i>
+                                        </a>
+                                    @endif
+                                @endif
 								<a href="{{route('notasdebito.edit',$nota->id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
 								<form action="{{ route('notasdebito.destroy',$nota->id) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-notasdebito{{$nota->id}}">
 								{{ csrf_field() }}

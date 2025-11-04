@@ -38,7 +38,7 @@ use App\Model\Ingresos\IngresosFactura;
 use App\Banco;
 use App\Instance;
 use App\Model\Gastos\FacturaProveedores;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
@@ -4439,7 +4439,7 @@ class CronController extends Controller
             ->where('emitida',1)
             ->where('dian_service',0);
 
-            $notasDebito = NotaDedito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
+            $notasDebito = NotaDebito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
             ->where('emitida',1)
             ->where('dian_service',0);
 

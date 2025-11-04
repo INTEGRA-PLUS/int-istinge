@@ -868,6 +868,11 @@ public function forma_pago()
         return $this->hasMany(ItemsFactura::class,'factura','id');
     }
 
+    public function items()
+    {
+        return $this->hasMany(ItemsFactura::class, 'factura');
+    }
+
     public function listItems(){
         $items = $this->itemsFactura;
         $list = "";

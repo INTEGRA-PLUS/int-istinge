@@ -6,17 +6,17 @@ use App\NotaRetencion;
 use App\Retencion;
 use Illuminate\Database\Eloquent\Model;
 use App\Contacto; use App\Impuesto;
-use App\Vendedor; use App\TerminosPago; 
-use App\Model\Ingresos\ItemsFactura;  
+use App\Vendedor; use App\TerminosPago;
+use App\Model\Ingresos\ItemsFactura;
 use App\Model\Ingresos\IngresosFactura;
 use App\Model\Ingresos\Devoluciones;
-use App\Model\Inventario\ListaPrecios; 
+use App\Model\Inventario\ListaPrecios;
 use App\Model\Inventario\Bodega;
-use Auth;  use DB; 
+use Auth;  use DB;
 use App\PucMovimiento;
 use App\Puc;
 use App\FormaPago;
-  
+
 class NotaCredito extends Model
 {
     protected $table = "notas_credito";
@@ -58,10 +58,10 @@ class NotaCredito extends Model
     }
     public function total(){
         $totales=array('total'=>0, 'subtotal'=>0, 'descuento'=>0, 'subsub'=>0,'totalreten'=>0, 'imp'=>Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get());
-        $items=ItemsNotaCredito::where('nota',$this->id)->get(); 
+        $items=ItemsNotaCredito::where('nota',$this->id)->get();
         $result=0; $desc=0; $impuesto=0;
         $totales["reten"]= Retencion::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
-        
+
         foreach ($items as $item) {
             $result=$item->precio*$item->cant;
             $totales['subtotal']+=$result;
@@ -89,22 +89,22 @@ class NotaCredito extends Model
                     }
                 }
             }
-            
+
 
         }
         $totales['total']=$totales['subsub']=$totales['subtotal']-$totales['descuento'] - $this->retenido_factura();
         $totales['total'] = $totales['total'] - $totales['totalreten'];
         #$totales['totalizado']=$totales['subsub']=$totales['subtotal']-$totales['descuento'] - $this->retenido_factura()
-        
+
         foreach ($totales["imp"] as $key => $imp) {
             $totales['total']+=$imp->total;
            # $totales['totalizado']+=$imp->total;
         }
-        
+
         return (object) $totales;
 
     }
-    
+
     public function totalAPI($empresaID){
         $totales=array('total'=>0, 'subtotal'=>0, 'descuento'=>0, 'subsub'=>0,'totalreten'=>0, 'imp'=>Impuesto::where('empresa',$empresaID)->orWhere('empresa', null)->Where('estado', 1)->get());
         $items=ItemsNotaCredito::where('nota',$this->id)->get();
@@ -180,7 +180,7 @@ class NotaCredito extends Model
            return DB::table('tipos_nota_credito')->where('id', $this->tipo)->first()->tipo;
         }
     }
-    
+
     public function factura_detalle(){
         $facturas=NotaCreditoFactura::where('nota',$this->id)->get();
         $factura="";
@@ -189,9 +189,9 @@ class NotaCredito extends Model
         }
 
         return substr($factura, 0, -1);
-        
+
     }
-    
+
     public function impuestos_totales(){
         $total=0;
         foreach ($this->total()->imp as $value) {
@@ -209,7 +209,7 @@ class NotaCredito extends Model
         return  $facturas + $devoluciones;
     }
 
-    
+
     public function lista_precios(){
         $lista=ListaPrecios::where('empresa',Auth::user()->empresa)->where('id', $this->lista_precios)->first();
         if (!$lista) { return ''; }
@@ -290,9 +290,9 @@ class NotaCredito extends Model
     public function formaPagoRequest($cuenta_id,$idFactura=null){
         if($idFactura == null){
             $forma = FormaPago::find($cuenta_id);
-    
+
             if($forma){
-                return Puc::find($forma->cuenta_id); 
+                return Puc::find($forma->cuenta_id);
             }
         //si es igual a cero es por que se trata de un anticipo.
         }else{
@@ -305,4 +305,9 @@ class NotaCredito extends Model
             }
         }
     }
-}   
+
+    public function items()
+    {
+        return $this->hasMany(ItemsNotaCredito::class, 'nota');
+    }
+}

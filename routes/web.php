@@ -977,6 +977,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{id}/json', 'FacturaspController@facturap_json')->name('facturasp.json');
 		Route::get('xmlproveedor/{id}/{emails?}', 'FacturaspController@xmlFacturaProveedor')->name('xml.facturaproveedor');
 
+        Route::get('jsondian/{id?}/{emails?}', 'FacturaspController@jsonDianDocumentoSoporte')->name('json.dian-documento-soporte');
 
 		Route::get('/{id}/pdf', 'FacturaspController@pdf')->name('facturasp.pdf');
 		Route::get('/{id}/copia', 'FacturaspController@copia')->name('facturasp.copia');
@@ -1014,6 +1015,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'notasdebito'], function () {
 
 		Route::get('xml/{id}', 'NotasdebitoController@xmlNotaDebito')->name('xml.notadebito');
+        Route::get('jsondian/{id?}/{emails?}', 'NotaDebitoController@jsonDianNotaAjuste')->name('json.dian-nota-ajuste');
 
 		Route::get('/{id}/imprimir', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir');
 		Route::get('pdf/{id}/{name}', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir.nombre');

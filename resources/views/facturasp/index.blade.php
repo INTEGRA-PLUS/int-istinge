@@ -18,6 +18,12 @@
 			{{Session::get('success')}}
 		</div>
 	@endif
+
+    @if (session('message_denied_btw'))
+    <div class="alert alert-danger">
+        {!! session('message_denied_btw') !!}
+    </div>
+    @endif
     <div class="col-md-12 table-responsive">
         <form id="form-table-facturas">
             <input type="hidden" name="orderby"id="order_by"  value="1">
@@ -75,7 +81,7 @@
         				    <th>Por Pagar <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==7?'':'no_order'}}" campo="7" order="@if($request->orderby==7){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==7){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button></th>
         				    <th>Pagado <button type="button" class="btn btn-link no-padding orderby {{$request->orderby==8?'':'no_order'}}" campo="8" order="@if($request->orderby==8){{$request->order==1?'0':'1'}}@else 0 @endif" ><i class="fas fa-arrow-@if($request->orderby==8){{$request->order==0?'up':'down'}}@else{{'down'}} @endif"></i></button></th>
         				    <th>Acciones</th>
-        				</tr>                              
+        				</tr>
         			</thead>
         			<tbody>
         				@foreach($facturas as $factura)
@@ -91,11 +97,11 @@
         						<td>
         							<a   href="{{route('facturasp.showid',$factura->id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></i></a>
         							@if(Auth::user()->modo_lectura())
-        
+
         							@else
         								@if($factura->tipo ==1 && $factura->estatus==1)
         									<a  href="{{route('pagos.create_id', ['cliente'=>$factura->proveedor, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-icons" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
-        									
+
         									<a href="{{route('facturasp.edit', $factura->id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
         									<a href="{{route('facturasp.imprimir.nombre', ['id' => $factura->id, 'name'=> 'Factura Proveedor No. '.$factura->nro.'.pdf'])}}"  class="btn btn-outline-primary btn-icons" title="Imprimir"><i class="fas fa-print"></i></a>
         									<button class="btn btn-outline-danger  btn-icons" type="submit" title="Eliminar" onclick="confirmar('eliminar-factura{{$factura->id}}', '¿Estas seguro que deseas eliminar la factura de compra?', 'Se borrara de forma permanente');"><i class="fas fa-times"></i></button>
