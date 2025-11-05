@@ -1323,6 +1323,14 @@ class FacturasController extends Controller{
 
         if($contrato){
             $factura->contrato_id = $contrato->id;
+            DB::table('facturas_contratos')->insert([
+                'factura_id' => $factura->id,
+                'contrato_nro' => $contrato->nro,
+                'created_by' => $user->id,
+                'client_id' => $factura->cliente,
+                'is_cron' => 0,
+                'created_at' => Carbon::now()
+            ]);
         }else{
             /*
             Validamos aca de nuevo si tiene contrato o no, para que las facturas electronicas que tienen contrato
@@ -1331,6 +1339,14 @@ class FacturasController extends Controller{
             $contrato = Contrato::where('client_id',$request->cliente)->first();
             if($contrato){
                 $factura->contrato_id = $contrato->id;
+                DB::table('facturas_contratos')->insert([
+                    'factura_id' => $factura->id,
+                    'contrato_nro' => $contrato->nro,
+                    'created_by' => $user->id,
+                    'client_id' => $factura->cliente,
+                    'is_cron' => 0,
+                    'created_at' => Carbon::now()
+                ]);
             }
         }
 
