@@ -1319,8 +1319,8 @@ class AsignacionesController extends Controller
         }
 
         try {
-            if(isset($request->idContrato)){
-                $contract = Contrato::Find($request->idContrato);
+            if(isset($request['idContrato'])){
+                $contract = Contrato::Find($request['idContrato']);
             }else{
                 $contract = $contact->contrato();
             }
