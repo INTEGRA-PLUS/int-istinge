@@ -349,6 +349,9 @@ class FacturasController extends Controller{
         ->where('tipo',2)
         ->first();
 
+        if(!$numeracionActual){
+            return redirect()->route('configuracion.numeraciones_dian')->with('error', 'No hay una numeración de factura electrónica activa. Por favor configure una para continuar.');
+        }
 
         $prefijo = $numeracionActual->prefijo;   // FE
         $inicio  = (int) $numeracionActual->inicioverdadero; // 567

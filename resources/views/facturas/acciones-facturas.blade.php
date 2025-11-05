@@ -1,6 +1,6 @@
 @if(Auth::user()->rol==8)
     @if($factura->estatus==1)
-        <a href="{{route('ingresos.create_id', ['cliente'=>$cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-xl" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
+        <a href="{{route('ingresos.create_id', ['cliente'=>$factura->cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-xl" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
     @endif
     @if($empresa->tirilla && $factura->estatus==0)
         <a href="{{route('facturas.tirilla', ['id' => $factura->id, 'name'=> 'Factura No.'.$factura->id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-xl"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
