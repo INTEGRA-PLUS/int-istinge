@@ -1936,7 +1936,7 @@ class FacturasController extends Controller{
         return $this->Imprimir($id, 'copia');
     }
 
-    public static function Imprimir($id, $tipo='original', $especialFe = false){
+    public static function Imprimir($id, $tipo = 'original', $especialFe = false, $save = false, $prevLoad = false){
         $tipo1=$tipo;
 
         /**
