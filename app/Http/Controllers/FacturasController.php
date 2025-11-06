@@ -2718,6 +2718,7 @@ class FacturasController extends Controller{
                 $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
                 ->where('num_equivalente', 0)
                 ->where('nomina', 0)
+                ->where('tipo',2)
                 ->where('preferida', 1)->first();
 
             }
