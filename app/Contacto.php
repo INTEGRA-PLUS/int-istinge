@@ -247,6 +247,11 @@ class Contacto extends Model
         }
     }
 
+    public function identificacion()
+    {
+        return $this->belongsTo(TipoIdentificacion::class, 'tip_iden');
+    }
+
     public static function municipio_static($id){
         if (DB::table('municipios')->where('id',$id)->count() > 0) {
             return DB::table('municipios')->where('id',$id)->first();
