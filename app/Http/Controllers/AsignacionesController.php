@@ -1288,6 +1288,7 @@ class AsignacionesController extends Controller
         // for now.
         /** @var User $company */
         $company = ((object) FacadesAuth::user())->empresa();
+        $request = request()->all();
 
         if (!$company) {
             $empresa = Empresa::first();
@@ -1318,7 +1319,11 @@ class AsignacionesController extends Controller
         }
 
         try {
-            $contract = $contact->contrato();
+            if(isset($request['idContrato'])){
+                $contract = Contrato::Find($request['idContrato']);
+            }else{
+                $contract = $contact->contrato();
+            }
             // TODO: This should be within the contract method, but right now it
             // will break other things, so it will stay here.
             if (is_null($contract)) {
@@ -1333,9 +1338,6 @@ class AsignacionesController extends Controller
         } catch (ModelNotFoundException $e) {
             return back()->with('danger', 'Los detalles del contrato no fueron encontrados.');
         }
-
-        // what is this for?
-        $idContrato = request()->idContrato;
 
         view()->share(['title' => 'Contrato de Internet']);
         $pdf = Pdf::loadView('pdf.contrato', compact([

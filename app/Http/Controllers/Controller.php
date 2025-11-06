@@ -516,7 +516,7 @@ class Controller extends BaseController
                 "Content-Type: application/json",
                 "Postman-Token: 13e97781-32ef-49b7-ad05-3461f465d410",
                 "cache-control: no-cache",
-                "efacturaAuthorizationToken:OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB"
+                "efacturaAuthorizationToken:AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB"
             ),
         ));
         $response = curl_exec($curl);
@@ -570,7 +570,7 @@ class Controller extends BaseController
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_HTTPHEADER => array(
-                "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
+                "efacturaAuthorizationToken: AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                 "Content-Type: text/plain",
                 "Partnership-Id: 1128464945"
             ),
@@ -597,7 +597,7 @@ class Controller extends BaseController
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => "GET",
                 CURLOPT_HTTPHEADER => array(
-                    "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
+                    "efacturaAuthorizationToken: AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                     "Content-Type: text/plain",
                     "Partnership-Id: 1128464945"
                 ),
@@ -2100,7 +2100,7 @@ if ($mikrotik) {
         CURLOPT_HTTPHEADER => array(
             'Content-Type: application/json',
             'Partnership-Id: 1128464945',
-            'efacturaAuthorizationToken: 62808bf1-d446-46ee-8120-00162e95c059'
+            'efacturaAuthorizationToken: A62808bf1-d446-46ee-8120-00162e95c059'
         ),
         ));
 

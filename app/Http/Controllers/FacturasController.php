@@ -349,6 +349,9 @@ class FacturasController extends Controller{
         ->where('tipo',2)
         ->first();
 
+        if(!$numeracionActual){
+            return redirect()->route('configuracion.numeraciones_dian')->with('error', 'No hay una numeración de factura electrónica activa. Por favor configure una para continuar.');
+        }
 
         $prefijo = $numeracionActual->prefijo;   // FE
         $inicio  = (int) $numeracionActual->inicioverdadero; // 567
@@ -1330,6 +1333,17 @@ class FacturasController extends Controller{
         }
 
         $factura->save();
+        // Relacionar contrato con la factura una vez exista el ID de la factura
+        if($contrato){
+            DB::table('facturas_contratos')->insert([
+                'factura_id' => $factura->id,
+                'contrato_nro' => $contrato->nro,
+                'created_by' => $user->id,
+                'client_id' => $factura->cliente,
+                'is_cron' => 0,
+                'created_at' => Carbon::now()
+            ]);
+        }
         $nro->save();
 
         //Asociamos los contratos asociados a la factura.
