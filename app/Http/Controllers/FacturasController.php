@@ -2040,6 +2040,14 @@ class FacturasController extends Controller{
                 $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
             }
 
+            if($save){
+                return $pdf;
+            }
+
+            if($prevLoad){
+                return $pdf;
+            }
+
             return response($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
         }
     }
