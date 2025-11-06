@@ -13,12 +13,12 @@ use App\Model\Gastos\NotaDebito;
 use App\Model\Gastos\FacturaProveedores;
 use App\Model\Gastos\Gastos;
 use App\Model\Gastos\GastosFactura;
-use DB;
 use Auth; use StdClass;
 use App\Contrato;
 use App\Model\Ingresos\Ingreso;
 use App\Radicado;
 use App\Oficina;
+use Illuminate\Support\Facades\DB as DB;
 
 class Contacto extends Model
 {
@@ -222,22 +222,26 @@ class Contacto extends Model
         }
     }
 
-    public function departamento(){
-        if (DB::table('departamentos')->where('id',$this->fk_iddepartamento)->count() > 0) {
-            return DB::table('departamentos')->where('id',$this->fk_iddepartamento)->first();
-        }else{
-            $depa = new stdClass;
+    public function departamento()
+    {
+        if (DB::table('departamentos')->where('id', $this->fk_iddepartamento)->count() > 0) {
+            return DB::table('departamentos')->where('id', $this->fk_iddepartamento)->first();
+        } else {
+            $depa = new stdClass();
             $depa->nombre = "";
+            $depa->codigo = "";
+            $depa->codigo_completo = "";
             return $depa;
         }
     }
 
-    public function municipio(){
-        if (DB::table('municipios')->where('id',$this->fk_idmunicipio)->count() > 0) {
-            return DB::table('municipios')->where('id',$this->fk_idmunicipio)->first();
-        }else{
-            $muni = new stdClass;
-            $muni->nombre = "";
+    public function municipio()
+    {
+        if (DB::table('municipios')->where('id', $this->fk_idmunicipio)->count() > 0 && $this->fk_idpais == 'CO') {
+            return DB::table('municipios')->where('id', $this->fk_idmunicipio)->first();
+        } else {
+            $muni = new stdClass();
+            $muni->nombre = $this->ciudad;
             $muni->codigo_completo = "";
             return $muni;
         }
