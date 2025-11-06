@@ -5190,7 +5190,11 @@ class FacturasController extends Controller{
                     $factura->fecha = Carbon::now()->format('Y-m-d');
                     $factura->save();
 
-                    $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                    if($empresa->proveedor == 2){
+                        $this->jsonDianFacturaVenta($factura->id);
+                    }else{
+                        $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                    }
                 }
             }
 
