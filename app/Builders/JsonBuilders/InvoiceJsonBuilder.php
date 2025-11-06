@@ -509,6 +509,7 @@ class InvoiceJsonBuilder
             'additionalTags'   => $data['additionalTags'] ?? [],
             'mode'     => $data['mode'] ?? 'no',
             'btw_login'=> $data['btw_login'] ?? '',
+            'software' => $data['software'] ?? '',
         ];
     }
 

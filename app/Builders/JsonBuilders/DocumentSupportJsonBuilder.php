@@ -469,6 +469,7 @@ class DocumentSupportJsonBuilder
             'discrepancyResponse' => $data['discrepancyResponse']['discrepancyResponse'] ?? [],
             'mode'     => $data['mode'] ?? 'no',
             'btw_login'=> $data['btw_login'] ?? '',
+            'software' => $data['software'] ?? '',
         ];
     }
 
