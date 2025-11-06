@@ -1949,6 +1949,15 @@ class FacturasController extends Controller{
         $factura = ($especialFe) ? Factura::where('nonkey', $id)->first()
         : Factura::where('empresa',$empresa->id)->where('id', $id)->first();
 
+        if(!$factura)
+        {
+            $factura = Factura::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        }
+
+        if (!$factura) {
+            return back()->with('error', 'No se ha encontrado la factura');
+        }
+
         if($factura->tipo == 1){
             view()->share(['title' => 'Imprimir Factura']);
             if ($tipo<>'original') {
