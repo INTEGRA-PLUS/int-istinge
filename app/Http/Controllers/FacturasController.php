@@ -4551,6 +4551,7 @@ class FacturasController extends Controller{
         exit;
     }
 
+    
     public function getFacturaTemp($id, $token)
     {
         // 1️⃣ Validar token de seguridad
