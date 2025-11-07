@@ -1350,6 +1350,7 @@ class NotasDebitoController extends Controller
                 'discrepancyResponse' => $jsonDiscrepancyResponse,
                 'mode'              => $modoBTW,
                 'btw_login'         => $empresa->btw_login,
+                'software'          => 2,
             ]);
 
             // Envio de json completo a microservicio de gestoru.

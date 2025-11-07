@@ -53,6 +53,17 @@ class NotaCredito extends Model
         return number_format($valor, auth()->user()->empresa()->precision, auth()->user()->empresa()->sep_dec, (auth()->user()->empresa()->sep_dec == '.' ? ',' : '.'));
     }
 
+    public function vendedorObj()
+    {
+        return $this->belongsTo(Vendedor::class, 'vendedor');
+    }
+
+    public function clienteObj()
+    {
+        return $this->belongsTo(Contacto::class, 'cliente');
+    }
+
+
     public function cliente(){
          return Contacto::where('id',$this->cliente)->first();
     }

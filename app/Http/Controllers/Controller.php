@@ -2583,6 +2583,7 @@ if ($mikrotik) {
         //Correos para envio de factura.
         $email = $cliente->email;
         $emails = [];
+        $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
 
         if ($email) {
             $emails[] = $email;
@@ -2619,6 +2620,7 @@ if ($mikrotik) {
             'additionalEmail'=> $emailsString,
             'nit'            => $empresa->nit,
             'btw_login'      => $empresa->btw_login,
+            'mode'           => $modoBTW
         ];
 
         $responseEmail = $btw->sendPdfEmail($requestData);

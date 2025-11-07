@@ -571,6 +571,16 @@ class Factura extends Model
         return "";
     }
 
+    public function vendedorObj()
+    {
+        return $this->belongsTo(Vendedor::class, 'vendedor');
+    }
+
+    public function clienteObj()
+    {
+        return $this->belongsTo(Contacto::class, 'cliente');
+    }
+
     public function pagado($sumarRetencion = true){
         $total=IngresosFactura::
         where('factura',$this->id)->

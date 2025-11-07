@@ -1936,7 +1936,7 @@ class FacturasController extends Controller{
         return $this->Imprimir($id, 'copia');
     }
 
-    public static function Imprimir($id, $tipo='original', $especialFe = false){
+    public static function Imprimir($id, $tipo = 'original', $especialFe = false, $save = false, $prevLoad = false){
         $tipo1=$tipo;
 
         /**
@@ -1948,6 +1948,15 @@ class FacturasController extends Controller{
 
         $factura = ($especialFe) ? Factura::where('nonkey', $id)->first()
         : Factura::where('empresa',$empresa->id)->where('id', $id)->first();
+
+        if(!$factura)
+        {
+            $factura = Factura::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        }
+
+        if (!$factura) {
+            return back()->with('error', 'No se ha encontrado la factura');
+        }
 
         if($factura->tipo == 1){
             view()->share(['title' => 'Imprimir Factura']);
@@ -2029,6 +2038,14 @@ class FacturasController extends Controller{
                 $pdf = PDF::loadView('pdf.electronica', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
             }else{
                 $pdf = PDF::loadView('pdf.factura', compact('items', 'factura', 'itemscount', 'tipo', 'retenciones','resolucion','codqr','CUFEvr','data'));
+            }
+
+            if($save){
+                return $pdf;
+            }
+
+            if($prevLoad){
+                return $pdf;
             }
 
             return response($pdf->stream())->withHeaders(['Content-Type' =>'application/pdf']);
@@ -2685,7 +2702,7 @@ class FacturasController extends Controller{
                     if(request()->ajax()){
                         return response()->json(['status'=>'error', 'message' => 'No hay TRM registrada para la fecha actual'], 404);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied', 'No hay TRM registrada para la fecha actual');
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'No hay TRM registrada para la fecha actual');
                     }
                 }else{
                     $factura->trmActual =  $trmActual;
@@ -2702,7 +2719,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'Factura o empresa no encontrada');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'Factura o empresa no encontrada');
                 }
             }
 
@@ -2718,6 +2735,7 @@ class FacturasController extends Controller{
                 $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
                 ->where('num_equivalente', 0)
                 ->where('nomina', 0)
+                ->where('tipo',2)
                 ->where('preferida', 1)->first();
 
             }
@@ -2726,7 +2744,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'No hay resolucion de facturacion activa, por favor verifique'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'No hay resolucion de facturacion activa, por favor verifique');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'No hay resolucion de facturacion activa, por favor verifique');
                 }
             }
 
@@ -2734,7 +2752,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'La empresa no tiene configurado el login para el servicio de BTW'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
                 }
             }
 
@@ -2753,6 +2771,7 @@ class FacturasController extends Controller{
                 'taxes'             => $jsonInvoiceTaxes,
                 'mode'              => $modoBTW,
                 'btw_login'         => $empresa->btw_login,
+                'software'          => 2,
             ]);
 
             // Envio de json completo a microservicio de gestoru.
@@ -2761,7 +2780,7 @@ class FacturasController extends Controller{
 
             //Validacion de que no existe la resolucion.
             if(isset($response->statusCode) && $response->statusCode == 422){
-                return redirect('/empresa/facturas')->with('message_denied_btw', $response->th['message']);
+                return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $response->th['message']);
             }
 
             if(isset($response->status) && $response->status == 'success'){
@@ -2791,7 +2810,7 @@ class FacturasController extends Controller{
                     ]);
 
                 }else{
-                    return redirect('/empresa/facturas')->with('message_success', $mensaje);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje);
                 }
             }
 
@@ -2817,7 +2836,7 @@ class FacturasController extends Controller{
                         'error' => $message
                     ]);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $message);
                     }
                 }
 
@@ -2832,7 +2851,7 @@ class FacturasController extends Controller{
                         'error' => $response->message
                     ], 500);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied_btw', $response->message);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $response->message);
                 }
 
             }else{
@@ -2857,7 +2876,7 @@ class FacturasController extends Controller{
                             'error' => $message
                         ], 500);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $message);
                     }
                 }
 
@@ -2879,7 +2898,7 @@ class FacturasController extends Controller{
                 );
             }
             else{
-                return redirect('/empresa/facturas')->with('message_denied_btw', $th->getMessage());
+                return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $th->getMessage());
             }
         }
     }
@@ -5171,7 +5190,11 @@ class FacturasController extends Controller{
                     $factura->fecha = Carbon::now()->format('Y-m-d');
                     $factura->save();
 
-                    $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                    if($empresa->proveedor == 2){
+                        $this->jsonDianFacturaVenta($factura->id);
+                    }else{
+                        $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                    }
                 }
             }
 

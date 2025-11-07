@@ -1145,6 +1145,7 @@ public function facturas_retenciones($id){
          * datos debemos hacer la misma consulta
          **/
         $emails=array();
+        $empresa = auth()->user()->empresaObj;
         view()->share(['title' => 'Enviando Nota Crédito']);
         $nota = NotaCredito::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
         if ($nota) {
@@ -1157,6 +1158,20 @@ public function facturas_retenciones($id){
                         }
                     }
                 }
+            }
+
+            $cliente = Contacto::where('id', $nota->cliente)->first();
+
+            if($nota->fecha >= '2025-10-01' && $nota->emitida == 1){
+
+                $btw = new BTWService();
+
+                // Envio de correo con el zip.
+                $mensajeCorreo = $this->sendPdfEmailBTW($btw,$nota,$cliente,$empresa,2);
+                // Fin envio de correo con el zip.
+
+                return back()->with('success', $mensajeCorreo);
+                // Fin envio de correo con el zip.
             }
 
             if (count($emails)==0) {
@@ -1492,6 +1507,7 @@ public function facturas_retenciones($id){
                 'taxes'    => $jsonInvoiceTaxes,
                 'mode'     => $modoBTW,
                 'btw_login'=> $empresa->btw_login,
+                'software' => 2,
             ]);
 
             // Envio de json completo a microservicio de gestoru.
@@ -1502,6 +1518,7 @@ public function facturas_retenciones($id){
 
                 $nota->emitida = 1;
                 $nota->dian_response = $response->cufe;
+                $nota->uuid = $response->cufe;
                 $nota->save();
                 $mensaje = "Nota crédito emitida correctamente con el cufe: " . $nota->dian_response;
                 $mensajeCorreo = '';
