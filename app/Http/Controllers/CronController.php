@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Funcion;
 use Illuminate\Support\Facades\Hash;
-
+use Illuminate\Support\Facades\Storage;
 use App\Model\Ingresos\Factura;
 use App\NumeracionFactura;
 use App\Model\Ingresos\ItemsFactura;
@@ -38,7 +38,7 @@ use App\Model\Ingresos\IngresosFactura;
 use App\Banco;
 use App\Instance;
 use App\Model\Gastos\FacturaProveedores;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
@@ -1111,7 +1111,8 @@ class CronController extends Controller
                                                         $API->comm("/ppp/active/remove", [
                                                             ".id" => $response['0']['.id']
                                                         ]);
-                                                    }else{ //NUEVO CODIGO
+                                                    }
+                                                    else{ //NUEVO CODIGO
 
                                                         //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
                                                         $API->write('/ppp/active/print', false);
@@ -3396,6 +3397,217 @@ class CronController extends Controller
    }
 
 
+   public function habilitacionMasivaTV(){
+        $contratos = Contrato::where('contracts.state_olt_catv', 0)
+            ->where('contracts.updated_at', 'like', '%2025-10-21%')
+            ->where('contracts.olt_sn_mac', '!=', 'NULL')
+            ->select('contracts.*')
+            ->get();
+
+        // $logs = MovimientoLOG::where('modulo',5)->where('descripcion','LIKE','%de habilitado a deshabilitado%')->where('created_at','>','2025-08-16')->pluck('contrato');
+        // $contratos = Contrato::whereIn('id',$logs)->where('state','disabled')->get();
+
+        //Habilitando contratos masivamente segun unas especificaciones
+        $empresa = Empresa::find(1);
+        foreach($contratos as $contrato){
+            if($contrato->state_olt_catv == 0){
+
+                //Este es el de habilitacion de CATV
+                /* * * API CATV * * */
+                if($contrato->olt_sn_mac && $empresa->adminOLT != null){
+
+                    $curl = curl_init();
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: '.$empresa->smartOLT
+                        ),
+                        ));
+
+                    $response = curl_exec($curl);
+                    $response = json_decode($response);
+
+                    if(isset($response->status) && $response->status == true){
+
+                        $contrato->state_olt_catv = 1;
+                        $contrato->save();
+                    }
+                }
+
+            }
+        }
+
+        return "ok habilitacion de contratos";
+    }
+
+    public function CrearItemsFactura(){
+
+        //las facturas que les vamos a crear los items son de facturas que estan emitidas en la dian.
+        return $facturas = DB::table('factura')
+        ->where('estatus',0)
+        ->whereNotIn('id', function($query) {
+            $query->select('factura')
+                  ->distinct()
+                  ->from('items_factura')
+                  ->whereNotNull('factura');
+        })
+        ->get();
+
+
+        foreach($facturas as $factura){
+
+            $ingreso = DB::table('ingresos_factura')->where('factura',$factura->id)->first();
+            $cm = Contrato::where('client_id',$factura->cliente)->first();
+
+            if($cm){
+
+                $descuentoPesos = 0;
+                $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+                $fechaActual = Carbon::now()->format('Y-m-d');
+
+                ## Se carga el item a la factura (Plan de Internet) ##
+                if($cm->plan_id){
+                    $plan = PlanesVelocidad::find($cm->plan_id);
+                    $item = Inventario::find($plan->item);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $plan->name;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    if($cm->iva_factura == 1){
+                        $item_reg->id_impuesto = 1;
+                        $item_reg->impuesto = 19;
+                    }
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }else if($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item a la factura (Plan de Televisión) ##
+                if($cm->servicio_tv){
+                    $item = Inventario::find($cm->servicio_tv);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item de otro tipo de servicio ##
+                if($cm->servicio_otro){
+                    $item = Inventario::find($cm->servicio_otro);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+
+                    if($cm->rd_item_vencimiento == 1){
+
+                        if($cm->dt_item_hasta > now()){
+                            $item_reg->save();
+                        }
+                    }else{
+                        $item_reg->save();
+                    }
+                }
+
+                    //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $cm->nro,
+                        'created_by' => 0,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 1,
+                        'created_at' => Carbon::now()
+                    ]);
+
+            }else if($ingreso){
+                    $item = Inventario::Find(170);
+                if($item){
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $ingreso->pagado;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = 0;
+                    $item_reg->impuesto    = 0;
+                    $item_reg->save();
+                }
+            }
+
+        }
+
+        return "ookok";
+
+   }
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
@@ -3683,6 +3895,47 @@ class CronController extends Controller
 
            /// FIN ELIMINAR FACTURAS REPETIDAS EN UN MISMO MES PARA UN MISMO CONTRATO QUE NO ESTEN PAGAS ///
 
+    }
+
+    public function getFacturaTemp($id, $token)
+    {
+        // 1️⃣ Validar token de seguridad
+        if ($token !== config('app.key')) {
+            abort(403, 'Token inválido');
+        }
+
+        // 2️⃣ Buscar factura
+        $factura = Factura::findOrFail($id);
+
+        // 3️⃣ Generar nombre y rutas relativas
+        $fileName = 'Factura_' . $factura->codigo . '.pdf';
+        $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
+        $storagePath = storage_path('app/public/' . $relativePath);
+
+        // 4️⃣ Si ya existe, devolver directamente
+        if (file_exists($storagePath)) {
+            return response()->file($storagePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            ]);
+        }
+
+        // 5️⃣ Generar el PDF en binario
+        $facturaPDF = $this->getPdfFactura($id);
+
+        // 6️⃣ Crear carpeta si no existe
+        if (!Storage::disk('public')->exists('temp')) {
+            Storage::disk('public')->makeDirectory('temp');
+        }
+
+        // 7️⃣ Guardar el archivo usando el Filesystem de Laravel
+        Storage::disk('public')->put($relativePath, $facturaPDF);
+
+        // 8️⃣ Retornar el archivo directamente
+        return response()->file($storagePath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+        ]);
     }
 
     public function envioFacturaWpp(WapiService $wapiService){
@@ -4186,7 +4439,7 @@ class CronController extends Controller
             ->where('emitida',1)
             ->where('dian_service',0);
 
-            $notasDebito = NotaDedito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
+            $notasDebito = NotaDebito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
             ->where('emitida',1)
             ->where('dian_service',0);
 
