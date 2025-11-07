@@ -3909,12 +3909,8 @@ class CronController extends Controller
 
         // 3️⃣ Generar nombre y rutas relativas
         $fileName = 'Factura_' . $factura->codigo . '.pdf';
-        $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
-        $storagePath = storage_path('app/public/' . $relativePath);
-        
-        if (!Storage::disk('public')->exists('temp')) {
-            Storage::disk('public')->makeDirectory('temp', 0755, true);
-        }
+        $relativePath = 'temp/' . $fileName;
+        $storagePath = Storage::disk('public')->path($relativePath);
 
         // 4️⃣ Si ya existe, devolver directamente
         if (file_exists($storagePath)) {
@@ -4063,11 +4059,8 @@ class CronController extends Controller
                     // Generar PDF temporal
                     $this->getFacturaTemp($factura->id, config('app.key'));
                     $fileName = "Factura_{$factura->codigo}.pdf";
-                    $storagePath = storage_path("app/public/temp/{$fileName}");
-                    
-                    if (!Storage::disk('public')->exists('temp')) {
-                        Storage::disk('public')->makeDirectory('temp', 0755, true);
-                    }
+                    $relativePath = 'temp/' . $fileName;
+                    $storagePath = Storage::disk('public')->path($relativePath);
 
                     $attempts = 0;
                     while (!file_exists($storagePath) && $attempts < 5) {
