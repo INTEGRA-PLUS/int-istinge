@@ -4064,6 +4064,10 @@ class CronController extends Controller
                     $this->getFacturaTemp($factura->id, config('app.key'));
                     $fileName = "Factura_{$factura->codigo}.pdf";
                     $storagePath = storage_path("app/public/temp/{$fileName}");
+                    
+                    if (!Storage::disk('public')->exists('temp')) {
+                        Storage::disk('public')->makeDirectory('temp', 0755, true);
+                    }
 
                     $attempts = 0;
                     while (!file_exists($storagePath) && $attempts < 5) {
