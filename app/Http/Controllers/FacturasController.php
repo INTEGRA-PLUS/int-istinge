@@ -4551,6 +4551,47 @@ class FacturasController extends Controller{
         exit;
     }
 
+    public function getFacturaTemp($id, $token)
+    {
+        // 1️⃣ Validar token de seguridad
+        if ($token !== config('app.key')) {
+            abort(403, 'Token inválido');
+        }
+
+        // 2️⃣ Buscar factura
+        $factura = Factura::findOrFail($id);
+
+        // 3️⃣ Generar nombre y rutas relativas
+        $fileName = 'Factura_' . $factura->codigo . '.pdf';
+        $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
+        $storagePath = storage_path('app/public/' . $relativePath);
+
+        // 4️⃣ Si ya existe, devolver directamente
+        if (file_exists($storagePath)) {
+            return response()->file($storagePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            ]);
+        }
+
+        // 5️⃣ Generar el PDF en binario
+        $facturaPDF = $this->getPdfFactura($id);
+
+        // 6️⃣ Crear carpeta si no existe
+        if (!Storage::disk('public')->exists('temp')) {
+            Storage::disk('public')->makeDirectory('temp');
+        }
+
+        // 7️⃣ Guardar el archivo usando el Filesystem de Laravel
+        Storage::disk('public')->put($relativePath, $facturaPDF);
+
+        // 8️⃣ Retornar el archivo directamente
+        return response()->file($storagePath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+        ]);
+    }
+
     public function whatsapp($id, Request $request, WapiService $wapiService)
     {
         // 1️⃣ Buscar instancia activa y factura base
