@@ -3911,6 +3911,10 @@ class CronController extends Controller
         $fileName = 'Factura_' . $factura->codigo . '.pdf';
         $relativePath = 'temp/' . $fileName; // se guarda en storage/app/public/temp/
         $storagePath = storage_path('app/public/' . $relativePath);
+        
+        if (!Storage::disk('public')->exists('temp')) {
+            Storage::disk('public')->makeDirectory('temp', 0755, true);
+        }
 
         // 4️⃣ Si ya existe, devolver directamente
         if (file_exists($storagePath)) {
