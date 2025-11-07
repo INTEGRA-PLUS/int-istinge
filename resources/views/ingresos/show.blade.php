@@ -9,25 +9,22 @@
 	    </div>
 	@else
 	    @if($ingreso->tipo==1)
+	        {{-- @if($ingreso->ingresofactura()->factura()->estatus == 0) --}}
 	        @if($ingreso->ingresofactura())
-            <a href="{{route('ingresos.tirilla', ['id' => $ingreso->nro, 'name' => "Factura No. ".$ingreso->ingresofactura()->factura()->id.".pdf"])}}" class="btn btn-outline-warning @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" target="_blank" id="btn_tirilla"><i class="fas fa-print"></i>Imprimir tirilla</a>
-            <a href="{{route('ingresos.tirillawpp', ['id' => $ingreso->nro, 'name' => $ingreso->ingresofactura()->factura()->id])}}" class="btn btn-success @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" id="btn_tirilla"><i class="fab fa-whatsapp"></i>Enviar tirilla por Whatsapp</a>
+	            <a href="{{route('ingresos.tirilla', ['id' => $ingreso->id, 'name' => "Factura No. ".$ingreso->ingresofactura()->factura()->id.".pdf"])}}" class="btn btn-outline-warning @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" target="_blank" id="btn_tirilla"><i class="fas fa-print"></i>Imprimir tirilla</a>
+	            <a href="{{ route('ingresos.tirillawpp', ['id' => $ingreso->nro]) }}" class="btn btn-success @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" id="btn_tirilla"><i class="fab fa-whatsapp"></i>Enviar tirilla por Whatsapp</a>
 	        @endif
-
-        @endif
-
-        @if($ingreso->valor_anticipo > 0)
-        <a href="{{route('ingresos.tirilla', ['id' => $ingreso->nro, 'name' => "anticipo.pdf"])}}" class="btn btn-outline-warning btn-xs" title="Tirilla" target="_blank" id="btn_tirilla"><i class="fas fa-print"></i>Imprimir tirilla</a>
-        @endif
+	        {{-- @endif --}}
+	    @endif
 
 	    @if($ingreso->tipo!=3)
 	        @if($ingreso->tipo!=4)
 		        @if(isset($_SESSION['permisos']['48']))
-			        <a href="{{route('ingresos.edit',$ingreso->nro)}}" class="btn btn-outline-primary btn-xs"><i class="fas fa-edit"></i>Editar</a>
+			        <a href="{{route('ingresos.edit',$ingreso->id)}}" class="btn btn-outline-primary btn-xs"><i class="fas fa-edit"></i>Editar</a>
 			    @endif
 		    @endif
 		    @if(isset($_SESSION['permisos']['49']))
-		        <form action="{{ route('ingresos.destroy',$ingreso->nro) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-ingreso{{$ingreso->id}}">
+		        <form action="{{ route('ingresos.destroy',$ingreso->id) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-ingreso{{$ingreso->id}}">
 		        	{{ csrf_field() }}
 		        	<input name="_method" type="hidden" value="DELETE">
 		        </form>
@@ -36,20 +33,19 @@
 		@endif
 
 		@if($ingreso->tipo!=3 && $ingreso->tipo!=4)
-            @if(isset($_SESSION['permisos']['49']))
-                <form action="{{ route('ingresos.anular',$ingreso->nro) }}" method="post" class="delete_form" style="display: none;" id="anular-ingreso{{$ingreso->id}}">
-                    {{ csrf_field() }}
-                </form>
-                @if($ingreso->estatus==1)
-                    <button class="btn btn-outline-info btn-xs" type="button" title="Anular" onclick="confirmar('anular-ingreso{{$ingreso->id}}', '¿Está seguro de que desea anular el ingreso?', ' ');"><i class="fas fa-minus"></i>Anular</button>
-                @else
-                    <button class="btn btn-outline-info btn-xs" type="button" title="Abrir" onclick="confirmar('anular-ingreso{{$ingreso->id}}', '¿Está seguro de que desea abrir el ingreso?', ' ');"><i class="fas fa-unlock-alt"></i> Convertir a Abierta</button>
-                @endif
-            @endif
-        @endif
-
-
-
+		    @if(isset($_SESSION['permisos']['49']))
+		        <form action="{{ route('ingresos.anular',$ingreso->id) }}" method="post" class="delete_form" style="display: none;" id="anular-ingreso{{$ingreso->id}}">
+		        	{{ csrf_field() }}
+		        </form>
+		        @if($ingreso->estatus==1)
+		            <button class="btn btn-outline-info btn-xs"  type="button" title="Anular" onclick="confirmar('anular-ingreso{{$ingreso->id}}', '¿Está seguro de que desea anular el ingreso?', ' ');"><i class="fas fa-minus"></i>Anular</button>
+		        @else
+		            <button  class="btn btn-outline-info btn-xs" type="button" title="Abrir" onclick="confirmar('anular-ingreso{{$ingreso->id}}', '¿Está seguro de que desea abrir el ingreso?', ' ');">
+		            	<i class="fas fa-unlock-alt"> Convertir a Abierta</i>
+		            </button>
+		        @endif
+		    @endif
+		@endif
     @endif
 
     <div class="alert alert-warning nopadding onlymovil" style="text-align: center;">
@@ -121,7 +117,7 @@
 						@if($ingreso->adjunto_pago)
 						<tr>
 							<th>Soporte de Pago</th>
-							<td><a href="{{asset('./adjuntos/documentos/'.$ingreso->adjunto_pago)}}" target="_blank">Ver Archivo</a></td>
+							<td><a href="{{asset('adjuntos/documentos/'.$ingreso->adjunto_pago)}}" target="_blank">Ver Archivo</a></td>
 						</tr>
 						@endif
 						@if($ingreso->created_by)
@@ -139,15 +135,6 @@
 					</tbody>
 				</table>
 			</div>
-		</div>
-	</div>
-
-	<!-- Botón para descargar recibo de caja detallado -->
-	<div class="row card-description">
-		<div class="col-md-12 text-center">
-			<a href="{{ route('ingresos.imprimir.nombre', ['id' => $ingreso->nro, 'name' => 'Ingreso No. '.$ingreso->nro.'.pdf']) }}?detalle=1" class="btn btn-primary @if(Auth::user()->rol==47) btn-xl @else btn-lg @endif" title="Imprimir recibo detallado">
-				<i class="fas fa-print"></i> Imprimir Recibo de Caja Detallado
-			</a>
 		</div>
 	</div>
 
