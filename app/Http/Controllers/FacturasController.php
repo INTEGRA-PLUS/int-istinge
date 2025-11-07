@@ -4604,10 +4604,6 @@ class FacturasController extends Controller{
             return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
         }
 
-        if ($instance->status !== "PAIRED") {
-            return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
-        }
-
         $contacto = $factura->cliente();
         $prefijo = '57'; // valor por defecto (Colombia)
         if (!empty($contacto->fk_idpais)) {
@@ -4621,7 +4617,7 @@ class FacturasController extends Controller{
 
         // 📱 Construir número completo con prefijo dinámico
         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-        
+
         /**
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
          * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
@@ -4631,35 +4627,35 @@ class FacturasController extends Controller{
             // 2️⃣ Verificar tipo de canal
             $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
             $canalData = json_decode($canalResponse->scalar ?? '{}');
-            
+
             if (!isset($canalData->status) || $canalData->status !== "success") {
                 return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
             }
-    
+
             $tipoCanal = $canalData->data->channel->type ?? null;
-    
+
             // ============================================================
             // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
             // ============================================================
             $token = config('app.key');
             $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
-    
+
             // Asegurar que el archivo fue generado y accesible
             $fileName = 'Factura_' . $factura->codigo . '.pdf';
             $relativePath = 'temp/' . $fileName;
             $storagePath = storage_path('app/public/' . $relativePath);
-    
+
             // Esperar hasta que el archivo exista (máx. 5 intentos)
             $attempts = 0;
             while (!file_exists($storagePath) && $attempts < 5) {
                 usleep(300000); // 0.3 segundos
                 $attempts++;
             }
-    
+
             if (!file_exists($storagePath)) {
                 return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
             }
-    
+
             // Generar la URL pública accesible
             $urlFactura = url('storage/temp/' . $fileName);
 
@@ -4672,7 +4668,7 @@ class FacturasController extends Controller{
             $saldo = $estadoCuenta->saldoMesAnterior > 0
                 ? $estadoCuenta->saldoMesAnterior + $total
                 : $total;
-    
+
             $body = [
                 "phone" => $telefonoCompleto,
                 "templateName" => "facturas",
@@ -4700,7 +4696,7 @@ class FacturasController extends Controller{
                     ]
                 ]
             ];
-    
+
             // ============================================================
             // 🚀 ENVIAR MENSAJE
             // ============================================================
@@ -4716,29 +4712,32 @@ class FacturasController extends Controller{
                     ]
                 ]);
             }
-            
+
             // ============================================================
             // ✅ VALIDAR RESPUESTA
             // ============================================================
             if (isset($response->statusCode) && $response->statusCode !== 200) {
                 return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
             }
-    
+
             $response = json_decode($response->scalar ?? '{}');
             if (!isset($response->status) || $response->status !== "success") {
                 return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
-    
+
             // ============================================================
             // 🟢 ACTUALIZAR FACTURA
             // ============================================================
             $factura->whatsapp = 1;
             $factura->save();
-    
+
             return back()->with('success', 'Mensaje enviado correctamente.');
 
         } else {
             // 🚀 === FLUJO META (manual con PDF en base64) ===
+            if ($instance->status !== "PAIRED" ) {
+                return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
+            }
             $facturaPDF = $this->getPdfFactura($id);
             $facturaBase64 = base64_encode($facturaPDF);
 
