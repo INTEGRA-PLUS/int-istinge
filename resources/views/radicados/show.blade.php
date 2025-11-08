@@ -82,7 +82,10 @@
                             @endif
 
                             @if($radicado->estatus==0 || $radicado->estatus==2)
-                                <a href="#" onclick="confirmar('proceder{{$radicado->id}}', '¿Está seguro de que desea @if($radicado->tiempo_ini == null) iniciar @else finalizar @endif  el radicado?');" class="btn btn-outline-success btn-sm "title="@if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado"><i class="fas fa-stopwatch"></i> @if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado</a>
+								@if($radicado->tiempo_fin == null)
+									<a href="#" onclick="confirmar('proceder{{$radicado->id}}', '¿Está seguro de que desea @if($radicado->tiempo_ini == null) iniciar @else finalizar @endif  el radicado?');" class="btn btn-outline-success btn-sm "title="@if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado"><i class="fas fa-stopwatch"></i> @if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado</a>
+								@endif
+
                                 @if(isset($_SESSION['permisos']['203']))
                                     <a href="{{route('radicados.edit',$radicado->id)}}" class="btn btn-outline-primary btn-sm" title="Editar"><i class="fas fa-edit"></i> Editar Caso</a>
                                 @endif
@@ -179,10 +182,6 @@
     						<th>Cliente</th>
     						<td><a href="{{ route('contactos.show', $radicado->cliente)}}">{{$radicado->nombre}}</a></td>
     					</tr>
-                        <tr>
-                            <th>Nit</th>
-                            <td><a href="{{ route('contactos.show', $radicado->cliente)}}">{{$radicado->cliente()->nit}}</a></td>
-                        </tr>
     					<tr>
     						<th>N° Telefónico</th>
     						<td>{{$radicado->telefono}}</td>
@@ -195,11 +194,6 @@
     					<tr>
                             <th>Barrio</th>
                             <td>{{$radicado->barrio}}</td>
-                        </tr>
-                        @else
-                        <tr>
-                            <th>Barrio</th>
-                            <td>{{$radicado->cliente()->barrio()->nombre}}</td>
                         </tr>
                         @endif
                         <tr>
@@ -240,11 +234,11 @@
                             <th>Final</th>
                             <td>{{date('d-m-Y g:i:s A', strtotime($radicado->tiempo_fin))}}</td>
                         </tr>
-                        <tr>
-                            <th>Duración</th>
-                            <td>{{ $duracion }} minuto(s)</td>
-                        </tr>
                         @endif
+						<tr>
+							<th>Duración</th>
+							<td>{{ $duracion }} minuto(s)</td>
+						</tr>
                         @if($radicado->contrato)
                         <tr>
                             <th>Contrato</th>
@@ -297,13 +291,35 @@
     						<th>Estatus</th>
     						<td>
     							@if ($radicado->estatus == 0)
-    							    <span class="text-danger font-weight-bold">Pendiente</span>
+									@switch($radicado->temp_status)
+										@case(1)
+											<span class="text-warning font-weight-bold">Iniciado</span>
+											@break
+
+										@case(2)
+											<span class="text-warning font-weight-bold">Finalizado</span>
+											@break
+
+										@default
+											<span class="text-danger font-weight-bold">Pendiente</span>
+									@endswitch
     							@endif
     							@if ($radicado->estatus == 1)
     							    <span class="text-success font-weight-bold">Resuelto</span>
     							@endif
     							@if ($radicado->estatus == 2)
-    							    <span class="text-danger font-weight-bold">Escalado / Pendiente</span>
+									@switch($radicado->temp_status)
+										@case(1)
+											<span class="text-warning font-weight-bold">Escalado / Iniciado</span>
+											@break
+
+										@case(2)
+											<span class="text-warning font-weight-bold">Escalado / Finalizado</span>
+											@break
+
+										@default
+											<span class="text-danger font-weight-bold">Escalado / Pendiente</span>
+									@endswitch
     							@endif
     							@if ($radicado->estatus == 3)
     							    <span class="text-success font-weight-bold">Escalado / Resuelto</span>
@@ -319,14 +335,14 @@
     					@if ($radicado->reporte)
     						<tr>
     							<th>Reporte del Técnico</th>
-                                <td style="white-space: normal;word-wrap: break-word;max-width: 400px;">@php echo($radicado->reporte); @endphp</td>
+                                <td>@php echo($radicado->reporte); @endphp</td>
     						</tr>
     					@endif
     					@if ($radicado->firma)
     						<tr>
     							<th>Firma Cliente</th>
     							<td>
-    								<img src="data:image/png;base64,{{substr($radicado->firma,1)}}" class="img-fluid" style="width: 25%;height: auto;">
+    								<img src="data:image/png;base64,{{substr($radicado->firma,1)}}" class="img-fluid" style="width: 100%;height: auto;">
     	                        </td>
     						</tr>
     					@endif
@@ -378,7 +394,7 @@
     				</tbody>
     			</table>
     		</div>
-    		@if($radicado->reporte=='' && $radicado->estatus > 1)
+    		@if($radicado->estatus > 1)
     			@if(isset($_SESSION['permisos']['210']))
     				<form method="POST" action="{{ route('radicados.update', $radicado->id ) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-radicado" >
     					@csrf
