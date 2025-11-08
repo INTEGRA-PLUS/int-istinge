@@ -750,6 +750,7 @@ class ContratosController extends Controller
             $API->port = $mikrotik->puerto_api;
             $registro = false;
             $getall = '';
+            $ip_autorizada = 0;
             //$API->debug = true;
 
             $nro = Numeracion::where('empresa', 1)->first();
@@ -1025,8 +1026,6 @@ class ContratosController extends Controller
                             )
                         );
                     }
-
-                    $ip_autorizada = 0;
 
                     if ($mikrotik->regla_ips_autorizadas == 1) {
                         $API->comm("/ip/firewall/address-list/add\n=list=ips_autorizadas\n=address=" . $request->ip);
