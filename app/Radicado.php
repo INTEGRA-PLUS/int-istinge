@@ -80,6 +80,9 @@ class Radicado extends Model
     {
         if ($class) {
             if (0 == $this->estatus || 2 == $this->estatus) {
+                if($this->temp_status == 1 || $this->temp_status == 2){
+                    return 'warning';
+                }
                 return 'danger';
             } elseif (1 == $this->estatus || 3 == $this->estatus) {
                 return 'success';
@@ -87,13 +90,31 @@ class Radicado extends Model
         }
 
         if (0 == $this->estatus) {
-            $status = 'Pendiente';
+            switch ($this->temp_status){
+                case 1:
+                    $status = 'Iniciado';
+                    break;
+                case 2:
+                    $status = 'Finalizado';
+                    break;
+                default:
+                    $status = 'Pendiente';
+            }
         } elseif (1 == $this->estatus) {
             $status = 'Solventado';
         } elseif (2 == $this->estatus) {
-            $status = 'Escalado / Pendiente';
+            switch ($this->temp_status){
+                case 1:
+                    $status = 'Escalado/Iniciado';
+                    break;
+                case 2:
+                    $status = 'Escalado/Finalizado';
+                    break;
+                default:
+                    $status = 'Escalado/Pendiente';
+            }
         } elseif (3 == $this->estatus) {
-            $status = 'Escalado / Solventado';
+            $status = 'Escalado/Solventado';
         }
 
         return $status;

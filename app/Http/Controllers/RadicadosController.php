@@ -911,23 +911,24 @@ class RadicadosController extends Controller
         return json_encode($json_data);
     }
 
-    public function proceder($id)
-    {
+    public function proceder($id){
         $this->getAllPermissions(Auth::user()->id);
-        $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        $radicado = Radicado::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
         if ($radicado) {
             if ($radicado->tiempo_ini == null) {
                 $radicado->tiempo_ini = Carbon::now()->toDateTimeString();
                 $radicado->tiempo_est = $radicado->servicio()->tiempo;
-                $mensaje = 'Radicado Iniciado, recuerde que tiene un tiempo de ' . $radicado->tiempo_est . 'min para solventarlo';
+                $mensaje = 'Radicado Iniciado, recuerde que tiene un tiempo de '.$radicado->tiempo_est.'min para solventarlo';
                 $msj = 'Iniciado el tiempo para solventar el radicado.';
-            } else {
+                $radicado->temp_status = 1;
+            }else{
                 $radicado->tiempo_fin = Carbon::now()->toDateTimeString();
                 $inicio = Carbon::parse($radicado->tiempo_ini);
                 $cierre = Carbon::parse($radicado->tiempo_fin);
                 $duracion = $inicio->diffInMinutes($cierre);
-                $mensaje = 'Radicado Finalizado, con una duración de ' . $duracion . 'min';
+                $mensaje = 'Radicado Finalizado, con una duración de '.$duracion.'min';
                 $msj = 'Finalizado el tiempo para solventar el radicado.';
+                $radicado->temp_status = 2;
             }
 
             $radicado->update();
@@ -942,6 +943,7 @@ class RadicadosController extends Controller
         }
         return back('empresa/radicados')->with('danger', 'No existe un registro con ese id');
     }
+
 
     public function eliminarAdjunto($id)
     {
