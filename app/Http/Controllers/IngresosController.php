@@ -1631,7 +1631,7 @@ class IngresosController extends Controller
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
 
         if(!$ingreso){
             return redirect('empresa/ingresos')->with('danger', 'no existe un pago con ese número');
