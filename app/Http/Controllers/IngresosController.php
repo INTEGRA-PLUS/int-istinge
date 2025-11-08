@@ -1634,7 +1634,7 @@ class IngresosController extends Controller
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
 
         if(!$ingreso){
-            return redirect('empresa/ingresos')->with('error', 'no existe un pago con ese número');
+            return redirect('empresa/ingresos')->with('danger', 'no existe un pago con ese número');
         }
 
         //tomamos las formas de pago cuando no es un recibo de caja por anticipo
@@ -1645,10 +1645,10 @@ class IngresosController extends Controller
         if ($ingreso) {
             view()->share(['icon' =>'', 'title' => 'Modificar Ingreso (Recibo de Caja) #'.$ingreso->nro]);
             if ($ingreso->tipo==3) {
-                return redirect('empresa/ingresos')->with('error', 'No puede editar un pago de nota de débito');
+                return redirect('empresa/ingresos')->with('danger', 'No puede editar un pago de nota de débito');
             }
             if ($ingreso->tipo==4) {
-                return redirect('empresa/ingresos')->with('error', 'No puede editar una transferencia');
+                return redirect('empresa/ingresos')->with('danger', 'No puede editar una transferencia');
             }
             $bancos = Banco::where('empresa',Auth::user()->empresa)->where('estatus', 1)->get();
             $clientes = (Auth::user()->empresa()->oficina) ? Contacto::where('status', 1)->whereIn('tipo_contacto',[0,2])->where('empresa', Auth::user()->empresa)->where('oficina', Auth::user()->oficina)->orderBy('nombre','asc')->get() : Contacto::where('status', 1)->whereIn('tipo_contacto',[0,2])->where('empresa', Auth::user()->empresa)->orderBy('nombre','asc')->get();
