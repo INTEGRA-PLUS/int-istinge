@@ -2681,9 +2681,9 @@ class FacturasController extends Controller{
             if(request()->code){
                 $factura = Factura::where('empresa', auth()->user()->empresa)->where('codigo', $id)->first();
             }else{
-
                 $factura = Factura::Find($id);
             }
+
             $empresa = Empresa::Find($factura->empresa);
             $cliente = $factura->clienteObj;
             $operacionCodigo = "10";
@@ -2755,6 +2755,8 @@ class FacturasController extends Controller{
                     return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
                 }
             }
+
+            $factura->fecha = Carbon::now()->format('Y-m-d');
 
             // Construccion del json por partes.
             $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW);
