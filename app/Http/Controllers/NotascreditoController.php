@@ -1493,9 +1493,9 @@ public function facturas_retenciones($id){
             }
 
             // Construccion del json por partes.
-            $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadCreditNote($nota,$factura,$resolucion,$modoBTW);
+            $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadCreditNote($nota,$factura,$resolucion,$modoBTW, $operacionCodigo);
             $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($nota,$resolucion,$modoBTW);
-            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW, $operacionCodigo);
+            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW);
             $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW, $factura);
             $jsonInvoiceTaxes = InvoiceJsonBuilder::buildFromTaxes(true, $nota,$empresa,$modoBTW);
 
@@ -1507,7 +1507,7 @@ public function facturas_retenciones($id){
                 'taxes'    => $jsonInvoiceTaxes,
                 'mode'     => $modoBTW,
                 'btw_login'=> $empresa->btw_login,
-                'software' => 2,
+                'software' => 1,
             ]);
 
             // Envio de json completo a microservicio de gestoru.

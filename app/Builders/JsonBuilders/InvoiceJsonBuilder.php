@@ -14,7 +14,7 @@ use InvalidArgumentException;
 class InvoiceJsonBuilder
 {
 
-    public static function buildFromHeadInvoice($factura,$resolucion, $modoBTW){
+    public static function buildFromHeadInvoice($factura,$resolucion, $modoBTW, $operacionCodigo){
 
         $empresa = Empresa::Find($factura->empresa);
         $totales = $factura->total();
@@ -76,6 +76,7 @@ class InvoiceJsonBuilder
                 'legalNumber' => $legalNumber,
                 'invoiceDate' => $factura->fecha,
                 'dueDate' => $factura->vencimiento,
+                'operationType_c' => $operacionCodigo,
                 'dspDocSubTotal' => round($totales->subtotal - $totales->descuento, 2),
                 'docTaxAmt' => round($totalIva,2),
                 'docWHTaxAmt' => round($totalRetenciones,2),
@@ -112,7 +113,7 @@ class InvoiceJsonBuilder
         ];
     }
 
-    public static function buildFromHeadCreditNote($nota, $factura, $resolucion, $modoBTW){
+    public static function buildFromHeadCreditNote($nota, $factura, $resolucion, $modoBTW, $operacionCodigo){
         $empresa = Empresa::Find($factura->empresa);
         $totales = $nota->total();
         $forma_pago = $factura->forma_pago();
@@ -168,6 +169,7 @@ class InvoiceJsonBuilder
                 'invoiceType' => 'CreditNoteType',
                 'invoiceNum' => (string) $nota->nro,
                 'legalNumber' => (string) $nota->nro,
+                'operationType_c' => $operacionCodigo,
                 'invoiceDate' => $nota->fecha,
                 "invoiceRef" => $factura->codigo,
                 "cmReasonCode_c" => $nota->tipo,
@@ -289,7 +291,7 @@ class InvoiceJsonBuilder
     }
 
 
-    public static function buildFromCompany($empresa, $modoBTW, $operacionCodigo){
+    public static function buildFromCompany($empresa, $modoBTW){
 
         $municipio = $empresa->municipio();
         $departamento = $empresa->departamento();
@@ -323,7 +325,7 @@ class InvoiceJsonBuilder
                 'name' => $empresa->nombre,
                 'regimeType_c' => '05',
                 'fiscalResposability_c' => $responsabilidades,
-                'operationType_c' => $operacionCodigo,
+                'operationType_c' => 10, //Persona residente 10 - no residente 11
                 'companyType_c' => $empresa->tipo_persona == 'j' ? 1 : 2,
                 'state' => $departamento->nombre,
                 'stateNum' => $departamento->codigo,
