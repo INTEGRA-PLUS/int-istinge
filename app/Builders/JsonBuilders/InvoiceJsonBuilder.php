@@ -146,19 +146,7 @@ class InvoiceJsonBuilder
         //Validaciones cuando la factura no es de BTW.
         if($factura->fecha < '2025-10-05'){
 
-            $controller = new Controller;
-            // $controller->validateStatusDian($empresa->nit, $factura->codigo, "01", $resolucion->prefijo);
-            $cadena = $controller->validateStatusDian($empresa->nit, $factura->codigo, "01", $resolucion->prefijo);
-            $cadena = json_decode($cadena);
-
-            $newsFields = [];
-            if(isset($cadena->uuid)){
-                $newsFields = [
-                    'invoiceRefCufe' => $cadena->uuid,
-                    'invoiceRefDate' => $factura->fecha,
-                    'documentRefType' => '01'
-                ];
-            }else if($factura->uuid != ""){
+            if($factura->uuid != ""){
                 $newsFields = [
                     'invoiceRefCufe' => $factura->uuid,
                     'invoiceRefDate' => $factura->fecha,
