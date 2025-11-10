@@ -63,6 +63,10 @@ class NotaCredito extends Model
         return $this->belongsTo(Contacto::class, 'cliente');
     }
 
+    public function facturaNotaCredito()
+    {
+        return $this->belongsTo(NotaCreditoFactura::class, 'id', 'nota');
+    }
 
     public function cliente(){
          return Contacto::where('id',$this->cliente)->first();
