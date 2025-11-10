@@ -164,8 +164,14 @@ class InvoiceJsonBuilder
                     'invoiceRefDate' => $factura->fecha,
                     'documentRefType' => '01'
                 ];
+            }else {
+                $CUFEvr = $factura->info_cufe($factura->id);
+                $newsFields = [
+                    'invoiceRefCufe' => $CUFEvr,
+                    'invoiceRefDate' => $factura->fecha,
+                    'documentRefType' => '01'
+                ];
             }
-
         }
 
         return [

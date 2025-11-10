@@ -756,7 +756,7 @@ class Factura extends Model
 
     }
 
-    public function info_cufe($id, $impTotal)
+    public function info_cufe($id, $impTotal = 0)
     {
         $factura = Factura::find($id);
         $technicalKey = "";
@@ -778,6 +778,27 @@ class Factura extends Model
             $horaFac = $factura->created_at;
             $factura->fecha = $factura->created_at;
         }
+
+        //INICIO CALCULO IVA
+        //Caso tal de que no se mande el tottal iva lo calculamos aca mismo como se hacia en el controller.
+        $impTotal = 0;
+
+        foreach ($factura->total()->imp as $totalImp) {
+            if (isset($totalImp->total)) {
+                $impTotal += $totalImp->total;
+            }
+        }
+
+        $decimal = explode(".", $impTotal);
+        if (
+            isset($decimal[1]) && $decimal[1] >= 50 || isset($decimal[1]) && $decimal[1] == 5 || isset($decimal[1]) && $decimal[1] == 4
+            || isset($decimal[1]) && $decimal[1] == 3 || isset($decimal[1]) && $decimal[1] == 2 || isset($decimal[1]) && $decimal[1] == 1
+        ) {
+            $impTotal = round($impTotal);
+        } else {
+            $impTotal = round($impTotal);
+        }
+        //FIN CALCULO IVA
 
         $totalIva = 0.00;
         $totalInc = 0.00;
