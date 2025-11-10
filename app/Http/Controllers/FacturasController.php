@@ -1742,9 +1742,9 @@ class FacturasController extends Controller{
                 $mensaje='Se ha modificado satisfactoriamente la factura';
                 return redirect($request->page)->with('success', $mensaje)->with('codigo', $factura->id);
             }
-            return redirect('empresa/facturas')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
+            return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
         }
-        return redirect('empresa/facturas')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
     }
 
   /**
@@ -1783,7 +1783,7 @@ class FacturasController extends Controller{
 
             return view('facturas.show')->with(compact('factura', 'items', 'retenciones', 'realStatus','contrato'));
         }
-        return redirect('empresa/facturas')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
     }
 
     public function showMovimiento($id){
@@ -2357,9 +2357,9 @@ class FacturasController extends Controller{
                 $factura->save();
                 return back()->with('success', 'Se cambiado a abierta la factura');
             }
-            return redirect('empresa/facturas')->with('success', 'La factura no esta abierta');
+            return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura no esta abierta');
         }
-        return redirect('empresa/facturas')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
     }
 
     public function cerrar($id){
@@ -2371,9 +2371,9 @@ class FacturasController extends Controller{
                 $factura->save();
                 return back()->with('success', 'Se ha cerrado la factura');
             }
-            return redirect('empresa/facturas')->with('success', 'La factura no esta abierta');
+            return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura no esta abierta');
         }
-        return redirect('empresa/facturas')->with('success', 'No existe un registro con ese id');
+        return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
     }
 
     public function datatable_producto(Request $request, $producto=null){
@@ -2647,7 +2647,7 @@ class FacturasController extends Controller{
         $factura->statusdian = 1;
         $factura->save();
         $mensaje = "Se ha aceptado la factura electrónica";
-        return redirect('empresa/facturas')->with('success', $mensaje);
+        return redirect('empresa/facturas/facturas_electronica')->with('success', $mensaje);
     }
 
     public function facturaRetenciones(Request $request){
@@ -2704,7 +2704,7 @@ class FacturasController extends Controller{
                     if(request()->ajax()){
                         return response()->json(['status'=>'error', 'message' => 'No hay TRM registrada para la fecha actual'], 404);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied', 'No hay TRM registrada para la fecha actual');
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'No hay TRM registrada para la fecha actual');
                     }
                 }else{
                     $factura->trmActual =  $trmActual;
@@ -2721,7 +2721,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'Factura o empresa no encontrada');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'Factura o empresa no encontrada');
                 }
             }
 
@@ -2744,7 +2744,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'No hay resolucion de facturacion activa, por favor verifique'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'No hay resolucion de facturacion activa, por favor verifique');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'No hay resolucion de facturacion activa, por favor verifique');
                 }
             }
 
@@ -2752,7 +2752,7 @@ class FacturasController extends Controller{
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'La empresa no tiene configurado el login para el servicio de BTW'], 404);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
                 }
             }
 
@@ -2780,7 +2780,7 @@ class FacturasController extends Controller{
 
             //Validacion de que no existe la resolucion.
             if(isset($response->statusCode) && $response->statusCode == 422){
-                return redirect('/empresa/facturas')->with('message_denied_btw', $response->th['message']);
+                return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $response->th['message']);
             }
 
             if(isset($response->status) && $response->status == 'success'){
@@ -2810,7 +2810,7 @@ class FacturasController extends Controller{
                     ]);
 
                 }else{
-                    return redirect('/empresa/facturas')->with('message_success', $mensaje);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje);
                 }
             }
 
@@ -2836,7 +2836,7 @@ class FacturasController extends Controller{
                         'error' => $message
                     ]);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $message);
                     }
                 }
 
@@ -2851,7 +2851,7 @@ class FacturasController extends Controller{
                         'error' => $response->message
                     ], 500);
                 }else{
-                    return redirect('/empresa/facturas')->with('message_denied_btw', $response->message);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $response->message);
                 }
 
             }else{
@@ -2876,7 +2876,7 @@ class FacturasController extends Controller{
                             'error' => $message
                         ], 500);
                     }else{
-                        return redirect('/empresa/facturas')->with('message_denied_btw', $message);
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $message);
                     }
                 }
 
@@ -2898,7 +2898,7 @@ class FacturasController extends Controller{
                 );
             }
             else{
-                return redirect('/empresa/facturas')->with('message_denied_btw', $th->getMessage());
+                return redirect('/empresa/facturas/facturas_electronica')->with('message_denied_btw', $th->getMessage());
             }
         }
     }
