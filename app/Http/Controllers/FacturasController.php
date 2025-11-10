@@ -3465,23 +3465,55 @@ class FacturasController extends Controller{
     {
         $factura = Factura::find($request->id);
 
+        // Validar que la factura exista
+        if (!$factura) {
+            return response()->json([
+                "error" => "Factura no encontrada"
+            ], 404);
+        }
+
         $numeracion = NumeracionFactura::where('empresa', Auth::user()->empresa)->where('tipo',2)->where('id', $factura->numeracion)->first();
+
+        // Validar que la numeración exista
+        if (!$numeracion) {
+            return response()->json([
+                "error" => "Numeración no encontrada"
+            ], 404);
+        }
+
         $empresa  = Empresa::select('id', 'fk_idpais', 'fk_iddepartamento', 'fk_idmunicipio', 'dv', 'fk_idpais', 'fk_iddepartamento', 'fk_idmunicipio', 'dv')
         ->with('responsabilidades')
         ->where('id', auth()->user()->empresa)
         ->first();
+
+        // Validar que la empresa exista
+        if (!$empresa) {
+            return response()->json([
+                "error" => "Empresa no encontrada"
+            ], 404);
+        }
+
         $cliente  = $factura->cliente();
+
+        // Validar que el cliente exista
+        if (!$cliente) {
+            return response()->json([
+                "error" => "Cliente no encontrado"
+            ], 404);
+        }
 
         //Inicializamos la variable para ver si tiene las nuevas responsabilidades que no da la dian 042
         $resp = 0;
-        $responsabilidades = $empresa->responsabilidades->count();
+        $responsabilidades = $empresa->responsabilidades ? $empresa->responsabilidades->count() : 0;
 
-        foreach ($empresa->responsabilidades as $responsabilidad) {
+        if ($empresa->responsabilidades) {
+            foreach ($empresa->responsabilidades as $responsabilidad) {
 
-            $listaResponsabilidadesDian = [5, 7, 12, 20, 29];
+                $listaResponsabilidadesDian = [5, 7, 12, 20, 29];
 
-            if (in_array($responsabilidad->pivot->id_responsabilidad, $listaResponsabilidadesDian)) {
-                $resp = 1;
+                if (in_array($responsabilidad->pivot->id_responsabilidad, $listaResponsabilidadesDian)) {
+                    $resp = 1;
+                }
             }
         }
 
@@ -3526,7 +3558,7 @@ class FacturasController extends Controller{
             } else {
                 $emitida = true;
             }
-        } elseif (is_numeric($numero) && $numero == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
+        } elseif (is_numeric($numero) && isset($numeracion->inicioverdadero) && $numero == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
             $emitida = true;
         } else { //cambió el prefijo de una numeracion existente ademas hay mas facturas con esa numeración sin emitir
             /*
