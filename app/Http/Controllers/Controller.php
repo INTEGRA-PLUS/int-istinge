@@ -570,7 +570,7 @@ class Controller extends BaseController
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => "GET",
             CURLOPT_HTTPHEADER => array(
-                "efacturaAuthorizationToken: AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
+                "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                 "Content-Type: text/plain",
                 "Partnership-Id: 1128464945"
             ),

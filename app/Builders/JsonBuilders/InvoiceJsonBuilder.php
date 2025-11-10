@@ -158,6 +158,12 @@ class InvoiceJsonBuilder
                     'invoiceRefDate' => $factura->fecha,
                     'documentRefType' => '01'
                 ];
+            }else if($factura->uuid != ""){
+                $newsFields = [
+                    'invoiceRefCufe' => $factura->uuid,
+                    'invoiceRefDate' => $factura->fecha,
+                    'documentRefType' => '01'
+                ];
             }
 
         }
