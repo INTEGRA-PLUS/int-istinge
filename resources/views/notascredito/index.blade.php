@@ -36,25 +36,29 @@
 
 @if (Session::has('message_denied'))
 <div class="alert alert-danger" role="alert">
-	@if (Session::get('statusCode') == 400)
-		{{ 'La Dian está presentando problemas en este momento.' }}
-	@else
-		{{ Session::get('message_denied') }}
-		@if (Session::get('errorReason'))<br> <strong>Razon(es): <br></strong>
-			@if (count(Session::get('errorReason')) > 0)
-				@php $cont = 0 @endphp
-				@foreach (Session::get('errorReason') as $error)
-					@php $cont = $cont + 1; @endphp
-					{{ $cont }} - {{ $error }} <br>
-				@endforeach
-				{{-- @else
-{{ Session::get('errorReason') }} --}}
-			@endif
-		@endif
-	@endif
-	<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-		<span aria-hidden="true">&times;</span>
-	</button>
+    @if (Session::get('statusCode') == 400)
+        {{ 'La Dian está presentando problemas en este momento. Por favor intenta más tarde' }}
+    @else
+        {{ Session::get('message_denied') }}
+        @if (Session::has('errorReason'))
+            <br> <strong>Razon(es): <br></strong>
+            @php
+                $errorReason = Session::get('errorReason');
+            @endphp
+            @if (is_array($errorReason) && count($errorReason) > 0)
+                @php $cont = 0 @endphp
+                @foreach ($errorReason as $error)
+                    @php $cont = $cont + 1; @endphp
+                    {{ $cont }} - {{ $error }} <br>
+                @endforeach
+            @else
+                {{ $errorReason }}
+            @endif
+        @endif
+    @endif
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 @endif
 
