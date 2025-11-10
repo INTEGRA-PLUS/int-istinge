@@ -2725,7 +2725,6 @@ class FacturasController extends Controller{
                 }
             }
 
-
             // Numeracion Factura o POS
             if($factura->tipo == 6){
 
@@ -2758,6 +2757,9 @@ class FacturasController extends Controller{
                     return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'La empresa no tiene configurado el login para el servicio de BTW');
                 }
             }
+
+            $factura->fecha = Carbon::now()->format('Y-m-d');
+            $factura->save();
 
             // Construccion del json por partes.
             $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW, $operacionCodigo);
