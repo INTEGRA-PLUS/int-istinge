@@ -3498,12 +3498,20 @@ class FacturasController extends Controller{
             $numero = intval(preg_replace('/[^0-9]+/', '', $factura->codigo), 10);
         } else {
             $codigo = $factura->codigo;
-            $numero = $factura->codigo;
+            // Extrae el número del código si existe, de lo contrario usa 0
+            $numeroExtraido = preg_replace('/[^0-9]+/', '', $factura->codigo);
+            $numero = !empty($numeroExtraido) ? intval($numeroExtraido, 10) : 0;
         }
 
+        // Validar que $numero sea numérico antes de hacer operaciones aritméticas
+        if (!is_numeric($numero)) {
+            $numero = 0;
+        } else {
+            $numero = intval($numero);
+        }
 
         //Si tenemos una pasada factura a la que estamos intentando emitir entra a este if
-        if (Factura::where('empresa', Auth::user()->empresa)
+        if ($numero > 0 && Factura::where('empresa', Auth::user()->empresa)
                 ->where('numeracion', $factura->numeracion)
                 ->where('codigo', $codigo . ($numero - 1))
                 ->first()) {
@@ -3518,7 +3526,7 @@ class FacturasController extends Controller{
             } else {
                 $emitida = true;
             }
-        } elseif ($numero == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
+        } elseif (is_numeric($numero) && $numero == $numeracion->inicioverdadero) { //-- si no entra es por que hay la posibilidad de que sea la primer factura emitida de esa numeración
             $emitida = true;
         } else { //cambió el prefijo de una numeracion existente ademas hay mas facturas con esa numeración sin emitir
             /*
