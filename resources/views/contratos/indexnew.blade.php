@@ -427,12 +427,12 @@
 
     var tabla = null;
     var isDataTableInitialized = false;  // Nueva variable para controlar la inicialización
-    var tienePermiso860 = @json(isset($_SESSION['permisos']['860']));
+    var tienePermiso405 = @json(isset($_SESSION['permisos']['405']));
 
     window.addEventListener('load',
     function() {
 
-        if (tienePermiso860) {
+        if (tienePermiso405) {
             tabla = $('#tabla-contratos').DataTable({
 			responsive: true,
 			serverSide: true,
