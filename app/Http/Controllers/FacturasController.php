@@ -3806,7 +3806,9 @@ class FacturasController extends Controller{
         return json_encode($factura);
     }
 
+
     public function store_promesa(Request $request) {
+
         $request->validate([
             'id' => 'required',
             'promesa_pago' => 'required',
@@ -3815,7 +3817,7 @@ class FacturasController extends Controller{
 
 
         $factura = Factura::where('id', $request->id)->first();
-        $contrato = $factura->contratoAsociado();
+        $empresa = Empresa::find($factura->empresa);
 
         $numero = 0;
         $numero = PromesaPago::all()->count();
@@ -3839,73 +3841,129 @@ class FacturasController extends Controller{
 
         /* VERIFICAR SI EL CONTRATO ESTÁ DESHABILITADO PARA HABILITARLO */
 
-        $contrato = $factura->contratoAsociado();
-        if ($contrato) {
-            $mikrotik = Mikrotik::find($contrato->server_configuration_id);
-            $API = new RouterosAPI();
-            $API->port = $mikrotik->puerto_api;
+        $contratos = $factura->contratos();
 
-            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-                $API->write('/ip/firewall/address-list/print', TRUE);
-                $ARRAYS = $API->read();
+        foreach($contratos as $contrato){
 
-                #ELIMINAMOS DE MOROSOS#
-                    $API->write('/ip/firewall/address-list/print', false);
-                    $API->write('?address='.$contrato->ip, false);
-                    $API->write("?list=morosos",false);
-                    $API->write('=.proplist=.id');
+            $contrato = Contrato::where('nro',$contrato->contrato_nro)->first();
+
+            if($contrato){
+
+                //Este es el de habilitacion de CATV
+                /* * * API CATV * * */
+                if($contrato->olt_sn_mac && $empresa->adminOLT != null){
+
+                    $curl = curl_init();
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: '.$empresa->smartOLT
+                        ),
+                        ));
+
+                    $response = curl_exec($curl);
+                    $response = json_decode($response);
+
+                    if(isset($response->status) && $response->status == true){
+                        $contrato->state_olt_catv = 1;
+                        $contrato->save();
+                    }
+                }
+                /* * * API CATV * * */
+
+
+                $mikrotik = Mikrotik::find($contrato->server_configuration_id);
+                $API = new RouterosAPI();
+                $API->port = $mikrotik->puerto_api;
+
+                if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                    $API->write('/ip/firewall/address-list/print', TRUE);
                     $ARRAYS = $API->read();
 
-                    if(count($ARRAYS)>0){
-                        $API->write('/ip/firewall/address-list/remove', false);
-                        $API->write('=.id='.$ARRAYS[0]['.id']);
-                        $READ = $API->read();
+                    #HABILITACION DEL SECRET#
+                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                        if($contrato->conexion == 1 && $contrato->usuario != null){
+                                            // Buscar el ID interno del secret
+                        $API->write('/ppp/secret/print', false);
+                        $API->write('?name=' . $contrato->usuario, true);
+                        $ARRAYS = $API->read();
+
+                        if (count($ARRAYS) > 0) {
+                            $id = $ARRAYS[0]['.id'];
+                            // Habilitar el secret
+                            $API->write('/ppp/secret/enable', false);
+                            $API->write('=numbers=' . $id, true);
+                            $response = $API->read();
+                        }
+                        }
+                        #HABILITACION DEL SECRET#
+
+                    }else{
+
+                        $API->write('/ip/firewall/address-list/print', false);
+                        $API->write('?address=' . $contrato->ip, false);
+                        $API->write('?list=morosos', true);
+                        $result = $API->read();
+
+                        if (!empty($result)) {
+
+                            #ELIMINAMOS DE MOROSOS#
+                            $API->write('/ip/firewall/address-list/print', false);
+                            $API->write('?address='.$contrato->ip, false);
+                            $API->write("?list=morosos",false);
+                            $API->write('=.proplist=.id');
+                            $ARRAYS = $API->read();
+
+                            if(count($ARRAYS)>0){
+                                $API->write('/ip/firewall/address-list/remove', false);
+                                $API->write('=.id='.$ARRAYS[0]['.id']);
+                                $READ = $API->read();
+
+
+                                #AGREGAMOS A IP_AUTORIZADAS#
+                                $API->comm("/ip/firewall/address-list/add", array(
+                                    "address" => $contrato->ip,
+                                    "list" => 'ips_autorizadas'
+                                    )
+                                );
+                                #AGREGAMOS A IP_AUTORIZADAS#
+
+
+                                $mensaje = "- Se ha sacado la ip de morosos.";
+                                $contrato->state = 'enabled';
+                                $contrato->save();
+
+                            }else{
+                                Log::info('Contrato nro:' . $contrato->nro . ' no se pudo sacar de morosos desde promesa de pago');
+                            }
+                            #ELIMINAMOS DE MOROSOS#
+                        }else{
+                            Log::info('Contrato nro:' . $contrato->nro . ' no estaba en morosos desde promesa de pago');
+                        }
+                    #ELIMINAMOS DE MOROSOS#
                     }
-                #ELIMINAMOS DE MOROSOS#
 
-                #AGREGAMOS A IP_AUTORIZADAS#
-                    $API->comm("/ip/firewall/address-list/add", array(
-                        "address" => $contrato->ip,
-                        "list" => 'ips_autorizadas'
-                        )
-                    );
-                #AGREGAMOS A IP_AUTORIZADAS#
+                    #AGREGAMOS A IP_AUTORIZADAS#
+                        $API->comm("/ip/firewall/address-list/add", array(
+                            "address" => $contrato->ip,
+                            "list" => 'ips_autorizadas'
+                            )
+                        );
+                    #AGREGAMOS A IP_AUTORIZADAS#
 
-                $contrato->state = 'enabled';
-                $contrato->save();
-                $API->disconnect();
-            }
-
-            //Este es el de habilitacion de CATV
-            /* * * API CATV * * */
-            $empresa = Empresa::find(1);
-            if($contrato->olt_sn_mac && $empresa->adminOLT != null){
-
-                $curl = curl_init();
-                curl_setopt_array($curl, array(
-                    CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_ENCODING => '',
-                    CURLOPT_MAXREDIRS => 10,
-                    CURLOPT_TIMEOUT => 0,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                    CURLOPT_CUSTOMREQUEST => 'POST',
-                    CURLOPT_HTTPHEADER => array(
-                        'X-token: '.$empresa->smartOLT
-                    ),
-                    ));
-
-                $response = curl_exec($curl);
-                $response = json_decode($response);
-
-                if(isset($response->status) && $response->status == true){
-                    $contrato->state_olt_catv = 1;
+                    $contrato->state = 'enabled';
                     $contrato->save();
+                    $API->disconnect();
                 }
             }
-            /* * * API CATV * * */
-
 
         }
 
