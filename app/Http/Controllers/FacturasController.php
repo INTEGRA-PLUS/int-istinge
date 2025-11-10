@@ -2725,6 +2725,7 @@ class FacturasController extends Controller{
                 }
             }
 
+
             // Numeracion Factura o POS
             if($factura->tipo == 6){
 
