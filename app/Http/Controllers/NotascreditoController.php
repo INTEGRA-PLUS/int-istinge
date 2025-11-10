@@ -1533,6 +1533,9 @@ class NotascreditoController extends Controller
                 }
             }
 
+            $nota->fecha = Carbon::now()->format('Y-m-d');
+            $nota->save();
+
             // Construccion del json por partes.
             $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadCreditNote($nota,$factura,$resolucion,$modoBTW, $operacionCodigo);
             $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($nota,$resolucion,$modoBTW);
