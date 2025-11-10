@@ -1029,112 +1029,152 @@ class NotascreditoController extends Controller
         return redirect('empresa/notascredito')->with('success', 'No existe un registro con ese id');
     }
 
-    /**
+        /**
      * Funcion para generar el pdf
-     */
-    public static function Imprimir($id){
+    */
+    public static function Imprimir($id, $save = null, $pdfImprimir = false)
+    {
         /**
          * toma en cuenta que para ver los mismos
          * datos debemos hacer la misma consulta
          **/
+
+        $empresa = auth()->user()->empresaObj;
+
+
         view()->share(['title' => 'Imprimir Nota de Crédito']);
-        $nota = NotaCredito::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-        if ($nota) {
-            $retenciones = NotaRetencion::where('notas', $nota->id)->get();
-            $items = ItemsNotaCredito::where('nota',$nota->id)->get();
-            $itemscount = ItemsNotaCredito::where('nota',$nota->id)->count();
-            $facturas = NotaCreditoFactura::where('nota',$nota->id)->get();
 
-            if($nota->emitida == 1){
-                $infoEmpresa = Empresa::find(Auth::user()->empresa);
-                $data['Empresa'] = $infoEmpresa->toArray();
+        $nota = NotaCredito::where('empresa', $empresa->id)
+            ->where('id', $id)
+            ->where('is_remision_alt', false)
+            ->first();
 
-                $infoCliente = Contacto::find($nota->cliente);
-                $data['Cliente'] = $infoCliente->toArray();
+        if (!$nota) {
+            return back()->with('error', 'No se ha encontrado la nota de crédito');
+        }
 
-                $impTotal = 0;
+        $retenciones = NotaRetencion::select('notas_retenciones.*', 'retenciones.tipo as id_tipo')
+            ->join('retenciones', 'retenciones.id', '=', 'notas_retenciones.id_retencion')
+            ->where('notas', $nota->id)
+            ->where("notas_retenciones.tipo", 1)
+            ->where('retenciones.empresa', $empresa->id)
+            ->get();
 
-                foreach ($nota->total()->imp as $totalImp){
-                    if(isset($totalImp->total)){
-                        $impTotal = $totalImp->total;
-                    }
+        $items = ItemsNotaCredito::where('nota', $nota->id)->get();
+        $itemscount = ItemsNotaCredito::where('nota', $nota->id)->count();
+        $facturas = NotaCreditoFactura::where('nota', $nota->id)->get();
+
+
+
+        if ($nota->emitida == 1) {
+            $infoEmpresa = Empresa::find($empresa->id);
+            $data['Empresa'] = $infoEmpresa->toArray();
+
+            $infoCliente = Contacto::find($nota->cliente);
+            $data['Cliente'] = $infoCliente->toArray();
+
+            $impTotal = 0;
+
+            foreach ($nota->total()->imp as $totalImp) {
+                if (isset($totalImp->total)) {
+                    $impTotal = $totalImp->total;
                 }
+            }
 
-                $infoCude = [
-                  'Numfac' => $nota->nro,
-                  'FecFac' => Carbon::parse($nota->created_at)->format('Y-m-d'),
-                  'HorFac' => Carbon::parse($nota->created_at)->format('H:i:s').'-05:00',
-                  'ValFac' => number_format($nota->total()->subtotal,2,'.',''),
-                  'CodImp' => '01',
-                  'ValImp' => number_format($impTotal,2,'.',''),
-                  'CodImp2'=> '04',
-                  'ValImp2'=> '0.00',
-                  'CodImp3'=> '03',
-                  'ValImp3'=> '0.00',
-                  'ValTot' => number_format($nota->total()->subtotal + $nota->impuestos_totales(), 2, '.', ''),
-                  'NitFE'  => $data['Empresa']['nit'],
-                  'NumAdq' => $nota->cliente()->nit,
-                  'pin'    => 75315,
-                  'TipoAmb'=> 2,
-              ];
+            $infoCude = [
+                'Numfac' => $nota->nro,
+                'FecFac' => Carbon::parse($nota->created_at)->format('Y-m-d'),
+                'HorFac' => Carbon::parse($nota->created_at)->format('H:i:s') . '-05:00',
+                'ValFac' => number_format($nota->total()->subtotal, 2, '.', ''),
+                'CodImp' => '01',
+                'ValImp' => number_format($impTotal, 2, '.', ''),
+                'CodImp2' => '04',
+                'ValImp2' => '0.00',
+                'CodImp3' => '03',
+                'ValImp3' => '0.00',
+                'ValTot' => number_format($nota->total()->subtotal + $nota->impuestos_totales(), 2, '.', ''),
+                'NitFE'  => $data['Empresa']['nit'],
+                'NumAdq' => $nota->cliente()->nit,
+                'pin'    => 75315,
+                'TipoAmb' => 2,
+            ];
 
-              $CUDE = $infoCude['Numfac'].$infoCude['FecFac'].$infoCude['HorFac'].$infoCude['ValFac'].$infoCude['CodImp'].$infoCude['ValImp'].$infoCude['CodImp2'].$infoCude['ValImp2'].$infoCude['CodImp3'].$infoCude['ValImp3'].$infoCude['ValTot'].$infoCude['NitFE'].$infoCude['NumAdq'].$infoCude['pin'].$infoCude['TipoAmb'];
-              $CUDEvr = hash('sha384',$CUDE);
+            $CUDE = $infoCude['Numfac'] . $infoCude['FecFac'] . $infoCude['HorFac'] . $infoCude['ValFac'] . $infoCude['CodImp'] . $infoCude['ValImp'] . $infoCude['CodImp2'] . $infoCude['ValImp2'] . $infoCude['CodImp3'] . $infoCude['ValImp3'] . $infoCude['ValTot'] . $infoCude['NitFE'] . $infoCude['NumAdq'] . $infoCude['pin'] . $infoCude['TipoAmb'];
+            $CUDEvr = hash('sha384', $CUDE);
 
-              $codqr = "NumFac:" . $nota->codigo . "\n" .
-              "NitFac:"  . $data['Empresa']['nit']   . "\n" .
-              "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
-              "FecFac:" . Carbon::parse($nota->created_at)->format('Y-m-d') .  "\n" .
-              "HoraFactura" . Carbon::parse($nota->created_at)->format('H:i:s').'-05:00' . "\n" .
-              "ValorFactura:" .  number_format($nota->total()->subtotal, 2, '.', '') . "\n" .
-              "ValorIVA:" .  number_format($impTotal, 2, '.', '') . "\n" .
-              "ValorOtrosImpuestos:" .  0.00 . "\n" .
-              "ValorTotalFactura:" .  number_format($nota->total()->subtotal + $nota->impuestos_totales(), 2, '.', '') . "\n" .
-              "CUDE:" . $CUDEvr;
+            $codqr = "NumFac:" . $nota->codigo . "\n" .
+                "NitFac:"  . $data['Empresa']['nit']   . "\n" .
+                "DocAdq:" .  $data['Cliente']['nit'] . "\n" .
+                "FecFac:" . Carbon::parse($nota->created_at)->format('Y-m-d') .  "\n" .
+                "HoraFactura" . Carbon::parse($nota->created_at)->format('H:i:s') . '-05:00' . "\n" .
+                "ValorFactura:" .  number_format($nota->total()->subtotal, 2, '.', '') . "\n" .
+                "ValorIVA:" .  number_format($impTotal, 2, '.', '') . "\n" .
+                "ValorOtrosImpuestos:" .  0.00 . "\n" .
+                "ValorTotalFactura:" .  number_format($nota->total()->subtotal + $nota->impuestos_totales(), 2, '.', '') . "\n" .
+                "CUDE:" . $CUDEvr;
 
+            if ($nota->tipo_operacion == 3) {
+                $detalle_recaudo = Factura::where('id', $facturas->first()->factura)->first();
+                $nota->placa = $detalle_recaudo->placa;
+                $detalle_recaudo = $detalle_recaudo->detalleRecaudo();
+                $pdf = PDF::loadView('pdf.creditotercero', compact('nota', 'items', 'facturas', 'itemscount', 'codqr', 'CUDEvr', 'detalle_recaudo'));
+            } else {
+                $pdf = PDF::loadView('pdf.credito', compact('nota', 'items', 'facturas', 'retenciones', 'itemscount', 'codqr', 'CUDEvr', 'empresa'));
+            }
+            if($pdfImprimir){
+                return $pdf;
+            }
+            return  response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf',]);
+        } else {
+            if ($nota->tipo_operacion == 3) {
+                $detalle_recaudo = Factura::where('id', $facturas->first()->factura)->first();
+                $nota->placa = $detalle_recaudo->placa;
+                $detalle_recaudo = $detalle_recaudo->detalleRecaudo();
+                //   return view('pdf.creditotercero', compact('nota','items', 'facturas', 'itemscount','detalle_recaudo'));
+                $pdf = PDF::loadView('pdf.creditotercero', compact('nota', 'items', 'facturas', 'itemscount', 'detalle_recaudo'));
+            } else {
+                $pdf = PDF::loadView('pdf.credito', compact('nota', 'items', 'facturas', 'retenciones', 'itemscount', 'empresa'));
+            }
 
-
-              $pdf = PDF::loadView('pdf.credito', compact('nota', 'items', 'facturas', 'retenciones','itemscount','codqr','CUDEvr'));
-              return  response ($pdf->stream())->withHeaders([ 'Content-Type' =>'application/pdf',]);
-          }
-      else{
-        $pdf = PDF::loadView('pdf.credito', compact('nota', 'items', 'facturas', 'retenciones','itemscount'));
-        return  response ($pdf->stream())->withHeaders([ 'Content-Type' =>'application/pdf',]);
-    }
+            if($pdfImprimir){
+                return $pdf;
+            }
+            return  response($pdf->stream())->withHeaders(['Content-Type' => 'application/pdf',]);
         }
-}
+    }
 
-public function items_fact($id){
 
-    $factura = Factura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-    $retencionesFacturas = FacturaRetencion::where('factura', $factura->id)->get();
-    $retenciones = Retencion::where('empresa',Auth::user()->empresa)->where('modulo',1)->get();
+    public function items_fact($id){
 
-    if ($factura) {
-        $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('id', $factura->bodega)->first();
-        if (!$bodega) {
-            $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
+        $factura = Factura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+        $retencionesFacturas = FacturaRetencion::where('factura', $factura->id)->get();
+        $retenciones = Retencion::where('empresa',Auth::user()->empresa)->where('modulo',1)->get();
+
+        if ($factura) {
+            $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('id', $factura->bodega)->first();
+            if (!$bodega) {
+                $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
+            }
+            $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
+            ->where('empresa',Auth::user()->empresa)->where('status', 1)
+            ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')->get();
+                //
+
+            $items = ItemsFactura::select('items_factura.*','inventario.producto as nombre')->join('inventario','inventario.id','=','items_factura.producto')->where('factura',$factura->id)->get();
+            $impuestos = Impuesto::where('empresa',Auth::user()->empresa)
+            ->orWhere('empresa', null)
+            ->Where('estado', 1)->get();
+
         }
-        $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-        ->where('empresa',Auth::user()->empresa)->where('status', 1)
-        ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')->get();
-            //
-
-        $items = ItemsFactura::select('items_factura.*','inventario.producto as nombre')->join('inventario','inventario.id','=','items_factura.producto')->where('factura',$factura->id)->get();
-        $impuestos = Impuesto::where('empresa',Auth::user()->empresa)
-        ->orWhere('empresa', null)
-        ->Where('estado', 1)->get();
+        return json_encode($items);
 
     }
-    return json_encode($items);
 
-}
-
-public function facturas_retenciones($id){
-    $retencionesFacturas = FacturaRetencion::where('factura', $id)
-    ->join('retenciones','retenciones.id','=','factura_retenciones.id_retencion')->get();
-    return json_encode($retencionesFacturas);
-}
+    public function facturas_retenciones($id){
+        $retencionesFacturas = FacturaRetencion::where('factura', $id)
+        ->join('retenciones','retenciones.id','=','factura_retenciones.id_retencion')->get();
+        return json_encode($retencionesFacturas);
+    }
 
     /**
      * Funcion para enviar por correo al cliente
