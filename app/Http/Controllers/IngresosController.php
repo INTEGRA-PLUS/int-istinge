@@ -470,7 +470,12 @@ class IngresosController extends Controller
                                         $conversion = app(FacturasController::class)->convertirelEctronica($factura->id,0,1);
                                     }
 
-                                    $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
+                                    if(isset($empresa->proveedor) && $empresa->proveedor == 2){
+                                        $emision = app(FacturasController::class)->jsonDianFacturaVenta($factura->id);
+                                    }else{
+                                        $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
+                                    }
+
                                 }
                         }
                     }
