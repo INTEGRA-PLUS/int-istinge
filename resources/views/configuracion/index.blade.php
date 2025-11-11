@@ -360,6 +360,21 @@
         </div>
     </div>
 
+    <div class="col-sm-3 enlaces">
+        <h4 class="card-title">Envío con Meta</h4>
+        <p>Activar envío de mensajes por WhatsApp.</p>
+
+        <div class="custom-control custom-switch">
+            <input type="checkbox" class="custom-control-input" id="envioMetaSwitch">
+            <label class="custom-control-label" for="envioMetaSwitch">No</label>
+        </div>
+
+        <div id="mensajeMeta" class="mt-3 text-danger" style="display:none;">
+            Comuníquese con nosotros para envío de mensajes por WhatsApp
+        </div>
+    </div>
+
+
     {{-- MÓDULOS --}}
     <div class="modal fade" id="config_modulos" role="dialog">
         <div class="modal-dialog">
