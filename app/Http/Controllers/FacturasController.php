@@ -2815,7 +2815,7 @@ class FacturasController extends Controller{
                     ]);
 
                 }else{
-                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje . " " . $mensajeCorreo);
                 }
             }
 

@@ -1579,7 +1579,8 @@ class NotascreditoController extends Controller
                         'data' => $response
                     ]);
                 }else{
-                    return redirect('/empresa/notascredito')->with('message_success', 'Nota crédito emitida correctamente con el cufe: ' .$response->cufe);
+                    return redirect('/empresa/notascredito')->with('message_success',
+                    'Nota crédito emitida correctamente con el cufe: ' .$response->cufe . " " .$mensajeCorreo);
                 }
             }
 
