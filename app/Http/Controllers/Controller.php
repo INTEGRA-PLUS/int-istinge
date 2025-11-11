@@ -2630,7 +2630,11 @@ if ($mikrotik) {
         if(isset($responseEmail->success) && $responseEmail->success == true){
             $mensaje= "Documento enviado al correo del cliente correctamente.";
         }else{
-            $mensaje= "Documento no pudo ser enviado al correo.";
+            if(isset($responseEmail['statusCode']) && $responseEmail['statusCode'] == 406 && isset($responseEmail['th'])){
+                $mensaje = "No se encontró la información del AttachedDocument del documento, intentelo más tarde";
+            }else{
+                $mensaje= "Documento no pudo ser enviado al correo.";
+            }
         }
 
         return $mensaje;
