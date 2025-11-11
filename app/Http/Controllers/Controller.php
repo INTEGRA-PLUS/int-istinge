@@ -2627,7 +2627,7 @@ if ($mikrotik) {
 
         $responseEmail = $btw->sendPdfEmail($requestData);
 
-        if(isset($responseEmail->success) && $responseEmail->success == true){
+        if(isset($responseEmail->status) && $responseEmail->status == 'success'){
             $mensaje= "Documento enviado al correo del cliente correctamente.";
         }else{
             if(isset($responseEmail['statusCode']) && $responseEmail['statusCode'] == 406 && isset($responseEmail['th'])){
