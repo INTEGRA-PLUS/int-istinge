@@ -1046,7 +1046,6 @@ class NotascreditoController extends Controller
 
         $nota = NotaCredito::where('empresa', $empresa->id)
             ->where('id', $id)
-            ->where('is_remision_alt', false)
             ->first();
 
         if (!$nota) {
