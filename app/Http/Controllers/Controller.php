@@ -2606,7 +2606,9 @@ if ($mikrotik) {
         if($tipo == 1){
             $pdf = FacturasController::Imprimir($id, 'original', true,true);
         }else if($tipo == 2){
-            $documento->uuid = $documento->dian_response;
+            if($documento->uuid == ""){
+                $documento->uuid = $documento->dian_response;
+            }
             $pdf = NotascreditoController::Imprimir($id, 'original', true,true);
         }else if($tipo == 3){
             $pdf = FacturaspController::Imprimir($id, 'original', true,true);
