@@ -144,7 +144,7 @@ class InvoiceJsonBuilder
         }
 
         //Validaciones cuando la factura no es de BTW.
-        if($factura->fecha < '2025-10-05'){
+        if($factura->fecha < '2025-11-05'){
 
             if($factura->uuid != ""){
                 $newsFields = [
