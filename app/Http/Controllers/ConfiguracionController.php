@@ -18,6 +18,7 @@ use App\SuscripcionPago;
 use App\Servicio;
 use App\Mikrotik;
 use App\PlanesVelocidad;
+use App\Instance;
 
 use App\Http\Controllers\Nomina\NominaController;
 use App\Http\Controllers\Nomina\NominaDianController;
@@ -55,6 +56,7 @@ class ConfiguracionController extends Controller
       $this->getAllPermissions(Auth::user()->id);
       $personalPlan = Empresa::find(Auth::user()->empresa);
       $personalPlan = $personalPlan->p_personalizado;
+      $instances = Instance::all();
       if($personalPlan > 0){
           $personalPlan = true;
       }else{
