@@ -63,7 +63,7 @@ class ConfiguracionController extends Controller
         $personalPlan = false;
       }
       $empresa = auth()->user()->empresaObj;
- 	  return view('configuracion.index')->with(compact('personalPlan','empresa'));
+ 	  return view('configuracion.index')->with(compact('personalPlan','empresa', 'instances'));
  	}
 
   /**
