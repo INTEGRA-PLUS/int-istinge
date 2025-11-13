@@ -458,6 +458,12 @@ class AvisosController extends Controller
                                 // CASO: RECORDATORIO
                                 // ========================================
 
+                                // 🔹 Verificar si el contacto ya tiene marcado wpp_recordar = 1
+                                if ($contacto && isset($contacto->wpp_recordar) && $contacto->wpp_recordar == 1) {
+                                    \Log::info("Contrato {$contrato->id}: contacto ya tiene wpp_recordar=1, se omite envío de recordatorio.");
+                                    continue; // Saltar este contacto, no enviar mensaje
+                                }
+
                                 // Buscar si la empresa es CONECTA COMUNICACIONES SAS
                                 $empresaEspecial = \DB::table('empresas')
                                     ->where('nombre', 'CONECTA COMUNICACIONES SAS')
@@ -466,8 +472,8 @@ class AvisosController extends Controller
                                 if ($empresaEspecial) {
                                     // Buscar la factura más reciente asociada al contrato
                                     $factura = Factura::where('contrato_id', $contrato->id)
-                                                    ->latest()
-                                                    ->first();
+                                        ->latest()
+                                        ->first();
 
                                     if (!$factura) {
                                         $enviadosFallidos++;
@@ -491,10 +497,10 @@ class AvisosController extends Controller
                                     $var2 = '$' . number_format($var2, 0, ',', '.');
 
                                     // var3 → Fecha de pago oportuno (según grupo de corte)
-                                    $contrato = \DB::table('contracts')->where('id', $factura->contrato_id)->first();
+                                    $contratoData = \DB::table('contracts')->where('id', $factura->contrato_id)->first();
 
-                                    if ($contrato) {
-                                        $grupoCorte = \DB::table('grupos_corte')->where('id', $contrato->grupo_corte)->first();
+                                    if ($contratoData) {
+                                        $grupoCorte = \DB::table('grupos_corte')->where('id', $contratoData->grupo_corte)->first();
 
                                         if ($grupoCorte && $grupoCorte->fecha_pago) {
                                             // Día del grupo de corte
@@ -589,14 +595,23 @@ class AvisosController extends Controller
 
                                     if ($esExitoso) {
                                         $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio especial CONECTA');
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio');
+
+                                        // 🔹 Actualizar columna wpp_recordar a 1 en el contacto correspondiente
+                                        if ($contacto && isset($contacto->id)) {
+                                            \DB::table('contactos')
+                                                ->where('id', $contacto->id)
+                                                ->update(['wpp_recordar' => 1]);
+                                        }
+
                                     } else {
                                         $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp CONECTA a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
                                 }
+                            }
                             } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
