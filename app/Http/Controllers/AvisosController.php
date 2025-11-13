@@ -490,10 +490,31 @@ class AvisosController extends Controller
                                     // Formatear valor como dinero (ej: $12.345)
                                     $var2 = '$' . number_format($var2, 0, ',', '.');
 
-                                    // var3 → Fecha de pago oportuno
-                                    $var3 = $factura->pago_oportuno
-                                        ? \Carbon\Carbon::parse($factura->pago_oportuno)->translatedFormat('j \\d\\e F \\d\\e Y')
-                                        : 'Fecha no disponible';
+                                    // var3 → Fecha de pago oportuno (según grupo de corte)
+                                    $contrato = \DB::table('contracts')->where('id', $factura->contrato_id)->first();
+
+                                    if ($contrato) {
+                                        $grupoCorte = \DB::table('grupos_corte')->where('id', $contrato->grupo_corte)->first();
+
+                                        if ($grupoCorte && $grupoCorte->fecha_pago) {
+                                            // Día del grupo de corte
+                                            $dia = str_pad($grupoCorte->fecha_pago, 2, '0', STR_PAD_LEFT);
+
+                                            // Tomamos mes y año de la fecha de creación de la factura
+                                            $mes = \Carbon\Carbon::parse($factura->created_at)->month;
+                                            $anio = \Carbon\Carbon::parse($factura->created_at)->year;
+
+                                            // Construir la fecha final
+                                            $fechaFinal = \Carbon\Carbon::createFromDate($anio, $mes, $dia);
+
+                                            // Formato en español: 25 de noviembre de 2025
+                                            $var3 = $fechaFinal->translatedFormat('j \\d\\e F \\d\\e Y');
+                                        } else {
+                                            $var3 = 'Fecha no disponible';
+                                        }
+                                    } else {
+                                        $var3 = 'Fecha no disponible';
+                                    }
 
                                     // var4 → Texto fijo
                                     $var4 = "suspensión de servicio";
