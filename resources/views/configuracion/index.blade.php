@@ -361,12 +361,10 @@
         <div class="col-sm-3 enlaces">
             <h4 class="card-title">Envío con Meta</h4>
             <p>Activar envío de mensajes por WhatsApp.</p>
-
-            <div class="custom-control custom-switch">
-                <input type="checkbox" class="custom-control-input" id="envioMetaSwitch">
-                <label class="custom-control-label" for="envioMetaSwitch">No</label>
+            <div class="checkbox-wrapper-2">
+                <input type="checkbox" id="envioMetaSwitch" class="ikxBAC">
+                <label for="envioMetaSwitch" id="envioMetaLabel">No</label>
             </div>
-
             @if($instances->isEmpty())
                 <div id="mensajeMeta" class="mt-3 text-danger">
                     Comuníquese con nosotros para envío de mensajes por WhatsApp
@@ -2382,6 +2380,18 @@
             });
         });
     </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkbox = document.getElementById('envioMetaSwitch');
+            const label = document.getElementById('envioMetaLabel');
+
+            checkbox.addEventListener('change', () => {
+                label.textContent = checkbox.checked ? 'Sí' : 'No';
+            });
+        });
+    </script>
+
 @endsection
 
 @section('style')
@@ -2417,6 +2427,70 @@
         .nav-pills .nav-link:hover {
             color: #fff !important;
             background-color: {{ Auth::user()->rol > 1 ? Auth::user()->empresa()->color : '' }} !important;
+        }
+
+        .checkbox-wrapper-2 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC {
+            appearance: none;
+            background-color: #dfe1e4;
+            border-radius: 72px;
+            border-style: none;
+            flex-shrink: 0;
+            height: 20px;
+            margin: 0;
+            position: relative;
+            width: 30px;
+            cursor: pointer;
+            transition: all 100ms ease-out;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC::before {
+            bottom: -6px;
+            content: "";
+            left: -6px;
+            position: absolute;
+            right: -6px;
+            top: -6px;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC::after {
+            background-color: #fff;
+            border-radius: 50%;
+            content: "";
+            height: 14px;
+            left: 3px;
+            position: absolute;
+            top: 3px;
+            width: 14px;
+            transition: all 100ms ease-out;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC:hover {
+            background-color: #c9cbcd;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC:checked {
+            background-color: #6e79d6;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC:checked::after {
+            left: 13px;
+        }
+
+        .checkbox-wrapper-2 .ikxBAC:checked:hover {
+            background-color: #535db3;
+        }
+
+        .checkbox-wrapper-2 label {
+            cursor: pointer;
+            margin: 0;
+            font-size: 14px;
+            color: #333;
         }
     </style>
 @endsection
