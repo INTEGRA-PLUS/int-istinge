@@ -38,7 +38,7 @@
         class="btn btn-outline-primary btn-icons d-none d-lg-inline-flex" title="Imprimir factura de proveedor {{ $nro }}" target="_blank"><i
             class="fas fa-print"></i></a>
 
-    @if (count($gastos) == 0 && $estatus == 1)
+    @if ($estatus == 1)
         @if ($ultimaFactura == null || ($ultimaFactura && $ultimaFactura->id == $id))
             <button class="btn btn-outline-danger  btn-icons" type="submit" title="Eliminar factura de proveedor {{ $nro }}"
                 onclick="confirmar('eliminar-factura{{ $id }}', 'Estas seguro que deseas eliminar la factura de compra?', 'Se borrara de forma permanente');"><i
