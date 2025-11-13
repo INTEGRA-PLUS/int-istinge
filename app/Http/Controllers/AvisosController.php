@@ -453,66 +453,129 @@ class AvisosController extends Controller
                                     $enviadosFallidos++;
                                 }
                                 
-                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')){
+                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')) {
                                 // ========================================
                                 // CASO: RECORDATORIO
                                 // ========================================
-                                
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "recordatorios",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
+
+                                // Buscar si la empresa es CONECTA COMUNICACIONES SAS
+                                $empresaEspecial = \DB::table('empresas')
+                                    ->where('nombre', 'CONECTA COMUNICACIONES SAS')
+                                    ->exists();
+
+                                if ($empresaEspecial) {
+                                    // Buscar la factura más reciente asociada al contrato
+                                    $factura = Factura::where('contrato_id', $contrato->id)
+                                                    ->latest()
+                                                    ->first();
+
+                                    if (!$factura) {
+                                        $enviadosFallidos++;
+                                        \Log::warning('Contrato ' . $contrato->id . ': Sin factura para recordatorio especial');
+                                        continue;
+                                    }
+
+                                    // ================================
+                                    // Construcción de variables dinámicas
+                                    // ================================
+
+                                    // var1 → Nombre de la factura
+                                    $var1 = "Factura_{$factura->codigo}";
+
+                                    // var2 → Suma de precios de items_factura donde factura = $factura->id
+                                    $var2 = \DB::table('items_factura')
+                                        ->where('factura', $factura->id)
+                                        ->sum('precio');
+
+                                    // Formatear valor como dinero (ej: $12.345)
+                                    $var2 = '$' . number_format($var2, 0, ',', '.');
+
+                                    // var3 → Fecha de pago oportuno
+                                    $var3 = $factura->pago_oportuno
+                                        ? \Carbon\Carbon::parse($factura->pago_oportuno)->translatedFormat('j \\d\\e F \\d\\e Y')
+                                        : 'Fecha no disponible';
+
+                                    // var4 → Texto fijo
+                                    $var4 = "suspensión de servicio";
+
+                                    // ================================
+                                    // Envío con plantilla especial
+                                    // ================================
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "conectapendientepago",
+                                        "languageCode" => "es",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $var1], // Factura_XXXX
+                                                    ["type" => "text", "text" => $var2], // Valor total items
+                                                    ["type" => "text", "text" => $var3], // Fecha de pago oportuno
+                                                    ["type" => "text", "text" => $var4]  // suspensión de servicio
+                                                ]
                                             ]
                                         ]
-                                    ]
-                                ];
-                                
+                                    ];
+                                } else {
+                                    // Body genérico
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "recordatorios",
+                                        "languageCode" => "en",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $nameEmpresa]
+                                                ]
+                                            ]
+                                        ]
+                                    ];
+                                }
+
+                                // ================================
+                                // Envío del mensaje
+                                // ================================
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                                
                                 if (isset($response->scalar)) {
                                     $responseData = json_decode($response->scalar ?? '{}', true);
                                     $esExitoso = false;
-                                    
+
                                     if (isset($responseData['status']) && $responseData['status'] === "success") {
                                         if (isset($responseData['data']['messages'][0]['id']) || 
                                             isset($responseData['data']['messages'][0]['message_status'])) {
                                             $esExitoso = true;
                                         }
                                     }
-                                    
+
                                     if (isset($responseData['messages'][0]['id']) || 
                                         isset($responseData['message_id']) || 
                                         isset($responseData['messageId'])) {
                                         $esExitoso = true;
                                     }
-                                    
+
                                     if (isset($responseData['error']) && is_array($responseData['error']) && 
                                         (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
                                         $esExitoso = false;
                                     }
-                                    
+
                                     if (isset($responseData['error']) && is_string($responseData['error']) &&
                                         (str_contains(strtolower($responseData['error']), 'success') || 
                                         str_contains(strtolower($responseData['error']), 'sent successfully'))) {
                                         $esExitoso = true;
                                     }
-                                    
+
                                     if ($esExitoso) {
                                         $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio');
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio especial CONECTA');
                                     } else {
                                         $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                        \Log::error('Error WhatsApp CONECTA a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
                                 }
-                                
                             } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
