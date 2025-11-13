@@ -642,7 +642,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//NOMINA
 	Route::group(['namespace' => 'Nomina', 'prefix' => 'nomina', 'middleware' => ['nomina']], function () {
 
-		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina');
+		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina')->name('nomina.refrescar.periodo.individual');
 		Route::get('get-costos-periodo/{year}/{periodo}/{tipo}', 'NominaController@getCostoPeriodo')->name('nomina.get.costo.periodo');
 
 		Route::get('/agrupadas/{periodo?}/{year?}/{tipo?}', 'NominaController@nominasAgrupadas')->name('nomina.agrupadas');
@@ -828,7 +828,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		//->observaciones de nomina
 
-		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo');
+		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo')->name('nomina.periodo.observacion.agregar');
 		Route::post('/agregar-observacion', 'NominaController@agregarObservacion')->name('nomina.agregar.observacion');
 	});
 
