@@ -24,6 +24,13 @@
         {!! session('message_denied_btw') !!}
     </div>
     @endif
+
+    @if (session('message_denied'))
+    <div class="alert alert-danger">
+        {!! session('message_denied') !!}
+    </div>
+    @endif
+
     <div class="col-md-12 table-responsive">
         <form id="form-table-facturas">
             <input type="hidden" name="orderby"id="order_by"  value="1">
