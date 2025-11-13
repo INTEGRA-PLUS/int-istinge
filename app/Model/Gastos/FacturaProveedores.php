@@ -14,6 +14,7 @@ use Auth; use App\Model\Inventario\Bodega;
 use App\Retencion;
 use App\Model\Gastos\Ordenes_Compra;
 use App\Model\Gastos\NotaDeditofactura;
+
 use Carbon\Carbon;
 use App\FormaPago;
 use App\Model\Ingresos\ItemsFactura;
