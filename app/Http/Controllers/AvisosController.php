@@ -611,7 +611,6 @@ class AvisosController extends Controller
                                 } else {
                                     $enviadosFallidos++;
                                 }
-                            }
                             } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
                                 // ========================================
                                 // CASO: FACTURA
