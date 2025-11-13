@@ -34,11 +34,6 @@
             class="btn btn-outline-primary btn-icons" title="Agregar pago a factura de proveedor {{ $nro }}"><i class="fas fa-money-bill"></i></a>
     @endif
 
-    @if ($pagos_anulados == true && $estatus == 1 && $sw == 0)
-        <a href="{{ route('facturasp.edit', $id) }}" class="btn btn-outline-light btn-icons" title="Editar factura de proveedor {{ $nro }}"><i
-                class="fas fa-edit"></i></a>
-    @endif
-
     <a href="{{ route('facturasp.imprimir.nombre', ['id' => $id, 'name' => 'Factura Proveedor No. ' . $nro . '.pdf']) }}"
         class="btn btn-outline-primary btn-icons d-none d-lg-inline-flex" title="Imprimir factura de proveedor {{ $nro }}" target="_blank"><i
             class="fas fa-print"></i></a>
