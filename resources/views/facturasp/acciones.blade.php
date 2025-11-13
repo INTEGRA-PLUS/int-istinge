@@ -37,8 +37,6 @@
     <a href="{{ route('facturasp.imprimir.nombre', ['id' => $id, 'name' => 'Factura Proveedor No. ' . $nro . '.pdf']) }}"
         class="btn btn-outline-primary btn-icons d-none d-lg-inline-flex" title="Imprimir factura de proveedor {{ $nro }}" target="_blank"><i
             class="fas fa-print"></i></a>
-    <a href="{{ route('downloadFacturasPApp', $id) }}" class="btn btn-outline-primary btn-icons d-lg-none"
-        title="Descargar factura de proveedor {{ $nro }}"><i class="fas fa-download"></i></a>
 
     @if (count($gastos) == 0 && $estatus == 1)
         @if ($ultimaFactura == null || ($ultimaFactura && $ultimaFactura->id == $id))
