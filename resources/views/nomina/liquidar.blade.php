@@ -326,15 +326,15 @@
                                                 </a>
                                                 @endif
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{route('nomina.calculos',[$nominaPeriodo->id, 'periodo' => $mensajePeriodo])}}" title="Ver calculos"><i class="far fa-eye color"></i></a>
                                                 @endif
                                                 @if($nomina->prestacionesSociales->count() == 0)
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{ route('nomina.pdf', $nominaPeriodo->id)}}" target="_blank" title="Ver colilla de pago"><i class="far fa-file color"></i></a>
                                                 @endif
                                                 @else
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="#" data-toggle="modal" data-target="#modal-imprimir-{{ $nominaPeriodo->id }}"><i class="far fa-file color"></i></a>
                                                 @endif
 
@@ -481,12 +481,12 @@
                                                     <i class="far fa-folder-open color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{route('nomina.calculos',[$nominaPeriodo->id, 'periodo' => $mensajePeriodo])}}">
                                                     <i class="far fa-eye color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 @if($nomina->prestacionesSociales->count() == 0)
                                                 <a href="{{ route('nomina.pdf', $nominaPeriodo->id)}}" target="_blank"><i class="far fa-file color"></i></a>
                                                 @else
@@ -625,15 +625,15 @@
                                                 <span id="pago-nomina-format-{{$nominaPeriodo->id}}">{{Auth::user()->empresaObj->moneda}} {{ App\Funcion::Parsear($nominaPeriodo->valor_total ? $nominaPeriodo->valor_total : 0) }} </span><input type="hidden" id="pago-nomina-{{$nomina->id}}" value="{{$nominaPeriodo->pago_empleado ? $nominaPeriodo->pago_empleado : $nominaPeriodo->valor_total}}">
                                             </td>
                                             <td>
-                                                @if(isset($_SESSION['permisos']['161']) && !auth()->user()->modo_lecturaNomina())
+                                                @if(1 == 1)
                                                 <a id="a-ob-nomina-{{$nominaPeriodo->id}}" href="javascript:modificarNota('{{ $nominaPeriodo->observaciones }}', '{{ $nominaPeriodo->id}}', 'a-ob-nomina-{{$nominaPeriodo->id}}')">
                                                     <i class="far fa-folder-open color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{route('nomina.calculos',[$nominaPeriodo->id, 'periodo' => $mensajePeriodo])}}"><i class="far fa-eye color"></i></a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 @if($nomina->prestacionesSociales->count() == 0)
                                                 <a href="{{ route('nomina.pdf', $nominaPeriodo->id)}}" target="_blank"><i class="far fa-file color"></i></a> @else
                                                 <a href="#" data-toggle="modal" data-target="#modal-imprimir-{{ $nominaPeriodo->id }}"><i class="far fa-file color"></i></a>
@@ -771,16 +771,16 @@
                                                 <span id="pago-nomina-format-{{$nominaPeriodo->id}}">{{Auth::user()->empresaObj->moneda}} {{ App\Funcion::Parsear($nominaPeriodo->valor_total ? $nominaPeriodo->valor_total : 0) }} </span><input type="hidden" id="pago-nomina-{{$nomina->id}}" value="{{$nominaPeriodo->pago_empleado ? $nominaPeriodo->pago_empleado : $nominaPeriodo->valor_total}}">
                                             </td>
                                             <td>
-                                                @if(isset($_SESSION['permisos']['161']) && !auth()->user()->modo_lecturaNomina())
+                                                @if(1 == 1)
                                                 <a id="a-ob-nomina-{{$nominaPeriodo->id}}" href="javascript:modificarNota('{{ $nominaPeriodo->observaciones }}', '{{ $nominaPeriodo->id}}', 'a-ob-nomina-{{$nominaPeriodo->id}}')">
                                                     <i class="far fa-folder-open color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{route('nomina.calculos',[$nominaPeriodo->id, 'periodo' => $mensajePeriodo])}}"><i class="far fa-eye color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 @if($nomina->prestacionesSociales->count() == 0)
                                                 <a href="{{ route('nomina.pdf', $nominaPeriodo->id)}}" target="_blank"><i class="far fa-file color"></i></a> @else
                                                 <a href="#" data-toggle="modal" data-target="#modal-imprimir-{{ $nominaPeriodo->id }}"><i class="far fa-file color"></i></a>
@@ -916,15 +916,15 @@
                                                 <span id="pago-nomina-format-{{$nominaPeriodo->id}}">{{Auth::user()->empresaObj->moneda}} {{ App\Funcion::Parsear($nominaPeriodo->valor_total ? $nominaPeriodo->valor_total : 0) }} </span><input type="hidden" id="pago-nomina-{{$nomina->id}}" value="{{$nominaPeriodo->pago_empleado ? $nominaPeriodo->pago_empleado : $nominaPeriodo->valor_total}}">
                                             </td>
                                             <td>
-                                                @if(isset($_SESSION['permisos']['161']) && !auth()->user()->modo_lecturaNomina())
+                                                @if(1 == 1)
                                                 <a id="a-ob-nomina-{{$nominaPeriodo->id}}" href="javascript:modificarNota('{{ $nominaPeriodo->observaciones }}', '{{ $nominaPeriodo->id}}', 'a-ob-nomina-{{$nominaPeriodo->id}}')">
                                                     <i class="far fa-folder-open color"></i>
                                                 </a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 <a href="{{route('nomina.calculos',[$nominaPeriodo->id, 'periodo' => $mensajePeriodo])}}"><i class="far fa-eye color"></i></a>
                                                 @endif
-                                                @if(isset($_SESSION['permisos']['161']))
+                                                @if(1==1)
                                                 @if($nomina->prestacionesSociales->count() == 0)
                                                 <a href="{{ route('nomina.pdf', $nominaPeriodo->id)}}" target="_blank"><i class="far fa-file color"></i></a> @else
                                                 <a href="#" data-toggle="modal" data-target="#modal-imprimir-{{ $nominaPeriodo->id }}"><i class="far fa-file color"></i></a>
@@ -1020,7 +1020,7 @@
             <span>$ <span id="total-pago-personas">{{ $costoPeriodo->pagoEmpleados ?? 'cargando...' }}</span> </span>
         </div>
 
-        @if(isset($_SESSION['permisos']['162']))
+        @if(1==1)
         <div class="col-6 col-md-3" id="btn-confirmar-nomina">
             @if (!auth()->user()->modo_lecturaNomina())
             <a href="{{ route('nomina.confirmar', ['year' => $year, 'periodo' => $periodo, 'periodo_quincenal' => request()->periodo_quincenal]) }}" role="button" class="btn btn-success">Liquidar nomina</a>
@@ -1030,7 +1030,7 @@
         </div>
         @endif
 
-        @if(isset($_SESSION['permisos']['157']))
+        @if(1==1)
         <div class="col-6 col-md-3" id="btn-confirmar-nomina">
             @if (!auth()->user()->modo_lecturaNomina())
             <a href="{{ route('nomina-dian.emitir', ['periodo' => $periodo, 'year' => $year]) }}" role="button" class="btn btn-primary">Módulo de emitir nomina</a>
