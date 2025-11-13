@@ -1,8 +1,4 @@
 
-<a href="javascript:getItemsCopy('FACTURA DE COMPRA', {{ $id }})"
-                                   class="btn btn-outline-secondary btn-sm btn-icons" title="Solicitar"><i
-                                        class="far fa-paper-plane"></i></a>
-
 <a href="{{ route('facturasp.showid', $id) }}" class="btn btn-outline-info btn-icons"
     title="Ver factura de proveedor {{ $nro }}">
     <i class="far fa-eye"></i>
