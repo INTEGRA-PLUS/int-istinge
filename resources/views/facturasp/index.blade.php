@@ -13,6 +13,37 @@
 	@endif
 @endsection
 @section('content')
+
+@if (session()->has('message_denied'))
+<div class="alert alert-danger" role="alert">
+    {{ session()->get('message_denied') }}
+    @if (session()->get('errorReason'))<br> <strong>Razon(es): <br></strong>
+        @if (is_string(session()->get('errorReason')))
+            {{ session()->get('errorReason') }}
+        @elseif (count(session()->get('errorReason')) >= 1)
+            @php $cont = 0 @endphp
+            @foreach (session()->get('errorReason') as $error)
+                @php $cont = $cont + 1; @endphp
+                {{ $cont }} - {{ $error }} <br>
+            @endforeach
+        @endif
+    @endif
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+@endif
+
+@if (session()->has('message_success'))
+<div class="alert alert-success" role="alert">
+    {{ session()->get('message_success') }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+@endif
+
+
 	@if(Session::has('success'))
 		<div class="alert alert-success" style="margin-left: 2%;margin-right: 2%;">
 			{{Session::get('success')}}
@@ -30,6 +61,8 @@
         {!! session('message_denied') !!}
     </div>
     @endif
+
+    message_success
 
     <div class="col-md-12 table-responsive">
         <form id="form-table-facturas">
