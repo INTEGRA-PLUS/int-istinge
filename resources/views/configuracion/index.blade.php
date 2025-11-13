@@ -361,10 +361,12 @@
         <div class="col-sm-3 enlaces">
             <h4 class="card-title">Envío con Meta</h4>
             <p>Activar envío de mensajes por WhatsApp.</p>
-            <div class="checkbox-wrapper-2">
-                <input type="checkbox" id="envioMetaSwitch" class="ikxBAC">
-                <label for="envioMetaSwitch" id="envioMetaLabel">No</label>
-            </div>
+            @if(!$instances->isEmpty())
+                <div class="checkbox-wrapper-2">
+                    <input type="checkbox" id="envioMetaSwitch" class="ikxBAC">
+                    <label for="envioMetaSwitch" id="envioMetaLabel">No</label>
+                </div>
+            @endif
             @if($instances->isEmpty())
                 <div id="mensajeMeta" class="mt-3 text-danger">
                     Comuníquese con nosotros para envío de mensajes por WhatsApp
