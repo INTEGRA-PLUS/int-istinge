@@ -2790,10 +2790,30 @@ class FacturasController extends Controller{
 
             if(isset($response->status) && $response->status == 'success'){
 
+                // Reconectar la base de datos antes de guardar, ya que la llamada a BTW puede tardar mucho
+                // y la conexión MySQL puede expirar (error: Server has gone away)
+                DB::reconnect();
+
                 $factura->emitida = 1;
                 $factura->uuid = $response->cufe;
                 unset($factura->trmActual, $factura->datosExportacion);
-                $factura->save();
+
+                // Intentar guardar con reintento en caso de error de conexión
+                try {
+                    $factura->save();
+                } catch (\Exception $e) {
+                    // Si aún falla, reconectar nuevamente y reintentar
+                    if (strpos($e->getMessage(), 'Server has gone away') !== false ||
+                        strpos($e->getMessage(), '2006') !== false) {
+                        DB::reconnect();
+                        $factura = Factura::find($factura->id);
+                        $factura->emitida = 1;
+                        $factura->uuid = $response->cufe;
+                        $factura->save();
+                    } else {
+                        throw $e;
+                    }
+                }
                 $mensaje = "Factura emitida correctamente con el cufe: " . $factura->uuid;
                 $mensajeCorreo = '';
 
