@@ -772,7 +772,7 @@ class RadicadosController extends Controller
     public function imprimir($id)
     {
         $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
-        $contrato = Contrato::where('empresa', Auth::user()->empresa)->where('id', $radicado->contrato)->first();
+        $contrato = Contrato::where('empresa', Auth::user()->empresa)->where('nro', $radicado->contrato)->first();
         $detalle_equipos = DB::table('radicados_detalles_equipos')->where('radicado_id', $radicado->id)->get();
         if ($radicado) {
             view()->share(['title' => 'Caso Radicado N° ' . $radicado->codigo]);
