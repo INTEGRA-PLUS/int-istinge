@@ -280,6 +280,27 @@
                             <td style="padding-left: 9px;">{{$radicado->ap}}</td>
                         </tr>
                         <tr>
+                            <th style="text-align: left; padding-left: 9px;">Usuario WiFi</th>
+                            <td style="padding-left: 9px;">
+                                @if(!empty($contrato) && !empty($contrato->usuario_wifi))
+                                    {{ $contrato->usuario_wifi }}
+                                @else
+                                    {{-- vacío --}}
+                                @endif
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th style="text-align: left; padding-left: 9px;">Contraseña WiFi</th>
+                            <td style="padding-left: 9px;">
+                                @if(!empty($contrato) && !empty($contrato->contrasena_wifi))
+                                    {{ $contrato->contrasena_wifi }}
+                                @else
+                                    {{-- vacío --}}
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
                             <th style="text-align: left; padding-left: 9px;">Estatus</th>
                             <td style="padding-left: 9px;">
                                 @if ($radicado->estatus == 0)
