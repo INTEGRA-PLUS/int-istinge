@@ -18,8 +18,8 @@ class BTWService
         $this->baseUri = env("BTW_TEST_MODE") == 1 ? env('BTW_URL_TEST') : env('BTW_URL_PROD');
         $this->secretKey =  env("BTW_TEST_CREDENTIAL");
         $this->options = [
-            'timeout' => 10,
-            'connect_timeout' => 10,
+            'timeout' => 60,
+            'connect_timeout' => 60,
         ];
     }
 
