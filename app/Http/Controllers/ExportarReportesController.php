@@ -485,7 +485,8 @@ class ExportarReportesController extends Controller
         $pagadoTotal = 0;
         foreach ($facturas as $factura) {
 
-            if($factura->porpagar() == 0 && $factura->estatus == 1){
+            $porPagar = $factura->porpagar();
+            if($porPagar == 0 && $factura->estatus == 1){
                 $factura->estatus = 0;
                 $factura->save();
             }
@@ -493,8 +494,6 @@ class ExportarReportesController extends Controller
             $formaPago = $factura->cuentaPagoListIngreso();
             $cliente = $factura->cliente();
             $totalFactura = $factura->total();
-
-            $porPagar = $factura->porpagar();
             $pagado = $factura->pagado();
             $porPagarTotal+= $porPagar;
             $pagadoTotal+= $pagado;
