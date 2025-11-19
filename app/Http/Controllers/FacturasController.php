@@ -2884,6 +2884,26 @@ class FacturasController extends Controller{
 
                 if(isset($response->statusCode) && $response->statusCode == 500){
 
+                    //EVALUANDO SI YA HABIA SIDO EMITIDA//
+                    $resArr = json_decode(json_encode($response), true);
+                    $mensaje = $resArr['th']['btw_response'] ?? '';
+                    $cufeDian = null;
+
+                    // Patrón para extraer CUFE DIAN
+                    if (preg_match('/CUFE DIAN:\s*([a-f0-9]{96})/i', $mensaje, $match)) {
+                        $cufeDian = $match[1];
+                    }
+
+                    // Si detectamos el CUFE DIAN en el mensaje, entonces marcamos como emitida
+                    if ($cufeDian) {
+                        $factura->emitida = 1;
+                        $factura->uuid = $cufeDian;
+                        $factura->save();
+
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_success', 'Factura emitida correctamente con el cufe: ' . $cufeDian);
+                    }
+                    //FIN EVALUACION
+
                     if(isset($response->th['btw_response'])){
                         $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
                     }else{
