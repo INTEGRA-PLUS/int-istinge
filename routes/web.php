@@ -210,9 +210,9 @@ Route::get('/emitirjson/{nominaId}', 'Nomina\NominaController@emitirJson');
 Route::get('/nomina-json/{nomina}', 'Nomina\NominaController@emitirJson')->name('nomina.json');
 Route::post('/validatetechnicalkeydian', 'FacturasController@validate_technicalkey_dian');
 Route::get('/{id}/xml', 'FacturasController@xml')->name('facturas.xml');
+Route::get('/{id}/download-xml', 'FacturasController@downloadXML')->name('facturas.download-xml');
 
 //Route::get('', 'HomeController@inicio')->name('Inicio');
-
 Route::get('', 'Auth\LoginController@showLoginForm')->name('login');
 Route::get('/home', 'HomeController@home')->name('home');
 Route::post('/archivo', 'HomeController@subirArchivo')->name('subir-archivo');
