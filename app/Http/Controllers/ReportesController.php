@@ -132,7 +132,7 @@ class ReportesController extends Controller
             }
 
             $ides=array();
-            $facturas=$facturas->OrderBy($orderby, $order)->get();
+            $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
 
             foreach ($facturas as $factura) {
                 $ides[]=$factura->id;
