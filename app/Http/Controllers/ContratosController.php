@@ -330,9 +330,7 @@ class ContratosController extends Controller
                 });
             }
             if ($request->vendedor) {
-                $contratos->where(function ($query) use ($request) {
-                    $query->orWhere('contracts.vendedor', $request->vendedor);
-                });
+                $contratos->where('contracts.creador', $request->vendedor);
             }
             if ($request->canal) {
                 $contratos->where(function ($query) use ($request) {
