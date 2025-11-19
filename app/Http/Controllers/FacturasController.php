@@ -4767,6 +4767,46 @@ class FacturasController extends Controller{
         }
     }
 
+    public function downloadXML($id)
+    {
+        $factura = Factura::find($id);
+        $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+        if(!$factura){
+            return back()->with('error', 'No se ha encontrado la factura');
+        }
+        $empresa = Empresa::Find($factura->empresa);
+
+        $btw = new BTWService();
+        $data = [
+            'nit'       => $empresa->nit,
+            'codigo'    => $factura->codigo,
+            'mode'      => $modoBTW,
+            'btw_login' => $empresa->btw_login
+        ];
+
+        $response = $btw->downloadXML($data);
+
+        if(!isset($response->status)){
+            return back()->with('error', 'No se ha encontrado la factura (sin respuesta de BTW)');
+        }
+
+        if($response->status == 'success'){
+            // Decodificar el XML desde base64
+            $xmlContent = base64_decode($response->xml);
+
+            // Remover el BOM UTF-8 si está presente (77u/ = BOM en base64)
+            $xmlContent = preg_replace('/^\xEF\xBB\xBF/', '', $xmlContent);
+
+            // Generar la respuesta de descarga
+            $headers = [
+                'Content-Type' => 'application/xml',
+                'Content-Disposition' => 'attachment; filename="' . $factura->codigo . '.xml"',
+            ];
+
+            return response($xmlContent, 200, $headers);
+        }
+    }
+
     public function downloadEfecty(){
         $valor = 0;
         $facturas = Factura::query()
