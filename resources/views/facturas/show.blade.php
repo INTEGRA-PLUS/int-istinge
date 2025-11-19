@@ -90,8 +90,12 @@
                                     @if($factura->tipo == 1 && isset($contrato) && $contrato->opciones_dian == 1)
                                     <a class="dropdown-item" href="{{route('facturas.convertirelectronica',$factura->id)}}">Convertir a factura electrónica</a>
                                     @endif
-                                    @if($factura->emitida == 1)
-                                        <a class="dropdown-item" href="{{route('facturas.xml',$factura->id)}}" target="_blank">Descargar xml</a>
+                                    @if ($factura->uuid != '' && $factura->emitida == 1)
+                                    <a class="dropdown-item" href="{{ route('facturas.download-xml', $factura->id) }}"
+                                        target="_blank">Descargar xml</a>
+                                    @elseif($factura->emitida == 1)
+                                    <a class="dropdown-item" href="{{ route('facturas.xml', $factura->id) }}"
+                                        target="_blank">Descargar xml</a>
                                     @endif
                                 </div>
                             </div>

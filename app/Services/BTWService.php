@@ -91,6 +91,21 @@ class BTWService
         }
     }
 
+    public function sendPOSInvoiceBTW($json){
+        try {
+            return $this->makeRequest('POST', '/api/sendpos', [], $json, [], true);
+        } catch (\Throwable $th) {
+
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la factura",
+                'th' => $th
+            ]);
+        }
+    }
+
+
+
     public function sendDocumentBTW($json){
         try {
             return $this->makeRequest('POST', 'api/senddocument', [], $json, [], true);
@@ -98,6 +113,18 @@ class BTWService
             return response()->json([
                 'statusCode' => 400,
                 'errorMessage' => "Error al enviar la factura",
+                'th' => $th
+            ]);
+        }
+    }
+
+    public function sendPayroll($json){
+        try {
+            return $this->makeRequest('POST', 'api/sendpayroll', [], $json, [], true);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la nómina",
                 'th' => $th
             ]);
         }
@@ -124,5 +151,27 @@ class BTWService
             ];
         }
     }
+
+    public function downloadXML($data)
+    {
+        try {
+            return $this->makeRequest(
+                'POST',
+                'api/downloadxml',
+                ['Content-Type' => 'application/json'],
+                $data,
+                [],
+                true
+            );
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al descargar el xml",
+                'th' => $th
+            ]);
+        }
+    }
+
+
 
 }
