@@ -487,6 +487,12 @@ class AvisosController extends Controller
                                         ->where('factura', $factura->id)
                                         ->sum('precio');
 
+                                    $estadoCuenta = $factura->estadoCuenta();
+                                    $total = $factura->total()->total;
+                                    $saldo = $estadoCuenta->saldoMesAnterior > 0
+                                        ? $estadoCuenta->saldoMesAnterior + $total
+                                        : $total;
+
                                     // Formatear valor como dinero (ej: $12.345)
                                     $var2 = '$' . number_format($var2, 0, ',', '.');
 
@@ -510,7 +516,7 @@ class AvisosController extends Controller
                                                 "type" => "body",
                                                 "parameters" => [
                                                     ["type" => "text", "text" => $var1], // Factura_XXXX
-                                                    ["type" => "text", "text" => $var2], // Valor total items
+                                                    ["type" => "text", "text" => number_format($saldo, 0, ',', '.')], // Valor total items
                                                     ["type" => "text", "text" => $var3], // Fecha de pago oportuno
                                                     ["type" => "text", "text" => $var4]  // suspensión de servicio
                                                 ]
