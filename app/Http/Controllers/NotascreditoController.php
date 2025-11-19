@@ -1045,7 +1045,7 @@ class NotascreditoController extends Controller
         view()->share(['title' => 'Imprimir Nota de Crédito']);
 
         $nota = NotaCredito::where('empresa', $empresa->id)
-            ->where('id', $id)
+            ->where('nro', $id)
             ->first();
 
         if (!$nota) {
