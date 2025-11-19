@@ -458,12 +458,6 @@ class AvisosController extends Controller
                                 // CASO: RECORDATORIO
                                 // ========================================
 
-                                // 🔹 Verificar si el contacto ya tiene marcado wpp_recordar = 1
-                                if ($contacto && isset($contacto->wpp_recordar) && $contacto->wpp_recordar == 1) {
-                                    \Log::info("Contrato {$contrato->id}: contacto ya tiene wpp_recordar=1, se omite envío de recordatorio.");
-                                    continue; // Saltar este contacto, no enviar mensaje
-                                }
-
                                 // Buscar si la empresa es CONECTA COMUNICACIONES SAS
                                 $empresaEspecial = \DB::table('empresas')
                                     ->where('nombre', 'CONECTA COMUNICACIONES SAS')
@@ -472,8 +466,8 @@ class AvisosController extends Controller
                                 if ($empresaEspecial) {
                                     // Buscar la factura más reciente asociada al contrato
                                     $factura = Factura::where('contrato_id', $contrato->id)
-                                        ->latest()
-                                        ->first();
+                                                    ->latest()
+                                                    ->first();
 
                                     if (!$factura) {
                                         $enviadosFallidos++;
@@ -493,34 +487,19 @@ class AvisosController extends Controller
                                         ->where('factura', $factura->id)
                                         ->sum('precio');
 
+                                    $estadoCuenta = $factura->estadoCuenta();
+                                    $total = $factura->total()->total;
+                                    $saldo = $estadoCuenta->saldoMesAnterior > 0
+                                        ? $estadoCuenta->saldoMesAnterior + $total
+                                        : $total;
+
                                     // Formatear valor como dinero (ej: $12.345)
                                     $var2 = '$' . number_format($var2, 0, ',', '.');
 
-                                    // var3 → Fecha de pago oportuno (según grupo de corte)
-                                    $contratoData = \DB::table('contracts')->where('id', $factura->contrato_id)->first();
-
-                                    if ($contratoData) {
-                                        $grupoCorte = \DB::table('grupos_corte')->where('id', $contratoData->grupo_corte)->first();
-
-                                        if ($grupoCorte && $grupoCorte->fecha_pago) {
-                                            // Día del grupo de corte
-                                            $dia = str_pad($grupoCorte->fecha_pago, 2, '0', STR_PAD_LEFT);
-
-                                            // Tomamos mes y año de la fecha de creación de la factura
-                                            $mes = \Carbon\Carbon::parse($factura->created_at)->month;
-                                            $anio = \Carbon\Carbon::parse($factura->created_at)->year;
-
-                                            // Construir la fecha final
-                                            $fechaFinal = \Carbon\Carbon::createFromDate($anio, $mes, $dia);
-
-                                            // Formato en español: 25 de noviembre de 2025
-                                            $var3 = $fechaFinal->translatedFormat('j \\d\\e F \\d\\e Y');
-                                        } else {
-                                            $var3 = 'Fecha no disponible';
-                                        }
-                                    } else {
-                                        $var3 = 'Fecha no disponible';
-                                    }
+                                    // var3 → Fecha de pago oportuno
+                                    $var3 = $factura->pago_oportuno
+                                        ? \Carbon\Carbon::parse($factura->pago_oportuno)->translatedFormat('j \\d\\e F \\d\\e Y')
+                                        : 'Fecha no disponible';
 
                                     // var4 → Texto fijo
                                     $var4 = "suspensión de servicio";
@@ -537,7 +516,7 @@ class AvisosController extends Controller
                                                 "type" => "body",
                                                 "parameters" => [
                                                     ["type" => "text", "text" => $var1], // Factura_XXXX
-                                                    ["type" => "text", "text" => $var2], // Valor total items
+                                                    ["type" => "text", "text" => number_format($saldo, 0, ',', '.')], // Valor total items
                                                     ["type" => "text", "text" => $var3], // Fecha de pago oportuno
                                                     ["type" => "text", "text" => $var4]  // suspensión de servicio
                                                 ]
@@ -595,18 +574,10 @@ class AvisosController extends Controller
 
                                     if ($esExitoso) {
                                         $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio');
-
-                                        // 🔹 Actualizar columna wpp_recordar a 1 en el contacto correspondiente
-                                        if ($contacto && isset($contacto->id)) {
-                                            \DB::table('contactos')
-                                                ->where('id', $contacto->id)
-                                                ->update(['wpp_recordar' => 1]);
-                                        }
-
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio especial CONECTA');
                                     } else {
                                         $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                        \Log::error('Error WhatsApp CONECTA a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                     }
                                 } else {
                                     $enviadosFallidos++;
