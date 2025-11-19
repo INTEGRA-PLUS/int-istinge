@@ -484,7 +484,9 @@ class ExportarReportesController extends Controller
         $porPagarTotal = 0;
         $pagadoTotal = 0;
         foreach ($facturas as $factura) {
-            if($factura->porpagar() == 0 && $factura->estatus == 1){
+
+            $porPagar = $factura->porpagar();
+            if($porPagar == 0 && $factura->estatus == 1){
                 $factura->estatus = 0;
                 $factura->save();
             }
@@ -492,8 +494,6 @@ class ExportarReportesController extends Controller
             $formaPago = $factura->cuentaPagoListIngreso();
             $cliente = $factura->cliente();
             $totalFactura = $factura->total();
-
-            $porPagar = $factura->porpagar();
             $pagado = $factura->pagado();
             $porPagarTotal+= $porPagar;
             $pagadoTotal+= $pagado;
@@ -790,6 +790,7 @@ class ExportarReportesController extends Controller
                 $cliente = $factura->cliente();
                 $formaPago = $factura->cuentaPagoListIngreso();
                 $item = $factura->itemsfactura->first();
+                $total = $factura->total();
                 $cuentaVentas = DB::table('producto_cuentas')
                 ->leftJoin('puc','puc.id','=','producto_cuentas.cuenta_id')
                 ->select('puc.codigo')
@@ -823,9 +824,9 @@ class ExportarReportesController extends Controller
                 ->setCellValue($letras[18].$i, $factura->listItems())
                 ->setCellValue($letras[19].$i, $cuentaVentas)
                 ->setCellValue($letras[20].$i, date('d-m-Y', strtotime($factura->pagada)))
-                ->setCellValue($letras[21].$i, $factura->total()->valImpuesto)
-                ->setCellValue($letras[22].$i, $factura->total()->subtotal)
-                ->setCellValue($letras[23].$i, $factura->total()->descuento)
+                ->setCellValue($letras[21].$i, $total->valImpuesto)
+                ->setCellValue($letras[22].$i, $total->subtotal)
+                ->setCellValue($letras[23].$i, $total->descuento)
                 ->setCellValue($letras[24].$i, $factura->pagadoTotal)
                 ->setCellValue($letras[25].$i, $factura->pagadoTotal
             );
