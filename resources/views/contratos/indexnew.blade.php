@@ -180,8 +180,8 @@
                         </div>
                         <div class="col-md-3 pl-1 pt-1">
                             <select title="Vendedor" class="form-control selectpicker" id="vendedor" name="vendedor">
-                                @foreach ($vendedores as $vendedor)
-                                <option value="{{ $vendedor->id }}">{{ $vendedor->nombre }}</option>
+                                @foreach ($vendedores as $v)
+                                    <option value="{{ $v->creador }}">{{ $v->creador }}</option>
                                 @endforeach
                             </select>
                         </div>

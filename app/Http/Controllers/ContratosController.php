@@ -93,7 +93,12 @@ class ContratosController extends Controller
         $tabla = Campos::join('campos_usuarios', 'campos_usuarios.id_campo', '=', 'campos.id')->where('campos_usuarios.id_modulo', 2)->where('campos_usuarios.id_usuario', $user->id)->where('campos_usuarios.estado', 1)->orderBy('campos_usuarios.orden', 'ASC')->get();
         $nodos = Nodo::where('status', 1)->where('empresa', $user->empresa)->get();
         $aps = AP::where('status', 1)->where('empresa', $user->empresa)->get();
-        $vendedores = Vendedor::where('empresa', $user->empresa)->where('estado', 1)->get();
+        $vendedores = \App\Contrato::select('creador')
+            ->whereNotNull('creador')
+            ->where('creador', '!=', '')
+            ->distinct()
+            ->orderBy('creador', 'ASC')
+            ->get();
         $canales = Canal::where('empresa', $user->empresa)->where('status', 1)->get();
         $etiquetas = Etiqueta::where('empresa_id', $user->empresa)->get();
         $barrios = Barrios::where('status', '1')->get();
