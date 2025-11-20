@@ -35,8 +35,9 @@
         <a href="{{route('radicados.create')}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i> Nuevo Radicado</a>
         @endif
 
-
+        @if(isset($_SESSION['permisos']['405']))
         <a href="javascript:exportarContratos('{{route('contratos.exportar')}}');" class="btn btn-success btn-sm" ><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+        @endif
 
         @if(isset($_SESSION['permisos']['411']))
         <a href="{{route('contratos.create')}}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nuevo Contrato</a>

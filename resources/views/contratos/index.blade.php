@@ -99,7 +99,7 @@
 							<td class="text-center">{{ $contrato->plan }}</td>
 							{{-- <td class="text-center">
 							    @if($contrato->fecha_corte == 15 || $contrato->fecha_corte == 30) {{ $contrato->fecha_corte }} de cada mes @endif
-						        @if($contrato->fecha_corte == 50) Plan Gratis @endif 
+						        @if($contrato->fecha_corte == 50) Plan Gratis @endif
 						        @if($contrato->fecha_corte == 0) No Asignada @endif
 						    </td> --}}
 						    <td class="text-center">
