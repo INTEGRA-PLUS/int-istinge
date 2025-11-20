@@ -1334,7 +1334,16 @@ class RadicadosController extends Controller
                 $log = new RadicadoLOG;
                 $log->id_radicado = $radicado->id;
                 $log->id_usuario = Auth::user()->id;
-                $log->accion = ($state == 'solventar') ? 'Se ha solventado el caso radicado.' : 'Reabriendo el caso radicado.';
+
+                $accion = "";
+                if ($state == 'solventar') {
+                    $accion = 'Se ha solventado el caso radicado.';
+                } else if ($state == 'reabrir') {
+                    $accion = 'Reabriendo el caso radicado.';
+                }else if($state == 'escalar') {
+                    $accion = 'Se ha escalado el caso radicado.';
+                }
+                $log->accion = $accion;
                 $log->save();
 
                 if ($state == 'solventar') {
