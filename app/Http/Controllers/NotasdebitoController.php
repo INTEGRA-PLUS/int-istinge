@@ -1361,6 +1361,7 @@ class NotasDebitoController extends Controller
 
                 $nota->emitida = 1;
                 $nota->dian_response = $response->cufe;
+                $nota->uuid = $response->cufe;
                 $nota->save();
                 $mensaje = "Nota débito emitida correctamente con el cufe: " . $nota->dian_response;
                 $mensajeCorreo = '';

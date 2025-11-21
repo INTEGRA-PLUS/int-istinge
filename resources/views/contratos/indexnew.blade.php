@@ -31,6 +31,7 @@
         @if(isset($_SESSION['permisos']['5']))
         <a href="{{route('contactos.create')}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i> Nuevo Cliente</a>
         @endif
+
         @if(isset($_SESSION['permisos']['202']))
         <a href="{{route('radicados.create')}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i> Nuevo Radicado</a>
         @endif
