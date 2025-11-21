@@ -17,7 +17,7 @@
         <a href="{{route('facturas.edit',$factura->id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
         @endif
         @if(isset($_SESSION['permisos']['775']))
-        @if(!$factura->promesa_pago || isset($_SESSION['permisos']['863']))
+        @if($factura->promesa_pago==null || $factura->$promesa_pago < Carbon\Carbon::now()->format('Y-m-d'))
         <a href="javascript:modificarPromesa('{{$factura->id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$factura->id}}" title="Promesa de Pago"><i class="fas fa-calendar"></i></a>
         @endif
         @endif
