@@ -1,7 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Services\OnepayService;
+use Illuminate\Support\Facades\Log;
 use App\Builders\JsonBuilders\InvoiceJsonBuilder;
 use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
@@ -1210,8 +1211,7 @@ class FacturasController extends Controller{
   * @param Request $request
   * @return redirect
   */
-    public function store(Request $request){
-
+    public function store(Request $request, OnepayService $onepay){
         $request->validate([
             'vendedor' => 'required',
         ]);
@@ -1453,6 +1453,77 @@ class FacturasController extends Controller{
 
         PucMovimiento::facturaVenta($factura,1, $request);
 
+        try {
+            if (env('ONEPAY_TOKEN')) {
+
+                $cliente      = $factura->cliente(); 
+                $totalFactura = $factura->total()->total ?? 0;
+
+                $nombreFactura   = 'Factura ' . $factura->codigo;
+                $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
+
+                // Normalizamos el teléfono a formato +57...
+                if ($telefonoCliente) {
+                    $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
+                    if (strpos($telefonoCliente, '+') !== 0) {
+                        $telefonoCliente = '+57' . $soloNumeros;
+                    } else {
+                        $telefonoCliente = '+' . $soloNumeros;
+                    }
+                }
+
+                $emailCliente = $cliente->email ?? '';
+
+                // 👇 AHORA usamos la ruta del getFacturaTemp
+                $documentUrl = route('facturas.temp', [
+                    'id'    => $factura->id,
+                    'token' => config('app.key'),
+                ]);
+
+                $body = [
+                    "reference"    => $factura->codigo,
+                    "provider_id"  => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
+                    "provider"     => env('ONEPAY_PROVIDER_NAME', $factura->empresa()->nombre ?? 'Mi Empresa'),
+                    "amount"       => (int) round($totalFactura),
+                    "name"         => $nombreFactura,
+                    "phone"        => $telefonoCliente,
+                    "email"        => $emailCliente,
+                    "document_url" => $documentUrl,
+                    "metadata"     => [
+                        "empresa_id"  => $factura->empresa,
+                        "factura_id"  => $factura->id,
+                        "codigo"      => $factura->codigo,
+                        "tipo"        => "factura",
+                        "cliente_id"  => $factura->cliente,
+                        "contrato_id" => $factura->contrato_id,
+                    ],
+                ];
+
+                $onepayResponse = $onepay->createInvoice($body);
+
+                // 👉 Obtener el invoiceId de la respuesta
+                $invoiceId = data_get($onepayResponse, 'id'); // "019aa7..."
+
+                if ($invoiceId) {
+                    // Guarda SOLO el invoiceId como pediste
+                    $factura->onepay_invoice_id = $invoiceId;
+                    $factura->save();
+                }
+
+                Log::info('Onepay invoice creada', [
+                    'factura_id' => $factura->id,
+                    'invoice_id' => $invoiceId,
+                    'response'   => $onepayResponse,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // No romper la creación de la factura si Onepay falla
+            Log::error('Error creando invoice en Onepay', [
+                'factura_id' => $factura->id ?? null,
+                'message'    => $e->getMessage(),
+            ]);
+        }
+        
         //Creo la variable para el mensaje final, y la variable print (imprimir)
         $mensaje='Se ha creado satisfactoriamente la factura';
         $print=false;
@@ -4472,13 +4543,13 @@ class FacturasController extends Controller{
         );
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
-            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific���
+            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific   
             ->setTitle("Reporte Excel Contactos") // Titulo
             ->setSubject("Reporte Excel Contactos") //Asunto
-            ->setDescription("Reporte de Contactos") //Descripci���n
+            ->setDescription("Reporte de Contactos") //Descripci   n
             ->setKeywords("reporte Contactos") //Etiquetas
             ->setCategory("Reporte excel"); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah��� el titulo del reporte
+        // Se combinan las celdas A1 hasta D1, para colocar ah    el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A1:D1');
         // Se agregan los titulos del reporte
@@ -5373,13 +5444,13 @@ class FacturasController extends Controller{
         $letras= array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
-        ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific�1�7�1�7�1�7
+        ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific 1 7 1 7 1 7
         ->setTitle("Reporte Excel Factura de Ventas") // Titulo
         ->setSubject("Reporte Excel Factura de Ventas") //Asunto
-        ->setDescription("Reporte de Factura de Ventas") //Descripci�1�7�1�7�1�7n
+        ->setDescription("Reporte de Factura de Ventas") //Descripci 1 7 1 7 1 7n
         ->setKeywords("reporte Factura de Ventas") //Etiquetas
         ->setCategory("Reporte excel"); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah�1�7�1�7�1�7 el titulo del reporte
+        // Se combinan las celdas A1 hasta D1, para colocar ah 1 7 1 7 1 7 el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A1:J1');
         // Se agregan los titulos del reporte
