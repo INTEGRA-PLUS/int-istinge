@@ -1478,11 +1478,21 @@ class FacturasController extends Controller{
                     'id'    => $factura->id,
                     'token' => config('app.key'),
                 ]);
+                
+                $empresaNombre = 'Mi Empresa';
+
+                if (method_exists($factura, 'empresa') && $factura->empresa) {
+                    // si la relación es $factura->empresa (sin paréntesis)
+                    $empresaNombre = $factura->empresa->nombre ?? 'Mi Empresa';
+                } elseif (auth()->user() && auth()->user()->empresaObj) {
+                    // fallback: nombre de la empresa del usuario logueado
+                    $empresaNombre = auth()->user()->empresaObj->nombre ?? 'Mi Empresa';
+                }
 
                 $body = [
                     "reference"    => $factura->codigo,
                     "provider_id"  => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
-                    "provider"     => env('ONEPAY_PROVIDER_NAME', $factura->empresa()->nombre ?? 'Mi Empresa'),
+                    "provider"     => env('ONEPAY_PROVIDER_NAME', $empresaNombre),
                     "amount"       => (int) round($totalFactura),
                     "name"         => $nombreFactura,
                     "phone"        => $telefonoCliente,
