@@ -778,6 +778,14 @@ class RadicadosController extends Controller
                 Storage::disk('documentos')->delete($radicado->adjunto_4);
             }
 
+            if ($radicado->adjunto_5) {
+                Storage::disk('documentos')->delete($radicado->adjunto_5);
+            }
+
+            if ($radicado->adjunto_6) {
+                Storage::disk('documentos')->delete($radicado->adjunto_6);
+            }
+
             $radicado->delete();
         }
         return redirect('empresa/radicados')->with('success', 'El radicado ha sido eliminado satisfactoriamente');
