@@ -570,6 +570,48 @@ class RadicadosController extends Controller
                 return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
             }
 
+            if ($request->adjunto5) {
+
+                $radicado->adjunto_5 = $request->adjunto4;
+                $file = $request->file('adjunto5');
+                $nombre = $radicado->codigo . '-' . '5' . date('Ymd') . '.' . $file->extension();
+                $ruta = public_path('/adjuntos/documentos/');
+                $file->move($ruta, $nombre);
+
+                $radicado->adjunto_5 = $nombre;
+                $radicado->update();
+                $mensaje = 'SE HA CARGADO EL ARCHIVO ADJUNTO SATISFACTORIAMENTE.';
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = Auth::user()->id;
+                $log->accion = 'Carga de archivo adjunto.';
+                $log->save();
+
+                return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
+            }
+
+            if ($request->adjunto6) {
+
+                $radicado->adjunto_6 = $request->adjunto4;
+                $file = $request->file('adjunto6');
+                $nombre = $radicado->codigo . '-' . '6' . date('Ymd') . '.' . $file->extension();
+                $ruta = public_path('/adjuntos/documentos/');
+                $file->move($ruta, $nombre);
+
+                $radicado->adjunto_6 = $nombre;
+                $radicado->update();
+                $mensaje = 'SE HA CARGADO EL ARCHIVO ADJUNTO SATISFACTORIAMENTE.';
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = Auth::user()->id;
+                $log->accion = 'Carga de archivo adjunto.';
+                $log->save();
+
+                return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
+            }
+
             if ($request->archivo_de_audio) {
                 $radicado->adjunto_audio = $request->archivo_de_audio;
                 $file = $request->file('archivo_de_audio');
