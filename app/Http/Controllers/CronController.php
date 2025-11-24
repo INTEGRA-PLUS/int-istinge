@@ -170,10 +170,53 @@ class CronController extends Controller
         $movimiento->save();
     }
 
+    //ELIMINAR DUPLICADOS DE FACTURA CONTRATOS
+    public static function limpiarDuplicadosFacturaContratos()
+    {
+        // 1. Obtener grupos duplicados
+        $duplicados = DB::table('factura_contratos')
+            ->select('factura_id', 'contrato_nro', 'client_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('factura_id', 'contrato_nro', 'client_id')
+            ->having('total', '>', 1)
+            ->get();
+
+        $eliminados = 0;
+
+        foreach ($duplicados as $dup) {
+
+            // 2. Obtener todos los registros duplicados del grupo
+            $registros = DB::table('factura_contratos')
+                ->where('factura_id', $dup->factura_id)
+                ->where('contrato_nro', $dup->contrato_nro)
+                ->where('client_id', $dup->client_id)
+                ->orderBy('id', 'asc') // dejamos el más pequeño
+                ->get();
+
+            // 3. Conservar el primero y eliminar los otros
+            $idConservar = $registros->first()->id;
+
+            $idsEliminar = $registros->pluck('id')->filter(function ($id) use ($idConservar) {
+                return $id != $idConservar;
+            });
+
+            if ($idsEliminar->count() > 0) {
+                DB::table('factura_contratos')
+                    ->whereIn('id', $idsEliminar)
+                    ->delete();
+
+                $eliminados += $idsEliminar->count();
+            }
+        }
+
+    return "Duplicados eliminados: " . $eliminados;
+    }
+
     public static function CrearFactura(){
 
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
+        self::limpiarDuplicadosFacturaContratos();
+
 
         $empresa = Empresa::find(1);
 
