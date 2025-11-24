@@ -174,7 +174,7 @@ class CronController extends Controller
     public static function limpiarDuplicadosFacturaContratos()
     {
         // 1. Obtener grupos duplicados
-        $duplicados = DB::table('factura_contratos')
+        $duplicados = DB::table('facturas_contratos')
             ->select('factura_id', 'contrato_nro', 'client_id', DB::raw('COUNT(*) as total'))
             ->groupBy('factura_id', 'contrato_nro', 'client_id')
             ->having('total', '>', 1)
@@ -185,7 +185,7 @@ class CronController extends Controller
         foreach ($duplicados as $dup) {
 
             // 2. Obtener todos los registros duplicados del grupo
-            $registros = DB::table('factura_contratos')
+            $registros = DB::table('facturas_contratos')
                 ->where('factura_id', $dup->factura_id)
                 ->where('contrato_nro', $dup->contrato_nro)
                 ->where('client_id', $dup->client_id)
