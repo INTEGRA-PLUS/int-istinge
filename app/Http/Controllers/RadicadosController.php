@@ -442,7 +442,6 @@ class RadicadosController extends Controller
 
         $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
         $estatusViejo = $radicado->estatus;
-
         //elminacion de un posible detalle de detalle de euqipos
         DB::table('radicados_detalles_equipos')->where('radicado_id', $radicado->id)->delete();
         if(isset($request->marca)){
@@ -687,7 +686,8 @@ class RadicadosController extends Controller
             $radicado->tecnico = $request->tecnico;
             $radicado->estatus = $request->estatus;
             $radicado->prioridad = $request->prioridad;
-            //$radicado->responsable = Auth::user()->id;
+            $radicado->medio = $request->medio;
+            $radicado->grado = $request->grado;
             $radicado->valor = ($request->servicio == 4) ? $request->valor : null;
             $radicado->oficina = $request->oficina;
             $radicado->revision = $request->revision;
