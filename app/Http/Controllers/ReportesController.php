@@ -96,18 +96,19 @@ class ReportesController extends Controller
             $orderby=$campos[$request->orderby];
             $order=$request->order==1?'DESC':'ASC';
 
-            $facturas = Factura::join('contactos as c', 'factura.cliente', '=', 'c.id')
-                ->leftjoin('contracts', 'contracts.id', '=', 'factura.contrato_id')
-                ->join('items_factura as if', 'factura.id', '=', 'if.factura')
-                ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
-                ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
-                ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-                    'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus', 'factura.empresa',
-                    'i.fecha as pagada','i.cuenta','ig.puc_banco')
-                ->whereIn('factura.tipo', [1,2])
-                ->where('factura.empresa',Auth::user()->empresa)
-                ->where('factura.estatus',0)
-                ->groupBy('factura.id');
+            $facturas = Factura::where('factura.empresa',Auth::user()->empresa)
+            ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+            ->leftjoin('contracts as ctr', 'ctr.nro', '=', 'fc.contrato_nro')
+            ->join('contactos as c', 'factura.cliente', '=', 'c.id')
+            ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
+            ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
+            ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
+            ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
+                    'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus',
+                    'municipio.nombre as municipioNombre', 'c.vereda',
+                    'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
+            ->whereIn('factura.tipo', [1,2])
+            ->where('factura.estatus','<>',2);
 
             $example = $facturas->get()->last();
 
@@ -138,11 +139,16 @@ class ReportesController extends Controller
                 $ides[]=$factura->id;
             }
 
+            $totalFacturas=0;
             foreach ($facturas as $invoice) {
-                $invoice->subtotal = $invoice->total()->subsub;
+
+                $totalInvoice = $invoice->total();
+
+                $invoice->subtotal = $totalInvoice->subsub;
                 $invoice->iva = $invoice->impuestos_totales();
                 $invoice->retenido = $factura->retenido(true);
-                $invoice->total = $invoice->total()->total - $invoice->devoluciones();
+                $invoice->total = $totalInvoice->total - $invoice->devoluciones();
+                $totalFacturas+= $factura->pagadoTotal;
             }
             if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
                 switch ($request->orderby){
@@ -167,7 +173,7 @@ class ReportesController extends Controller
             if ($ides) {
                 $result=DB::table('items_factura')->whereIn('factura', $ides)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
                 $subtotal=$this->precision($result->total-$result->descuento);
-                $total=$this->precision((float)$subtotal+$result->impuesto);
+                $total=$this->precision((float)$totalFacturas);
             }
 
 
