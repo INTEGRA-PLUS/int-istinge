@@ -148,7 +148,7 @@ class ReportesController extends Controller
                 $invoice->iva = $invoice->impuestos_totales();
                 $invoice->retenido = $factura->retenido(true);
                 $invoice->total = $totalInvoice->total - $invoice->devoluciones();
-                $totalFacturas+= $factura->pagadoTotal;
+                $totalFacturas+= $invoice->total;
             }
             if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
                 switch ($request->orderby){
