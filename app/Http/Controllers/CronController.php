@@ -200,7 +200,7 @@ class CronController extends Controller
             });
 
             if ($idsEliminar->count() > 0) {
-                DB::table('factura_contratos')
+                DB::table('facturas_contratos')
                     ->whereIn('id', $idsEliminar)
                     ->delete();
 
