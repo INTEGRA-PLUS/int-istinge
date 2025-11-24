@@ -65,6 +65,9 @@ Route::get('borrar-cache', function () {
 	return redirect()->back()->with('success', 'Cache borrado correctamente y recargada la vista.');
 })->name('borrar-cache');
 
+// Webhook Onepay
+Route::post('onepay/webhook', 'OnepayWebhookController@handle')->name('onepay.webhook');
+
 Route::get('contact/newcam', 'ContactosController@indexcampos')->name('contact.new');
 Route::post('contact/campos', 'ContactosController@newcampos')->name('contact.new.campos');
 Route::get('/software/api/getPlanes/{mikrotik_id}', [PlanesVelocidadController::class, 'getPlanesPorMikrotik']);
