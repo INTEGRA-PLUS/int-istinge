@@ -183,7 +183,7 @@
                         <div class="col-md-3 pl-1 pt-1">
                             <select title="Vendedor" class="form-control selectpicker" id="vendedor" name="vendedor">
                                 @foreach ($vendedores as $v)
-                                    <option value="{{ $v }}">{{ $v }}</option>
+                                    <option value="{{ $v->id }}">{{ $v->nombre }}</option>
                                 @endforeach
                             </select>
                         </div>

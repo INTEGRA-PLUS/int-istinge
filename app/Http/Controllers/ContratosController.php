@@ -96,20 +96,7 @@ class ContratosController extends Controller
 
         $vendedores = Vendedor::where('empresa', $user->empresa)
             ->where('estado', 1)
-            ->pluck('nombre');
-
-        $creadores = \App\Contrato::select('creador')
-            ->whereNotNull('creador')
-            ->where('creador', '!=', '')
-            ->pluck('creador');
-
-        // 3. Unir, eliminar duplicados y ordenar
-        $vendedores = $vendedores
-            ->merge($creadores)
-            ->filter()           // elimina null/empty
-            ->unique()           // elimina repetidos
-            ->sort()             // orden alfabético
-            ->values();          // reindexar
+            ->get();
 
         $canales = Canal::where('empresa', $user->empresa)->where('status', 1)->get();
         $etiquetas = Etiqueta::where('empresa_id', $user->empresa)->get();
@@ -342,7 +329,7 @@ class ContratosController extends Controller
                 });
             }
             if ($request->vendedor) {
-                $contratos->where('contracts.creador', $request->vendedor);
+                $contratos->where('contracts.vendedor', $request->vendedor);
             }
             if ($request->canal) {
                 $contratos->where(function ($query) use ($request) {
