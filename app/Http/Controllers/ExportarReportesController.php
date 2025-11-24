@@ -784,7 +784,7 @@ class ExportarReportesController extends Controller
             // Aquí se escribe en el archivo
             $i=4;
 
-
+            $totalFactura=0;
             foreach ($facturas as $factura) {
 
                 $cliente = $factura->cliente();
@@ -801,6 +801,8 @@ class ExportarReportesController extends Controller
                 if($cuentaVentas){
                     $cuentaVentas = $cuentaVentas->codigo;
                 }
+
+                $totalFactura+= $factura->pagadoTotal;
 
                 $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[0].$i, $factura->codigo)
@@ -834,7 +836,7 @@ class ExportarReportesController extends Controller
             }
             $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[24].$i, "TOTAL: ")
-                ->setCellValue($letras[25].$i, Auth::user()->empresa()->moneda." ".Funcion::Parsear($total));
+                ->setCellValue($letras[25].$i, Auth::user()->empresa()->moneda." ".Funcion::Parsear($totalFactura));
 
             $estilo =array('font'  => array('size'  => 12, 'name'  => 'Times New Roman' ),
                 'borders' => array(
