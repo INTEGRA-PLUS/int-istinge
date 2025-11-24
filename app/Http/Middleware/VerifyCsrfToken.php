@@ -13,5 +13,6 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'software/empresa/asignaciones/*/imprimir',
+        'onepay/webhook',
     ];
 }
