@@ -52,7 +52,7 @@
 	    @endif
 	@endif
 
-    @if ($factura->emitida == 0 && $empresa->estado_dian == 1)
+    @if ($factura->emitida == 0 && $empresa->estado_dian == 1 && $factura->tipo == 2)
         @if($empresa->proveedor == 1 || $empresa->proveedor == null)
         <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta. {{ $factura->codigo }}"
             onclick="validateDian({{ $factura->id }}, '{{ route('xml.factura', $factura->id) }}', '{{ $factura->codigo }}')">

@@ -1539,12 +1539,20 @@ class RadicadosController extends Controller
     {
         $radicados = $request->input('radicados');
         $tecnico = $request->input('tecnico');
+        $user = Auth::user();
+        $tecnicoUser = User::find($tecnico);
 
         foreach ($radicados as $radicadoId) {
             $radicado = Radicado::find($radicadoId);
             if ($radicado) {
                 $radicado->tecnico = $tecnico;
                 $radicado->save();
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = $user->id;
+                $log->accion = 'El usuario ' . $user->nombres . ' ha asignado el tecnico ' . $tecnicoUser->nombres . ' el radicado ' . $radicado->codigo;
+                $log->save();
             }
         }
 
