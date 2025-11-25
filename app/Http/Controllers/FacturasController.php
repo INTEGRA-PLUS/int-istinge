@@ -1482,10 +1482,8 @@ class FacturasController extends Controller{
                 $empresaNombre = 'Mi Empresa';
 
                 if (method_exists($factura, 'empresa') && $factura->empresa) {
-                    // si la relación es $factura->empresa (sin paréntesis)
                     $empresaNombre = $factura->empresa->nombre ?? 'Mi Empresa';
                 } elseif (auth()->user() && auth()->user()->empresaObj) {
-                    // fallback: nombre de la empresa del usuario logueado
                     $empresaNombre = auth()->user()->empresaObj->nombre ?? 'Mi Empresa';
                 }
 
@@ -1508,13 +1506,17 @@ class FacturasController extends Controller{
                     ],
                 ];
 
-                $onepayResponse = $onepay->createInvoice($body);
+                $onepayResponseRaw = $onepay->createInvoice($body);
 
-                // 👉 Obtener el invoiceId de la respuesta
-                $invoiceId = data_get($onepayResponse, 'id'); // "019aa7..."
-
+                // Lo convertimos a array 
+                $onepayResponse = json_decode($onepayResponseRaw, true);
+                
+                $invoiceId =
+                      data_get($onepayResponse, 'id')
+                   ?? data_get($onepayResponse, 'invoice_id')
+                   ?? data_get($onepayResponse, 'data.id');
+                
                 if ($invoiceId) {
-                    // Guarda SOLO el invoiceId como pediste
                     $factura->onepay_invoice_id = $invoiceId;
                     $factura->save();
                 }
