@@ -2796,6 +2796,18 @@ class ContratosController extends Controller
             if (isset($response->status) && $response->status == true) {
                 $message = 'HABILITADO';
                 $contrato->save();
+
+                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de deshabilitado a habilitado CATV<br>';
+
+                /*REGISTRO DEL LOG*/
+                $movimiento = new MovimientoLOG;
+                $movimiento->contrato    = $id;
+                $movimiento->modulo      = 5;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+
                 return back()->with('success', 'EL CONTRATO NRO. ' . $contrato->nro . ' HA SIDO MODIFICADO EN SU CATV A ' . $message);
             } else {
                 return back()->with('danger', 'EL CONTRATO NRO. ' . $contrato->nro . ' NO HA SIDO MODIFICADO POR UN ERROR');
@@ -2828,6 +2840,18 @@ class ContratosController extends Controller
             if (isset($response->status) && $response->status == true) {
                 $message = 'DESHABILITADO';
                 $contrato->save();
+
+                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado CATV<br>';
+
+                /*REGISTRO DEL LOG*/
+                $movimiento = new MovimientoLOG;
+                $movimiento->contrato    = $id;
+                $movimiento->modulo      = 5;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+
                 return back()->with('success', 'EL CONTRATO NRO. ' . $contrato->nro . ' HA SIDO MODIFICADO EN SU CATV A ' . $message);
             } else {
                 return back()->with('danger', 'EL CONTRATO NRO. ' . $contrato->nro . ' NO HA SIDO MODIFICADO POR UN ERROR');

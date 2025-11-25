@@ -1248,8 +1248,12 @@ class CronController extends Controller
             }
 
             $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
-            ->join('contracts as cs', 'cs.id', '=', 'f.contrato_id')
-            ->join('grupos_corte as gc', 'gc.id', '=', 'cs.grupo_corte') // Unimos con grupos_corte
+            ->leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
+                ->leftJoin('contracts as cs', function ($join) {
+                    $join->on('cs.nro', '=', 'fcs.contrato_nro');
+                        //  ->orOn('cs.id', '=', 'f.contrato_id');
+                })->
+            join('grupos_corte as gc', 'gc.id', '=', 'cs.grupo_corte') // Unimos con grupos_corte
             ->select(
                 'contactos.id',
                 'contactos.nombre',
