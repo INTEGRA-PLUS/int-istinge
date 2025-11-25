@@ -2571,3 +2571,66 @@ if ($mikrotik) {
 
 
 }
+
+public static function sendPdfEmailBTW($btw, $documento,$cliente,$empresa, $tipo){
+
+    //Correos para envio de factura.
+    $email = $cliente->email;
+    $emails = [];
+    $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+
+    if ($email) {
+        $emails[] = $email;
+    }
+
+    if ($documento->cliente()->asociados('number') > 0) {
+
+        foreach ($documento->cliente()->asociados() as $asociado) {
+            if ($asociado->notificacion == 1 && $asociado->email) {
+                $emails[] = $asociado->email;
+            }
+        }
+    }
+    $emailsString = implode(';', $emails);
+    //Correos para envio de factura.
+
+    $id = $documento->id;
+    $mensaje = '';
+
+    if($tipo == 1){
+        $pdf = FacturasController::Imprimir($id, 'original', true,true);
+    }else if($tipo == 2){
+        if($documento->uuid == ""){
+            $documento->uuid = $documento->dian_response;
+        }
+        $pdf = NotascreditoController::Imprimir($id, 'original', true,true);
+    }else if($tipo == 3){
+        $pdf = FacturaspController::Imprimir($id, 'original', true,true);
+    }
+
+    $pdfContent = $pdf->output();
+    $pdfBase64 = base64_encode($pdfContent);
+    $requestData = [
+        'pdfBase64File'  => $pdfBase64,
+        'uuid'           => $documento->uuid,
+        'additionalEmail'=> $emailsString,
+        'nit'            => $empresa->nit,
+        'btw_login'      => $empresa->btw_login,
+        'mode'           => $modoBTW
+    ];
+
+    $responseEmail = $btw->sendPdfEmail($requestData);
+
+    if(isset($responseEmail->status) && $responseEmail->status == 'success'){
+        $mensaje= "Documento enviado al correo del cliente correctamente.";
+    }else{
+        if(isset($responseEmail['statusCode']) && $responseEmail['statusCode'] == 406 && isset($responseEmail['th'])){
+            $mensaje = "No se encontró la información del AttachedDocument del documento, intentelo más tarde";
+        }else{
+            $mensaje= "Documento no pudo ser enviado al correo.";
+        }
+    }
+
+    return $mensaje;
+
+}
