@@ -1091,9 +1091,13 @@ class IngresosController extends Controller
 
                     $mensaje = "- Se ha habilitado el secret.";
 
+                    // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                    DB::reconnect();
+                    $ingreso = Ingreso::find($ingreso->id);
                     $ingreso->revalidacion_enable_internet = 1;
                     $ingreso->save();
 
+                    $contrato = Contrato::find($contrato->id);
                     $contrato->state = 'enabled';
                     $contrato->save();
 
@@ -1130,9 +1134,13 @@ class IngresosController extends Controller
 
                             $mensaje = "- Se ha sacado la ip de morosos.";
 
+                            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                            DB::reconnect();
+                            $ingreso = Ingreso::find($ingreso->id);
                             $ingreso->revalidacion_enable_internet = 1;
                             $ingreso->save();
 
+                            $contrato = Contrato::find($contrato->id);
                             $contrato->state = 'enabled';
                             $contrato->save();
 
@@ -1147,6 +1155,9 @@ class IngresosController extends Controller
                 $API->disconnect();
             }
         }else{
+            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+            DB::reconnect();
+            $ingreso = Ingreso::find($ingreso->id);
             $ingreso->revalidacion_enable_internet = 1;
             $ingreso->save();
         }
@@ -1175,13 +1186,20 @@ class IngresosController extends Controller
 
             if(isset($response->status) && $response->status == true){
 
+                // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                DB::reconnect();
+                $ingreso = Ingreso::find($ingreso->id);
                 $ingreso->revalidacion_enable_tv = 1;
                 $ingreso->save();
 
+                $contrato = Contrato::find($contrato->id);
                 $contrato->state_olt_catv = 1;
                 $contrato->save();
             }
         }else{
+            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+            DB::reconnect();
+            $ingreso = Ingreso::find($ingreso->id);
             $ingreso->revalidacion_enable_tv = 1;
             $ingreso->save();
         }
