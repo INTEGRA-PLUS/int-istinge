@@ -8,6 +8,7 @@ use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Empresa; use App\Contacto; use App\TipoIdentificacion;
 use App\Impuesto; use App\NumeracionFactura;
 use App\TerminosPago; use App\Funcion; use App\Vendedor;
@@ -1481,7 +1482,7 @@ class FacturasController extends Controller{
         }else if($tipo == 2){
             return redirect('empresa/facturas/facturas_electronica')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
         }
-        return redirect('empresa/factura-index')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
+        return redirect('empresa/facturas')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
     }
 
   /**
@@ -4065,6 +4066,7 @@ class FacturasController extends Controller{
         $factura = Factura::where('id', $id)->first();
         return json_encode($factura);
     }
+
 
     public function store_promesa(Request $request) {
 

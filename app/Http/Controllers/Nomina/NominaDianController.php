@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Nomina;
 
+use App\Builders\JsonBuilders\NominaJsonBuilder;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ use App\Model\Nomina\NominaConfiguracionCalculos;
 use App\Model\Nomina\NominaCalculoFijo;
 use App\NumeracionFactura;
 use App\Model\Nomina\NominaCuentasGeneralDetalle;
+use App\Services\BTWService;
 use App\Services\NominaService;
 use Illuminate\Support\Facades\Response;
 
@@ -596,7 +598,13 @@ class NominaDianController extends Controller
      */
     public function validate_dian(Request $request)
     {
-        $data = $this->emitirJson($request->id, $request->tipo);
+        $empresa = Empresa::Find(Auth::user()->empresa);
+
+        if($empresa->proveedor == 2){
+            $data = $this->emitirJsonBTW($request->id, $request->tipo);
+        }else{
+            $data = $this->emitirJson($request->id, $request->tipo);
+        }
         return response()->json($data, 200);
     }
 
@@ -2616,5 +2624,406 @@ class NominaDianController extends Controller
         }
 
         return back()->withErrors("{$response->statusCode}. {$response->errorReason}");
+    }
+
+        /*
+    Tipos
+    1 = Nomina Individual
+    2 = Nomina de ajuste
+    3 = Nomina de eliminacion.
+    */
+    public function emitirJsonBTW($nominaId,$tipo){
+
+        $nomina = Nomina::findOrFail($nominaId);
+
+        if(!$nomina){
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false,
+                    'status' => 200,
+                    'ref' => '#',
+                    'mesagge' => 'No existe la nomina',
+                    'data' => []
+                ]);
+            }
+        }
+
+
+
+        if($nomina->emitida == 1 && $tipo != 3){
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => true,
+                    'status' => 200,
+                    'ref' => '',
+                    'mesagge' => 'Nomina emitida',
+                    'data' => []
+                ]);
+            }
+
+        }
+
+        if($nomina->emitida == 4){
+            if(request()->lote){
+                return response()->json([
+                    'success' => true,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => 'El ajuste de nomina, debe emitirse individualmente',
+                    'data' => []
+                ]);
+            }
+        }
+
+        $numeracionFactura = $this->obtenerNumeracion($nomina,$tipo);
+
+        if (!$numeracionFactura) {
+
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => "nomina {$nomina->codigo_dian} vencida",
+                    'data' => ['code-error' => "nomina-vencida"]
+                ]);
+            }
+
+            return "nomina-vencida";
+        } elseif ($numeracionFactura->inicio == $numeracionFactura->final) {
+
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => "nomina {$nomina->codigo_dian} consecutivo limite",
+                    'data' => ['code-error' => 'nomina-consecutivo-limite']
+                ]);
+            }
+
+            return 'nomina-consecutivo-limite';
+        }
+
+        $empresa = Empresa::Find($nomina->fk_idempresa);
+        $jsonNomina = '';
+
+        try {
+
+            $jsonNomina = (array)$this->nominaElectronica($nomina);
+
+            $jsonNominaEmpleador   = NominaJsonBuilder::buildFromEmployer($jsonNomina);
+            $jsonNominaTrabajadores = NominaJsonBuilder::buildFromWorkers($jsonNomina);
+            $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+
+            $jsonBTW = NominaJsonBuilder::buildFullPayroll([
+                'empleador'    => $jsonNominaEmpleador,
+                'trabajadores' => $jsonNominaTrabajadores,
+                'mode'         => $modoBTW,
+                'btw_login'    => $empresa->btw_login ?? null,
+                'software'     => 1,
+            ]);
+
+        } catch (\Throwable $e) {
+
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => "Error al emitir la nomina {$nomina->codigo_dian}",
+                    'data' => ['error' => $e->getMessage()]
+                ]);
+            }
+        }
+
+        /*>>> Generamos el consecutivo de la dian en este punto al momento de comenzar una emisión <<<*/
+        if ($nomina->codigo_dian == null) {
+            $numeroNumeracion = $numeracionFactura->inicio;
+            $nomina->codigo_dian = $numeracionFactura->prefijo . $numeroNumeracion;
+            $nomina->fk_idnumeracion = $numeracionFactura->id;
+            $nomina->save();
+            $numeracionFactura->inicio = $numeroNumeracion + 1;
+            $numeracionFactura->preferida = 1;
+            $numeracionFactura->save();
+        } else {
+            $repetidaDian =  Nomina::where('id', '!=', $nominaId)
+                ->where('fk_idempresa', auth()->user()->empresa)
+                ->where('codigo_dian', $nomina->codigo_dian)
+                ->first();
+            if ($repetidaDian) {
+                $nomina->codigo_dian = null;
+                $nomina->update();
+
+                if(request()->ajax() || request()->lote){
+                    return response()->json([
+                        'success' => false,
+                        'status' => 200,
+                        'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                        'mesagge' => "la nomina con codigo {$nomina->codigo_dian} esta repetido",
+                        'data' => ['code-error' => 'codigo-repetido']
+                    ]);
+                }
+
+                return 'codigo-repetido';
+            }
+        }
+
+        /*>>> Generamos el numero de secuencia XML con los datos generales para cualquier tipo de nomina a emitir <<<*/
+        $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['prefijo'] = $numeracionFactura->prefijo;
+        $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['consecutivo'] = preg_replace('/[^0-9]+/', '', $nomina->codigo_dian);
+        $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['numero'] = $nomina->codigo_dian;
+
+        if ($nomina->emitida == Nomina::NO_EMITIDA && $tipo == 1 || $tipo == 1 && $nomina->emitida == 0 || $tipo ==1 && $nomina->emitida ==1) {
+            //Nomina individual.
+            $jsonBTW['type_emission_id'] =7;
+
+        } elseif ($nomina->emitida == Nomina::AJUSTE_SIN_EMITIR && $tipo == 2 )
+        {
+            //Nomina Ajuste.
+
+            $jsonBTW['type_emission_id'] =8;
+            $jsonBTW['trabajadores'][0]['informacionGeneral']['tipoNota'] = 1;
+
+            $nominaAsociada = Nomina::where('cune', $nomina->cune_relacionado)->first();
+
+            if($nominaAsociada){
+
+                $jsonBTW['trabajadores'][0]['documentRef'] = [
+                    "numRef"=> $nominaAsociada->codigo_dian,
+                        "fechaGenPred"=> Carbon::parse($nominaAsociada->fecha_emision)->format('Y-m-d\TH:i:s'),
+                        "cuneRef"=> $nominaAsociada->cune
+                    ];
+
+            }else{
+
+                    return response()->json([
+                        'success' => false,
+                        'status' => 200,
+                        'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                        'mesagge' => "la nomina con codigo {$nomina->codigo_dian} no tiene una nomina asociada",
+                        'data' => ['code-error' => 'no-nomina-asociada']
+                    ]);
+
+                }
+
+        } elseif ($nomina->emitida == Nomina::EMITIDA && $tipo == 3) {
+
+            //Nomina Eliminar.
+            $jsonBTW['type_emission_id'] =9;
+            $jsonBTW['trabajadores'][0]['informacionGeneral']['tipoNota'] = 2;
+            $jsonBTW['trabajadores'][0]['informacionGeneral']['tipoNomina'] = "103";
+
+            $nodosExcluirTipoEliminar = [
+                'fechasPagos',
+                'basicoDevengados',
+                'cesantias',
+                'compensaciones',
+                'deducciones',
+                'devengados',
+                'fondoSP',
+                'horasExtras',
+                'huelgasLegales',
+                'notas',
+                'otrasDeducciones',
+                'otrosConceptos',
+                'otrosDevengados',
+                'pago',
+                'primas',
+                'sanciones',
+                'transporte',
+            ];
+
+            foreach ($nodosExcluirTipoEliminar as $nodo) {
+                if (isset($jsonBTW['trabajadores'][0][$nodo])) {
+                    unset($jsonBTW['trabajadores'][0][$nodo]);
+                }
+            }
+
+            $numeracionEliminar = NumeracionFactura::where('tipo_nomina', 3)
+            ->where('empresa', $nomina->fk_idempresa)
+            ->where('preferida', 1)
+            ->first();
+
+            if (!$numeracionEliminar) {
+
+                if(request()->ajax() || request()->lote){
+                    return response()->json([
+                        'success' => false,
+                        'status' => 200,
+                        'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                        'mesagge' => "la nomina con codigo {$nomina->codigo_dian} Debe escoger una numeración de tipo eliminar.",
+                        'data' => ['code-error' => 'tipo-eliminar']
+                    ]);
+                }
+            }
+
+                $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['consecutivo'] = $numeracionEliminar->prefijo;
+                $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['consecutivo'] = $numeracionEliminar->inicio;
+                $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['numero'] = $numeracionEliminar->prefijo . $numeracionEliminar->inicio;
+
+                $jsonBTW['trabajadores'][0]['documentRef'] = [
+                    "numRef"=> $nomina->codigo_dian,
+                        "fechaGenPred"=> Carbon::parse($nomina->fecha_emision)->format('Y-m-d\TH:i:s'),
+                        "cuneRef"=> $nomina->cune
+                ];
+
+        }
+
+        // Envio de json completo a microservicio de gestoru.
+        //  return $jsonBTW;
+        $btw = new BTWService();
+        $response = (object)$btw->sendPayroll($jsonBTW);
+
+        // Manejo de respuesta con formato statusCode y th (nuevo formato de error)
+        if(isset($response->statusCode) && isset($response->th)){
+            // Convertir th a objeto si viene como array
+            $thObj = is_array($response->th) ? (object)$response->th : $response->th;
+
+            if(isset($thObj->status) && $thObj->status == 'error'){
+                $errorMessage = $response->errorMessage ?? 'Error al realizar la petición';
+                $thMessage = isset($thObj->message) ? $thObj->message : '';
+
+                $message = $errorMessage;
+                if(!empty($thMessage)){
+                    $message .= '<br><br><strong>Detalle:</strong><br>' . htmlspecialchars($thMessage);
+                }
+
+                if(request()->code){
+                    return response()->json(['status' => 0, 'codigo' => $nomina->codigo_dian, 'mensaje' => $thMessage ?: $errorMessage]);
+                }
+
+                // Siempre retornar JSON ya que siempre viene de ajax
+                return response()->json([
+                    'success' => false,
+                    'statusCode' => $response->statusCode,
+                    'errorMessage' => $errorMessage,
+                    'th' => $thObj,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => $errorMessage,
+                    'data' => ['error' => $message]
+                ]);
+            }
+        }
+
+        if(isset($response->success) && $response->success == false){
+
+            if(isset($response->result)){
+
+                // Verificar si result es un array (caso de validaciones rechazadas)
+                if(is_array($response->result) && count($response->result) > 0){
+                    $errorMessages = [];
+
+                    foreach($response->result as $resultItem){
+                        $item = (object)$resultItem;
+
+                        // Extraer errores de errorMessage si existe
+                        if(isset($item->errorMessage) && is_array($item->errorMessage)){
+                            foreach($item->errorMessage as $error){
+                                $errorMessages[] = $error;
+                            }
+                        }
+
+                        // Si no hay errorMessage, usar statusMessage o statusDescription
+                        if(empty($errorMessages) && isset($item->statusMessage)){
+                            $errorMessages[] = $item->statusMessage;
+                        } elseif(empty($errorMessages) && isset($item->statusDescription)){
+                            $errorMessages[] = $item->statusDescription;
+                        }
+                    }
+
+                    // Formatear los errores
+                    $message = "<strong>Status:</strong><br>";
+                    $message .= $response->message ?? "Operación realizada con rechazos por validaciones.<br><br>";
+
+                    if(!empty($errorMessages)){
+                        $message .= "<strong>Errores:</strong><ul>";
+                        foreach($errorMessages as $error){
+                            $message .= "<li>" . htmlspecialchars($error) . "</li>";
+                        }
+                        $message .= "</ul>";
+                    }
+
+                } else {
+                    // Caso cuando result es un objeto (formato antiguo)
+                    $resultObj = is_array($response->result) ? (object)$response->result : $response->result;
+
+                    if(isset($resultObj->descResponseDian) && $resultObj->descResponseDian != ""){
+                        $message = $this->formatedResponseErrorBTW($resultObj->descResponseDian);
+                    }elseif(isset($resultObj->tracer) && $resultObj->tracer != ""){
+                        $message = $this->formatedResponseErrorBTW($resultObj->tracer);
+                    }else{
+                        $message = $response->message ?? "Error en campos mandatorios.";
+                    }
+                }
+
+                if(request()->code){
+                    return response()->json(['status' => 0, 'codigo' => $nomina->codigo_dian, 'mensaje' => 'Error en campos mandatorios.']);
+                }
+
+                if(request()->ajax() || request()->lote){
+                    return response()->json([
+                        'success' => false,
+                        'status' => 200,
+                        'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                        'mesagge' => 'Error en validaciones de la nómina',
+                        'data' => ['error' => $message]
+                    ]);
+                }else{
+                    return back()->with('error', $message);
+                }
+            }
+
+            if(request()->code){
+                return response()->json(['status' => 0, 'codigo' => $nomina->codigo_dian, 'mensaje' => 'Error al enviar la nómina.']);
+            }
+
+            if(request()->ajax() || request()->lote){
+                return response()->json([
+                    'success' => false,
+                    'status' => 200,
+                    'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                    'mesagge' => 'Error al enviar la nómina',
+                    'data' => ['error' => $response->message ?? 'Error desconocido']
+                ]);
+            }else{
+                return redirect('/empresa/nomina/emision')->with('error', $response->message ?? 'Error al enviar la nómina');
+            }
+
+        }
+
+        // Si la respuesta es exitosa
+        if(isset($response->success) && $response->success == true){
+            // Actualizar el estado de la nómina a emitida
+
+            if($tipo == 2){
+                $nomina->emitida = 5;
+            }else if($tipo == 1){
+                $nomina->emitida = 1;
+            }else if($tipo == 3){
+                $numeracionEliminar->inicio ++;
+                $numeracionEliminar->save();
+
+                $nomina->codigo_dian_eliminado = $jsonBTW['trabajadores'][0]['numeroSecuenciaXML']['numero'];
+                $nomina->emitida = 6;
+            }
+
+            $nomina->cune = $response->uuid;
+            $nomina->save();
+        }
+
+        if(request()->ajax() || request()->lote){
+            return response()->json([
+                'success' => true,
+                'status' => 200,
+                'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                'mesagge' => "Nómina {$nomina->codigo_dian} emitida correctamente",
+                'data' => []
+            ]);
+        }
+
+        return redirect('/empresa/nomina/emision')->with('success', "Nómina {$nomina->codigo_dian} emitida correctamente");
+
     }
 }
