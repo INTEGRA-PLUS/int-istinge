@@ -765,8 +765,14 @@ class ExportarReportesController extends Controller
             }
 
             $ides=array();
-            $factures=$facturas->get();
-            $facturas=$facturas->OrderBy('factura.id', 'DESC')->paginate(1000000)->appends(['fechas'=>$request->fechas, 'nro'=>$request->nro, 'fecha'=>$request->fecha, 'hasta'=>$request->hasta]);
+            
+            $factures = $facturas->orderBy('factura.id', 'DESC')->get();
+            // 🔥 Unique por CODIGO
+            $factures = $factures->unique('codigo')->values();
+            $facturas = $factures;
+            
+            // llenar los ides
+            $ides = $factures->pluck('id')->toArray();
 
             foreach ($factures as $factura) {
                 $ides[]=$factura->id;
@@ -784,7 +790,7 @@ class ExportarReportesController extends Controller
             // Aquí se escribe en el archivo
             $i=4;
 
-            $totalFactura=0;
+
             foreach ($facturas as $factura) {
 
                 $cliente = $factura->cliente();
@@ -801,8 +807,6 @@ class ExportarReportesController extends Controller
                 if($cuentaVentas){
                     $cuentaVentas = $cuentaVentas->codigo;
                 }
-
-                $totalFactura+= $factura->pagadoTotal;
 
                 $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[0].$i, $factura->codigo)
@@ -836,7 +840,7 @@ class ExportarReportesController extends Controller
             }
             $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[24].$i, "TOTAL: ")
-                ->setCellValue($letras[25].$i, Auth::user()->empresa()->moneda." ".Funcion::Parsear($totalFactura));
+                ->setCellValue($letras[25].$i, Auth::user()->empresa()->moneda." ".Funcion::Parsear($total));
 
             $estilo =array('font'  => array('size'  => 12, 'name'  => 'Times New Roman' ),
                 'borders' => array(
