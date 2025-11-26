@@ -571,6 +571,16 @@ class Factura extends Model
         return "";
     }
 
+    public function vendedorObj()
+    {
+        return $this->belongsTo(Vendedor::class, 'vendedor');
+    }
+
+    public function clienteObj()
+    {
+        return $this->belongsTo(Contacto::class, 'cliente');
+    }
+
     public function pagado($sumarRetencion = true){
         $total=IngresosFactura::
         where('factura',$this->id)->
@@ -746,7 +756,7 @@ class Factura extends Model
 
     }
 
-    public function info_cufe($id, $impTotal)
+    public function info_cufe($id, $impTotal = 0)
     {
         $factura = Factura::find($id);
         $technicalKey = "";
@@ -768,6 +778,27 @@ class Factura extends Model
             $horaFac = $factura->created_at;
             $factura->fecha = $factura->created_at;
         }
+
+        //INICIO CALCULO IVA
+        //Caso tal de que no se mande el tottal iva lo calculamos aca mismo como se hacia en el controller.
+        $impTotal = 0;
+
+        foreach ($factura->total()->imp as $totalImp) {
+            if (isset($totalImp->total)) {
+                $impTotal += $totalImp->total;
+            }
+        }
+
+        $decimal = explode(".", $impTotal);
+        if (
+            isset($decimal[1]) && $decimal[1] >= 50 || isset($decimal[1]) && $decimal[1] == 5 || isset($decimal[1]) && $decimal[1] == 4
+            || isset($decimal[1]) && $decimal[1] == 3 || isset($decimal[1]) && $decimal[1] == 2 || isset($decimal[1]) && $decimal[1] == 1
+        ) {
+            $impTotal = round($impTotal);
+        } else {
+            $impTotal = round($impTotal);
+        }
+        //FIN CALCULO IVA
 
         $totalIva = 0.00;
         $totalInc = 0.00;
@@ -866,6 +897,11 @@ public function forma_pago()
     public function itemsFactura()
     {
         return $this->hasMany(ItemsFactura::class,'factura','id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(ItemsFactura::class, 'factura');
     }
 
     public function listItems(){

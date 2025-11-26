@@ -6,7 +6,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
         <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar"><i class="fas fa-search"></i>Filtrar</a>
@@ -1049,9 +1049,26 @@
 	}
 
 	function exportar() {
-		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&state_contrato='+$('#state_contrato').val()+'&tipo=1';
-	}
+        $("#estado").selectpicker('refresh');
+
+        let baseUrl = "{{ route('facturas.exportar') }}";
+
+        let params = [
+            'codigo=' + encodeURIComponent($('#codigo').val() || ''),
+            'cliente=' + encodeURIComponent($('#cliente').val() || ''),
+            'municipio=' + encodeURIComponent($('#municipio').val() || ''),
+            'barrio=' + encodeURIComponent($('#barrio').val() || ''),
+            'creacion=' + encodeURIComponent($('#creacion').val() || ''),
+            'vencimiento=' + encodeURIComponent($('#vencimiento').val() || ''),
+            'estado=' + encodeURIComponent($('#estado').val() || ''),
+            'grupos_corte=' + encodeURIComponent($('#grupos_corte').val() || ''),
+            'fact_siigo=' + encodeURIComponent($('#fact_siigo').val() || ''),
+            'state_contrato=' + encodeURIComponent($('#state_contrato').val() || ''),
+            'tipo=1'
+        ].join('&');
+
+        window.location.href = baseUrl + '?' + params;
+    }
 
 	@if($tipo)
 	    $('#estado').val('{{ $tipo }}').selectpicker('refresh');

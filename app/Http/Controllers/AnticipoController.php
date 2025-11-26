@@ -7,10 +7,10 @@ use App\Puc;
 use Auth;
 use Illuminate\Http\Request;
 
-use App\Model\Inventario\Inventario; 
-use App\Impuesto; 
-use App\ProductoCuenta; 
-use App\Anticipo; 
+use App\Model\Inventario\Inventario;
+use App\Impuesto;
+use App\ProductoCuenta;
+use App\Anticipo;
 use App\FormaPagoMedio;
 
 
@@ -24,7 +24,7 @@ class AnticipoController extends Controller
 
         //Tomar las categorias del puc que no son transaccionables.
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $mediosPago = FormaPagoMedio::all();
@@ -40,7 +40,7 @@ class AnticipoController extends Controller
         $pago->nombre = $request->nombre;
         $pago->relacion = $request->relacion;
         $pago->cuenta_id = $request->cuenta_id;
-        $pago->medio_pago_id = $request->medio_pago_id; 
+        $pago->medio_pago_id = $request->medio_pago_id;
         $pago->save();
 
 
@@ -59,7 +59,7 @@ class AnticipoController extends Controller
         //Obtenemos el medio de pago
         $pago->medioPago = FormaPagoMedio::where('id',$request->medio_pago_id)->first()->nombre;
 
-        
+
         return response()->json($pago);
     }
 
@@ -84,7 +84,7 @@ class AnticipoController extends Controller
             $pago->nombre = $request->nombre;
             $pago->relacion = $request->relacion;
             $pago->cuenta_id = $request->cuenta_id;
-            $pago->medio_pago_id = $request->medio_pago_id; 
+            $pago->medio_pago_id = $request->medio_pago_id;
             $pago->save();
             return response()->json([
                 'forma' => $pago
@@ -100,7 +100,7 @@ class AnticipoController extends Controller
         if($forma){
             $forma->delete();
         }
-        
+
         return response()->json(['forma' => true]);
     }
 }

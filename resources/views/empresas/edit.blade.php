@@ -131,6 +131,32 @@
 					<strong>{{ $errors->first('email') }}</strong>
 				</span>
 			</div>
+
+            <div class="form-group col-md-2">
+				<label class="control-label">Proveedor tecnológico</label>
+				<select name="proveedor" class="form-control selectpicker" data-size="5" data-live-search="true">
+					<option value="0" {{($empresa->proveedor == 0) ? 'selected' : ''}}>Ninguno</option>
+					<option value="1" {{($empresa->proveedor == 1) ? 'selected' : ''}}>Cadena</option>
+					<option value="2" {{($empresa->proveedor == 2) ? 'selected' : ''}}>BTW</option>
+				</select>
+			</div>
+
+            <div class="form-group col-md-2">
+				<label class="control-label">Habilitado DIAN</label>
+				<select name="estado_dian" class="form-control selectpicker" data-size="5" data-live-search="true">
+					<option value="1" {{($empresa->proveedor == 1) ? 'selected' : ''}}>Si</option>
+					<option value="0" {{($empresa->proveedor == 0) ? 'selected' : ''}}>No</option>
+				</select>
+			</div>
+
+            <div class="form-group col-md-2">
+				<label class="control-label">User BTW</label>
+				<input type="text" class="form-control" name="btw_login" value="{{$empresa->btw_login}}">
+				<span class="help-block error">
+					<strong>{{ $errors->first('btw_login') }}</strong>
+				</span>
+			</div>
+
   		</div>
 
   		<div class="row">

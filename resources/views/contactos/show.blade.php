@@ -70,7 +70,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
 	    <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
@@ -352,13 +352,21 @@
 								@if($contrato->nro)
 								<tr>
 									<th width="20%">N° Contrato</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
+									<td><strong>{{ $contrato->nro }}</strong></td>
+                                    @else
 									<td><a href="{{ route('contratos.show',$contrato->id )}}"><strong>{{ $contrato->nro }}</strong></a></td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->grupo_corte)
 								<tr>
 									<th width="20%">Grupo de Corte</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
+									<td><strong>{{ $contrato->grupo_corte()->nombre }}</strong> (CORTE {{ $contrato->grupo_corte()->fecha_corte }} - SUSPENSIÓN {{ $contrato->grupo_corte()->fecha_suspension }})</td>
+                                    @else
 									<td><a href="{{ route('grupos-corte.show',$contrato->grupo_corte()->id )}}" target="_blank"><strong>{{ $contrato->grupo_corte()->nombre }}</strong></a> (CORTE {{ $contrato->grupo_corte()->fecha_corte }} - SUSPENSIÓN {{ $contrato->grupo_corte()->fecha_suspension }})</td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->state)
@@ -372,9 +380,15 @@
 								@if($contrato->ip)
 								<tr>
 									<th width="20%">Dirección IP</th>
+                                    @if(strtolower(Auth::user()->roles->rol) == 'punto  de venta')
 									<td>
-										<a href="http://{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }}" target="_blank">{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i></a>
-									</td>
+                                        {{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i>
+                                    </td>
+                                    @else
+									<td>
+                                        <a href="http://{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }}" target="_blank">{{ $contrato->ip }}{{ $contrato->puerto ? ':'.$contrato->puerto->nombre : '' }} <i class="fas fa-external-link-alt"></i></a>
+                                    </td>
+                                    @endif
 								</tr>
 								@endif
 								@if($contrato->plan_id)
@@ -515,10 +529,8 @@
 		    				<table class="text-center table table-light table-striped table-hover" id="table-show-facturas" style="width: 100%; border: 1px solid #e9ecef;">
 		    					<thead class="thead-light">
 		    						<tr>
-		    							<th>Factura</th>
+                                        <th>Factura</th>
 		    							<th>Cliente</th>
-		    							<th>Contrato(s)</th>
-		    							<th>Dirección</th>
 		    							<th>Creación</th>
 		    							<th>Vencimiento</th>
 		    							<th>Fecha Pago</th>
@@ -526,6 +538,8 @@
 		    							<th>Pagado</th>
 		    							<th>Por Pagar</th>
 		    							<th>Estado</th>
+		    							<th>Contrato(s)</th>
+		    							<th>Dirección</th>
 		    							<th>Acciones</th>
 		    						</tr>
 		    					</thead>

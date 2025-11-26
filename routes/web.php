@@ -250,6 +250,7 @@ Route::post('configuracion_reconexiongenerica', 'ConfiguracionController@reconex
 Route::post('updatereconexiongenerica', 'ConfiguracionController@updateReconexionGenerica')->name('configuracion.updatereconexiongenerica');
 Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@aplicacionSaldosFavor');
 Route::post('configuracion_factcronabiertas', 'ConfiguracionController@factCronAbiertas');
+Route::post('configuracion_activeconnection_secret', 'ConfiguracionController@activeconnectionSecret');
 Route::post('configuracion_facturacionSmsAutomatica', 'ConfiguracionController@facturacionSmsAutomatica');
 Route::post('configuracion_periodo_tirilla', 'ConfiguracionController@periodoTirilla');
 Route::post('configuracion_envio_wpp_ingreso', 'ConfiguracionController@envioWppIngreso');
@@ -273,9 +274,9 @@ Route::get('/emitirjson/{nominaId}', 'Nomina\NominaController@emitirJson');
 Route::get('/nomina-json/{nomina}', 'Nomina\NominaController@emitirJson')->name('nomina.json');
 Route::post('/validatetechnicalkeydian', 'FacturasController@validate_technicalkey_dian');
 Route::get('/{id}/xml', 'FacturasController@xml')->name('facturas.xml');
+Route::get('/{id}/download-xml', 'FacturasController@downloadXML')->name('facturas.download-xml');
 
 //Route::get('', 'HomeController@inicio')->name('Inicio');
-
 Route::get('', 'Auth\LoginController@showLoginForm')->name('login');
 Route::get('/home', 'HomeController@home')->name('home');
 Route::post('/archivo', 'HomeController@subirArchivo')->name('subir-archivo');
@@ -638,7 +639,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('{id}/cerrar', 'FacturasController@cerrar')->name('factura.cerrar');
 		Route::get('/{id}/mensaje', 'FacturasController@mensaje')->name('facturas.mensaje');
 		Route::get('/{id}/whatsapp', 'FacturasController@whatsapp')->name('facturas.whatsapp');
-
+		Route::get('/temp/{id}/{token}', 'FacturasController@getFacturaTemp')->name('facturas.temp');
 		Route::get('/productos', 'FacturasController@getItemsSelect');
 
 		Route::get('{id}/aceptarFe', 'FacturasController@aceptarFe')->name('factura.aceptarfe');
@@ -660,7 +661,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('conversionmasiva/{facturas}', 'FacturasController@conversionmasivaElectronica');
 		Route::get('enviomasivosiigo/{facturas}', 'SiigoController@envioMasivoSiigo')->name('facturas.enviomasivosiigo');
 		Route::get('impresionmasiva/{facturas}', 'FacturasController@ImprimirMultiple');
-		Route::get('exportar', 'FacturasController@exportar');
+		Route::get('exportar', 'FacturasController@exportar')->name('facturas.exportar');
 		Route::get('facturas_electronica/exportar', 'FacturasController@exportar');
 
 		Route::get('facturas-whatsapp-index', 'FacturasController@facturasWhatsappIndex')->name('cronjob.whatsapp-facturas-index');
@@ -705,7 +706,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//NOMINA
 	Route::group(['namespace' => 'Nomina', 'prefix' => 'nomina', 'middleware' => ['nomina']], function () {
 
-		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina');
+		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina')->name('nomina.refrescar.periodo.individual');
 		Route::get('get-costos-periodo/{year}/{periodo}/{tipo}', 'NominaController@getCostoPeriodo')->name('nomina.get.costo.periodo');
 
 		Route::get('/agrupadas/{periodo?}/{year?}/{tipo?}', 'NominaController@nominasAgrupadas')->name('nomina.agrupadas');
@@ -891,7 +892,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		//->observaciones de nomina
 
-		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo');
+		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo')->name('nomina.periodo.observacion.agregar');
 		Route::post('/agregar-observacion', 'NominaController@agregarObservacion')->name('nomina.agregar.observacion');
 	});
 
@@ -1040,6 +1041,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{id}/json', 'FacturaspController@facturap_json')->name('facturasp.json');
 		Route::get('xmlproveedor/{id}/{emails?}', 'FacturaspController@xmlFacturaProveedor')->name('xml.facturaproveedor');
 
+        Route::get('jsondian/{id?}/{emails?}', 'FacturaspController@jsonDianDocumentoSoporte')->name('json.dian-documento-soporte');
 
 		Route::get('/{id}/pdf', 'FacturaspController@pdf')->name('facturasp.pdf');
 		Route::get('/{id}/copia', 'FacturaspController@copia')->name('facturasp.copia');
@@ -1077,6 +1079,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'notasdebito'], function () {
 
 		Route::get('xml/{id}', 'NotasdebitoController@xmlNotaDebito')->name('xml.notadebito');
+        Route::get('jsondian/{id?}/{emails?}', 'NotaDebitoController@jsonDianNotaAjuste')->name('json.dian-nota-ajuste');
 
 		Route::get('/{id}/imprimir', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir');
 		Route::get('pdf/{id}/{name}', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir.nombre');
@@ -1465,6 +1468,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	//RADICADOS
 	Route::group(['prefix' => 'radicados'], function () {
+        Route::get('/cambiar-etiqueta/{etiqueta}/{contrato}', 'RadicadosController@cambiarEtiqueta')->name('radicados.cambiar.etiqueta');
 		Route::post('/escalar/{id}', 'RadicadosController@escalar')->name('radicados.escalar');
 		Route::post('/solventar/{id}', 'RadicadosController@solventar')->name('radicados.solventar');
 		Route::get('/{id}/imprimir', 'RadicadosController@imprimir')->name('radicados.imprimir');

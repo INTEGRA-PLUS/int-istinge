@@ -1,69 +1,82 @@
 @if(Auth::user()->rol==8)
-    @if($estatus==1)
-        <a href="{{route('ingresos.create_id', ['cliente'=>$cliente, 'factura'=>$id])}}" class="btn btn-outline-primary btn-xl" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
+    @if($factura->estatus==1)
+        <a href="{{route('ingresos.create_id', ['cliente'=>$factura->cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-xl" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
     @endif
-    @if(Auth::user()->empresa()->tirilla && $estatus==0)
-        <a href="{{route('facturas.tirilla', ['id' => $id, 'name'=> 'Factura No.'.$id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-xl"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
+    @if($empresa->tirilla && $factura->estatus==0)
+        <a href="{{route('facturas.tirilla', ['id' => $factura->id, 'name'=> 'Factura No.'.$factura->id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-xl"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
     @endif
 @else
-    <a href="{{route('facturas.show',$id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
-    <a href="{{route('facturas.imprimir',['id' => $id, 'name'=> 'Factura No. '.$codigo.'.pdf'])}}" target="_blank" class="btn btn-outline-primary btn-icons"title="Imprimir"><i class="fas fa-print"></i></a>
-    @if($estatus==0)
-        <a href="{{route('facturas.tirilla', ['id' => $id, 'name'=> 'Factura No.'.$id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-icons"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
+    <a href="{{route('facturas.show',$factura->id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
+    <a href="{{route('facturas.imprimir',['id' => $factura->id, 'name'=> 'Factura No. '.$factura->codigo.'.pdf'])}}" target="_blank" class="btn btn-outline-primary btn-icons"title="Imprimir"><i class="fas fa-print"></i></a>
+    @if($factura->estatus==0)
+        <a href="{{route('facturas.tirilla', ['id' => $factura->id, 'name'=> 'Factura No.'.$factura->id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-icons"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
     @endif
-	@if($estatus==1)
-		<a href="{{route('ingresos.create_id', ['cliente'=>$cliente, 'factura'=>$id])}}" class="btn btn-outline-primary btn-icons" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
-		@if(($correo==0 && $emitida != 1) && isset($_SESSION['permisos']['43']))
-        <a href="{{route('facturas.edit',$id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
+	@if($factura->estatus==1)
+		<a href="{{route('ingresos.create_id', ['cliente'=>$factura->cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-icons" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
+		@if(($factura->emitida != 1) && isset($_SESSION['permisos']['43']))
+        <a href="{{route('facturas.edit',$factura->id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
         @endif
         @if(isset($_SESSION['permisos']['775']))
-        @if(!$promesa_pago || isset($_SESSION['permisos']['863']))
-        <a href="javascript:modificarPromesa('{{$id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$id}}" title="Promesa de Pago"><i class="fas fa-calendar"></i></a>
+        @if(
+            (isset($factura->promesa_pago) && $factura->promesa_pago == null)
+            ||
+            (isset($factura->promesa_pago) && $factura->promesa_pago < \Carbon\Carbon::now()->format('Y-m-d'))
+        )
+            <a href="javascript:modificarPromesa('{{$factura->id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$factura->id}}" title="Promesa de Pago">
+                <i class="fas fa-calendar"></i>
+            </a>
         @endif
         @endif
 	@endif
-	<form action="{{ route('factura.anular',$id) }}" method="POST" class="delete_form" style="display: none;" id="anular-factura{{$id}}">
+	<form action="{{ route('factura.anular',$factura->id) }}" method="POST" class="delete_form" style="display: none;" id="anular-factura{{$factura->id}}">
 		{{ csrf_field() }}
 	</form>
 	@if(isset($_SESSION['permisos']['43']))
-		@if($estatus == 1)
-			<button class="btn btn-outline-danger  btn-icons" type="button" title="Anular" onclick="confirmar('anular-factura{{$id}}', '¿Está seguro de que desea anular la factura?', ' ');"><i class="fas fa-minus"></i></button>
-		@elseif($estatus==2)
-	    	<button class="btn btn-outline-success  btn-icons" type="submit" title="Abrir" onclick="confirmar('anular-factura{{$id}}', '¿Está seguro de que desea abrir la factura?', ' ');"><i class="fas fa-unlock-alt"></i></button>
+		@if($factura->estatus == 1)
+			<button class="btn btn-outline-danger  btn-icons" type="button" title="Anular" onclick="confirmar('anular-factura{{$factura->id}}', '¿Está seguro de que desea anular la factura?', ' ');"><i class="fas fa-minus"></i></button>
+		@elseif($factura->estatus==2)
+	    	<button class="btn btn-outline-success  btn-icons" type="submit" title="Abrir" onclick="confirmar('anular-factura{{$factura->id}}', '¿Está seguro de que desea abrir la factura?', ' ');"><i class="fas fa-unlock-alt"></i></button>
 		@endif
 	@endif
-	@if($emailcliente)
-		<a href="{{route('facturas.enviar',$id)}}" class="btn btn-outline-success btn-icons" title="Enviar"><i class="far fa-envelope"></i></a>
+	@if($factura->emailcliente)
+		<a href="{{route('facturas.enviar',$factura->id)}}" class="btn btn-outline-success btn-icons" title="Enviar"><i class="far fa-envelope"></i></a>
 	@endif
-	@if($celularcliente)
-	    @if($estatus==1)
-           @if($mensaje==0)
-		        <a href="{{route('facturas.mensaje',$id)}}" class="btn btn-outline-success btn-icons" title="Enviar SMS"><i class="fas fa-mobile-alt"></i></a>
+	@if($factura->celularcliente)
+	    @if($factura->estatus==1)
+           @if($factura->mensaje==0)
+		        <a href="{{route('facturas.mensaje',$factura->id)}}" class="btn btn-outline-success btn-icons" title="Enviar SMS"><i class="fas fa-mobile-alt"></i></a>
             @else
                 <a href="#" class="btn btn-danger btn-icons disabled" disabled title="SMS Enviado"><i class="fas fa-mobile-alt"></i></a>
 	        @endif
-	        <a href="{{route('facturas.whatsapp',$id)}}" class="btn btn-outline-success btn-icons" title="Enviar Vía WhatsApp"><i class="fab fa-whatsapp"></i></a>
+	        <a href="{{route('facturas.whatsapp',$factura->id)}}" class="btn btn-outline-success btn-icons" title="Enviar Vía WhatsApp"><i class="fab fa-whatsapp"></i></a>
 	    @endif
 	@endif
 
-	@if($tipo == 2 && $emitida == 0)
-	    <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura"
-        onclick="validateDian({{ $id }}, '{{route('xml.factura',$id)}}', '{{$codigo}}')">
-        {{-- onclick="validateDian({{ $id }}, '{{route('json.dian-factura', $id) }}', '{{$codigo}}')"> --}}
-        <i class="fas fa-sitemap"></i></a>
-	@endif
+    @if ($factura->emitida == 0 && $empresa->estado_dian == 1 && $factura->tipo == 2)
+        @if($empresa->proveedor == 1 || $empresa->proveedor == null)
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta. {{ $factura->codigo }}"
+            onclick="validateDian({{ $factura->id }}, '{{ route('xml.factura', $factura->id) }}', '{{ $factura->codigo }}')">
+            <i class="fas fa-sitemap"></i>
+        </a>
+        @elseif($empresa->proveedor == 2)
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta {{ $factura->codigo }}"
+            onclick="validateDian({{ $factura->id }}, '{{ route('json.dian-factura', $factura->id) }}', '{{ $factura->codigo }}')">
+            <i class="fas fa-sitemap"></i>
+        </a>
+        @endif
+    @endif
     @if(!isset($_SESSION['permisos']['857']))
-	    <a href="{{route('facturas.showmovimiento',$id)}}" class="btn btn-outline-info btn-icons" title="Ver movimientos"><i class="far fa-sticky-note"></i></a>
+	    <a href="{{route('facturas.showmovimiento',$factura->id)}}" class="btn btn-outline-info btn-icons" title="Ver movimientos"><i class="far fa-sticky-note"></i></a>
 	@endif
-    @if(($tipo == 1 && isset($opciones_dian) && $opciones_dian == 1) && !isset($_SESSION['permisos']['857']))
-	    <a onclick="convertirElectronica('{{$codigo}}','{{route('facturas.convertirelectronica',$id)}}')" class="btn btn-outline-info btn-icons" title="Convertir a electrónica"><i class="fas fa-exchange-alt"></i></a>
+    @if(($factura->tipo == 1 && isset($opciones_dian) && $factura->opciones_dian == 1) && !isset($_SESSION['permisos']['857']))
+	    <a onclick="convertirElectronica('{{$factura->codigo}}','{{route('facturas.convertirelectronica',$factura->id)}}')" class="btn btn-outline-info btn-icons" title="Convertir a electrónica"><i class="fas fa-exchange-alt"></i></a>
 	@endif
 
-    @if($api_key_siigo != null && ($siigo_id == "" || $siigo_id == null))
+    @if($factura->api_key_siigo != null && ($factura->siigo_id == "" || $factura->siigo_id == null))
     <a
     {{-- href="{{route('siigo.create_invoice',$id)}}" --}}
     href="#"
-    onclick="showModalSiigo({{$id}},`{{$codigo}}`,`{{$fecha}}`,`{{$nombrecliente}}`)"
+    onclick="showModalSiigo({{$factura->id}},`{{$factura->codigo}}`,`{{$factura->fecha}}`,`{{$factura->nombrecliente}}`)"
     class="btn btn-outline-info btn-icons" title="Enviar a Siigo">
         <i class="fas fa-file-import"></i>
     </a>

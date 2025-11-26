@@ -147,9 +147,9 @@
     function editAdicionales(id) {
         // cargando(true);
         if (window.location.pathname.split("/")[1] === "software") {
-            var url = '/software/empresa/nomina/liquidar-nomina/'+id+'/edit_deducciones';
+            var url = '/software/empresa/nomina/liquidar-nomina/'+id+'/edit_adicionales';
             }else{
-            var url = '/empresa/nomina/liquidar-nomina/'+id+'/edit_deducciones';
+            var url = '/empresa/nomina/liquidar-nomina/'+id+'/edit_adicionales';
         }
 
         var _token = $('meta[name="csrf-token"]').attr('content');
@@ -160,7 +160,7 @@
         }, function(resul) {
             cargando(false);
             resul = JSON.parse(resul);
-
+            console.log(resul);
             $("#ex5-tab-1").click();
             $('#edit_ingresos_id').val(resul.id);
             $('#adicionalesUpdate').trigger("reset");
@@ -177,7 +177,7 @@
             // </select>
 
             //CONSTITUTIVOS
-            if (resul.constitutivos && resul.constitutivos.length > 0) {
+            if (resul.constitutivos.length > 0) {
                 for (var i = 0; i < resul.constitutivos.length; i++) {
                     $('#div_constitutivos').append(`
                             <div class="row mt-2 w-100 ml-2" id="` + resul.constitutivos[i]['id'] + `">
@@ -215,7 +215,7 @@
             $select.selectpicker('refresh');
 
             //NO CONSTITUTIVOS
-            if (resul.no_constitutivos && resul.no_constitutivos.length > 0) {
+            if (resul.no_constitutivos.length > 0) {
                 for (var i = 0; i < resul.no_constitutivos.length; i++) {
                     $('#div_no_constitutivos').append(`<div class="row mt-2 w-100 ml-2" id="` + resul.no_constitutivos[i]['id'] + `"><div class="col-6"><select class="form-control form-control-sm selectpicker" name="no_constitutivos_id[]" id="no_constitutivo_` + resul.no_constitutivos[i]['id'] + `" title="Selecciona un concepto" data-live-search="true" data-size="5"></select></div><div class="col-4"><input class="form-control" name="no_constitutivos_valor[]" min="0"  onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46" type="number" style="width: 100%" value="` + resul.no_constitutivos[i]['valor_categoria'] + `"><input class="form-control" name="no_constitutivos_ids[]" type="hidden" value="` + resul.no_constitutivos[i]['id'] + `"></div><div class="col-2"><button class="btn btn-outline-danger btn-icons mt-1" onclick="destroyAdicionales(` + resul.no_constitutivos[i]['id'] + `)"><i class="fas fa-trash" title="Eliminar"></i></button></div>`);
                     var $select = $('#no_constitutivo_' + resul.no_constitutivos[i]['id']);
@@ -237,7 +237,7 @@
             $select.selectpicker('refresh');
 
             //CONECTIVIDAD
-            if (resul.conectividad && resul.conectividad.length > 0) {
+            if (resul.conectividad.length > 0) {
                 $('#auxiliar_ids').val(resul.conectividad[0]['id']);
                 var $select = $('#auxiliar_id');
                 $select.val(resul.conectividad[0]['fk_categoria']);
@@ -285,7 +285,11 @@
 
     function destroyAdicionales(id) {
         cargando(true);
-        var url = '/empresa/nomina/liquidar-nomina/' + id + '/destroy_adicionales';
+        if (window.location.pathname.split("/")[1] === "software") {
+            var url = '/software/empresa/nomina/liquidar-nomina/' + id + '/destroy_adicionales';
+            }else{
+            var url = '/empresa/nomina/liquidar-nomina/' + id + '/destroy_adicionales';
+        }
         var _token = $('meta[name="csrf-token"]').attr('content');
         var i = id;
         $.post(url, {

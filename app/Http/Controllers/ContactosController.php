@@ -355,7 +355,7 @@ class ContactosController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         $identificaciones = TipoIdentificacion::all();
-        $paises = DB::table('pais')->where('codigo', 'CO')->get();
+        $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
         $departamentos = DB::table('departamentos')->get();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $barrios = DB::table('barrios')->where('status',1)->get();
@@ -486,11 +486,15 @@ class ContactosController extends Controller
         $contacto->cierra_venta = $request->cierra_venta;
 
         if ($request->tipo_persona == null) {
-            $contacto->tipo_persona = 1;
             $contacto->responsableiva = 2;
         } else {
-            $contacto->tipo_persona = $request->tipo_persona;
             $contacto->responsableiva = $request->responsable;
+        }
+
+        if($request->tip_iden == 6){
+            $contacto->tipo_persona = 2; // tipo persona juridica
+        }else{
+            $contacto->tipo_persona = 1; // tipo persona natural
         }
 
         $contacto->tipo_empresa = $request->tipo_empresa;
@@ -557,11 +561,15 @@ class ContactosController extends Controller
         $contacto->oficina = $request->oficina;
 
         if ($request->tipo_persona == null) {
-            $contacto->tipo_persona = 1;
             $contacto->responsableiva = 2;
         } else {
-            $contacto->tipo_persona = $request->tipo_persona;
             $contacto->responsableiva = $request->responsable;
+        }
+
+        if($request->tip_iden == 6){
+            $contacto->tipo_persona = 2; // tipo persona juridica
+        }else{
+            $contacto->tipo_persona = 1; // tipo persona natural
         }
 
         $contacto->save();
@@ -587,7 +595,7 @@ class ContactosController extends Controller
 
         if ($contacto) {
             $identificaciones = TipoIdentificacion::all();
-            $paises = DB::table('pais')->get();
+            $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
             $departamentos = DB::table('departamentos')->get();
 
             $vendedores = Vendedor::where('empresa', Auth::user()->empresa)->where('estado', 1)->get();
@@ -671,7 +679,7 @@ class ContactosController extends Controller
             $contacto->plan_velocidad    = 0;
             $contacto->costo_instalacion = "a";
             $contacto->feliz_cumpleanos = $request->feliz_cumpleanos ? date("Y-m-d", strtotime($request->feliz_cumpleanos)) : '';
-            
+
             $contacto->save();
 
             $contrato = Contrato::where('client_id', $contacto->id)->where('status', 1)->first();
@@ -835,8 +843,8 @@ class ContactosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
             ],
         ];
-        
-        $lastColumn = $letras[count($titulosColumnas) - 1]; 
+
+        $lastColumn = $letras[count($titulosColumnas) - 1];
         $objPHPExcel->getActiveSheet()->getStyle("A3:{$lastColumn}3")->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
@@ -962,7 +970,7 @@ class ContactosController extends Controller
         // de forma inesperada.
         try {
             DB::beginTransaction();
-            
+
             // Validación inicial del archivo
             $validator = Validator::make($request->all(), [
                 'archivo' => 'required|mimes:xlsx',
@@ -1026,6 +1034,7 @@ class ContactosController extends Controller
                 $request->estrato = $sheet->getCell('T'.$row)->getValue();
                 $error = (object) [];
 
+
                 if (! $request->tip_iden) {
                     $error->tip_iden = 'El campo Tipo de identificación es obligatorio';
                 }
@@ -1036,40 +1045,29 @@ class ContactosController extends Controller
                     $error->tipo_contacto = 'El campo Tipo de Contacto es obligatorio';
                 }
 
-                if (auth()->user()->empresa()->estado_dian == 1) {
-                    if (! $request->fk_idpais) {
-                        $error->fk_idpais = 'El campo pais es obligatorio para facturadores electrónicos';
-                    }
-                    if (! $request->fk_iddepartamento) {
-                        $error->fk_iddepartamento = 'El campo departamento es obligatorio para facturadores electrónicos';
-                    }
-                    if (! $request->fk_idmunicipio) {
-                        $error->fk_idmunicipio = 'El campo municipio es obligatorio para facturadores electrónicos';
-                    }
-                } else {
-                    if ($request->fk_idpais != '') {
-                        if (DB::table('pais')->where('nombre', $request->fk_idpais)->count() == 0) {
-                            $error->fk_idpais = 'El nombre del pais ingresado no se encuentra en nuestra base de datos';
-                        }
-                    }
-
-                    if ($request->fk_iddepartamento != '') {
-                        if (DB::table('departamentos')->where('nombre', $request->fk_iddepartamento)->count() == 0) {
-                            $error->fk_iddepartamento = 'El nombre del departamento ingresado no se encuentra en nuestra base de datos';
-                        }
-                    }
-
-                    if ($request->fk_idmunicipio != '') {
-                        if (DB::table('municipios')->where('nombre', $request->fk_idmunicipio)->count() == 0) {
-                            $error->fk_idmunicipio = 'El nombre del municipio ingresado no se encuentra en nuestra base de datos';
-                        }
+                if ($request->fk_idpais != '') {
+                    if (DB::table('pais')->where('nombre', $request->fk_idpais)->count() == 0) {
+                        $error->fk_idpais = 'El nombre del pais ingresado no se encuentra en nuestra base de datos';
                     }
                 }
+
+                if ($request->fk_iddepartamento != '') {
+                    if (DB::table('departamentos')->where('nombre', $request->fk_iddepartamento)->count() == 0) {
+                        $error->fk_iddepartamento = 'El nombre del departamento ingresado no se encuentra en nuestra base de datos';
+                    }
+                }
+
+                if ($request->fk_idmunicipio != '') {
+                    if (DB::table('municipios')->where('nombre', $request->fk_idmunicipio)->count() == 0) {
+                        $error->fk_idmunicipio = 'El nombre del municipio ingresado no se encuentra en nuestra base de datos';
+                    }
+                }
+
 
                 if (count((array) $error) > 0) {
                     $fila['error'] = 'FILA '.$row;
                     $error = (array) $error;
-                    
+
                     // Log de errores para debugging
                     Log::error('Error en importación de contactos', [
                         'fila' => $row,
@@ -1174,6 +1172,7 @@ class ContactosController extends Controller
                 $contacto->cod_postal = $request->codigopostal;
                 $contacto->estrato = $request->estrato;
                 $contacto->feliz_cumpleanos = '';  // Campo no incluido en importación Excel
+                $contacto->tipo_persona =  $contacto->tip_iden == 6 ? 2 : 1;
 
                 if ($request->dv) {
                     $contacto->dv = $request->dv;
@@ -1203,20 +1202,21 @@ class ContactosController extends Controller
             }
         } catch (Exception $e) {
             DB::rollback();
-            
+
             // Log del error para debugging
             Log::error('Error en proceso de importación de contactos', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'usuario' => Auth::user()->id ?? 'No definido'
             ]);
-            
+
             // Mensaje más descriptivo para el usuario
             $errorMessage = 'Error al procesar el archivo: ' . $e->getMessage();
-            
+
             return redirect()->back()->with('error', $errorMessage)->withInput();
         }
     }
+
 
     /*
     * Retorna una archivo xml con las columnas especificas
@@ -1409,13 +1409,13 @@ class ContactosController extends Controller
         }
         if ($contacto->tip_iden != 6) { //-- Si es diferente del nit entra
             if ($request->responsable == '') {
-                $contacto->tipo_persona = 1; //-- Persona Natural
                 $contacto->responsableiva = 2; //-- No responsable de iva
             }
+
+            $contacto->tipo_persona = 1; //-- Persona natural
+
         } else {
-            if ($request->tipo_persona != null) {
-                $contacto->tipo_persona = $request->tipo_persona;
-            }
+            $contacto->tipo_persona = 2; //-- Persona juridica
             if ($request->responsable != null) {
                 $contacto->responsableiva = $request->responsable;
             }

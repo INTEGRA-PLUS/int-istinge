@@ -355,7 +355,7 @@ class InventarioController extends Controller{
         //Tomar las categorias del puc que no son transaccionables.
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();
@@ -385,7 +385,7 @@ class InventarioController extends Controller{
         //Tomar las categorias del puc que no son transaccionables.
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $autoRetenciones = Retencion::where('empresa',$empresa->id)->where('estado',1)->where('modulo',2)->get();
         return view('inventario.create')->with(compact('categorias', 'unidades', 'medidas', 'impuestos', 'extras', 'empresa',
@@ -814,7 +814,7 @@ class InventarioController extends Controller{
         // $cuentas = ProductoServicio::where('en_uso',1)->get();
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();

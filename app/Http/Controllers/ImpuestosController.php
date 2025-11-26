@@ -21,22 +21,35 @@ class ImpuestosController extends Controller
  		return view('configuracion.impuestos.index')->with(compact('impuestos'));
     }
 
-    public function create(){
+    public function create()
+    {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['title' => 'Nuevo Tipo de Impuesto']);
         $cuentas = Puc::cuentasTransaccionables();
+        $empresa = Empresa::find(1);
 
-        $empresa = Empresa::Find(1);
-        if($empresa->api_key_siigo != null){
-            $impuestos_siigo =  SiigoController::getTaxes()->getData('true');
-            $impuestos_siigo = array_filter($impuestos_siigo['taxes'], function($tax) {
-                return $tax['type'] === "IVA";
-            });
-        }else{
-            $impuestos_siigo = [];
+        $impuestos_siigo = [];
+
+        if (!empty($empresa->api_key_siigo)) {
+            try {
+                $respuesta = SiigoController::getTaxes();
+
+                if (is_object($respuesta) && method_exists($respuesta, 'getData')) {
+                    $data = $respuesta->getData(true);
+
+                    if (isset($data['taxes']) && is_array($data['taxes'])) {
+                        $impuestos_siigo = array_values(array_filter($data['taxes'], function ($tax) {
+                            return isset($tax['type']) && $tax['type'] === 'IVA';
+                        }));
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error obteniendo impuestos de Siigo: ' . $e->getMessage());
+                $impuestos_siigo = [];
+            }
         }
 
-        return view('configuracion.impuestos.create',compact('cuentas','empresa','impuestos_siigo'));
+        return view('configuracion.impuestos.create', compact('cuentas', 'empresa', 'impuestos_siigo'));
     }
 
     public function store(Request $request){

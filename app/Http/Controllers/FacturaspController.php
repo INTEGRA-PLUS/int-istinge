@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Builders\JsonBuilders\DocumentSupportJsonBuilder;
 use App\CamposExtra;
 use App\Http\Requests\Gastos\FacturaspStoreRequest;
 use App\TerminosPago;
@@ -30,6 +32,7 @@ use App\PucMovimiento;
 use App\Puc;
 use App\Campos;
 use App\NumeracionFactura;
+use App\Services\BTWService;
 use App\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
@@ -242,7 +245,7 @@ class FacturaspController extends Controller
         $prefijos=DB::table('prefijos_telefonicos')->get();
         $dataPro = (new InventarioController)->create();
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-         ->whereRaw('length(codigo) > 4')
+         ->whereRaw('length(codigo) >= 6')
          ->get();
         //Se crea una instancia de facturas_proveedores y se le summa 1 al codigo
         $facturaP = FacturaProveedores::where('empresa', Auth::user()->empresa)->get()->last();
@@ -521,7 +524,7 @@ class FacturaspController extends Controller
             $clientes = Contacto::where('empresa',Auth::user()->empresa)->whereIn('tipo_contacto',[1,2])->get();
             $impuestos = Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
             $categorias=Puc::where('empresa',auth()->user()->empresa)
-            ->whereRaw('length(codigo) > 4')
+            ->whereRaw('length(codigo) >= 6')
             ->get();
             $identificaciones=TipoIdentificacion::all();
             $listas = ListaPrecios::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
@@ -983,7 +986,7 @@ class FacturaspController extends Controller
         return $this->Imprimir($id, 'copia');
     }
 
-    public function Imprimir($id, $tipo='original'){
+    public static function Imprimir($id, $tipo='original'){
         $tipo1=$tipo;
         if ($tipo<>'original') {
             $tipo='Copia de factura de Proveedor';
@@ -1428,6 +1431,177 @@ class FacturaspController extends Controller
         return redirect('empresa/facturasp')->with('success', 'No existe un registro con ese id');
     }
 
+    public function jsonDianDocumentoSoporte($id, $emails = false) {
+        try {
+
+            if(request()->code){
+                $documentoSoporte = FacturaProveedores::where('empresa', auth()->user()->empresa)->where('codigo', $id)->first();
+            }else{
+                $documentoSoporte = FacturaProveedores::Find($id);
+            }
+
+            $empresa = Empresa::Find($documentoSoporte->empresa);
+            $cliente = $documentoSoporte->clienteObj;
+            $operacionCodigo = "10"; //10=residente, 11=no residente
+            $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
+
+            if (!$documentoSoporte && !$empresa) {
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
+                }else{
+                    return redirect('/empresa/facturasp')->with('message_denied', 'Factura o empresa no encontrada');
+                }
+            }
+
+            $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
+            ->where('num_equivalente', 1)->where('nomina', 0)->where('preferida', 1)->first();
+
+            if(!$resolucion){
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'No hay resolucion de documento soporte activa, por favor verifique'], 404);
+                }else{
+                    return redirect('/empresa/facturasp')->with('message_denied', 'No hay resolucion de documento soporte activa, por favor verifique');
+                }
+            }
+
+            // Construccion del json por partes.
+            $jsonDocumentHead = DocumentSupportJsonBuilder::buildFromHeadDocument($documentoSoporte,$resolucion,$modoBTW);
+            $jsonDocumentDetails = DocumentSupportJsonBuilder::buildFromDetails($documentoSoporte,$resolucion,$modoBTW);
+            $jsonDocumentCompany = DocumentSupportJsonBuilder::buildFromCompany($cliente,$empresa, $modoBTW, $operacionCodigo);
+            $jsonDocumentCustomer = DocumentSupportJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW, $documentoSoporte);
+            $jsonDocumentTaxes = DocumentSupportJsonBuilder::buildFromTaxes(false,$documentoSoporte,$empresa,$modoBTW);
+
+        $fullJson = DocumentSupportJsonBuilder::buildFullInvoice([
+                'head'              => $jsonDocumentHead,
+                'details'           => $jsonDocumentDetails,
+                'company'           => $jsonDocumentCompany,
+                'customer'          => $jsonDocumentCustomer,
+                'taxes'             => $jsonDocumentTaxes,
+                'mode'              => $modoBTW,
+                'btw_login'         => $empresa->btw_login,
+                'software'          => 2,
+            ]);
+
+            // Envio de json completo a microservicio de gestoru.
+            $btw = new BTWService;
+
+            //Esto solo envia el documento a la Dian.
+            $response = (object)$btw->sendDocumentBTW($fullJson);
+
+            //Validacion de que no existe la resolucion.
+            if(isset($response->statusCode) && $response->statusCode == 422){
+                return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied_btw', $response->th['message']);
+            }
+
+            if(isset($response->status) && $response->status == 'success'){
+
+                $documentoSoporte->emitida = 1;
+                $documentoSoporte->uuid = $response->cufe;
+                unset($documentoSoporte->trmActual, $documentoSoporte->datosExportacion);
+                $documentoSoporte->save();
+                $mensaje = "Factura emitida correctamente con el cufe: " . $documentoSoporte->uuid;
+                $mensajeCorreo = '';
+
+                // Envio de correo con el zip.
+                if($modoBTW == 'prod'){
+                    $mensajeCorreo = $this->sendPdfEmailBTW($btw,$documentoSoporte,$cliente,$empresa,3);
+                }
+                // Fin envio de correo con el zip.
+
+                if(request()->code){
+                    return response()->json(['status' => 1, 'codigo' => $documentoSoporte->codigo, 'mensaje' => 'ya fue emitida']);
+                }
+
+                if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => $mensaje . " " . $mensajeCorreo,
+                        'data' => $response
+                    ]);
+
+                }else{
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_success', $mensaje);
+                }
+            }
+
+            if(isset($response->success) && $response->success == false){
+
+                if(isset($response->result)){
+
+                    $message = $this->formatedResponseErrorBTW($response->result->descResponseDian);
+
+                    if(request()->code){
+                        return response()->json(['status' => 0, 'codigo' => $documentoSoporte->codigo, 'mensaje' => 'Error en campos mandatorios.']);
+                    }
+
+                    if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Error en campos mandatorios.',
+                        'error' => $message
+                    ]);
+                    }else{
+                        return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied_btw', $message);
+                    }
+                }
+
+                if(request()->code){
+                    return response()->json(['status' => 0, 'codigo' => $documentoSoporte->codigo, 'mensaje' => 'Error al enviar la factura.']);
+                }
+
+                if(request()->ajax()){
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Error al enviar la factura',
+                        'error' => $response->message
+                    ], 500);
+                }else{
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied_btw', $response->message);
+                }
+
+            }else{
+
+                if(isset($response->statusCode) && $response->statusCode == 500){
+                    $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
+
+                    if(request()->code){
+                        return response()->json(['status' => 0, 'codigo' => $documentoSoporte->codigo, 'mensaje' => 'Error al procesar la solicitud.']);
+                    }
+
+                    if(request()->ajax()){
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Error al procesar la solicitud',
+                            'error' => $message
+                        ], 500);
+                    }else{
+                        return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied_btw', $message);
+                    }
+                }
+
+                return redirect()->back()->with('message_denied_btw', 'Error al procesar la solicitud, por favor intente nuevamente.');
+            }
+
+        } catch (\Throwable $th) {
+
+            if(request()->code){
+                return response()->json(['status' => 0, 'codigo' => 'n/a', 'mensaje' => 'Error al procesar la solicitud: ' . $th->getMessage()]);
+            }
+
+            if(request()->ajax()){
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error al procesar la solicitud',
+                    'error' => 'Error al procesar la solicitud: ' . $th->getMessage()],
+                     500
+                );
+            }
+            else{
+                return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied_btw', $th->getMessage());
+            }
+        }
+    }
+
     public function xmlFacturaProveedor($id, $emails = false)
     {
         $facturaP = FacturaProveedores::find($id);
@@ -1764,7 +1938,10 @@ class FacturaspController extends Controller
             })
             ->get();
 
-        $categorias = Categoria::where('empresa', $empresaActual)->where('estatus', 1)->whereNull('asociado')->get();
+        $categorias = Puc::where('empresa',auth()->user()->empresa)
+        ->whereRaw('length(codigo) >= 6')
+        ->get();
+
         $extras = CamposExtra::where('empresa', $empresaActual)->where('status', 1)->get();
         $identificaciones = TipoIdentificacion::all();
         $vendedores = Vendedor::where('empresa', $empresaActual)->where('estado', 1)->get();

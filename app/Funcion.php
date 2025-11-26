@@ -13,7 +13,24 @@ class Funcion
             $empresa = Auth::user()->empresa();
         }
 
-    	return number_format($valor, $empresa->precision, $empresa->sep_dec, ($empresa->sep_dec=='.'?',':'.'));
+        if (!is_numeric($valor)) {
+            // Intentar extraer valor si viene en objeto tipo { total: X }
+            if (is_object($valor)) {
+                // Si el objeto solo tiene 1 propiedad numérica, úsala
+                $props = get_object_vars($valor);
+                $first = reset($props);
+                if (is_numeric($first)) {
+                    $valor = (float) $first;
+                } else {
+                    // Caso extremo: no podemos formatear
+                    return 0;
+                }
+            } else {
+                return 0;
+            }
+        }
+
+        return number_format((float) $valor, $empresa->precision, $empresa->sep_dec, ($empresa->sep_dec == '.' ? ',' : '.'));
 
     }
 

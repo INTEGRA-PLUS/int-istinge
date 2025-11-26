@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use App\Empresa; use App\Banco;
 use App\TerminosPago; use App\Numeracion;
 use App\NumeracionFactura; use App\TipoIdentificacion;
-use Carbon\Carbon; use DB;
+use Carbon\Carbon;
 use App\User;  use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Validator;  use Illuminate\Validation\Rule;  use Auth;
@@ -28,6 +28,7 @@ use App\Model\Nomina\NominaConfiguracionCalculos;
 use App\Model\Nomina\Persona;
 use App\Http\Controllers\Nomina\PersonasController;
 use App\Model\Inventario\Inventario;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 include_once(app_path() .'/../public/routeros_api.class.php');
@@ -355,6 +356,9 @@ class ConfiguracionController extends Controller
   * @return view
   */
   public function numeraciones_store(Request $request){
+
+    $empresa = auth()->user()->empresaObj;
+
     if ($request->caja) {
       $request->validate([
         'caja' => 'required|numeric',
@@ -365,7 +369,8 @@ class ConfiguracionController extends Controller
         'orden' => 'required|numeric',
       ]);
 
-      $numeracion = Numeracion::where('empresa',Auth::user()->empresa)->first();
+
+      $numeracion = Numeracion::where('empresa',$empresa->id)->first();
       $numeracion->caja=$request->caja;
       $numeracion->cajar=$request->cajar;
       $numeracion->pago=$request->pago;
@@ -388,7 +393,7 @@ class ConfiguracionController extends Controller
 
       if ($request->preferida==1) {
         DB::table('numeraciones_facturas')
-        ->where('empresa', Auth::user()->empresa)
+        ->where('empresa', $empresa->id)
         ->where('tipo',$tipo)
         ->update(['preferida' => 0]);
       }
@@ -409,9 +414,13 @@ class ConfiguracionController extends Controller
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
       $numeracion->resolucion=$request->resolucion;
-      $numeracion->empresa=Auth::user()->empresa;
+      $numeracion->empresa= $empresa->id;
       $numeracion->tipo = $tipo;
       $numeracion->save();
+
+    //********* MICROSERVICIO BTW *********//
+    $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,1);
+    //********* MICROSERVICIO BTW *********//
 
       $mensaje='Se ha creado satisfactoriamente la numeración';
       return redirect('empresa/configuracion/numeraciones')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);
@@ -452,7 +461,10 @@ class ConfiguracionController extends Controller
   * @return redirect
   */
   public function numeraciones_update(Request $request, $id){
-    $numeracion = NumeracionFactura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+
+    $empresa = auth()->user()->empresaObj;
+    $numeracion = NumeracionFactura::where('empresa',$empresa->id)->where('id', $id)->first();
+
     if ($numeracion) {
       $request->validate([
         'nombre' => 'required',
@@ -461,7 +473,7 @@ class ConfiguracionController extends Controller
       ]);
       if ($request->preferida==1) {
         DB::table('numeraciones_facturas')
-        ->where('empresa', Auth::user()->empresa)
+        ->where('empresa', $empresa->id)
         ->where('tipo',1)
         ->where('id', '<>',$numeracion->id)
         ->update(['preferida' => 0]);
@@ -481,6 +493,10 @@ class ConfiguracionController extends Controller
       $numeracion->resolucion=$request->resolucion;
       $numeracion->save();
 
+    //********* MICROSERVICIO BTW *********//
+      $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,1);
+    //********* MICROSERVICIO BTW *********//
+
       $mensaje='Se ha modificado satisfactoriamente la numeración';
       return redirect('empresa/configuracion/numeraciones')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);
 
@@ -495,13 +511,15 @@ class ConfiguracionController extends Controller
         'preferida' => 'required|numeric'
       ]);
 
+      $empresa = auth()->user()->empresaObj;
+
       //Tipo de numeracion_factura, 1=estandar, 2=DIAN
       $tipo = 1;
       if($request->tipo == 2){$tipo=2;}
 
     if ($request->preferida==1) {
       DB::table('numeraciones_facturas')
-      ->where('empresa', Auth::user()->empresa)
+      ->where('empresa', $empresa->id)
       ->where('tipo',$tipo)
       ->update(['preferida' => 0]);
     }
@@ -522,9 +540,13 @@ class ConfiguracionController extends Controller
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
       $numeracion->resolucion=$request->resolucion;
-      $numeracion->empresa=Auth::user()->empresa;
+      $numeracion->empresa=$empresa->id;
       $numeracion->tipo = $tipo;
       $numeracion->save();
+
+    //********* MICROSERVICIO BTW *********//
+    $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,1);
+    //********* MICROSERVICIO BTW *********//
 
       $mensaje='Se ha creado satisfactoriamente la numeración';
       return redirect('empresa/configuracion/numeraciones/dian')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);
@@ -564,7 +586,10 @@ class ConfiguracionController extends Controller
   * @return redirect
   */
   public function numeraciones_dian_update(Request $request, $id){
-    $numeracion = NumeracionFactura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+
+    $empresa = auth()->user()->empresaObj;
+    $numeracion = NumeracionFactura::where('empresa',$empresa->id)->where('id', $id)->first();
+
     if ($numeracion) {
       $request->validate([
         'nombre' => 'required',
@@ -572,11 +597,13 @@ class ConfiguracionController extends Controller
         'preferida' => 'required|numeric'
       ]);
       if ($request->preferida==1) {
+
         DB::table('numeraciones_facturas')
-        ->where('empresa', Auth::user()->empresa)
+        ->where('empresa', $empresa->id)
         ->where('tipo',2)
         ->where('id', '<>',$numeracion->id)
         ->update(['preferida' => 0]);
+
       }
       $numeracion->nombre=$request->nombre;
       $numeracion->prefijo=$request->prefijo;
@@ -592,6 +619,10 @@ class ConfiguracionController extends Controller
       $numeracion->nroresolucion=$request->nroresolucion;
       $numeracion->resolucion=$request->resolucion;
       $numeracion->save();
+
+    //********* MICROSERVICIO BTW *********//
+      $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,1);
+    //********* MICROSERVICIO BTW *********//
 
       $mensaje='Se ha modificado satisfactoriamente la numeración';
       return redirect('empresa/configuracion/numeraciones/dian')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);
@@ -1966,6 +1997,20 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function activeconnectionSecret(Request $request){
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->status == 0) {
+      $empresa->activeconn_secret = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->activeconn_secret = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
   public function contratoNumeracion(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 
@@ -2486,6 +2531,7 @@ class ConfiguracionController extends Controller
      */
     public function numeracion_equivalente_store(Request $request)
     {
+        $empresa = auth()->user()->empresaObj;
         $numeracion = new NumeracionFactura();
         $numeracion->nombre = $request->nombre;
         $numeracion->prefijo = $request->prefijo;
@@ -2502,11 +2548,11 @@ class ConfiguracionController extends Controller
         $numeracion->nroresolucion = $request->nroresolucion;
         $numeracion->resolucion = $request->resolucion;
         $numeracion->num_equivalente =  1;
-        $numeracion->empresa = auth()->user()->empresa;
+        $numeracion->empresa = $empresa->id;
 
         $numeracion->save();
 
-        $numeraciones = NumeracionFactura::where('empresa', auth()->user()->empresa)
+        $numeraciones = NumeracionFactura::where('empresa', $empresa->id)
             ->where('preferida', 1)
             ->where('num_equivalente', 1)
             ->where('id', '!=', $numeracion->id)
@@ -2515,6 +2561,10 @@ class ConfiguracionController extends Controller
         foreach ($numeraciones as $numeracion) {
             $numeracion->update(['preferida' => 0]);
         }
+
+        //********* MICROSERVICIO BTW *********//
+        $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,5);
+        //********* MICROSERVICIO BTW *********//
 
         $mensaje = 'Se ha creado satisfactoriamente la numeración';
         return redirect('empresa/configuracion/numeraciones-equivalente')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);
@@ -2539,6 +2589,8 @@ class ConfiguracionController extends Controller
      */
     public function numeracion_equivalente_update(Request $request)
     {
+        $empresa = auth()->user()->empresaObj;
+
         $numeracion = NumeracionFactura::find($request->id);
         $numeracion->nombre = $request->nombre;
         $numeracion->prefijo = $request->prefijo;
@@ -2559,6 +2611,10 @@ class ConfiguracionController extends Controller
         $numeracion->empresa = auth()->user()->empresa;
 
         $numeracion->save();
+
+        //********* MICROSERVICIO BTW *********//
+        $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,5);
+        //********* MICROSERVICIO BTW *********//
 
         $mensaje = 'Se actualizó la numeración correctamente';
         return redirect('empresa/configuracion/numeraciones-equivalente')->with('success', $mensaje)->with('numeracion_id', $numeracion->id);

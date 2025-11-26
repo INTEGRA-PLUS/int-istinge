@@ -2,7 +2,7 @@
 
 namespace App;
 
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\NominaConfiguracionCalculos;
@@ -38,6 +38,12 @@ class Empresa extends Model
         }
         return $usuario;
     }
+
+    public function tipoIdentificacion()
+    {
+        return $this->belongsTo(TipoIdentificacion::class, 'tip_iden');
+    }
+
     public function tip_iden($tipo='completa'){
         if ($tipo=='completa') {
             return TipoIdentificacion::where('id',$this->tip_iden)->first()->identificacion;
@@ -274,7 +280,7 @@ public function firstuuidfact(){
 public function totalEmissions(){
     $facturas = Factura::where('empresa',$this->id)->where('emitida',1)->count();
     $notasc   = NotaCredito::where('empresa',$this->id)->where('emitida',1)->count();
-    $notasd   = NotaDedito::where('empresa',$this->id)->where('emitida',1)->count();
+    $notasd   = NotaDebito::where('empresa',$this->id)->where('emitida',1)->count();
 
     return $total = $facturas + $notasc + $notasd;
 }

@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use App\Funcion;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-
 use App\Model\Ingresos\Factura;
 use App\NumeracionFactura;
 use App\Model\Ingresos\ItemsFactura;
@@ -39,7 +38,7 @@ use App\Model\Ingresos\IngresosFactura;
 use App\Banco;
 use App\Instance;
 use App\Model\Gastos\FacturaProveedores;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
@@ -171,10 +170,53 @@ class CronController extends Controller
         $movimiento->save();
     }
 
+    //ELIMINAR DUPLICADOS DE FACTURA CONTRATOS
+    public static function limpiarDuplicadosFacturaContratos()
+    {
+        // 1. Obtener grupos duplicados
+        $duplicados = DB::table('facturas_contratos')
+            ->select('factura_id', 'contrato_nro', 'client_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('factura_id', 'contrato_nro', 'client_id')
+            ->having('total', '>', 1)
+            ->get();
+
+        $eliminados = 0;
+
+        foreach ($duplicados as $dup) {
+
+            // 2. Obtener todos los registros duplicados del grupo
+            $registros = DB::table('facturas_contratos')
+                ->where('factura_id', $dup->factura_id)
+                ->where('contrato_nro', $dup->contrato_nro)
+                ->where('client_id', $dup->client_id)
+                ->orderBy('id', 'asc') // dejamos el más pequeño
+                ->get();
+
+            // 3. Conservar el primero y eliminar los otros
+            $idConservar = $registros->first()->id;
+
+            $idsEliminar = $registros->pluck('id')->filter(function ($id) use ($idConservar) {
+                return $id != $idConservar;
+            });
+
+            if ($idsEliminar->count() > 0) {
+                DB::table('facturas_contratos')
+                    ->whereIn('id', $idsEliminar)
+                    ->delete();
+
+                $eliminados += $idsEliminar->count();
+            }
+        }
+
+    return "Duplicados eliminados: " . $eliminados;
+    }
+
     public static function CrearFactura(){
 
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
+        self::limpiarDuplicadosFacturaContratos();
+
 
         $empresa = Empresa::find(1);
 
@@ -290,6 +332,7 @@ class CronController extends Controller
                     $ultimaFactura = DB::table('facturas_contratos')
                     ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
                     ->where('facturas_contratos.contrato_nro', $contrato->nro)
+                    ->where('factura.estatus','!=',2)
                     ->select('factura.*')
                     ->orderBy('factura.fecha', 'desc')
                     ->first();
@@ -1077,6 +1120,60 @@ class CronController extends Controller
                                                 $READ = $API->read();
                                             }
                                             #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                            if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                                #DESHABILITACION DEL PPPoE#
+                                                if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                                    // Buscar el ID interno del secret con ese nombre
+                                                    $API->write('/ppp/secret/print', false);
+                                                    $API->write('?name=' . $contrato->usuario, true);
+                                                    $ARRAYS = $API->read();
+
+                                                    if (count($ARRAYS) > 0) {
+                                                        $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                        // Deshabilitar el secret
+                                                        $API->write('/ppp/secret/disable', false);
+                                                        $API->write('=numbers=' . $id, true);
+                                                        $response = $API->read();
+
+                                                    }
+                                                }
+                                                #DESHABILITACION DEL PPPoE#
+
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                                if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                                    $API->write('/ppp/active/print', false);
+                                                    $API->write('?name=' . $contrato->usuario);
+                                                    $response = $API->read();
+
+                                                    if(isset($response['0']['.id'])){
+                                                        $API->comm("/ppp/active/remove", [
+                                                            ".id" => $response['0']['.id']
+                                                        ]);
+                                                    }
+                                                    else{ //NUEVO CODIGO
+
+                                                        //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
+                                                        $API->write('/ppp/active/print', false);
+                                                        $API->write('?name=' . $contrato->nro);
+                                                        $response = $API->read();
+
+                                                        if(isset($response['0']['.id'])){
+                                                            $API->comm("/ppp/active/remove", [
+                                                                ".id" => $response['0']['.id']
+                                                            ]);
+                                                        }
+                                                    }
+
+                                                }
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                            }
+
+
                                         }
                                         $i++;
                                     }
@@ -1151,8 +1248,12 @@ class CronController extends Controller
             }
 
             $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
-            ->join('contracts as cs', 'cs.id', '=', 'f.contrato_id')
-            ->join('grupos_corte as gc', 'gc.id', '=', 'cs.grupo_corte') // Unimos con grupos_corte
+            ->leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
+                ->leftJoin('contracts as cs', function ($join) {
+                    $join->on('cs.nro', '=', 'fcs.contrato_nro');
+                        //  ->orOn('cs.id', '=', 'f.contrato_id');
+                })->
+            join('grupos_corte as gc', 'gc.id', '=', 'cs.grupo_corte') // Unimos con grupos_corte
             ->select(
                 'contactos.id',
                 'contactos.nombre',
@@ -1276,6 +1377,16 @@ class CronController extends Controller
                                 if(isset($response->status) && $response->status == true){
                                     $contrato->state_olt_catv = false;
                                     $contrato->save();
+
+                                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado por cronjob de corte facturas (TV)<br>';
+                                    $movimiento = new MovimientoLOG();
+                                    $movimiento->contrato    = $contrato->id;
+                                    $movimiento->modulo      = 5;
+                                    $movimiento->descripcion = $descripcion;
+                                    $movimiento->created_by  = 1;
+                                    $movimiento->empresa     = $contrato->empresa;
+                                    $movimiento->save();
+
                                 }
 
                             }
@@ -3194,6 +3305,355 @@ class CronController extends Controller
         return "creados";
     }
 
+    public function createDuplicateFacturas(){
+
+
+        $facturas = Factura::leftJoin('contactos as c','c.id','factura.cliente')
+       ->where('fecha','>=','2025-09-01')->where('fecha','<=','2025-09-31')
+       // ->where('c.id',5911)
+       ->select('factura.*')
+       ->whereNotIn('c.tipo_contacto',[1,2])
+       ->groupBy('c.id')
+       ->get();
+
+       $fecha = '2025-10-12';
+       $vencimiento = '2025-10-26';
+       $pago_oportuno = '2025-10-15';
+       $numero = 1724;
+       $nro = NumeracionFactura::Find(9);
+       $grupo_corte = GrupoCorte::Find(1);
+
+       foreach($facturas as $f){
+
+           $ultimaF = Factura::where('cliente',$f->cliente)->orderBy('id','desc')->first();
+           // $ultimaF->fecha = '2025-10-10';
+           if($ultimaF->fecha < '2025-10-01'){
+
+               $itemAntiguo = ItemsFactura::where('factura',$f->id)->first();
+               $contrato = DB::table('facturas_contratos')->where('factura_id',$f->id)->first();
+
+               $inicio = $nro->inicio;
+
+               // Validacion para que solo asigne numero consecutivo si no existe.
+                while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
+                   $nro->save();
+                   $inicio=$nro->inicio;
+                   $nro->inicio += 1;
+               }
+
+
+               if($contrato){
+                   $contrato = Contrato::where('nro',$contrato->contrato_nro)->first();
+               }
+
+               if($contrato && $itemAntiguo){
+
+
+                   $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = $contrato->terminos_cond;
+                   $factura->facnotas      = $contrato->notas_fact;
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   if($contrato){
+                       $factura->contrato_id = $contrato->id;
+                   }
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                   DB::table('facturas_contratos')->insert([
+                       'factura_id' => $factura->id,
+                       'contrato_nro' => $contrato->nro,
+                       'created_by' => 0,
+                       'client_id' => $factura->cliente,
+                       'is_cron' => 1,
+                       'created_at' => Carbon::now()
+                   ]);
+
+                   $nro++;
+               }
+               else{
+
+                   if($itemAntiguo){
+                                       $factura = new Factura;
+                   $factura->nro           = $numero;
+                   $factura->codigo        = $nro->prefijo.$inicio;
+                   $factura->numeracion    = $nro->id;
+                   $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+                   $factura->term_cond     = "";
+                   $factura->facnotas      = "";
+                   $factura->empresa       = 1;
+                   $factura->cliente       = $f->cliente;
+                   $factura->fecha         = $fecha;
+                   $factura->tipo          = $f->tipo;
+                   $factura->vencimiento   = $vencimiento;
+                   $factura->suspension    = $vencimiento;
+                   $factura->pago_oportuno = $pago_oportuno;
+                   $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+                   $factura->bodega        = 1;
+                   $factura->vendedor      = 1;
+                   $factura->prorrateo_aplicado = 0;
+                   $factura->facturacion_automatica = 1;
+
+                   $factura->save();
+
+                   $item_reg = new ItemsFactura();
+                   $item_reg->factura     = $factura->id;
+                   $item_reg->producto    = $itemAntiguo->producto;
+                   $item_reg->ref         = $itemAntiguo->ref;
+                   $item_reg->precio      = $itemAntiguo->precio;
+                   $item_reg->descripcion = $itemAntiguo->producto;
+                   $item_reg->id_impuesto = $itemAntiguo->id_impuesto;
+                   $item_reg->impuesto    = $itemAntiguo->impuesto;
+                   $item_reg->cant        = $itemAntiguo->cant;
+                   // $item_reg->desc        = $cm->descuento;
+                   $item_reg->save();
+
+                   $nro++;
+                   }
+               }
+           }
+       }
+   }
+
+
+   public function habilitacionMasivaTV(){
+        $contratos = Contrato::where('contracts.state_olt_catv', 0)
+            ->where('contracts.updated_at', 'like', '%2025-10-21%')
+            ->where('contracts.olt_sn_mac', '!=', 'NULL')
+            ->select('contracts.*')
+            ->get();
+
+        // $logs = MovimientoLOG::where('modulo',5)->where('descripcion','LIKE','%de habilitado a deshabilitado%')->where('created_at','>','2025-08-16')->pluck('contrato');
+        // $contratos = Contrato::whereIn('id',$logs)->where('state','disabled')->get();
+
+        //Habilitando contratos masivamente segun unas especificaciones
+        $empresa = Empresa::find(1);
+        foreach($contratos as $contrato){
+            if($contrato->state_olt_catv == 0){
+
+                //Este es el de habilitacion de CATV
+                /* * * API CATV * * */
+                if($contrato->olt_sn_mac && $empresa->adminOLT != null){
+
+                    $curl = curl_init();
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT.'/api/onu/enable_catv/'.$contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: '.$empresa->smartOLT
+                        ),
+                        ));
+
+                    $response = curl_exec($curl);
+                    $response = json_decode($response);
+
+                    if(isset($response->status) && $response->status == true){
+
+                        $contrato->state_olt_catv = 1;
+                        $contrato->save();
+                    }
+                }
+
+            }
+        }
+
+        return "ok habilitacion de contratos";
+    }
+
+    public function CrearItemsFactura(){
+
+        //las facturas que les vamos a crear los items son de facturas que estan emitidas en la dian.
+        return $facturas = DB::table('factura')
+        ->where('estatus',0)
+        ->whereNotIn('id', function($query) {
+            $query->select('factura')
+                  ->distinct()
+                  ->from('items_factura')
+                  ->whereNotNull('factura');
+        })
+        ->get();
+
+
+        foreach($facturas as $factura){
+
+            $ingreso = DB::table('ingresos_factura')->where('factura',$factura->id)->first();
+            $cm = Contrato::where('client_id',$factura->cliente)->first();
+
+            if($cm){
+
+                $descuentoPesos = 0;
+                $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+                $fechaActual = Carbon::now()->format('Y-m-d');
+
+                ## Se carga el item a la factura (Plan de Internet) ##
+                if($cm->plan_id){
+                    $plan = PlanesVelocidad::find($cm->plan_id);
+                    $item = Inventario::find($plan->item);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $plan->name;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    if($cm->iva_factura == 1){
+                        $item_reg->id_impuesto = 1;
+                        $item_reg->impuesto = 19;
+                    }
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }else if($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item a la factura (Plan de Televisión) ##
+                if($cm->servicio_tv){
+                    $item = Inventario::find($cm->servicio_tv);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+                    $item_reg->save();
+                }
+
+                ## Se carga el item de otro tipo de servicio ##
+                if($cm->servicio_otro){
+                    $item = Inventario::find($cm->servicio_otro);
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $item->precio;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = $item->id_impuesto;
+                    $item_reg->impuesto    = $item->impuesto;
+                    $item_reg->cant        = 1;
+
+                    if($descuentoHasta != null && $fechaActual <= $descuentoHasta){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }elseif($descuentoHasta == null || $descuentoHasta == ""){
+                        $item_reg->desc        = $cm->descuento;
+                        if($cm->descuento_pesos != null && $descuentoPesos == 0){
+                            $item_reg->precio      = $item_reg->precio - $cm->descuento_pesos;
+                            $descuentoPesos = 1;
+                        }
+                    }
+
+
+                    if($cm->rd_item_vencimiento == 1){
+
+                        if($cm->dt_item_hasta > now()){
+                            $item_reg->save();
+                        }
+                    }else{
+                        $item_reg->save();
+                    }
+                }
+
+                    //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $cm->nro,
+                        'created_by' => 0,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 1,
+                        'created_at' => Carbon::now()
+                    ]);
+
+            }else if($ingreso){
+                    $item = Inventario::Find(170);
+                if($item){
+                    $item_reg = new ItemsFactura;
+                    $item_reg->factura     = $factura->id;
+                    $item_reg->producto    = $item->id;
+                    $item_reg->ref         = $item->ref;
+                    $item_reg->precio      = $ingreso->pagado;
+                    $item_reg->descripcion = $item->producto;
+                    $item_reg->id_impuesto = 0;
+                    $item_reg->impuesto    = 0;
+                    $item_reg->save();
+                }
+            }
+
+        }
+
+        return "ookok";
+
+   }
 
     public function deleteFactura(){
 
@@ -3238,10 +3698,20 @@ class CronController extends Controller
                 #ELIMINAMOS DE MOROSOS#
 
                 #HABILITACION DEL PPOE#
-                if($contrato->conexion == 1 && $contrato->usuario != null){
-                    $API->write('/ppp/secret/enable', false);
-                    $API->write('=numbers=' . $contrato->usuario);
-                    $response = $API->read();
+                if ($contrato->conexion == 1 && $contrato->usuario != null) {
+                    // Buscar el ID interno del secret
+                    $API->write('/ppp/secret/print', false);
+                    $API->write('?name=' . $contrato->usuario, true);
+                    $ARRAYS = $API->read();
+
+                    if (count($ARRAYS) > 0) {
+                        $id = $ARRAYS[0]['.id'];
+                        // Habilitar el secret
+                        $API->write('/ppp/secret/enable', false);
+                        $API->write('=numbers=' . $id, true);
+                        $response = $API->read();
+                        // Log::info("[MIKROTIK] Usuario {$contrato->usuario} habilitado correctamente");
+                    }
                 }
                 #HABILITACION DEL PPOE#
 
@@ -3516,34 +3986,38 @@ class CronController extends Controller
     }
 
     public function envioFacturaWpp(WapiService $wapiService){
-        $empresa = Empresa::Find(1);
-        if($empresa->cron_fecha_whatsapp != null){
-            $fecha = $empresa->cron_fecha_whatsapp;
-        }else{
-            $fecha = date('Y-m-d');
-        }
+        Log::info("=== Inicio de ejecución: envioFacturaWpp() ===");
 
-        //Reinicio de variable cron_fecha_whatsapp
-        $horaActual = Carbon::now()->format('H:i');
-        if ($horaActual >= '00:00' && $horaActual <= '03:00') {
-            $empresa->cron_fecha_whatsapp = Carbon::now()->format('Y-m-d');
-            $empresa->save();
-        }
+        try {
+            $empresa = Empresa::find(1);
+            Log::info("Empresa encontrada: {$empresa->nombre}");
 
-        $empresa = Empresa::Find(1);
+            $fecha = $empresa->cron_fecha_whatsapp ?? date('Y-m-d');
+            Log::info("Fecha de facturación a usar: {$fecha}");
 
-        $grupos_corte = GrupoCorte::where('status', 1)->get();
+            // Reinicio de variable cron_fecha_whatsapp
+            $horaActual = Carbon::now()->format('H:i');
+            Log::info("Hora actual: {$horaActual}");
 
-        if($grupos_corte->count() > 0){
-
-            $grupos_corte_array = array();
-
-            foreach($grupos_corte as $grupo){
-                array_push($grupos_corte_array,$grupo->id);
+            if ($horaActual >= '00:00' && $horaActual <= '03:00') {
+                $empresa->cron_fecha_whatsapp = Carbon::now()->format('Y-m-d');
+                $empresa->save();
+                Log::info("cron_fecha_whatsapp reiniciada a: {$empresa->cron_fecha_whatsapp}");
             }
 
-            $facturas = Factura::
-                join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+            $empresa = Empresa::find(1);
+
+            $grupos_corte = GrupoCorte::where('status', 1)->get();
+            Log::info("Total grupos de corte activos: " . $grupos_corte->count());
+
+            if ($grupos_corte->count() === 0) {
+                Log::warning("No hay grupos de corte activos. Se detiene el proceso.");
+                return;
+            }
+
+            $grupos_corte_array = $grupos_corte->pluck('id')->toArray();
+
+            $facturas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
                 ->join('contactos as con', 'con.id', 'c.client_id')
                 ->where(function ($query) {
                     $query->whereNotNull('con.celular')
@@ -3557,94 +4031,98 @@ class CronController extends Controller
                 ->limit(45)
                 ->get();
 
-            foreach($facturas as $factura){
+            Log::info("Facturas seleccionadas para envío: " . $facturas->count());
+
+            foreach ($facturas as $factura) {
+                Log::info("Procesando factura: {$factura->codigo}");
 
                 view()->share(['title' => 'Imprimir Factura']);
 
-                // Buscar instancia activa
-                $instance = Instance::where('company_id', $empresa->id)->where('type',1)->where('activo',1)->first();
+                $instance = Instance::where('company_id', $empresa->id)
+                    ->where('type', 1)
+                    ->where('activo', 1)
+                    ->first();
+
+                if (!$instance) {
+                    Log::error("Factura {$factura->codigo}: Instancia no encontrada.");
+                    continue;
+                }
 
                 $factura->updated_at = now();
                 $factura->save();
 
-                if(is_null($instance) || empty($instance)){
-                    Log::error('Instancia no está creada.');
-                    break;
-                }
-
                 $contacto = $factura->cliente();
+                Log::info("Cliente asociado: {$contacto->nombre} {$contacto->apellido1}, NIT: {$contacto->nit}");
 
-                // Determinar celular a usar
+                // Determinar número válido
                 $celular = null;
-                if($contacto->celular != null && strlen($contacto->celular) > 9){
+                if (!empty($contacto->celular) && strlen($contacto->celular) > 9) {
                     $celular = $contacto->celular;
-                }else if($contacto->telefono1 != null && strlen($contacto->telefono1) > 9){
+                } elseif (!empty($contacto->telefono1) && strlen($contacto->telefono1) > 9) {
                     $celular = $contacto->telefono1;
-                }else if($contacto->telefono2 != null && strlen($contacto->telefono2) > 9){
+                } elseif (!empty($contacto->telefono2) && strlen($contacto->telefono2) > 9) {
                     $celular = $contacto->telefono2;
                 }
 
-                if($celular == null){
-                    Log::warning("Factura {$factura->codigo}: No se encontró número de celular válido para el contacto {$contacto->nit}");
+                if (!$celular) {
+                    Log::warning("Factura {$factura->codigo}: No hay número válido para el cliente {$contacto->nit}");
                     continue;
                 }
 
-                // Obtener prefijo dinámico del país
-                $prefijo = '57'; // valor por defecto (Colombia)
+                // Prefijo dinámico
+                $prefijo = '57';
                 if (!empty($contacto->fk_idpais)) {
                     $prefijoData = \DB::table('prefijos_telefonicos')
                         ->where('iso2', strtoupper($contacto->fk_idpais))
                         ->first();
+
                     if ($prefijoData && !empty($prefijoData->phone_code)) {
                         $prefijo = $prefijoData->phone_code;
                     }
                 }
 
-                // Construir número completo con prefijo dinámico
                 $telefonoCompleto = '+' . $prefijo . ltrim($celular, '0');
+                Log::info("Teléfono completo: {$telefonoCompleto}");
 
-                // ============================================================
-                // 🚀 ENVÍO SEGÚN TIPO DE INSTANCIA (META)
-                // ============================================================
+                // =======================================================
+                // 🚀 ENVÍO META 0 (Vibio / Plantilla WABA)
+                // =======================================================
                 if ($instance->meta == 0) {
-                    // === FLUJO CON PLANTILLA WABA ===
+                    Log::info("Usando modo WABA (Vibio API).");
 
-                    // Verificar tipo de canal
                     $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
+                    Log::info("Respuesta canal: " . json_encode($canalResponse));
+
                     $canalData = json_decode($canalResponse->scalar ?? '{}');
 
                     if (!isset($canalData->status) || $canalData->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: No se pudo verificar el tipo de canal de WhatsApp.");
+                        Log::error("Factura {$factura->codigo}: Error al obtener canal WABA.");
                         continue;
                     }
 
                     $tipoCanal = $canalData->data->channel->type ?? null;
+                    Log::info("Tipo de canal detectado: {$tipoCanal}");
 
-                    // Generar y guardar PDF temporalmente
-                    $token = config('app.key');
-                    $this->getFacturaTemp($factura->id, $token);
+                    // Generar PDF temporal
+                    $this->getFacturaTemp($factura->id, config('app.key'));
+                    $fileName = "Factura_{$factura->codigo}.pdf";
+                    $storagePath = storage_path("app/public/temp/{$fileName}");
 
-                    $fileName = 'Factura_' . $factura->codigo . '.pdf';
-                    $relativePath = 'temp/' . $fileName;
-                    $storagePath = storage_path('app/public/' . $relativePath);
-
-                    // Esperar hasta que el archivo exista (máx. 5 intentos)
                     $attempts = 0;
                     while (!file_exists($storagePath) && $attempts < 5) {
-                        usleep(300000); // 0.3 segundos
+                        usleep(300000);
                         $attempts++;
                     }
 
                     if (!file_exists($storagePath)) {
-                        Log::error("Factura {$factura->codigo}: No se pudo generar el archivo PDF temporal.");
+                        Log::error("Factura {$factura->codigo}: PDF no encontrado después de {$attempts} intentos.");
                         continue;
                     }
 
-                    // Generar la URL pública accesible
-                    $urlFactura = url('storage/temp/' . $fileName);
+                    $urlFactura = url("storage/temp/{$fileName}");
+                    Log::info("Factura {$factura->codigo}: URL PDF => {$urlFactura}");
 
-                    // Construir datos para el mensaje
-                    $nameEmpresa = $empresa->nombre;
+                    // Construcción del mensaje
                     $estadoCuenta = $factura->estadoCuenta();
                     $total = $factura->total()->total;
                     $saldo = $estadoCuenta->saldoMesAnterior > 0
@@ -3671,49 +4149,53 @@ class CronController extends Controller
                             [
                                 "type" => "body",
                                 "parameters" => [
-                                    ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
-                                    ["type" => "text", "text" => $nameEmpresa],
+                                    ["type" => "text", "text" => "{$contacto->nombre} {$contacto->apellido1}"],
+                                    ["type" => "text", "text" => $empresa->nombre],
                                     ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
                                 ]
                             ]
                         ]
                     ];
 
-                    // Enviar según tipo de canal
-                    if ($tipoCanal === "waba") {
-                        $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                    } else {
-                        $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
+                    Log::info("Factura {$factura->codigo}: cuerpo mensaje => " . json_encode($body));
+
+                    $response = $tipoCanal === "waba"
+                        ? (object) $wapiService->sendTemplate($instance->uuid, $body)
+                        : (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
                             "phone" => $telefonoCompleto,
-                            "caption" => "Factura {$factura->codigo} - {$nameEmpresa}",
+                            "caption" => "Factura {$factura->codigo} - {$empresa->nombre}",
                             "document" => [
                                 "url" => $urlFactura,
                                 "filename" => "Factura_{$factura->codigo}.pdf"
                             ]
                         ]);
-                    }
 
-                    // Validar respuesta
+                    Log::info("Factura {$factura->codigo}: respuesta API => " . json_encode($response));
+
                     if (isset($response->statusCode) && $response->statusCode !== 200) {
-                        Log::error("Factura {$factura->codigo}: Error al enviar mensaje. Código: {$response->statusCode}. Cliente: {$contacto->nit}");
+                        Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         continue;
                     }
 
                     $response = json_decode($response->scalar ?? '{}');
+
                     if (!isset($response->status) || $response->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: No se pudo enviar el mensaje. Cliente: {$contacto->nit}");
+                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($response));
                         continue;
                     }
 
-                    // Marcar como enviada
                     $factura->whatsapp = 1;
                     $factura->save();
+                    Log::info("Factura {$factura->codigo}: marcada como enviada ✅");
 
                 } else {
-                    // === FLUJO META (manual con PDF en base64) ===
+                    // =======================================================
+                    // 🚀 MODO META (directo, manual con base64)
+                    // =======================================================
+                    Log::info("Usando modo META directo.");
 
-                    if($instance->status !== "PAIRED") {
-                        Log::error('La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
+                    if ($instance->status !== "PAIRED") {
+                        Log::error("Instancia no conectada a WhatsApp (status: {$instance->status}).");
                         break;
                     }
 
@@ -3727,19 +4209,15 @@ class CronController extends Controller
 
                     $contact = [
                         "phone" => $prefijo . ltrim($celular, '0'),
-                        "name" => $contacto->nombre . " " . $contacto->apellido1
+                        "name" => "{$contacto->nombre} {$contacto->apellido1}"
                     ];
 
-                    $nameEmpresa = $empresa->nombre;
                     $estadoCuenta = $factura->estadoCuenta();
+                    $msg_deuda = $estadoCuenta->saldoMesAnterior > 0
+                        ? "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $factura->total()->total)
+                        : "";
 
-                    $msg_deuda = "";
-                    $total = $factura->total()->total;
-                    if($estadoCuenta->saldoMesAnterior > 0){
-                        $msg_deuda = "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $total);
-                    }
-
-                    $message = "$nameEmpresa le informa que su factura ha sido generada bajo el número $factura->codigo por un monto de $$total pesos. " . $msg_deuda;
+                    $message = "{$empresa->nombre} le informa que su factura {$factura->codigo} tiene un valor de {$factura->total()->total} pesos. {$msg_deuda}";
 
                     $body = [
                         "contact" => $contact,
@@ -3747,37 +4225,39 @@ class CronController extends Controller
                         "media" => $file
                     ];
 
+                    Log::info("Factura {$factura->codigo}: cuerpo META => " . json_encode($body));
+
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-                    
-                    if(isset($response->statusCode)) {
-                        Log::error('No se pudo enviar el mensaje, por favor intente nuevamente. Cliente: ' . $contacto->nit);
+                    Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
+
+                    if (isset($response->statusCode)) {
+                        Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         continue;
                     }
 
-                    if(isset($response->scalar)){
+                    if (isset($response->scalar)) {
                         $response = json_decode($response->scalar);
                     }
 
-                    if(isset($response->status) && $response->status != "success") {
-                        Log::error('No se pudo enviar el mensaje, por favor intente nuevamente. Cliente: ' . $contacto->nit);
+                    if (!isset($response->status) || $response->status !== "success") {
+                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($response));
                         continue;
                     }
 
                     $factura->whatsapp = 1;
                     $factura->save();
-
-                    $archivo = public_path() . "/convertidor/" . $factura->codigo . ".pdf";
-                    if (file_exists($archivo)) {
-                        unlink($archivo);
-                    }
+                    Log::info("Factura {$factura->codigo}: enviada por META ✅");
                 }
             }
-            
-            Log::info("Lote de facturas enviadas por whatsapp correctamente.");
+
+            Log::info("✅ Lote completado correctamente.");
+            $this->refreshCorteIntertTV();
+
+        } catch (\Throwable $e) {
+            Log::error("🔥 Error general en envioFacturaWpp: {$e->getMessage()} en línea {$e->getLine()}");
         }
-        
-        //Validacion de ingresos creados y no habilitado el catv o internet
-        $this->refreshCorteIntertTV();
+
+        Log::info("=== Fin de ejecución envioFacturaWpp() ===");
     }
 
     public function aplicateProrrateo(){
@@ -4006,7 +4486,7 @@ class CronController extends Controller
             ->where('emitida',1)
             ->where('dian_service',0);
 
-            $notasDebito = NotaDedito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
+            $notasDebito = NotaDebito::where('fecha','>=',$mesInicio)->where('fecha','<=',$finMes)
             ->where('emitida',1)
             ->where('dian_service',0);
 
@@ -4187,10 +4667,12 @@ class CronController extends Controller
         $fecha = Carbon::now()->format('Y-m-d');
 
         //ingresos asociados a facturas del dia de hoy.
-        $ingresos = Ingreso::where('fecha',$fecha)
-        ->where('tipo',1)
-        ->where('revalidacion_enable_internet',0)
-        ->where('revalidacion_enable_tv',0)
+        $ingresos = Ingreso::where('fecha', $fecha)
+        ->where('tipo', 1)
+        ->where(function ($q) {
+            $q->where('revalidacion_enable_internet', 0)
+              ->orWhere('revalidacion_enable_tv', 0);
+        })
         ->orderBy('updated_at', 'asc')
         ->get();
 
@@ -4253,10 +4735,10 @@ class CronController extends Controller
                         /* * * API CATV * * */
 
                         //Este es el de internet
+
                         /* * * API MIKROTIK * * */
                         if($contrato->server_configuration_id){
                             $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
-
                             $API = new RouterosAPI();
                             $API->port = $mikrotik->puerto_api;
 
@@ -4264,17 +4746,42 @@ class CronController extends Controller
                                 $API->write('/ip/firewall/address-list/print', TRUE);
                                 $ARRAYS = $API->read();
 
-                                #ELIMINAMOS DE MOROSOS#
                                 $API->write('/ip/firewall/address-list/print', false);
-                                $API->write('?address='.$contrato->ip, false);
-                                $API->write("?list=morosos",false);
-                                $API->write('=.proplist=.id');
-                                $ARRAYS = $API->read();
+                                $API->write('?address=' . $contrato->ip, false);
+                                $API->write('?list=morosos', true);
+                                $result = $API->read();
 
-                                if(count($ARRAYS)>0){
-                                    $API->write('/ip/firewall/address-list/remove', false);
-                                    $API->write('=.id='.$ARRAYS[0]['.id']);
-                                    $READ = $API->read();
+                                if (!empty($result)) {
+
+                                    #ELIMINAMOS DE MOROSOS#
+                                    $API->write('/ip/firewall/address-list/print', false);
+                                    $API->write('?address='.$contrato->ip, false);
+                                    $API->write("?list=morosos",false);
+                                    $API->write('=.proplist=.id');
+                                    $ARRAYS = $API->read();
+                                    #ELIMINAMOS DE MOROSOS#
+
+                                    if(count($ARRAYS)>0){
+                                        $API->write('/ip/firewall/address-list/remove', false);
+                                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                                        $READ = $API->read();
+
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+                                        $API->comm("/ip/firewall/address-list/add", array(
+                                            "address" => $contrato->ip,
+                                            "list" => 'ips_autorizadas'
+                                            )
+                                        );
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+
+                                        $ingreso->revalidacion_enable_internet = 1;
+                                        $ingreso->save();
+
+                                        $contrato->state = 'enabled';
+                                        $contrato->save();
+                                    }
+
+                                } else {
 
                                     #AGREGAMOS A IP_AUTORIZADAS#
                                     $API->comm("/ip/firewall/address-list/add", array(
@@ -4286,12 +4793,11 @@ class CronController extends Controller
 
                                     $ingreso->revalidacion_enable_internet = 1;
                                     $ingreso->save();
-
-                                    $contrato->state = 'enabled';
-                                    $contrato->save();
                                 }
-                                #ELIMINAMOS DE MOROSOS#
+
                                 $API->disconnect();
+                            }else{
+                                echo "no se conecto a la mikrotik";
                             }
                         }else{
                             $ingreso->revalidacion_enable_internet = 1;

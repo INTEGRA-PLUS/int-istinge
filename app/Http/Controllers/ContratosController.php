@@ -93,7 +93,11 @@ class ContratosController extends Controller
         $tabla = Campos::join('campos_usuarios', 'campos_usuarios.id_campo', '=', 'campos.id')->where('campos_usuarios.id_modulo', 2)->where('campos_usuarios.id_usuario', $user->id)->where('campos_usuarios.estado', 1)->orderBy('campos_usuarios.orden', 'ASC')->get();
         $nodos = Nodo::where('status', 1)->where('empresa', $user->empresa)->get();
         $aps = AP::where('status', 1)->where('empresa', $user->empresa)->get();
-        $vendedores = Vendedor::where('empresa', $user->empresa)->where('estado', 1)->get();
+
+        $vendedores = Vendedor::where('empresa', $user->empresa)
+            ->where('estado', 1)
+            ->get();
+
         $canales = Canal::where('empresa', $user->empresa)->where('status', 1)->get();
         $etiquetas = Etiqueta::where('empresa_id', $user->empresa)->get();
         $barrios = Barrios::where('status', '1')->get();
@@ -176,8 +180,7 @@ class ContratosController extends Controller
             $contratos->where(function ($query) use ($servers) {
                 $query->whereIn('server_configuration_id', $servers)
                     ->orWhere(function ($subQuery) use ($servers) {
-                        $subQuery->whereNotIn('server_configuration_id', $servers)
-                            ->whereNotNull('servicio_tv');
+                        $subQuery->whereNotNull('servicio_tv');
                     });
             });
         }
@@ -337,9 +340,7 @@ class ContratosController extends Controller
                 });
             }
             if ($request->vendedor) {
-                $contratos->where(function ($query) use ($request) {
-                    $query->orWhere('contracts.vendedor', $request->vendedor);
-                });
+                $contratos->where('contracts.vendedor', $request->vendedor);
             }
             if ($request->canal) {
                 $contratos->where(function ($query) use ($request) {
@@ -453,7 +454,11 @@ class ContratosController extends Controller
 
         //Esta opción es para mirar los contratos deshabilitados con su ultima factura pagada.
         if ($request->otra_opcion && $request->otra_opcion == "opcion_1") {
-            $contratos = Contrato::where('state', 'disabled')->get();
+
+            $contratos = Contrato::where('state', 'disabled')
+            ->orWhere('state_olt_catv',0)->where('olt_sn_mac','!=','NULL')
+            ->get();
+
             $i = 0;
             $arrayContratos = array();
             foreach ($contratos as $contrato) {
@@ -758,6 +763,7 @@ class ContratosController extends Controller
             $API->port = $mikrotik->puerto_api;
             $registro = false;
             $getall = '';
+            $ip_autorizada = 0;
             //$API->debug = true;
 
             $nro = Numeracion::where('empresa', 1)->first();
@@ -771,6 +777,8 @@ class ContratosController extends Controller
 
                 if ($contratoMk) {
                     $nro_contrato = $contratoMk->nro + 1;
+                }else{
+                    $nro_contrato = 0;
                 }
 
                 $existe = Contrato::where('nro', $nro_contrato)->count();
@@ -1031,8 +1039,6 @@ class ContratosController extends Controller
                             )
                         );
                     }
-
-                    $ip_autorizada = 0;
 
                     if ($mikrotik->regla_ips_autorizadas == 1) {
                         $API->comm("/ip/firewall/address-list/add\n=list=ips_autorizadas\n=address=" . $request->ip);
@@ -1583,7 +1589,7 @@ class ContratosController extends Controller
         $contrato = Contrato::find($id);
         $empresa = Empresa::Find(Auth::user()->empresa);
         $ppoe_local_adress = "";
-        $descripcion = '';
+        $descripcion = null;
         $registro = false;
         $getall = '';
         if ($contrato) {
@@ -2318,8 +2324,13 @@ class ContratosController extends Controller
             if ($contrato->servicio_tv) {
                 $inventario = Inventario::where('id', $contrato->servicio_tv)->where('empresa', Auth::user()->empresa)->first();
             }
+            if ($contrato->servicio_otro) {
+                $servicio_otro = Inventario::where('id', $contrato->servicio_otro)->where('empresa', Auth::user()->empresa)->first();
+            } else {
+                $servicio_otro = null;
+            }
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Detalles Contrato: ' . $contrato->nro]);
-            return view('contratos.show')->with(compact('contrato', 'inventario'));
+            return view('contratos.show')->with(compact('contrato', 'inventario', 'servicio_otro'));
         }
         return redirect('empresa/contratos')->with('danger', 'EL CONTRATO DE SERVICIOS NO HA ENCONTRADO');
     }
@@ -2549,6 +2560,7 @@ class ContratosController extends Controller
 
         $this->getAllPermissions(Auth::user()->id);
         $contrato = Contrato::find($id);
+
         $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
         $empresa = Auth::user()->empresa();
         $descripcion = "";
@@ -2565,6 +2577,7 @@ class ContratosController extends Controller
                                 $ARRAYS = $API->read();
 
                                 if($contrato->state == 'enabled'){
+
                                     #AGREGAMOS A MOROSOS#
                                     $API->comm("/ip/firewall/address-list/add", array(
                                         "address" => $contrato->ip,
@@ -2586,23 +2599,99 @@ class ContratosController extends Controller
                                         $READ = $API->read();
                                     }
                                     #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #DESHABILITACION DEL PPPoE#
+                                        if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                            // Buscar el ID interno del secret con ese nombre
+                                            $API->write('/ppp/secret/print', false);
+                                            $API->write('?name=' . $contrato->usuario, true);
+                                            $ARRAYS = $API->read();
+
+                                            if (count($ARRAYS) > 0) {
+                                                $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                // Deshabilitar el secret
+                                                $API->write('/ppp/secret/disable', false);
+                                                $API->write('=numbers=' . $id, true);
+                                                $response = $API->read();
+
+                                            }
+                                        }
+                                        #DESHABILITACION DEL PPPoE#
+
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                        if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                            $API->write('/ppp/active/print', false);
+                                            $API->write('?name=' . $contrato->usuario);
+                                            $response = $API->read();
+
+                                            if(isset($response['0']['.id'])){
+                                                $API->comm("/ppp/active/remove", [
+                                                    ".id" => $response['0']['.id']
+                                                ]);
+                                            }else{ //NUEVO CODIGO
+
+                                                //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
+                                                $API->write('/ppp/active/print', false);
+                                                $API->write('?name=' . $contrato->nro);
+                                                $response = $API->read();
+
+                                                if(isset($response['0']['.id'])){
+                                                    $API->comm("/ppp/active/remove", [
+                                                        ".id" => $response['0']['.id']
+                                                    ]);
+                                                }
+                                            }
+
+                                        }
+                                        #SE SACA DE LA ACTIVE CONNECTIONS
+                                    }
+
+
                                     $contrato->state = 'disabled';
                                     $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de Habilitado a Deshabilitado<br>';
 
                                 }else{
 
-                                    #ELIMINAMOS DE MOROSOS#
-                                    $API->write('/ip/firewall/address-list/print', false);
-                                    $API->write('?address='.$contrato->ip, false);
-                                    $API->write("?list=morosos",false);
-                                    $API->write('=.proplist=.id');
-                                    $ARRAYS = $API->read();
-                                    if(count($ARRAYS)>0){
-                                        $API->write('/ip/firewall/address-list/remove', false);
-                                        $API->write('=.id='.$ARRAYS[0]['.id']);
-                                        $READ = $API->read();
+                                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                        #HABILITACION DEL SECRET#
+                                        if ($contrato->conexion == 1 && $contrato->usuario != null) {
+                                            // Buscar el ID interno del secret
+                                            $API->write('/ppp/secret/print', false);
+                                            $API->write('?name=' . $contrato->usuario, true);
+                                            $ARRAYS = $API->read();
+
+                                            if (count($ARRAYS) > 0) {
+                                                $id = $ARRAYS[0]['.id'];
+                                                // Habilitar el secret
+                                                $API->write('/ppp/secret/enable', false);
+                                                $API->write('=numbers=' . $id, true);
+                                                $response = $API->read();
+                                                // Log::info("[MIKROTIK] Usuario {$contrato->usuario} habilitado correctamente");
+                                            }
+                                        }
+                                        #HABILITACION DEL SECRET#
+
+                                    }else{
+
+                                        #ELIMINAMOS DE MOROSOS#
+                                        $API->write('/ip/firewall/address-list/print', false);
+                                        $API->write('?address='.$contrato->ip, false);
+                                        $API->write("?list=morosos",false);
+                                        $API->write('=.proplist=.id');
+                                        $ARRAYS = $API->read();
+                                        if(count($ARRAYS)>0){
+                                            $API->write('/ip/firewall/address-list/remove', false);
+                                            $API->write('=.id='.$ARRAYS[0]['.id']);
+                                            $READ = $API->read();
+                                        }
+                                        #ELIMINAMOS DE MOROSOS#
                                     }
-                                    #ELIMINAMOS DE MOROSOS#
 
                                     #AGREGAMOS A IP_AUTORIZADAS#
                                     $API->comm("/ip/firewall/address-list/add", array(
@@ -2611,6 +2700,8 @@ class ContratosController extends Controller
                                         )
                                     );
                                     #AGREGAMOS A IP_AUTORIZADAS#
+
+
                                     $contrato->state = 'enabled';
                                     $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de Deshabilitado a Habilitado<br>';
                                 }
@@ -2647,8 +2738,10 @@ class ContratosController extends Controller
                             $crm->factura = $lastFact->id;
                         }
                         $crm->save();
-                        $mensaje='EL CONTRATO NRO. '.$contrato->nro.' HA SIDO '.$contrato->status();
-                        $type = 'success';
+                        if(!isset($type)){
+                            $mensaje='EL CONTRATO NRO. '.$contrato->nro.' HA SIDO '.$contrato->status();
+                            $type = 'success';
+                        }
 
                         return back()->with($type, $mensaje);
                     }
@@ -2714,6 +2807,18 @@ class ContratosController extends Controller
             if (isset($response->status) && $response->status == true) {
                 $message = 'HABILITADO';
                 $contrato->save();
+
+                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de deshabilitado a habilitado CATV<br>';
+
+                /*REGISTRO DEL LOG*/
+                $movimiento = new MovimientoLOG;
+                $movimiento->contrato    = $id;
+                $movimiento->modulo      = 5;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+
                 return back()->with('success', 'EL CONTRATO NRO. ' . $contrato->nro . ' HA SIDO MODIFICADO EN SU CATV A ' . $message);
             } else {
                 return back()->with('danger', 'EL CONTRATO NRO. ' . $contrato->nro . ' NO HA SIDO MODIFICADO POR UN ERROR');
@@ -2746,6 +2851,18 @@ class ContratosController extends Controller
             if (isset($response->status) && $response->status == true) {
                 $message = 'DESHABILITADO';
                 $contrato->save();
+
+                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado CATV<br>';
+
+                /*REGISTRO DEL LOG*/
+                $movimiento = new MovimientoLOG;
+                $movimiento->contrato    = $id;
+                $movimiento->modulo      = 5;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+
                 return back()->with('success', 'EL CONTRATO NRO. ' . $contrato->nro . ' HA SIDO MODIFICADO EN SU CATV A ' . $message);
             } else {
                 return back()->with('danger', 'EL CONTRATO NRO. ' . $contrato->nro . ' NO HA SIDO MODIFICADO POR UN ERROR');
@@ -2779,9 +2896,9 @@ class ContratosController extends Controller
             'Direccion MAC',
             'Interfaz',
             'Serial ONU',
-            'SN/MAC',             // 👈 NUEVA COLUMNA
+            'SN_MAC',
             'Estado',
-            'Estado del CATV',    // 👈 NUEVA COLUMNA
+            'Estado de CATV',
             'Grupo de Corte',
             'Facturacion',
             'Costo Reconexion',
@@ -2801,10 +2918,11 @@ class ContratosController extends Controller
             'Latitud',
             'Longitud',
             'Fecha Creacion',
-            'Creador'
+            'Creador',
+            'Ultimo pago'
         );
 
-        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO');
+        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP');
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
             ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific171717
@@ -2815,13 +2933,13 @@ class ContratosController extends Controller
             ->setCategory("Reporte excel"); //Categorias
         // Se combinan las celdas A1 hasta D1, para colocar ah171717 el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AM1');
+            ->mergeCells('A1:AO1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', $tituloReporte);
         // Titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AM1');
+            ->mergeCells('A1:AO1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', 'Reporte Contratos - Fecha ' . date('d-m-Y')); // Titulo del reporte
@@ -2829,12 +2947,12 @@ class ContratosController extends Controller
         $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman'), 'alignment' => array(
             'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A1:AM1')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A1:AP1')->applyFromArray($estilo);
         $estilo = array('fill' => array(
             'type' => PHPExcel_Style_Fill::FILL_SOLID,
             'color' => array('rgb' => 'd08f50')
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AM2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
 
         $estilo = array(
             'fill' => array(
@@ -2853,7 +2971,7 @@ class ContratosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER
             )
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AO2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '2', utf8_decode($titulosColumnas[$i]));
@@ -3152,10 +3270,10 @@ class ContratosController extends Controller
                 ->setCellValue($letras[14] . $i, $contrato->ip)
                 ->setCellValue($letras[15] . $i, $contrato->mac_address)
                 ->setCellValue($letras[16] . $i, $contrato->interfaz)
-                ->setCellValue($letras[17] . $i, $contrato->serial_onu)       // Serial ONU
-                ->setCellValue($letras[18] . $i, $contrato->serial_onu)       // SN/MAC (igual a Serial ONU)
-                ->setCellValue($letras[19] . $i, $contrato->status())         // Estado
-                ->setCellValue($letras[20] . $i, $contrato->status())         // Estado del CATV (igual a Estado)
+                ->setCellValue($letras[17] . $i, $contrato->serial_onu)
+                ->setCellValue($letras[18] . $i, $contrato->olt_sn_mac)
+                ->setCellValue($letras[19] . $i, $contrato->status())
+                ->setCellValue($letras[20] . $i, $contrato->state_olt_catv == 1 ? 'Activo' : 'Inactivo')
                 ->setCellValue($letras[21] . $i, $contrato->grupo_corte('true'))
                 ->setCellValue($letras[22] . $i, $contrato->facturacion())
                 ->setCellValue($letras[23] . $i, $contrato->costo_reconexion)
@@ -3176,14 +3294,15 @@ class ContratosController extends Controller
                 ->setCellValue($letras[38] . $i, $contrato->c_longitude)
                 ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
                 ->setCellValue($letras[40] . $i, $contrato->creador)
+                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago())
                 ;
             $i++;
         }
 
         $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[29] . $i, $totalPlan)
-            ->setCellValue($letras[30] . $i, $totalServicio)
-            ->setCellValue($letras[31] . $i, $totalServicioOtro)
+            ->setCellValue($letras[28] . $i, $totalPlan)
+            ->setCellValue($letras[29] . $i, $totalServicio)
+            ->setCellValue($letras[30] . $i, $totalServicioOtro)
         ;
 
         $estilo = array(
@@ -3195,9 +3314,9 @@ class ContratosController extends Controller
             ),
             'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,)
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A3:AO' . $i)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:AP' . $i)->applyFromArray($estilo);
 
-        for ($i = 'A'; $i <= $letras[40]; $i++) {
+        for ($i = 'A'; $i <= $letras[41]; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
         }
 
@@ -4094,10 +4213,10 @@ class ContratosController extends Controller
 
                                 $rate_limit      = '';
                                 $priority        = $plan->prioridad;
-                                $burst_limit     = (strlen($plan->burst_limit_subida) > 1) ? $plan->burst_limit_subida . '/' . $plan->burst_limit_bajada : '';
-                                $burst_threshold = (strlen($plan->burst_threshold_subida) > 1) ? $plan->burst_threshold_subida . '/' . $plan->burst_threshold_bajada : '';
-                                $burst_time      = ($plan->burst_time_subida) ? $plan->burst_time_subida . '/' . $plan->burst_time_bajada : '';
-                                $limit_at        = (strlen($plan->limit_at_subida) > 1) ? $plan->limit_at_subida . '/' . $plan->limit_at_bajada : '';
+                                $burst_limit     = (strlen($plan->burst_limit_subida) > 1) ? $plan->burst_limit_subida . '/' . $plan->burst_limit_bajada : 0;
+                                $burst_threshold = (strlen($plan->burst_threshold_subida) > 1) ? $plan->burst_threshold_subida . '/' . $plan->burst_threshold_bajada : 0;
+                                $burst_time      = ($plan->burst_time_subida) ? $plan->burst_time_subida . '/' . $plan->burst_time_bajada : 0;
+                                $limit_at        = (strlen($plan->limit_at_subida) > 1) ? $plan->limit_at_subida . '/' . $plan->limit_at_bajada : 0;
                                 $max_limit       = $plan->upload . '/' . $plan->download;
 
                                 if ($max_limit) {
@@ -4194,6 +4313,8 @@ class ContratosController extends Controller
                                             )
                                         );
 
+
+
                                         $getall = $API->comm(
                                             "/ip/arp/getall",
                                             array(
@@ -4201,7 +4322,38 @@ class ContratosController extends Controller
                                             )
                                         );
                                     }
+
+                                    if (!empty($plan->queue_type_subida) && !empty($plan->queue_type_bajada)) {
+                                        // Si tienen datos, asignar "queue" con los valores de subida y bajada
+                                        $queue_edit = $plan->queue_type_subida . '/' . $plan->queue_type_bajada;
+                                    } else {
+                                        // Si no tienen datos, asignar "queue" con los valores predeterminados
+                                        $queue_edit = "default-small/default-small";
+                                    }
+
+                                    // Eliminar todas las colas asociadas a la IP
+                                    foreach ($queue as $q) {
+                                        $API->comm("/queue/simple/remove", array(
+                                            ".id" => $q['.id']
+                                        ));
+                                    }
+
+                                    $response = $API->comm(
+                                        "/queue/simple/add",
+                                        array(
+                                            "name"            => $this->normaliza($servicio) . '-' . $contrato->nro,
+                                            "target"          => $contrato->ip,
+                                            "max-limit"       => $plan->upload . '/' . $plan->download,
+                                            "burst-limit"     => $burst_limit,
+                                            "burst-threshold" => $burst_threshold,
+                                            "burst-time"      => $burst_time,
+                                            "priority"        => $priority,
+                                            "limit-at"        => $limit_at,
+                                            "queue"           => $queue_edit
+                                        )
+                                    );
                                 }
+
 
                                 /*VLAN*/
                                 if ($contrato->conexion == 4) {
