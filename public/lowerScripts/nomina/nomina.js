@@ -6,7 +6,7 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
     }else if(tipo == 2){
         messageTipo = "¿Emitir Ajuste de Nómina?"
     }else if(tipo==3){
-        messageTipo = "Emitir Nómina de cancelación?"
+        messageTipo = "¿Emitir Nómina de cancelación?"
     }
 
     $titleswal = codigo + '<br>'+ messageTipo;
@@ -42,21 +42,21 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
                 title: 'Emitiendo nomina a la DIAN...',
             })
 
-            if (window.location.pathname.split("/")[1] === "software") {
-                var url='/software/empresa';
-                }else{
-                var url = '/empresa';
-            }
-
             $.ajax({
-                url: url+ '/nominadian/validatedian',
+                url: '/empresa/nominadian/validatedian',
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'get',
+                dataType: 'json',
                 data: { id: id,
                 tipo: tipo },
                 success: function(response) {
 
-                    // console.log(response);
+                    console.log(response);
+
+                    // Si la respuesta viene envuelta en un objeto con 'original', extraer los datos
+                    if (response && response.original) {
+                        response = response.original;
+                    }
 
                     if (response == 'nomina-vencida') {
                         $mensaje = "Para emitir a la Dian se debe tener un inicio en la numeración de la factura.";
@@ -116,38 +116,77 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
                             html: msgError,
                         })
 
+                    } else if (response.statusCode == 422 && response.th && response.th.status == 'error') {
+                        // Manejo de error con formato statusCode, errorMessage y th
+                        let msgError = response.errorMessage || 'Error al realizar la petición';
+                        let detailMsg = '';
+
+                        // Priorizar mostrar errorMessages si están disponibles
+                        if (response.th && response.th.errorMessages && Array.isArray(response.th.errorMessages) && response.th.errorMessages.length > 0) {
+                            detailMsg = '<br><br><strong>Errores:</strong><ul>';
+                            response.th.errorMessages.forEach(error => {
+                                detailMsg += '<li>' + error + '</li>';
+                            });
+                            detailMsg += '</ul>';
+                        } else if (response.th && response.th.error) {
+                            // Si hay un campo error con HTML, usarlo
+                            detailMsg = '<br><br>' + response.th.error;
+                        } else if (response.th && response.th.message) {
+                            // Fallback al mensaje simple
+                            detailMsg = '<br><br><strong>Detalle:</strong><br>' + response.th.message;
+                        }
+
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error',
+                            html: msgError + detailMsg,
+                        })
+
                     } else if (response == 'codigo-repetido') {
                         $mensaje = "Error al emitir nomina repetida, por favor intente nuevamente";
                         $footer = "";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
-                    }
+                    } else if (response && typeof response === 'object' && response.success === false) {
+                        // Manejo de errores de validación de BTW
+                        const errorMsg = (response.data && response.data.error)
+                            ? response.data.error
+                            : (response.mesagge || response.message || 'Error al procesar la nómina');
 
-                    //-- /Validaciones para la factura --//
-                    else {
-
-
-                        const Toast = Swal.mixin({
-                            toast: true,
-                            position: 'top-center',
-                            showConfirmButton: false,
-                            timer: 1000000000,
-                            timerProgressBar: true,
-                            onOpen: (toast) => {
-                                toast.addEventListener('mouseenter', Swal.stopTimer)
-                                toast.addEventListener('mouseleave', Swal.resumeTimer)
-                            }
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error en validaciones',
+                            html: errorMsg,
+                            confirmButtonText: 'OK'
                         })
+                    } else if (response && typeof response === 'object' && response.success === true) {
+                        //-- /Validaciones para la factura --//
 
-                        Toast.fire({
+                        Swal.fire({
                             type: 'success',
-                            title: 'La nomina fue emitida satisfactoriamente',
-                        })
+                            title: '¡Éxito!',
+                            text: response.mesagge || 'La nómina fue emitida satisfactoriamente',
+                            confirmButtonText: 'OK',
+                            timer: 2000,
+                            timerProgressBar: true
+                        }).then(() => {
+                            // Refrescar la página para mostrar el cambio de estado
+                            window.location.reload();
+                        });
 
-
-                        window.location.href = rutasuccess;
-
-
+                    } else {
+                        // Caso por defecto: si no coincide con ninguna condición anterior
+                        // pero la respuesta es un objeto, intentar refrescar
+                        if (response && typeof response === 'object') {
+                            Swal.fire({
+                                type: 'info',
+                                title: 'Procesando...',
+                                text: 'La nómina está siendo procesada',
+                                timer: 2000
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        }
                     }
 
                 }

@@ -22,3 +22,5 @@ yarn-error.log
 .php-cs-fixer.cache
 _ide_helper.php
 .phpstorm.meta.php
+.DS_Store
+public/.DS_Store
