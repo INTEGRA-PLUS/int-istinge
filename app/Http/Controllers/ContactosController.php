@@ -1105,14 +1105,14 @@ class ContactosController extends Controller
                 $req->fk_idmunicipio    = $sheet->getCell('I'.$row)->getValue();
                 $req->codigopostal = $sheet->getCell('J'.$row)->getValue();
                 $req->telefono1    = $sheet->getCell('K'.$row)->getValue();
-                $telefono2         = $sheet->getCell('L'.$row)->getValue(); // ignorado por ahora
+                $req->telefono2    = $sheet->getCell('L'.$row)->getValue(); // ignorado por ahora
                 $req->celular      = $sheet->getCell('M'.$row)->getValue();
                 $req->direccion    = $sheet->getCell('N'.$row)->getValue();
                 $req->vereda       = $sheet->getCell('O'.$row)->getValue();
                 $req->barrio       = $sheet->getCell('P'.$row)->getValue();
                 $req->ciudad       = $sheet->getCell('Q'.$row)->getValue();
                 $req->email        = $sheet->getCell('R'.$row)->getValue(); // correo1
-                $correo2           = $sheet->getCell('S'.$row)->getValue(); // correo2 (no obligatorio)
+                $req->email2       = $sheet->getCell('S'.$row)->getValue(); // correo2 (no obligatorio)
                 $req->observaciones= $sheet->getCell('T'.$row)->getValue();
                 $req->tipo_contacto= $sheet->getCell('U'.$row)->getValue();
                 $req->estrato      = $sheet->getCell('V'.$row)->getValue();
@@ -1171,7 +1171,9 @@ class ContactosController extends Controller
                 $contacto->vereda        = ucwords(mb_strtolower($req->vereda));
                 $contacto->barrio        = ucwords(mb_strtolower($req->barrio));
                 $contacto->email         = mb_strtolower($req->email);
+                $contacto->email2        = mb_strtolower($req->email2);
                 $contacto->telefono1     = $req->telefono1;
+                $contacto->telefono2     = $req->telefono2;
                 $contacto->celular       = $req->celular;
                 $contacto->tipo_contacto = $req->tipo_contacto;
                 $contacto->observaciones = ucwords(mb_strtolower($req->observaciones));
