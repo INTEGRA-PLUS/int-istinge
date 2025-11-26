@@ -2651,6 +2651,7 @@ if ($mikrotik) {
      * 10 factura pos
     **/
     public static function saveResolutionBTW($numeracion,$empresa, $tipo){
+
         $payload = [
             "name" => $numeracion->nombre,
             "prefix" => $numeracion->prefijo,
@@ -2669,6 +2670,7 @@ if ($mikrotik) {
 
         $btwApi =  new BTWService();
         $responseBTW = $btwApi->saveResolution($payload);
+
         if(isset($responseBTW->status) && $responseBTW->status == 200){
             $numeracion->btw_id = $responseBTW->data->id;
             return true;

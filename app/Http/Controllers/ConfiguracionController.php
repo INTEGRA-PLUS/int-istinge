@@ -2269,6 +2269,17 @@ class ConfiguracionController extends Controller
         $numeracion->tipo_nomina = $request->tipo_nomina;
         $numeracion->save();
 
+        //********* MICROSERVICIO BTW *********//
+        $tipo_nomina = null;
+        $numeracion->final = 99999999;
+        $numeracion->desde = Carbon::now()->format('Y-m-d');
+        $numeracion->hasta = Carbon::now()->addYears(5)->format('Y-m-d');
+        if($numeracion->tipo_nomina == 1){$tipo_nomina=7;}
+        if($numeracion->tipo_nomina == 2){$tipo_nomina=8;}
+        if($numeracion->tipo_nomina == 3){$tipo_nomina=9;}
+        $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,$tipo_nomina);
+        //********* MICROSERVICIO BTW *********//
+
         $mensaje = 'Se ha creado satisfactoriamente la numeración';
         return redirect()->route('numeraciones_nomina.index')->with('success', $mensaje);
     }
@@ -2330,6 +2341,17 @@ class ConfiguracionController extends Controller
         $numeracion->empresa = $empresa->id;
 
         $numeracion->update();
+
+        //********* MICROSERVICIO BTW *********//
+        $tipo_nomina = null;
+        $numeracion->final = 99999999;
+        $numeracion->desde = Carbon::now()->format('Y-m-d');
+        $numeracion->hasta = Carbon::now()->addYears(5)->format('Y-m-d');
+        if($numeracion->tipo_nomina == 1){$tipo_nomina=7;}
+        if($numeracion->tipo_nomina == 2){$tipo_nomina=8;}
+        if($numeracion->tipo_nomina == 3){$tipo_nomina=9;}
+        $responseBTW = $this->saveResolutionBTW($numeracion, $empresa,$tipo_nomina);
+        //********* MICROSERVICIO BTW *********//
 
 
         $mensaje = 'Se actualizó la numeración correctamente';
