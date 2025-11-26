@@ -1222,43 +1222,46 @@ class ContactosController extends Controller
     * Retorna una archivo xml con las columnas especificas
     * para cargar
     */
-    public function ejemplo()
-    {
+    public function ejemplo(){
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Corregimiento/Vereda', 'Barrio', 'Ciudad', 'Correo Electronico', 'Observaciones', 'Tipo de Contacto', 'Estrato'];
-        $letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-
-        $objPHPExcel->getProperties()->setCreator('Sistema') // Nombre del autor
-            ->setLastModifiedBy('Sistema') //Ultimo usuario que lo modific���
-            ->setTitle('Reporte Excel Contactos') // Titulo
-            ->setSubject('Reporte Excel Contactos') //Asunto
-            ->setDescription('Reporte de Contactos') //Descripci���n
-            ->setKeywords('reporte Contactos') //Etiquetas
-            ->setCategory('Reporte excel'); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah��� el titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:N1');
-        // Se agregan los titulos del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A1', $tituloReporte);
-        // Titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A2:N2');
-        // Se agregan los titulos del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A2', 'Fecha '.date('d-m-Y')); // Titulo del reporte
-
-        $estilo = [
-            'font' => [
-                'bold' => true,
-                'size' => 12,
-                'name' => 'Times New Roman',
-            ],
-            'alignment' => [
-                'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-            ],
+    
+        // 🔹 Nuevas columnas agregadas y renombradas
+        $titulosColumnas = [
+            'Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion',
+            'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal',
+            'Telefono1', 'Telefono2', // 🆕 aquí el cambio
+            'Celular', 'Direccion', 'Corregimiento/Vereda', 'Barrio', 'Ciudad',
+            'Correo Electronico1', 'Correo Electronico2', // 🆕 aquí el cambio
+            'Observaciones', 'Tipo de Contacto', 'Estrato'
         ];
-
-        $objPHPExcel->getActiveSheet()->getStyle('A1:T3')->applyFromArray($estilo);
-
-        $estilo = [
+    
+        $letras = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V'];
+    
+        $objPHPExcel->getProperties()
+            ->setCreator('Sistema')
+            ->setLastModifiedBy('Sistema')
+            ->setTitle('Reporte Excel Contactos')
+            ->setSubject('Reporte Excel Contactos')
+            ->setDescription('Reporte de Contactos')
+            ->setKeywords('reporte Contactos')
+            ->setCategory('Reporte excel');
+    
+        // Encabezados
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:V1');
+        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A1', $tituloReporte);
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A2:V2');
+        $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A2', 'Fecha '.date('d-m-Y'));
+    
+        // Estilos
+        $estiloTitulo = [
+            'font' => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]
+        ];
+        $objPHPExcel->getActiveSheet()->getStyle('A1:V3')->applyFromArray($estiloTitulo);
+    
+        // 🔹 Color del encabezado
+        $estiloEncabezado = [
             'fill' => [
                 'type' => PHPExcel_Style_Fill::FILL_SOLID,
                 'color' => ['rgb' => substr(Auth::user()->empresa()->color, 1)],
@@ -1267,84 +1270,74 @@ class ContactosController extends Controller
                 'bold' => true,
                 'size' => 12,
                 'name' => 'Times New Roman',
-                'color' => [
-                    'rgb' => 'FFFFFF',
-                ],
+                'color' => ['rgb' => 'FFFFFF'],
             ],
-            'alignment' => [
-                'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-            ],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER],
         ];
-
-        $objPHPExcel->getActiveSheet()->getStyle('A3:T3')->applyFromArray($estilo);
-
+        $objPHPExcel->getActiveSheet()->getStyle('A3:V3')->applyFromArray($estiloEncabezado);
+    
+        // 🔹 Imprimir títulos
         for ($i = 0; $i < count($titulosColumnas); $i++) {
-            $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
-        }
-
-        //$contactos = Contacto::all();
-        $j = 4;
-
-        /*foreach($contactos as $contacto){
             $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[0].$j, $contacto->nombre)
-            ->setCellValue($letras[1].$j, $contacto->apellido1)
-            ->setCellValue($letras[2].$j, $contacto->apellido2)
-            ->setCellValue($letras[3].$j, $contacto->tip_iden())
-            ->setCellValue($letras[4].$j, $contacto->nit)
-            ->setCellValue($letras[5].$j, $contacto->dv)
-            ->setCellValue($letras[6].$j, $contacto->pais()->nombre)
-            ->setCellValue($letras[7].$j, $contacto->departamento()->nombre)
-            ->setCellValue($letras[8].$j, $contacto->municipio()->nombre)
-            ->setCellValue($letras[9].$j, $contacto->cod_postal)
-            ->setCellValue($letras[10].$j, $contacto->telefono1)
-            ->setCellValue($letras[11].$j, $contacto->celular)
-            ->setCellValue($letras[12].$j, $contacto->direccion)
-            ->setCellValue($letras[13].$j, $contacto->vereda)
-            ->setCellValue($letras[14].$j, $contacto->barrio)
-            ->setCellValue($letras[15].$j, $contacto->ciudad)
-            ->setCellValue($letras[16].$j, $contacto->email)
-            ->setCellValue($letras[17].$j, $contacto->observaciones)
-            ->setCellValue($letras[18].$j, $contacto->tipo_contacto())
-            ->setCellValue($letras[19].$j, $contacto->estrato);
-            $j++;
-        }*/
-
-        $objPHPExcel->getActiveSheet()->getComment('D3')->setAuthor('Integra Colombia')->getText()->createTextRun('Utilizar los tipos de identificación como se indican en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('S3')->setAuthor('Integra Colombia')->getText()->createTextRun('Escribir Cliente, Proveedor o Cliente/Proveedor.');
-
-        $estilo = ['font' => ['size' => 12, 'name' => 'Times New Roman'],
-            'borders' => [
-                'allborders' => [
-                    'style' => PHPExcel_Style_Border::BORDER_THIN,
-                ],
-            ],
-            'alignment' => [
-                'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
-            ],
-        ];
-
-        $objPHPExcel->getActiveSheet()->getStyle('A3:T'.$j)->applyFromArray($estilo);
-
-        for ($i = 'A'; $i <= $letras[20]; $i++) {
-            $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(true);
+                ->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
         }
-
-        // Se asigna el nombre a la hoja
+    
+        $j = 4; // inicia contenido
+    
+        /* EJEMPLO PARA CUANDO ACTIVES EL LLENADO:
+        foreach($contactos as $contacto){
+            $objPHPExcel->setActiveSheetIndex(0)
+                ->setCellValue('A'.$j, $contacto->nombre)
+                ->setCellValue('B'.$j, $contacto->apellido1)
+                ->setCellValue('C'.$j, $contacto->apellido2)
+                ->setCellValue('D'.$j, $contacto->tip_iden())
+                ->setCellValue('E'.$j, $contacto->nit)
+                ->setCellValue('F'.$j, $contacto->dv)
+                ->setCellValue('G'.$j, $contacto->pais()->nombre)
+                ->setCellValue('H'.$j, $contacto->departamento()->nombre)
+                ->setCellValue('I'.$j, $contacto->municipio()->nombre)
+                ->setCellValue('J'.$j, $contacto->cod_postal)
+                ->setCellValue('K'.$j, $contacto->telefono1) // Telefono1
+                ->setCellValue('L'.$j, $contacto->telefono2) // Telefono2
+                ->setCellValue('M'.$j, $contacto->celular)
+                ->setCellValue('N'.$j, $contacto->direccion)
+                ->setCellValue('O'.$j, $contacto->vereda)
+                ->setCellValue('P'.$j, $contacto->barrio)
+                ->setCellValue('Q'.$j, $contacto->ciudad)
+                ->setCellValue('R'.$j, $contacto->email)       // Correo1
+                ->setCellValue('S'.$j, $contacto->email2)      // Correo2 (si existe)
+                ->setCellValue('T'.$j, $contacto->observaciones)
+                ->setCellValue('U'.$j, $contacto->tipo_contacto())
+                ->setCellValue('V'.$j, $contacto->estrato);
+            $j++;
+        }
+        */
+    
+        // Bordes y tamaño
+        $estiloCeldas = [
+            'font' => ['size' => 12, 'name' => 'Times New Roman'],
+            'borders' => ['allborders' => ['style' => PHPExcel_Style_Border::BORDER_THIN]],
+            'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER],
+        ];
+        $objPHPExcel->getActiveSheet()->getStyle('A3:V'.$j)->applyFromArray($estiloCeldas);
+    
+        // Ajuste de ancho
+        for ($i = 'A'; $i <= 'V'; $i++) {
+            $objPHPExcel->getActiveSheet()->getColumnDimension($i)->setAutoSize(true);
+        }
+    
+        // Nombre hoja
         $objPHPExcel->getActiveSheet()->setTitle('Reporte de Contactos');
-
-        // Se activa la hoja para que sea la que se muestre cuando el archivo se abre
-        $objPHPExcel->setActiveSheetIndex(0);
-
-        // Inmovilizar paneles
-        $objPHPExcel->getActiveSheet(0)->freezePane('A5');
-        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 5);
-        $objPHPExcel->setActiveSheetIndex(0);
+    
+        // Congelar encabezado
+        $objPHPExcel->getActiveSheet()->freezePane('A4');
+    
+        // Salida
         header('Pragma: no-cache');
         header('Content-type: application/vnd.ms-excel');
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment;filename="Archivo_Importacion_Contactos.xlsx"');
         header('Cache-Control: max-age=0');
+    
         $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
         $objWriter->save('php://output');
         exit;
