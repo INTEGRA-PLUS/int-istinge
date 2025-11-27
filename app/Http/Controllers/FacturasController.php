@@ -1639,14 +1639,12 @@ class FacturasController extends Controller{
   * @param Request $request
   * @return redirect
   */
-    public function update(Request $request, $id){
-
-        $factura =Factura::find($id);
-
+    public function update(Request $request, $id, OnepayService $onepay)
+    {
+        $factura = Factura::find($id);
         if($factura->facturacion_automatica == 1 && isset($request->contratos_json) && $request->contratos_json == null){
             return back()->with('error', 'Debe escoger un contrato asociado a la factura.');
-       }
-
+        }
         $user = Auth::user();
         if ($factura) {
             if ($factura->estatus==1) {
@@ -1661,7 +1659,6 @@ class FacturasController extends Controller{
                         $ajuste->save();
                     }
                 }
-
                 //Modificacion de los datos de la factura
                 $factura->notas =$request->notas;
                 $factura->cliente=$request->cliente;
@@ -1680,38 +1677,37 @@ class FacturasController extends Controller{
                 $factura->periodo_facturacion = $request->periodo_facturacion;
                 $factura->factura_mes_manual = isset($request->factura_mes_manual) ? $request->factura_mes_manual : 0;
                 $factura->periodo_cobrado_text = isset($request->periodo_cobrado_text) ? $request->periodo_cobrado_text : '';
-
+    
                 if($request->plazo != "n"){
                     $factura->pago_oportuno = date('Y-m-d', strtotime("+".($request->plazo-1)." days", strtotime($request->fecha)));
                 }else{
                     $factura->pago_oportuno =$factura->vencimiento;
                 }
                 $factura->save();
-
-
+    
                 //Asociamos los contratos asociados a la factura.
                 $contratoAntiguo = DB::table('facturas_contratos')->where('factura_id',$id)->where('contrato_nro',$request->contratos)->first();
                 //Si no hay contrato antiguo es por que seleccionaron un nuevo contrato y toca elminar las relaciones existentes.
                 if(!$contratoAntiguo){
                     if(isset($request->contratos_json) && $request->contratos_json ==null)
-                    DB::table('facturas_contratos')->where('factura_id',$id)->delete();
+                        DB::table('facturas_contratos')->where('factura_id',$id)->delete();
                 }
-
+    
                 //Asociamos los contratos asociados a la factura.
                 if(isset($request->contratos_asociados)){
-
+    
                     $contratosArray = explode(',',$request->contratos_asociados);
                     for($i = 0 ; $i < count($contratosArray); $i++){
                         DB::table('facturas_contratos')->insert([
-                            'factura_id' => $factura->id,
-                            'contrato_nro' => $contratosArray[$i],
-                            'client_id' => $factura->cliente,
-                            'is_cron' => 0,
-                            'created_by' => $user->id,
+                            'factura_id'  => $factura->id,
+                            'contrato_nro'=> $contratosArray[$i],
+                            'client_id'   => $factura->cliente,
+                            'is_cron'     => 0,
+                            'created_by'  => $user->id,
                         ]);
                     }
                 }
-
+    
                 $inner=array();
                 $bodega = Bodega::where('empresa',$user->empresa)->where('status', 1)->where('id', $request->bodega)->first();
                 if (!$bodega) { //Si el valor seleccionado para bodega no existe, tomara la primera activa registrada
@@ -1732,11 +1728,11 @@ class FacturasController extends Controller{
                     if ($producto->tipo_producto==1) {
                         if($bodega){
                             $ajuste=ProductosBodega::where('empresa', $user->empresa)->where('bodega', $bodega->id)->where('producto', $item->producto)->first();
-                           if ($ajuste) {
-                           $ajuste->nro+=$item->cant;
-                           $ajuste->save();
-                           }
-                       }
+                            if ($ajuste) {
+                                $ajuste->nro+=$item->cant;
+                                $ajuste->save();
+                            }
+                        }
                     }
                     $items->factura=$factura->id;
                     $items->producto=$request->item[$i];
@@ -1746,7 +1742,7 @@ class FacturasController extends Controller{
                     $items->id_impuesto=$request->impuesto[$i];
                     $items->impuesto=$impuesto->porcentaje;
                     $items->cant=$request->cant[$i];
-
+    
                     //El descuneto no se debe aplicar sin ser aprobado.
                     if(isset($request->desc[$i])){
                         $desc+=$request->desc[$i];
@@ -1754,6 +1750,7 @@ class FacturasController extends Controller{
                     $items->save();
                     $inner[]=$items->id;
                 }
+    
                 DB::table('factura_retenciones')->where('factura', $factura->id)->delete();
                 //Registrar retennciones
                 if ($request->retencion) {
@@ -1769,17 +1766,17 @@ class FacturasController extends Controller{
                         }
                     }
                 }
-
+    
                 if (count($inner)>0) {
                     DB::table('items_factura')->where('factura', $factura->id)->whereNotIn('id', $inner)->delete();
                 }
-
+    
                 if($desc > 0){
-
+    
                     $oldDescuento = Descuento::where('factura', $items->factura)->where('estado', 2)->first();
-
+    
                     Descuento::where('factura', $items->factura)->where('estado', 2)->delete();
-
+    
                     $descuento = new Descuento;
                     $descuento->factura    = $items->factura;
                     $descuento->descuento  = $desc;
@@ -1797,8 +1794,7 @@ class FacturasController extends Controller{
                     }
                     $descuento->save();
                 }
-
-
+    
                 //>>>>Posible aplicación de Prorrateo al total<<<<//
                 // if(Auth::user()->empresaObj->prorrateo == 1){
                 //     $dias = $factura->diasCobradosProrrateo();
@@ -1808,7 +1804,7 @@ class FacturasController extends Controller{
                 //             $factura->prorrateo_aplicado = 1;
                 //             $factura->save();
                 //         }
-
+    
                 //         foreach($factura->itemsFactura as $item){
                 //             //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
                 //             $precioItemProrrateo = $this->precision($item->precio * $dias / 30);
@@ -1818,9 +1814,59 @@ class FacturasController extends Controller{
                 //     }
                 // }
                 //>>>>Fin posible aplicación prorrateo al total<<<<//
-
+    
                 PucMovimiento::facturaVenta($factura,2,$request);
 
+                try {
+                    if (env('ONEPAY_TOKEN') && $factura->onepay_invoice_id) {
+                        $cliente      = $factura->cliente(); 
+                        $totalFactura = $factura->total()->total ?? 0;
+    
+                        $nombreFactura   = 'Factura ' . $factura->codigo;
+                        $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
+                        $emailCliente    = $cliente->email ?? '';
+    
+                        // Normalizar teléfono a +57...
+                        if ($telefonoCliente) {
+                            $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
+                            if (strpos($telefonoCliente, '+') !== 0) {
+                                $telefonoCliente = '+57' . $soloNumeros;
+                            } else {
+                                $telefonoCliente = '+' . $soloNumeros;
+                            }
+                        }
+    
+                        // Armamos el body 
+                        $body = [
+                            "reference"   => $factura->codigo,                   // tu código interno
+                            "provider_id" => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
+                            "amount"      => (int) round($totalFactura),
+                            "name"        => $nombreFactura,
+                            "phone"       => $telefonoCliente,
+                            "email"       => $emailCliente,
+                        ];
+    
+                        // Llamar al servicio
+                        $onepayResponse = $onepay->updateInvoice($factura->onepay_invoice_id, $body);
+    
+                        \Log::info('Onepay invoice actualizada', [
+                            'factura_id'   => $factura->id,
+                            'invoice_id'   => $factura->onepay_invoice_id,
+                            'request_body' => $body,
+                            'response'     => $onepayResponse,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    // No rompemos la edición de la factura si falla Onepay
+                    \Log::error('Error actualizando invoice en Onepay', [
+                        'factura_id' => $factura->id ?? null,
+                        'message'    => $e->getMessage(),
+                    ]);
+                }
+                // ================================
+                //  FIN ONEPAY
+                // ================================
+    
                 $mensaje='Se ha modificado satisfactoriamente la factura';
                 return redirect($request->page)->with('success', $mensaje)->with('codigo', $factura->id);
             }
@@ -1828,6 +1874,7 @@ class FacturasController extends Controller{
         }
         return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
     }
+
 
   /**
   * Ver los datos de una factura
