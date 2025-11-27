@@ -2551,7 +2551,7 @@ class ReportesController extends Controller
                 ->where('factura.fecha', '<=', $dates['fin']);
         }
         $ides = [];
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[] = $factura->id;
@@ -2628,7 +2628,7 @@ class ReportesController extends Controller
         }
 
         $ides=array();
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[]=$factura->id;
