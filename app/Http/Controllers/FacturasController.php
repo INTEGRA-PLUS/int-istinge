@@ -67,11 +67,20 @@ use Illuminate\Support\Facades\DB;
 class FacturasController extends Controller{
 
     protected $url;
+    protected $electronicBillingService;
+    protected $onepay;
 
-    public function __construct(ElectronicBillingService $electronicBillingService){
+    public function __construct(ElectronicBillingService $electronicBillingService, OnepayService $onepay) {
         $this->middleware('auth');
-        view()->share(['seccion' => 'facturas', 'title' => 'Factura de Venta', 'icon' =>'fas fa-plus', 'subseccion' => 'venta']);
+
+        view()->share([
+            'seccion'     => 'facturas',
+            'title'       => 'Factura de Venta',
+            'icon'        => 'fas fa-plus',
+            'subseccion'  => 'venta'
+        ]);
         $this->electronicBillingService = $electronicBillingService;
+        $this->onepay                   = $onepay; 
     }
 
     public function indexold(Request $request){
@@ -2469,27 +2478,148 @@ class FacturasController extends Controller{
         return json_encode($array);
     }
 
-    public function anular($id){
-        $factura = Factura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-        if ($factura) {
-            if ($factura->estatus==1) {
-                $factura->estatus=2;
-                $factura->observaciones = $factura->observaciones.' | Factura Anulada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
-                $factura->save();
-
-                CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
-
-                return back()->with('success', 'Se ha anulado la factura');
-            }else if($factura->estatus==2){
-                $factura->estatus=1;
-                $factura->observaciones = $factura->observaciones.' | Factura Abierta por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
-                $factura->save();
-                return back()->with('success', 'Se cambiado a abierta la factura');
-            }
-            return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura no esta abierta');
+    public function anular($id)
+    {
+        $user    = Auth::user();
+        $factura = Factura::where('empresa', $user->empresa)->where('id', $id)->first();
+    
+        if (!$factura) {
+            return redirect('empresa/facturas/facturas_electronica')
+                ->with('success', 'No existe un registro con ese id');
         }
-        return redirect('empresa/facturas/facturas_electronica')->with('success', 'No existe un registro con ese id');
+    
+        // FACTURA ABIERTA → ANULAR (estatus 1 → 2)
+        if ($factura->estatus == 1) {
+    
+            // 1) Si tiene invoice en Onepay, la eliminamos
+            if (env('ONEPAY_TOKEN') && $factura->onepay_invoice_id) {
+                try {
+                    $this->onepay->deleteInvoice($factura->onepay_invoice_id);
+    
+                    Log::info('Onepay invoice eliminada al anular factura', [
+                        'factura_id' => $factura->id,
+                        'invoice_id' => $factura->onepay_invoice_id,
+                    ]);
+                } catch (\Throwable $e) {
+                    // No rompemos la anulación de la factura si falla Onepay
+                    Log::error('Error eliminando invoice en Onepay al anular factura', [
+                        'factura_id' => $factura->id,
+                        'invoice_id' => $factura->onepay_invoice_id,
+                        'message'    => $e->getMessage(),
+                    ]);
+                }
+    
+                // 2) Limpiamos el invoice_id local sin importar si falló o no
+                $factura->onepay_invoice_id = null;
+            }
+    
+            // 3) Cambiamos estatus y observaciones
+            $factura->estatus        = 2;
+            $factura->observaciones .= ' | Factura Anulada por: ' . $user->nombres . ' el ' . date('d-m-Y g:i:s A');
+            $factura->save();
+    
+            CRM::where('cliente', $factura->cliente)
+                ->whereIn('estado', [0, 2, 3, 6])
+                ->delete();
+    
+            return back()->with('success', 'Se ha anulado la factura');
+        }
+    
+        // FACTURA ANULADA → ABRIR (estatus 2 → 1)
+        if ($factura->estatus == 2) {
+    
+            $factura->estatus        = 1;
+            $factura->observaciones .= ' | Factura Abierta por: ' . $user->nombres . ' el ' . date('d-m-Y g:i:s A');
+            $factura->save();
+    
+            // 1) Volvemos a crear invoice en Onepay si hay token y no tiene invoice_id
+            if (env('ONEPAY_TOKEN') && !$factura->onepay_invoice_id) {
+                try {
+                    $cliente      = $factura->cliente(); 
+                    $totalFactura = $factura->total()->total ?? 0;
+    
+                    $nombreFactura   = 'Factura ' . $factura->codigo;
+                    $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
+    
+                    // Normalizamos el teléfono a formato +57...
+                    if ($telefonoCliente) {
+                        $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
+                        if (strpos($telefonoCliente, '+') !== 0) {
+                            $telefonoCliente = '+57' . $soloNumeros;
+                        } else {
+                            $telefonoCliente = '+' . $soloNumeros;
+                        }
+                    }
+    
+                    $emailCliente = $cliente->email ?? '';
+    
+                    // Ruta al PDF/HTML temporal que ya usas en store
+                    $documentUrl = route('facturas.temp', [
+                        'id'    => $factura->id,
+                        'token' => config('app.key'),
+                    ]);
+    
+                    // Nombre de la empresa
+                    $empresaNombre = 'Mi Empresa';
+                    if (method_exists($factura, 'empresa') && $factura->empresa) {
+                        $empresaNombre = $factura->empresa->nombre ?? 'Mi Empresa';
+                    } elseif ($user && $user->empresaObj) {
+                        $empresaNombre = $user->empresaObj->nombre ?? 'Mi Empresa';
+                    }
+    
+                    $body = [
+                        "reference"    => $factura->codigo,
+                        "provider_id"  => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
+                        "provider"     => env('ONEPAY_PROVIDER_NAME', $empresaNombre),
+                        "amount"       => (int) round($totalFactura),
+                        "name"         => $nombreFactura,
+                        "phone"        => $telefonoCliente,
+                        "email"        => $emailCliente,
+                        "document_url" => $documentUrl,
+                        "metadata"     => [
+                            "empresa_id"  => $factura->empresa,
+                            "factura_id"  => $factura->id,
+                            "codigo"      => $factura->codigo,
+                            "tipo"        => "factura",
+                            "cliente_id"  => $factura->cliente,
+                            "contrato_id" => $factura->contrato_id,
+                        ],
+                    ];
+    
+                    $onepayResponseRaw = $this->onepay->createInvoice($body);
+                    $onepayResponse    = json_decode($onepayResponseRaw, true);
+    
+                    $invoiceId =
+                          data_get($onepayResponse, 'id')
+                       ?? data_get($onepayResponse, 'invoice_id')
+                       ?? data_get($onepayResponse, 'data.id');
+    
+                    if ($invoiceId) {
+                        $factura->onepay_invoice_id = $invoiceId;
+                        $factura->save();
+                    }
+    
+                    Log::info('Onepay invoice creada al reabrir factura', [
+                        'factura_id' => $factura->id,
+                        'invoice_id' => $invoiceId,
+                        'response'   => $onepayResponse,
+                    ]);
+                } catch (\Throwable $e) {
+                    // No romper la reapertura si falla Onepay
+                    Log::error('Error creando invoice en Onepay al reabrir factura', [
+                        'factura_id' => $factura->id ?? null,
+                        'message'    => $e->getMessage(),
+                    ]);
+                }
+            }
+    
+            return back()->with('success', 'Se cambiado a abierta la factura');
+        }
+    
+        return redirect('empresa/facturas/facturas_electronica')
+            ->with('success', 'La factura no esta abierta');
     }
+
 
     public function cerrar($id){
         $factura = Factura::where('empresa',Auth::user()->empresa)->where('tipo',1)->where('id', $id)->first();
