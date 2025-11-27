@@ -1631,6 +1631,57 @@ class FacturasController extends Controller{
             }
             return redirect('empresa/factura-index')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
         }
+
+        try {
+            // Solo si:
+            // 1. hay token configurado
+            // 2. la factura tiene onepay_invoice_id guardado
+            if (env('ONEPAY_TOKEN') && $factura->onepay_invoice_id) {
+
+                $cliente      = $factura->cliente(); 
+                $totalFactura = $factura->total()->total ?? 0;
+
+                $nombreFactura   = 'Factura ' . $factura->codigo;
+                $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
+                $emailCliente    = $cliente->email ?? '';
+
+                // Normalizar teléfono a +57...
+                if ($telefonoCliente) {
+                    $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
+                    if (strpos($telefonoCliente, '+') !== 0) {
+                        $telefonoCliente = '+57' . $soloNumeros;
+                    } else {
+                        $telefonoCliente = '+' . $soloNumeros;
+                    }
+                }
+
+                // Armamos el body 
+                $body = [
+                    "reference"   => $factura->codigo,                   // tu código interno
+                    "provider_id" => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
+                    "amount"      => (int) round($totalFactura),
+                    "name"        => $nombreFactura,
+                    "phone"       => $telefonoCliente,
+                    "email"       => $emailCliente,
+                ];
+
+                // Llamar al servicio
+                $onepayResponse = $onepay->updateInvoice($factura->onepay_invoice_id, $body);
+
+                \Log::info('Onepay invoice actualizada', [
+                    'factura_id'   => $factura->id,
+                    'invoice_id'   => $factura->onepay_invoice_id,
+                    'request_body' => $body,
+                    'response'     => $onepayResponse,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // No rompemos la edición de la factura si falla Onepay
+            \Log::error('Error actualizando invoice en Onepay', [
+                'factura_id' => $factura->id ?? null,
+                'message'    => $e->getMessage(),
+            ]);
+        }
         return redirect('empresa/factura-index')->with('success', 'No existe un registro con ese id');
     }
 
