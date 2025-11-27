@@ -967,7 +967,7 @@ class ContactosController extends Controller
     {
         try {
             DB::beginTransaction();
-
+    
             // Validación inicial del archivo
             $validator = Validator::make($request->all(), [
                 'archivo' => 'required|mimes:xlsx',
@@ -975,22 +975,22 @@ class ContactosController extends Controller
                 'archivo.required' => 'Debe seleccionar un archivo para importar',
                 'archivo.mimes'    => 'El archivo debe ser de extensión xlsx',
             ]);
-
+    
             if ($validator->fails()) {
                 return back()->withErrors($validator)->withInput();
             }
-
+    
             $create      = 0;
             $modf        = 0;
             $modificados = [];
-
+    
             $imagen        = $request->file('archivo');
             $nombre_imagen = 'archivo.'.$imagen->getClientOriginalExtension();
             $path          = public_path().'/images/Empresas/Empresa'.Auth::user()->empresa;
             $imagen->move($path, $nombre_imagen);
-
+    
             ini_set('max_execution_time', 500);
-
+    
             $fileWithPath  = $path.'/'.$nombre_imagen;
             $inputFileType = PHPExcel_IOFactory::identify($fileWithPath);
             $objReader     = PHPExcel_IOFactory::createReader($inputFileType);
@@ -998,39 +998,39 @@ class ContactosController extends Controller
             $sheet         = $objPHPExcel->getSheet(0);
             $highestRow    = $sheet->getHighestRow();
             $highestColumn = $sheet->getHighestColumn();
-
+    
             for ($row = 4; $row <= $highestRow; $row++) {
                 $req = (object) [];
-
+    
                 $nombre = $sheet->getCell('A'.$row)->getValue();
                 if (empty($nombre)) {
                     break;
                 }
-
-                $req->apellido1        = $sheet->getCell('B'.$row)->getValue();
-                $req->apellido2        = $sheet->getCell('C'.$row)->getValue();
-                $req->tip_iden         = $sheet->getCell('D'.$row)->getValue();
-                $req->nit              = $sheet->getCell('E'.$row)->getValue();
-                $req->dv               = $sheet->getCell('F'.$row)->getValue();
-                $req->fk_idpais        = $sheet->getCell('G'.$row)->getValue();
-                $req->fk_iddepartamento= $sheet->getCell('H'.$row)->getValue();
-                $req->fk_idmunicipio   = $sheet->getCell('I'.$row)->getValue();
-                $req->codigopostal     = $sheet->getCell('J'.$row)->getValue();
-                $req->telefono1        = $sheet->getCell('K'.$row)->getValue(); // Teléfono1
-                $req->$telefono2       = $sheet->getCell('L'.$row)->getValue(); // Teléfono2 (IGNORADO POR AHORA)
-                $req->celular          = $sheet->getCell('M'.$row)->getValue(); // Celular
-                $req->direccion        = $sheet->getCell('N'.$row)->getValue();
-                $req->vereda           = $sheet->getCell('O'.$row)->getValue();
-                $req->barrio           = $sheet->getCell('P'.$row)->getValue();
-                $req->ciudad           = $sheet->getCell('Q'.$row)->getValue();
-                $req->email            = $sheet->getCell('R'.$row)->getValue(); // Correo1
-                $req->email2           = $sheet->getCell('S'.$row)->getValue(); // Correo2 (NO OBLIGATORIO)
-                $req->observaciones    = $sheet->getCell('T'.$row)->getValue();
-                $req->tipo_contacto    = $sheet->getCell('U'.$row)->getValue();
-                $req->estrato          = $sheet->getCell('V'.$row)->getValue();
-
+    
+                $req->apellido1         = $sheet->getCell('B'.$row)->getValue();
+                $req->apellido2         = $sheet->getCell('C'.$row)->getValue();
+                $req->tip_iden          = $sheet->getCell('D'.$row)->getValue();
+                $req->nit               = $sheet->getCell('E'.$row)->getValue();
+                $req->dv                = $sheet->getCell('F'.$row)->getValue();
+                $req->fk_idpais         = $sheet->getCell('G'.$row)->getValue();
+                $req->fk_iddepartamento = $sheet->getCell('H'.$row)->getValue();
+                $req->fk_idmunicipio    = $sheet->getCell('I'.$row)->getValue();
+                $req->codigopostal      = $sheet->getCell('J'.$row)->getValue();
+                $req->telefono1         = $sheet->getCell('K'.$row)->getValue(); // Teléfono1
+                $req->telefono2         = $sheet->getCell('L'.$row)->getValue(); // Teléfono2 (NO obligatorio)
+                $req->celular           = $sheet->getCell('M'.$row)->getValue(); // Celular
+                $req->direccion         = $sheet->getCell('N'.$row)->getValue();
+                $req->vereda            = $sheet->getCell('O'.$row)->getValue();
+                $req->barrio            = $sheet->getCell('P'.$row)->getValue();
+                $req->ciudad            = $sheet->getCell('Q'.$row)->getValue();
+                $req->email             = $sheet->getCell('R'.$row)->getValue(); // Correo1
+                $req->email2            = $sheet->getCell('S'.$row)->getValue(); // Correo2 (NO obligatorio)
+                $req->observaciones     = $sheet->getCell('T'.$row)->getValue();
+                $req->tipo_contacto     = $sheet->getCell('U'.$row)->getValue();
+                $req->estrato           = $sheet->getCell('V'.$row)->getValue();
+    
                 $error = (object) [];
-
+    
                 if (! $req->tip_iden) {
                     $error->tip_iden = 'El campo Tipo de identificación es obligatorio';
                 }
@@ -1040,83 +1040,78 @@ class ContactosController extends Controller
                 if (! $req->tipo_contacto) {
                     $error->tipo_contacto = 'El campo Tipo de Contacto es obligatorio';
                 }
-
+    
                 if ($req->fk_idpais != '') {
                     if (DB::table('pais')->where('nombre', $req->fk_idpais)->count() == 0) {
                         $error->fk_idpais = 'El nombre del pais ingresado no se encuentra en nuestra base de datos';
                     }
                 }
-
+    
                 if ($req->fk_iddepartamento != '') {
                     if (DB::table('departamentos')->where('nombre', $req->fk_iddepartamento)->count() == 0) {
                         $error->fk_iddepartamento = 'El nombre del departamento ingresado no se encuentra en nuestra base de datos';
                     }
                 }
-
+    
                 if ($req->fk_idmunicipio != '') {
                     if (DB::table('municipios')->where('nombre', $req->fk_idmunicipio)->count() == 0) {
                         $error->fk_idmunicipio = 'El nombre del municipio ingresado no se encuentra en nuestra base de datos';
                     }
                 }
-
+    
                 if (count((array) $error) > 0) {
                     $fila['error'] = 'FILA '.$row;
                     $error         = (array) $error;
-
+    
                     Log::error('Error en importación de contactos', [
                         'fila'    => $row,
                         'errores' => $error,
                         'datos'   => (array) $req
                     ]);
-
+    
                     array_unshift($error, $fila);
                     $result = (object) $error;
-
+    
                     return back()->withErrors($result)->withInput();
                 }
             }
-
-            /*
-            |--------------------------------------------------------------------------
-            | 2. SEGUNDO RECORRIDO: CREAR / ACTUALIZAR CONTACTOS
-            |--------------------------------------------------------------------------
-            */
-            $tipo          = 2;
+    
+            $tipo = 2;
             $tipo_identifi = 1;
-
+    
             for ($row = 4; $row <= $highestRow; $row++) {
-                $tipo          = 2;
+                $tipo = 2;
                 $tipo_identifi = 1;
-
+    
                 $nombre = $sheet->getCell('A'.$row)->getValue();
                 if (empty($nombre)) {
                     break;
                 }
-
-                $req               = (object) [];
-                $req->nombre       = $nombre;
-                $req->apellido1    = $sheet->getCell('B'.$row)->getValue();
-                $req->apellido2    = $sheet->getCell('C'.$row)->getValue();
-                $req->tip_iden     = $sheet->getCell('D'.$row)->getValue();
-                $req->nit          = $sheet->getCell('E'.$row)->getValue();
-                $req->dv           = $sheet->getCell('F'.$row)->getValue();
-                $req->fk_idpais    = $sheet->getCell('G'.$row)->getValue();
+    
+                $req                    = (object) [];
+                $req->nombre            = $nombre;
+                $req->apellido1         = $sheet->getCell('B'.$row)->getValue();
+                $req->apellido2         = $sheet->getCell('C'.$row)->getValue();
+                $req->tip_iden          = $sheet->getCell('D'.$row)->getValue();
+                $req->nit               = $sheet->getCell('E'.$row)->getValue();
+                $req->dv                = $sheet->getCell('F'.$row)->getValue();
+                $req->fk_idpais         = $sheet->getCell('G'.$row)->getValue();
                 $req->fk_iddepartamento = $sheet->getCell('H'.$row)->getValue();
                 $req->fk_idmunicipio    = $sheet->getCell('I'.$row)->getValue();
-                $req->codigopostal = $sheet->getCell('J'.$row)->getValue();
-                $req->telefono1    = $sheet->getCell('K'.$row)->getValue();
-                $req->telefono2    = $sheet->getCell('L'.$row)->getValue(); // ignorado por ahora
-                $req->celular      = $sheet->getCell('M'.$row)->getValue();
-                $req->direccion    = $sheet->getCell('N'.$row)->getValue();
-                $req->vereda       = $sheet->getCell('O'.$row)->getValue();
-                $req->barrio       = $sheet->getCell('P'.$row)->getValue();
-                $req->ciudad       = $sheet->getCell('Q'.$row)->getValue();
-                $req->email        = $sheet->getCell('R'.$row)->getValue(); // correo1
-                $req->email2       = $sheet->getCell('S'.$row)->getValue(); // correo2 (no obligatorio)
-                $req->observaciones= $sheet->getCell('T'.$row)->getValue();
-                $req->tipo_contacto= $sheet->getCell('U'.$row)->getValue();
-                $req->estrato      = $sheet->getCell('V'.$row)->getValue();
-
+                $req->codigopostal      = $sheet->getCell('J'.$row)->getValue();
+                $req->telefono1         = $sheet->getCell('K'.$row)->getValue();
+                $req->telefono2         = $sheet->getCell('L'.$row)->getValue();
+                $req->celular           = $sheet->getCell('M'.$row)->getValue();
+                $req->direccion         = $sheet->getCell('N'.$row)->getValue();
+                $req->vereda            = $sheet->getCell('O'.$row)->getValue();
+                $req->barrio            = $sheet->getCell('P'.$row)->getValue();
+                $req->ciudad            = $sheet->getCell('Q'.$row)->getValue();
+                $req->email             = $sheet->getCell('R'.$row)->getValue();
+                $req->email2            = $sheet->getCell('S'.$row)->getValue();
+                $req->observaciones     = $sheet->getCell('T'.$row)->getValue();
+                $req->tipo_contacto     = $sheet->getCell('U'.$row)->getValue();
+                $req->estrato           = $sheet->getCell('V'.$row)->getValue();
+    
                 // Tipo de contacto → numérico
                 if (strtolower($req->tipo_contacto) == 'cliente') {
                     $tipo = 0;
@@ -1124,33 +1119,33 @@ class ContactosController extends Controller
                     $tipo = 1;
                 }
                 $req->tipo_contacto = $tipo;
-
+    
                 // Conversión pais, dpto, municipio a IDs/códigos
                 if ($req->fk_idpais != '') {
                     $req->fk_idpais = DB::table('pais')->where('nombre', $req->fk_idpais)->first()->codigo;
                 }
-
+    
                 if ($req->fk_iddepartamento != '') {
                     $req->fk_iddepartamento = DB::table('departamentos')->where('nombre', $req->fk_iddepartamento)->first()->id;
                 }
-
+    
                 if ($req->fk_idmunicipio != '') {
                     $req->fk_idmunicipio = DB::table('municipios')->where('nombre', $req->fk_idmunicipio)->first()->id;
                 }
-
+    
                 // Tipo identificación
                 $tipo_identifi_arr = TipoIdentificacion::where('identificacion', 'like', '%'.$req->tip_iden.'%')->first();
                 if ($tipo_identifi_arr) {
                     $tipo_identifi = $tipo_identifi_arr->id;
                 }
                 $req->tip_iden = $tipo_identifi;
-
+    
                 // Buscar contacto existente por NIT
                 $contacto = Contacto::where('nit', $req->nit)
                     ->where('empresa', Auth::user()->empresa)
                     ->where('status', 1)
                     ->first();
-
+    
                 if (! $contacto) {
                     $contacto          = new Contacto;
                     $contacto->empresa = Auth::user()->empresa;
@@ -1160,7 +1155,6 @@ class ContactosController extends Controller
                     $modf++;
                     $modificados[] = $req->nit;
                 }
-
                 // Asignación de campos
                 $contacto->nombre        = ucwords(mb_strtolower($req->nombre));
                 $contacto->apellido1     = ucwords(mb_strtolower($req->apellido1));
@@ -1171,9 +1165,9 @@ class ContactosController extends Controller
                 $contacto->vereda        = ucwords(mb_strtolower($req->vereda));
                 $contacto->barrio        = ucwords(mb_strtolower($req->barrio));
                 $contacto->email         = mb_strtolower($req->email);
-                $contacto->email2        = mb_strtolower($req->email2);
+                $contacto->email2        = $req->email2 ? mb_strtolower($req->email2) : null;
                 $contacto->telefono1     = $req->telefono1;
-                $contacto->telefono2     = $req->telefono2;
+                $contacto->telefono2     = $req->telefono2 ?: null;
                 $contacto->celular       = $req->celular;
                 $contacto->tipo_contacto = $req->tipo_contacto;
                 $contacto->observaciones = ucwords(mb_strtolower($req->observaciones));
@@ -1184,21 +1178,16 @@ class ContactosController extends Controller
                 $contacto->estrato       = $req->estrato;
                 $contacto->feliz_cumpleanos = '';
                 $contacto->tipo_persona  = $contacto->tip_iden == 6 ? 2 : 1;
-
+    
                 if ($req->dv) {
                     $contacto->dv = $req->dv;
                 }
-
-                // Si en el futuro agregas columnas telefono2 / email2 en la tabla,
-                // aquí solo sería agregar:
-                // $contacto->telefono2 = $telefono2;
-                // $contacto->email2    = $correo2;
-
+    
                 $contacto->save();
             }
-
+    
             $mensaje = 'SE HA COMPLETADO EXITOSAMENTE LA CARGA DE DATOS DEL SISTEMA';
-
+    
             if ($create > 0) {
                 $mensaje .= ' CREADOS: '.$create;
             }
@@ -1208,26 +1197,20 @@ class ContactosController extends Controller
                     $mensaje .= ' (Identificaciones: ' . implode(', ', $modificados) . ')';
                 }
             }
-
             DB::commit();
-
             if ($modf > 0) {
                 return redirect('empresa/contactos/clientes')->with('warning_persistent', $mensaje);
             }
-
             return redirect('empresa/contactos/clientes')->with('success', $mensaje);
-
         } catch (\Exception $e) {
             DB::rollback();
-
             Log::error('Error en proceso de importación de contactos', [
                 'error'   => $e->getMessage(),
                 'trace'   => $e->getTraceAsString(),
                 'usuario' => Auth::user()->id ?? 'No definido'
             ]);
-
+    
             $errorMessage = 'Error al procesar el archivo: ' . $e->getMessage();
-
             return redirect()->back()->with('error', $errorMessage)->withInput();
         }
     }
