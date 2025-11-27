@@ -740,7 +740,9 @@ class ExportarReportesController extends Controller
                     'municipio.nombre as municipioNombre', 'c.vereda',
                     'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
             ->whereIn('factura.tipo', [1,2])
-            ->where('factura.estatus','<>',2);
+            ->where('factura.estatus','<>',2)
+            ->groupby('fc.factura_id');
+
             $dates = $this->setDateRequest($request);
 
             /*if ($request->nro>0) {
@@ -765,12 +767,12 @@ class ExportarReportesController extends Controller
             }
 
             $ides=array();
-            
+
             $factures = $facturas->orderBy('factura.id', 'DESC')->get();
             // 🔥 Unique por CODIGO
             $factures = $factures->unique('codigo')->values();
             $facturas = $factures;
-            
+
             // llenar los ides
             $ides = $factures->pluck('id')->toArray();
 
@@ -790,13 +792,16 @@ class ExportarReportesController extends Controller
             // Aquí se escribe en el archivo
             $i=4;
 
-
+            $pagadoTotal = 0;
             foreach ($facturas as $factura) {
 
                 $cliente = $factura->cliente();
                 $formaPago = $factura->cuentaPagoListIngreso();
                 $item = $factura->itemsfactura->first();
                 $total = $factura->total();
+
+                $pagadoTotal+= $factura->pagadoTotal;
+
                 $cuentaVentas = DB::table('producto_cuentas')
                 ->leftJoin('puc','puc.id','=','producto_cuentas.cuenta_id')
                 ->select('puc.codigo')

@@ -108,7 +108,8 @@ class ReportesController extends Controller
                     'municipio.nombre as municipioNombre', 'c.vereda',
                     'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
             ->whereIn('factura.tipo', [1,2])
-            ->where('factura.estatus','<>',2);
+            ->where('factura.estatus','<>',2)
+            ->groupby('fc.factura_id');
 
             $example = $facturas->get()->last();
 
