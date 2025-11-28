@@ -2,7 +2,7 @@
     @if($factura->estatus==1)
         <a href="{{route('ingresos.create_id', ['cliente'=>$factura->cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-xl" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
     @endif
-    @if(Auth::user()->empresa()->tirilla && $factura->estatus==0)
+    @if($empresa->tirilla && $factura->estatus==0)
         <a href="{{route('facturas.tirilla', ['id' => $factura->id, 'name'=> 'Factura No.'.$factura->id.'.pdf'])}}" target="_blank" class="btn btn-outline-warning btn-xl"title="Imprimir tirilla"><i class="fas fa-file-invoice"></i></a>
     @endif
 @else
@@ -13,12 +13,17 @@
     @endif
 	@if($factura->estatus==1)
 		<a href="{{route('ingresos.create_id', ['cliente'=>$factura->cliente, 'factura'=>$factura->id])}}" class="btn btn-outline-primary btn-icons" title="Agregar pago"><i class="fas fa-money-bill"></i></a>
-		@if(($factura->correo==0 && $factura->emitida != 1) && isset($_SESSION['permisos']['43']))
+		@if(($factura->emitida != 1) && isset($_SESSION['permisos']['43']))
         <a href="{{route('facturas.edit',$factura->id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
         @endif
         @if(isset($_SESSION['permisos']['775']))
-        @if(!$factura->promesa_pago || isset($_SESSION['permisos']['863']))
-        <a href="javascript:modificarPromesa('{{$factura->id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$factura->id}}" title="Promesa de Pago"><i class="fas fa-calendar"></i></a>
+        @if(
+
+            ($factura->promesa_pago == null) || ($factura->promesa_pago < \Carbon\Carbon::now()->format('Y-m-d'))
+        )
+            <a href="javascript:modificarPromesa('{{$factura->id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$factura->id}}" title="Promesa de Pago">
+                <i class="fas fa-calendar"></i>
+            </a>
         @endif
         @endif
 	@endif
@@ -46,26 +51,42 @@
 	    @endif
 	@endif
 
-	@if($factura->tipo == 2 && $factura->emitida == 0)
-	    <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura"
-        onclick="validateDian({{ $factura->id }}, '{{route('xml.factura',$factura->id)}}', '{{$factura->codigo}}')">
-        <i class="fas fa-sitemap"></i></a>
-	@endif
+    @if ($factura->emitida == 0 && $empresa->estado_dian == 1 && $factura->tipo == 2)
+        @if($empresa->proveedor == 1 || $empresa->proveedor == null)
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta. {{ $factura->codigo }}"
+            onclick="validateDian({{ $factura->id }}, '{{ route('xml.factura', $factura->id) }}', '{{ $factura->codigo }}')">
+            <i class="fas fa-sitemap"></i>
+        </a>
+        @elseif($empresa->proveedor == 2)
+        <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta {{ $factura->codigo }}"
+            onclick="validateDian({{ $factura->id }}, '{{ route('json.dian-factura', $factura->id) }}', '{{ $factura->codigo }}')">
+            <i class="fas fa-sitemap"></i>
+        </a>
+        @endif
+    @endif
     @if(!isset($_SESSION['permisos']['857']))
 	    <a href="{{route('facturas.showmovimiento',$factura->id)}}" class="btn btn-outline-info btn-icons" title="Ver movimientos"><i class="far fa-sticky-note"></i></a>
 	@endif
-    @if(($factura->tipo == 1 && $factura->opciones_dian == 1) && !isset($_SESSION['permisos']['857']))
+    @if(($factura->tipo == 1 && isset($opciones_dian) && $factura->opciones_dian == 1) && !isset($_SESSION['permisos']['857']))
 	    <a onclick="convertirElectronica('{{$factura->codigo}}','{{route('facturas.convertirelectronica',$factura->id)}}')" class="btn btn-outline-info btn-icons" title="Convertir a electrónica"><i class="fas fa-exchange-alt"></i></a>
 	@endif
 
     @if($factura->api_key_siigo != null && ($factura->siigo_id == "" || $factura->siigo_id == null))
-    
+    <a
+    {{-- href="{{route('siigo.create_invoice',$id)}}" --}}
     href="#"
     onclick="showModalSiigo({{$factura->id}},`{{$factura->codigo}}`,`{{$factura->fecha}}`,`{{$factura->nombrecliente}}`)"
     class="btn btn-outline-info btn-icons" title="Enviar a Siigo">
         <i class="fas fa-file-import"></i>
     </a>
     @endif
+    {{-- COMENTADO POR QUE SOLO ES DE LINKGROUP --}}
+    {{--
+    <a href="#" onclick="showModalDescuento({{ $id }})" class="btn btn-outline-info btn-icons" title="Aplicar descuento">
+        <i class="fas fa-percent"></i>
+    </a>
+    --}}
+    {{-- COMENTADO POR QUE SOLO ES DE LINKGROUP --}}
 
 @endif
 
