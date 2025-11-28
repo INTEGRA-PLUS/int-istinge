@@ -761,6 +761,10 @@ class Factura extends Model
         $factura = Factura::find($id);
         $technicalKey = "";
 
+        if($factura->uuid != null){
+            return $factura->uuid;
+        }
+
         if ($factura->technicalkey == null) {
             $technicalKey = Auth::user()->empresaObj->technicalkey;
         } else {
