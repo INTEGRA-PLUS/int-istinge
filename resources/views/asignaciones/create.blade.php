@@ -57,26 +57,22 @@
             <div class="col-md-3 form-group">
                 <label class="control-label">Cliente <span class="text-danger">*</span></label>
                 <div class="input-group">
-                    <select class="form-control selectpicker" name="id" id="idCliente" required="" title="Seleccione"
-                    data-live-search="true" data-size="5"
-                    onchange="cargarContratos()"
-                    >
+                    <select class="form-control selectpicker" name="id" id="idCliente" required="" title="Seleccione" data-live-search="true" data-size="5" >
                         @foreach($clientes as $cliente)
                         <option value="{{$cliente->id}}" {{$cliente->id == $idCliente ? 'selected' : '' }}>{{$cliente->nombre}} {{$cliente->apellido1}} {{$cliente->apellido2}} - {{$cliente->nit}}</option>
                         @endforeach
                     </select>
                 </div>
             </div>
-
-            <div class="col-md-3 form-group">
+            {{-- onchange="cargarContratos()" --}}
+            {{-- <div class="col-md-3 form-group">
                 <label class="control-label">Contrato <span class="text-danger">*</span></label>
                 <div class="input-group">
-                    <select class="form-control selectpicker" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
+                    <select class="form-control" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
                     </select>
                 </div>
-            </div>
-
-            <div class="col-md-3 form-group">
+            </div> --}}
+            <div class="col-md-3 form-group offset-md-1">
                 <label class="control-label" id="div_campo_1">{{$empresa->campo_1}} <span class="text-danger">*</span></label>
                 <input type="file" class="form-control"  id="documento" name="documento"  required="" value="{{old('documento')}}" accept=".jpg, .jpeg, .png">
                 <span style="color: red;">
@@ -376,7 +372,6 @@
     </script>
     <script>
          function cargarContratos() {
-
             // Obtén el valor seleccionado del cliente
             var selectedClientId = document.getElementById('idCliente').value;
             var url = window.routeContratos.replace(':id', selectedClientId);
@@ -387,7 +382,6 @@
                 success: function(response) {
                     // Maneja la respuesta del contrato y actualiza el segundo select
                     updateContratosSelect(response);
-                    $("#idcontrato").selectpicker("refresh");
                 },
                 error: function(error) {
                     console.error('Error al llamar al contrato:', error);
@@ -407,8 +401,8 @@
                 // Agregar nuevas opciones basadas en la respuesta del contrato
                 contratos.forEach(function(contrato) {
                     var option = document.createElement('option');
-                    option.value = contrato.id;
-                    option.textContent = 'contrato nro '+ contrato.nro;
+                    option.value = contrato.client_id;
+                    option.textContent = 'contrato-nro'+contrato.nro;
                     selectContrato.appendChild(option);
                 });
 
