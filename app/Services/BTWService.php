@@ -18,8 +18,8 @@ class BTWService
         $this->baseUri = env("BTW_TEST_MODE") == 1 ? env('BTW_URL_TEST') : env('BTW_URL_PROD');
         $this->secretKey =  env("BTW_TEST_CREDENTIAL");
         $this->options = [
-            'timeout' => 10,
-            'connect_timeout' => 10,
+            'timeout' => 60,
+            'connect_timeout' => 60,
         ];
     }
 
@@ -90,5 +90,88 @@ class BTWService
             ]);
         }
     }
+
+    public function sendPOSInvoiceBTW($json){
+        try {
+            return $this->makeRequest('POST', '/api/sendpos', [], $json, [], true);
+        } catch (\Throwable $th) {
+
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la factura",
+                'th' => $th
+            ]);
+        }
+    }
+
+
+
+    public function sendDocumentBTW($json){
+        try {
+            return $this->makeRequest('POST', 'api/senddocument', [], $json, [], true);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la factura",
+                'th' => $th
+            ]);
+        }
+    }
+
+    public function sendPayroll($json){
+        try {
+            return $this->makeRequest('POST', 'api/sendpayroll', [], $json, [], true);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al enviar la nómina",
+                'th' => $th
+            ]);
+        }
+    }
+
+    public function sendPdfEmail($data)
+    {
+        try {
+
+            return $this->makeRequest(
+                'POST',
+                '/api/sendpdfemail',
+                ['Content-Type' => 'application/json'], // headers
+                $data,                              // body en JSON
+                [],                                     // query params
+                true                                    // auth si es necesario
+            );
+
+        } catch (\Throwable $th) {
+            return [
+                'status'  => 'error',
+                'message' => 'Error al enviar la factura',
+                'error'   => $th->getMessage(),
+            ];
+        }
+    }
+
+    public function downloadXML($data)
+    {
+        try {
+            return $this->makeRequest(
+                'POST',
+                'api/downloadxml',
+                ['Content-Type' => 'application/json'],
+                $data,
+                [],
+                true
+            );
+        } catch (\Throwable $th) {
+            return response()->json([
+                'statusCode' => 400,
+                'errorMessage' => "Error al descargar el xml",
+                'th' => $th
+            ]);
+        }
+    }
+
+
 
 }
