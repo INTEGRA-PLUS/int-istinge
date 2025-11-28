@@ -887,6 +887,7 @@ class CronController extends Controller
         ->where('status', 1)
         ->where('hora_suspension','<=',$horaActual)
         ->where('fecha_suspension','!=',0)
+        ->orderby('nro_factura_vencida','asc')
         ->get();
 
         if($grupos_corte->count() > 0){
@@ -896,6 +897,8 @@ class CronController extends Controller
             foreach($grupos_corte as $grupo){
                 array_push($grupos_corte_array,$grupo->id);
             }
+
+            $whereOrder = implode(',', $grupos_corte_array);
 
             //Estamos tomando la ultima factura siempre del cliente con el orderby y el groupby, despues analizamos si esta ultima ya vencio
             $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
@@ -913,6 +916,7 @@ class CronController extends Controller
                 where('cs.fecha_suspension', null)->
                 where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
                 whereDate('f.vencimiento', '<=', now())->
+                orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
                 take(40)->
                 get();
