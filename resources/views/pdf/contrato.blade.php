@@ -138,7 +138,7 @@
                             <p style="text-align: justify;" class="small pl-2">Identificación: <b>{{ $contact->tip_iden('corta') }} {{ $contact->nit }}@if($contact->dv != null || $contact->dv === 0)-{{$contact->dv}} @endif</b></p>
                             <p style="text-align: justify;" class="small pl-2">Correo electrónico: <b>{{ $contact->email }}</b></p>
                             <p style="text-align: justify;" class="small pl-2">Teléfono de contacto: <b>{{ $contact->celular }}</b></p>
-                            <p style="text-align: justify;" class="small pl-2">Dirección Servicio: <b>{{ $contract->address_street }}</b> Estrato: <b>{{ $contact->estrato ? $contact->estrato : '   ' }}</b></p>
+                            <p style="text-align: justify;" class="small pl-2">Dirección Servicio: <b>{{ $contact->direccion }}</b> Estrato: <b>{{ $contact->estrato ? $contact->estrato : '   ' }}</b></p>
                             <p style="text-align: justify;" class="small pl-2">Departamento: <b>{{ $contact->departamento()->nombre }}</b> Municipio: <b>{{ $contact->municipio()->nombre }}</b></p>
                             <p style="text-align: justify;" class="small pl-2">Dirección Suscriptor: <b>{{ $contact->direccion }}</b></p><br>
                         </div>
@@ -170,32 +170,8 @@
                                 <tr>
                                     <td style="font-size: 9px;">Valor</td>
                                     <td style="font-size: 9px;"><b>{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</b></td>
-                                    <td style="font-size: 9px;">Total + IVA</td>
-                                    {{-- @php
-                                    if (isset($contract->server_configuration_id) && $contract->iva_factura){
-                                        <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) + App\Funcion::Parsear(($contractDetails->plan()->price *19)/100).'.'.'000' : '________' }}</td>
-
-                                    }else{
-                                        <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</td>
-                                    }
-                                    @endphp --}}
-                                    @php
-                                        $moneda = Auth::user()->empresa()->moneda;
-                                        $priceWithIva = isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) + App\Funcion::Parsear(($contractDetails->plan()->price * 19) / 100) : null;
-                                        $priceWithoutIva = isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : null;
-                                    @endphp
-
-                                    @if (isset($contract->server_configuration_id) && $contract->iva_factura)
-                                        <td style="font-size: 9px;">
-                                            {{ $moneda }}
-                                            {{ $priceWithIva !== null ? number_format($priceWithIva, 3, '.', '') : '________' }}
-                                        </td>
-                                    @else
-                                        <td style="font-size: 9px;">
-                                            {{ $moneda }}
-                                            {{ $priceWithoutIva !== null ? number_format($priceWithoutIva, 3, '.', '') : '________' }}
-                                        </td>
-                                    @endif
+                                    <td style="font-size: 9px;">Total</td>
+                                    <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</td>
                                 </tr>
                             </table>
 
@@ -227,8 +203,8 @@
                                     if (isset($contract->servicio_tv)){
                                         $total_tv = (($contract->plan('true')->precio * $contract->plan('true')->impuesto)/100)+$contract->plan('true')->precio;
                                     }
-                                    if (isset($contract->server_configuration_id) && $contract->iva_factura){
-                                        $total_internet = $contract->plan()->price + (($contract->plan()->price *19)/100);
+                                    if (isset($contract->server_configuration_id)){
+                                        $total_internet = $contract->plan()->price;
                                     }
                                     @endphp
                                 </tr>
@@ -344,7 +320,7 @@
 
                         <table width="100%" style="font-size: 10px">
                             <tbody>
-                                 <tr>
+                                <tr>
                                     <th style="background-color:{{Auth::user()->empresa()->color}}; color: white; text-align: left; font-size: 10px;" width="65%">Fecha de inicio de la permanencia mínima</th>
                                     <td style="border: 1px solid {{Auth::user()->empresa()->color}}; font-size: 10px" width="35%">
                                         <p style="padding: 0;margin:0;">{{Carbon\Carbon::parse($contractDetails->created_at)->format('d-m-Y')}}</p>
@@ -355,7 +331,7 @@
 
                         <table width="100%" style="font-size: 10px">
                             <tbody>
-                                 <tr>
+                                <tr>
                                     <th style="background-color:{{Auth::user()->empresa()->color}}; color: white; text-align: left; font-size: 10px;" width="65%">Fecha de finalización de la permanencia mínima</th>
                                     <td style="border: 1px solid {{Auth::user()->empresa()->color}}; font-size: 10px" width="35%">
                                         <p style="padding: 0;margin:0;">{{Carbon\Carbon::parse($contractDetails->created_at)->addYear()->format('d-m-Y')}}</p>
@@ -365,14 +341,14 @@
                         </table>
 
                         <table width="100%" style="font-size: 10px;">
-                             <thead>
+                            <thead>
                                 <tr>
                                     <th style="background-color: {{Auth::user()->empresa()->color}}; color: white; text-align: center; font-size: 10px; padding: 0;margin:0;">Valor a pagar si termina el contrato anticipadamente según el mes</th>
                                 </tr>
                             </thead>
                         </table>
 
-                         <table width="100%">
+                        <table width="100%">
                             <tbody>
                                 <tr style="background-color: {{Auth::user()->empresa()->color}}; border: solid 1px {{Auth::user()->empresa()->color}}; color: #fff; text-align: center;">
                                     @for ($i = 1; $i <= 6; $i++)
@@ -428,7 +404,7 @@
                         @endif
 
                         <div style="border: 1px  solid #000; margin-top: 5px;text-align: center;">
-                            <img src="data:image/png;base64,{{substr($digital->firma,1)}}" style="width: 20%; margin-top: 12.5px;">
+                            <img src="data:image/png;base64,{{substr($contact->firma_isp,1)}}" style="width: 20%; margin-top: 12.5px;">
                             <p style="color: #9e9b9b;text-align: center;" class="small">Aceptación contrato mediante firma o cualquier otro medio válido</p>
                         </div>
 
@@ -439,7 +415,7 @@
                                         <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">CC/CE <b>{{ $contact->nit }}</b></p>
                                     </td>
                                     <td style="margin: 0px; padding: 0px;">
-                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($digital->fecha_firma)) }}</b></p>
+                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($contact->fecha_isp)) }}</b></p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -492,7 +468,7 @@
                         <br>
 
                         <div style="border: 1px  solid #000; margin-top: 5px;text-align: center;">
-                            <img src="data:image/png;base64,{{substr($digital->firma,1)}}" style="width: 20%; margin-top: 12.5px;">
+                            <img src="data:image/png;base64,{{substr($contact->firma_isp,1)}}" style="width: 20%; margin-top: 12.5px;">
                             <p style="color: #9e9b9b;text-align: center;" class="small">Aceptación contrato mediante firma o cualquier otro medio válido</p>
                         </div>
 
@@ -503,7 +479,7 @@
                                         <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">CC/CE <b>{{ $contact->nit }}</b></p>
                                     </td>
                                     <td style="margin: 0px; padding: 0px;">
-                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($digital->fecha_firma)) }}</b></p>
+                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($contact->fecha_isp)) }}</b></p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -539,7 +515,7 @@
                         <br>
 
                         <div style="border: 1px  solid #000; margin-top: 5px;text-align: center;">
-                            <img src="data:image/png;base64,{{substr($digital->firma,1)}}" style="width: 20%; margin-top: 12.5px;">
+                            <img src="data:image/png;base64,{{substr($contact->firma_isp,1)}}" style="width: 20%; margin-top: 12.5px;">
                             <p style="color: #9e9b9b;text-align: center;" class="small">Aceptación contrato mediante firma o cualquier otro medio válido</p>
                         </div>
 
@@ -550,7 +526,7 @@
                                         <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">CC/CE <b>{{ $contact->nit }}</b></p>
                                     </td>
                                     <td style="margin: 0px; padding: 0px;">
-                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($digital->fecha_firma)) }}</b></p>
+                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($contact->fecha_isp)) }}</b></p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -570,7 +546,7 @@
                         <br>
 
                         <div style="border: 1px  solid #000; margin-top: 5px;text-align: center;">
-                            <img src="data:image/png;base64,{{substr($digital->firma,1)}}" style="width: 20%; margin-top: 12.5px;">
+                            <img src="data:image/png;base64,{{substr($contact->firma_isp,1)}}" style="width: 20%; margin-top: 12.5px;">
                             <p style="color: #9e9b9b;text-align: center;" class="small">Aceptación contrato mediante firma o cualquier otro medio válido</p>
                         </div>
 
@@ -581,7 +557,7 @@
                                         <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">CC/CE <b>{{ $contact->nit }}</b></p>
                                     </td>
                                     <td style="margin: 0px; padding: 0px;">
-                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($digital->fecha_firma)) }}</b></p>
+                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($contact->fecha_isp)) }}</b></p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -627,7 +603,7 @@
                     </td>
                     <td style="vertical-align:top;" width="50%">
                         <div style="border: 1px  solid #000; margin-top: 0px;text-align: center;">
-                            <img src="data:image/png;base64,{{substr($digital->firma,1)}}" style="width: 20%; margin-top: 12.5px;">
+                            <img src="data:image/png;base64,{{substr($contact->firma_isp,1)}}" style="width: 20%; margin-top: 12.5px;">
                             <p style="color: #9e9b9b;text-align: center;" class="small">Aceptación contrato mediante firma o cualquier otro medio válido</p>
                         </div>
 
@@ -638,7 +614,7 @@
                                         <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">CC/CE <b>{{ $contact->nit }}</b></p>
                                     </td>
                                     <td style="margin: 0px; padding: 0px;">
-                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($digital->fecha_firma)) }}</b></p>
+                                        <p style="font-size:11px;margin: 2px 5px; padding: 0px; border: 0;">FECHA <b>{{ date('d/m/Y', strtotime($contact->fecha_isp)) }}</b></p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -648,158 +624,4 @@
             </tbody>
         </table>
     </div>
-    @if($digital->documento)
-        @php
-            $path = public_path('adjuntos/documentos/' . $digital->documento);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">Documento del Contacto</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-    {{-- Adjunto A --}}
-    @if($contract->adjunto_a)
-        @php
-            $path = public_path('adjuntos/documentos/' . $contract->adjunto_a);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">{{ $contract->referencia_a }}</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-    {{-- Adjunto B --}}
-    @if($contract->adjunto_b)
-        @php
-            $path = public_path('adjuntos/documentos/' . $contract->adjunto_b);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">{{ $contract->referencia_b }}</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-     {{-- Adjunto C --}}
-     @if($contract->adjunto_c)
-     @php
-         $path = public_path('adjuntos/documentos/' . $contract->adjunto_c);
-         $type = pathinfo($path, PATHINFO_EXTENSION);
-         $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-     @endphp
-
-     @if($data)
-         <div style="page-break-before: always;">
-             <h3 style="text-align: center;">{{ $contract->referencia_c }}</h3>
-             <div style="text-align: center; margin-top: 20px;">
-                 <img src="data:image/{{ $type }};base64,{{ $data }}"
-                      alt="Documento del Contacto"
-                      style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-             </div>
-         </div>
-     @else
-         <p>No se pudo cargar el documento.</p>
-     @endif
- @endif
-
- {{-- contacto Adjunto A --}}
- @if($digital->imgA)
- @php
-     $path = public_path('adjuntos/documentos/' . $digital->imgA);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $digital->imgA }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
- {{-- contacto Adjunto B --}}
- @if($digital->imgB)
- @php
-     $path = public_path('adjuntos/documentos/' . $digital->imgB);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $digital->imgB }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
- {{-- contacto Adjunto B --}}
- @if($digital->imgC)
- @php
-     $path = public_path('adjuntos/documentos/' . $digital->imgC);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $digital->imgC }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
-
 @endsection
