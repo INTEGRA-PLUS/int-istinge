@@ -125,8 +125,8 @@ class ReportesController extends Controller
                     $facturas=$facturas->whereIn('i.cuenta', $cajasUsuario);
                 }
             }
-            if($request->grupo){
-                $facturas=$facturas->where('contracts.grupo_corte', $request->grupo);
+            if ($request->grupo) {
+                $facturas = $facturas->where('ctr.grupo_corte', $request->grupo);
             }
 
             if($request->formapago){
@@ -186,8 +186,6 @@ class ReportesController extends Controller
             return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','formasPago'));
 
         }
-
-
     }
 
     public function ventasExport($actual, $minus){
