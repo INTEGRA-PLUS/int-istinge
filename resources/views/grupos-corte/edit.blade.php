@@ -155,7 +155,6 @@
                     $("#nro_factura_vencida").val(0);
                 } else {
                     $("#swSuspension").css('display','block');
-                    $("#nro_factura_vencida option[value='1']").prop('selected', true);
                     $("#nro_factura_vencida").trigger('change');
                 }
             });
