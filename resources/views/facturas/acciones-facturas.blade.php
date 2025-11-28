@@ -18,9 +18,7 @@
         @endif
         @if(isset($_SESSION['permisos']['775']))
         @if(
-            (isset($factura->promesa_pago) && $factura->promesa_pago == null)
-            ||
-            (isset($factura->promesa_pago) && $factura->promesa_pago < \Carbon\Carbon::now()->format('Y-m-d'))
+            ($factura->promesa_pago == null) || ($factura->promesa_pago < \Carbon\Carbon::now()->format('Y-m-d'))
         )
             <a href="javascript:modificarPromesa('{{$factura->id}}')" class="btn btn-outline-danger btn-icons promesa" idfactura="{{$factura->id}}" title="Promesa de Pago">
                 <i class="fas fa-calendar"></i>

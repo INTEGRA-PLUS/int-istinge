@@ -5,7 +5,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
 	    @if(isset($_SESSION['permisos']['5']))
@@ -69,8 +69,6 @@
 				<table class="table table-striped table-hover" id="example">
 					<thead class="thead-dark">
 						<tr>
-                            <th>Nro</th>
-                            <th>Contrato Asociado Nro</th>
 							<th>Cliente</th>
 							<th>Cédula</th>
 							<th>Fecha de Firma</th>
@@ -81,12 +79,10 @@
 					<tbody>
 						@foreach($contratos as $contrato)
 							<tr>
-								<td>{{ $contrato->id }}</td>
-								<td>{{ $contrato->contrato->nro }}</td>
-								<td><a href="{{ route('contactos.show',$contrato->id )}}"  title="Ver">{{ $contrato->cliente->nombre }} {{ $contrato->cliente->apellido1 }} {{ $contrato->cliente->apellido2 }}</a></td>
-								<td>{{ $contrato->cliente->nit }}</td>
-								<td>{{date('d-m-Y', strtotime($contrato->fecha_firma))}}</td>
+								<td><a href="{{ route('contactos.show',$contrato->id )}}"  title="Ver">{{ $contrato->nombre }} {{ $contrato->apellido1 }} {{ $contrato->apellido2 }}</a></td>
+								<td>{{ $contrato->nit }}</td>
 								<td class="font-weight-bold text-{{ $contrato->asignacion('firma', true) }}">{{ $contrato->asignacion('firma', false) }}</td>
+								<td>{{date('d-m-Y', strtotime($contrato->fecha_isp))}}</td>
 								<td class="text-center">
 									@if(auth()->user()->modo_lectura())
 									@else
@@ -96,7 +92,7 @@
                                         <input name="_method" type="hidden" value="DELETE">
                                     </form>
                                     @endif
-									<a href="{{ route('contactos.show',$contrato->cliente_id )}}" class="btn btn-outline-info btn-icons" title="Ver Detalle"><i class="far fa-eye"></i></i></a>
+									<a href="{{ route('contactos.show',$contrato->id )}}" class="btn btn-outline-info btn-icons" title="Ver Detalle"><i class="far fa-eye"></i></i></a>
 									@if(isset($_SESSION['permisos']['817']))
 									<a href="{{ route('asignaciones.imprimir',$contrato->id )}}" class="btn btn-outline-danger btn-icons" title="Imprimir Contrato Digital" target="_blank"><i class="fas fa-print"></i></a>
 									@endif
@@ -107,7 +103,7 @@
 									<a href="javascript:void(0);" onclick="generar_link({{ $contrato->id }});" class="btn btn-outline-warning btn-icons" title="Generar Link de Actualización de Firma"><i class="fas fa-fw fa-link"></i></a>
 									@endif
 									@if(isset($_SESSION['permisos']['846']))
-									{{-- <a href="{{ route('asignaciones.edit',$contrato->id )}}" class="btn btn-outline-primary btn-icons" title="Cargar Documentos"><i class="fas fa-fw fa-upload"></i></a> --}}
+									<a href="{{ route('asignaciones.edit',$contrato->id )}}" class="btn btn-outline-primary btn-icons" title="Cargar Documentos"><i class="fas fa-fw fa-upload"></i></a>
 									@endif
                                     @if(isset($_SESSION['permisos']['850']))
                                     <button type="button" class="btn btn-outline-danger btn-icons" type="submit" title="Eliminar" onclick="confirmar('eliminar{{$contrato->id}}', '¿Está seguro que desear eliminar esta asignación de contrato?', 'Se borrara de forma permanente');"><i class="fas fa-times"></i></button>
