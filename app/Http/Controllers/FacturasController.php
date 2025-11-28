@@ -2684,6 +2684,7 @@ class FacturasController extends Controller{
 
                 $factura = Factura::Find($id);
             }
+
             $empresa = Empresa::Find($factura->empresa);
             $cliente = $factura->clienteObj;
             $operacionCodigo = "10";
@@ -2725,18 +2726,18 @@ class FacturasController extends Controller{
 
             // Numeracion Factura o POS
             if($factura->tipo == 6){
+
                 $resolucion = NumeracionPos::where('empresa', Auth::user()->empresa)
                 ->where('preferida', 1)->first();
-                $factura->technicalkey = $resolucion->technical_key;
-                $factura->save();
 
             }else{
 
                 $resolucion = NumeracionFactura::where('empresa', Auth::user()->empresa)
                 ->where('num_equivalente', 0)
                 ->where('nomina', 0)
+                ->where('preferida', 1)
                 ->where('tipo',2)
-                ->where('preferida', 1)->first();
+                ->first();
 
             }
 
@@ -2756,10 +2757,13 @@ class FacturasController extends Controller{
                 }
             }
 
+            $factura->fecha = Carbon::now()->format('Y-m-d');
+            $factura->save();
+
             // Construccion del json por partes.
-            $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW);
+            $jsonInvoiceHead = InvoiceJsonBuilder::buildFromHeadInvoice($factura,$resolucion,$modoBTW, $operacionCodigo);
             $jsonInvoiceDetails = InvoiceJsonBuilder::buildFromDetails($factura,$resolucion,$modoBTW);
-            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW, $operacionCodigo);
+            $jsonInvoiceCompany = InvoiceJsonBuilder::buildFromCompany($empresa, $modoBTW);
             $jsonInvoiceCustomer = InvoiceJsonBuilder::buildFromCustomer($cliente,$empresa, $modoBTW, $factura);
             $jsonInvoiceTaxes = InvoiceJsonBuilder::buildFromTaxes(false,$factura,$empresa,$modoBTW);
 
@@ -2785,10 +2789,30 @@ class FacturasController extends Controller{
 
             if(isset($response->status) && $response->status == 'success'){
 
+                // Reconectar la base de datos antes de guardar, ya que la llamada a BTW puede tardar mucho
+                // y la conexión MySQL puede expirar (error: Server has gone away)
+                DB::reconnect();
+
                 $factura->emitida = 1;
                 $factura->uuid = $response->cufe;
                 unset($factura->trmActual, $factura->datosExportacion);
-                $factura->save();
+
+                // Intentar guardar con reintento en caso de error de conexión
+                try {
+                    $factura->save();
+                } catch (\Exception $e) {
+                    // Si aún falla, reconectar nuevamente y reintentar
+                    if (strpos($e->getMessage(), 'Server has gone away') !== false ||
+                        strpos($e->getMessage(), '2006') !== false) {
+                        DB::reconnect();
+                        $factura = Factura::find($factura->id);
+                        $factura->emitida = 1;
+                        $factura->uuid = $response->cufe;
+                        $factura->save();
+                    } else {
+                        throw $e;
+                    }
+                }
                 $mensaje = "Factura emitida correctamente con el cufe: " . $factura->uuid;
                 $mensajeCorreo = '';
 
@@ -2810,7 +2834,7 @@ class FacturasController extends Controller{
                     ]);
 
                 }else{
-                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje);
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_success', $mensaje . " " . $mensajeCorreo);
                 }
             }
 
@@ -2858,6 +2882,26 @@ class FacturasController extends Controller{
 
 
                 if(isset($response->statusCode) && $response->statusCode == 500){
+
+                    //EVALUANDO SI YA HABIA SIDO EMITIDA//
+                    $resArr = json_decode(json_encode($response), true);
+                    $mensaje = $resArr['th']['btw_response'] ?? '';
+                    $cufeDian = null;
+
+                    // Patrón para extraer CUFE DIAN
+                    if (preg_match('/CUFE DIAN:\s*([a-f0-9]{96})/i', $mensaje, $match)) {
+                        $cufeDian = $match[1];
+                    }
+
+                    // Si detectamos el CUFE DIAN en el mensaje, entonces marcamos como emitida
+                    if ($cufeDian) {
+                        $factura->emitida = 1;
+                        $factura->uuid = $cufeDian;
+                        $factura->save();
+
+                        return redirect('/empresa/facturas/facturas_electronica')->with('message_success', 'Factura emitida correctamente con el cufe: ' . $cufeDian);
+                    }
+                    //FIN EVALUACION
 
                     if(isset($response->th['btw_response'])){
                         $message = $this->formatedResponseErrorBTW($response->th['btw_response']);
