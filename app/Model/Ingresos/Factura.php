@@ -906,6 +906,12 @@ public function forma_pago()
         return false;
     }
 
+    public function items()
+    {
+        return $this->hasMany(ItemsFactura::class, 'factura');
+    }
+
+
     public function planTV(){
         $if = $this->itemsFactura;
         foreach($if as $i){
