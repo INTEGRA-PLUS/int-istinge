@@ -43,6 +43,7 @@ use App\Mikrotik;
 use App\Model\Ingresos\FacturaRetencion;
 use App\Model\Ingresos\ItemsFactura;
 use App\PlanesVelocidad;
+use App\Services\BTWService;
 use App\TerminosPago;
 use Barryvdh\DomPDF\Facade as PDF;
 use Mail;
@@ -2569,7 +2570,16 @@ if ($mikrotik) {
 
     }
 
-    public static function sendPdfEmailBTW($btw, $documento,$cliente,$empresa, $tipo){
+        /**
+     * tipos:
+     *  1 = factura
+     *  2 = nota credito
+     *  3 = documento soporte
+     *  4 = nota ajuste
+     * **/
+
+     public static function sendPdfEmailBTW($btw, $documento,$cliente,$empresa, $tipo){
+
         //Correos para envio de factura.
         $email = $cliente->email;
         $emails = [];
@@ -2631,5 +2641,40 @@ if ($mikrotik) {
 
     }
 
-}
+    /**
+     * tipos:
+     * 1 = factura de venta
+     * 5 = documento soporte
+     * 7 nomina individual
+     * 8 nomina de ajuste
+     * 9 nomina de cancelacion
+     * 10 factura pos
+    **/
+    public static function saveResolutionBTW($numeracion,$empresa, $tipo){
 
+        $payload = [
+            "name" => $numeracion->nombre,
+            "prefix" => $numeracion->prefijo,
+            "status" => 1,
+            "numberFrom" => (int) $numeracion->inicioverdadero,
+            "numberTo" => $numeracion->final,
+            "dateFrom" => $numeracion->desde,
+            "dateTo" => $numeracion->hasta,
+            "number" => $numeracion->nroresolucion,
+            "description" => $numeracion->resolucion,
+            "companyId" => $empresa->nit ?? '',
+            "companyNit" => $empresa->nit,
+            "companyName" => $empresa->nombre,
+            "type_emission_id"=>$tipo
+        ];
+
+        $btwApi =  new BTWService();
+        $responseBTW = $btwApi->saveResolution($payload);
+
+        if(isset($responseBTW->status) && $responseBTW->status == 200){
+            $numeracion->btw_id = $responseBTW->data->id;
+            return true;
+        }else return false;
+    }
+
+}
