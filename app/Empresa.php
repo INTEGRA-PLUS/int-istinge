@@ -49,6 +49,11 @@ class Empresa extends Model
 
     }
 
+    public function tipoIdentificacion()
+    {
+        return $this->belongsTo(TipoIdentificacion::class, 'tip_iden');
+    }
+
     public function telef($parte='tlfno'){
         $campo=$this->telefono;
         $partes=explode(' ', $campo);
