@@ -759,6 +759,11 @@ class Factura extends Model
     public function info_cufe($id, $impTotal = 0)
     {
         $factura = Factura::find($id);
+
+        if($factura->uuid != null){
+            return $factura->uuid;
+        }
+
         $technicalKey = "";
 
         if ($factura->technicalkey == null) {
