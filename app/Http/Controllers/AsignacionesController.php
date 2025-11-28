@@ -42,8 +42,20 @@ class AsignacionesController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['invert' => true]);
+
         $contratos = ContratoDigital::orderBy('id', 'DESC')->get();
-        return view('asignaciones.index')->with(compact('contratos'));
+        if($contratos->count() == 0) {
+            if(auth()->user()->empresa()->oficina) {
+                $contratos = Contacto::where('fecha_isp', '<>', null)->where('empresa', Auth::user()->empresa)->where('status', 1)->OrderBy('nombre')->where('contactos.oficina', auth()->user()->oficina)->get();
+            } else {
+                $contratos = Contacto::where('fecha_isp', '<>', null)->where('empresa', Auth::user()->empresa)->where('status', 1)->OrderBy('nombre')->get();
+            }
+            return view('asignaciones.index-viejo')->with(compact('contratos'));
+        }else{
+            return view('asignaciones.index')->with(compact('contratos'));
+        }
+
+
     }
 
     public function create()
