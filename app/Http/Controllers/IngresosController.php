@@ -1533,7 +1533,7 @@ class IngresosController extends Controller
             ];
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
-            $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro por un monto de $$total pesos.";
+            $message = "Estimado cliente. $nameEmpresa le informa que se ha procesado su pago por un monto de $$total pesos. Verifica el pago en el siguiente documento.";
             $body = [
                 "contact" => $contact,
                 "message" => $message,

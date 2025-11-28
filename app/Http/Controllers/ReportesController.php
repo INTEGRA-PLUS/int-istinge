@@ -108,7 +108,8 @@ class ReportesController extends Controller
                     'municipio.nombre as municipioNombre', 'c.vereda',
                     'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
             ->whereIn('factura.tipo', [1,2])
-            ->where('factura.estatus','<>',2);
+            ->where('factura.estatus','<>',2)
+            ->groupby('fc.factura_id');
 
             $example = $facturas->get()->last();
 
@@ -124,8 +125,8 @@ class ReportesController extends Controller
                     $facturas=$facturas->whereIn('i.cuenta', $cajasUsuario);
                 }
             }
-            if($request->grupo){
-                $facturas=$facturas->where('contracts.grupo_corte', $request->grupo);
+            if ($request->grupo) {
+                $facturas = $facturas->where('ctr.grupo_corte', $request->grupo);
             }
 
             if($request->formapago){
@@ -185,8 +186,6 @@ class ReportesController extends Controller
             return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','formasPago'));
 
         }
-
-
     }
 
     public function ventasExport($actual, $minus){
@@ -2550,7 +2549,7 @@ class ReportesController extends Controller
                 ->where('factura.fecha', '<=', $dates['fin']);
         }
         $ides = [];
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[] = $factura->id;
@@ -2627,7 +2626,7 @@ class ReportesController extends Controller
         }
 
         $ides=array();
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[]=$factura->id;
