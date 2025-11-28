@@ -2686,6 +2686,23 @@ class FacturasController extends Controller{
                 $factura = Factura::Find($id);
             }
 
+
+            //Validacion de dia 00 en vencimiento
+            if (substr($factura->vencimiento, -2) == '00' || $factura->vencimiento < Carbon::now()->format("Y-m-d")) {
+                $anoMes = substr($factura->vencimiento, 0, 7);
+                $fecha = Carbon::createFromFormat('Y-m', $anoMes)->endOfMonth();
+                $factura->vencimiento = $fecha->toDateString();
+                $factura->save();
+            }
+
+            //Validacion de dia 00 en suspension
+            if (substr($factura->suspension, -2) == '00' || $factura->suspension < Carbon::now()->format("Y-m-d")) {
+                $anoMes = substr($factura->suspension, 0, 7);
+                $fecha = Carbon::createFromFormat('Y-m', $anoMes)->endOfMonth();
+                $factura->suspension = $fecha->toDateString();
+                $factura->save();
+            }
+
             $empresa = Empresa::Find($factura->empresa);
             $cliente = $factura->clienteObj;
             $operacionCodigo = "10";
