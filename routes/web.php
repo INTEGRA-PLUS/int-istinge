@@ -1731,6 +1731,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/log', 'CRMController@log')->name('crm.log');
 		Route::get('/etiquetas', 'EtiquetaController@index')->name('crm.etiquetas');
 		Route::get('/cambiar-etiqueta/{etiqueta}/{crm}', 'CRMController@cambiarEtiqueta')->name('crm.cambiar.etiqueta');
+		Route::get('/chat-ia', 'CRMController@chatIA')->name('crm.chat_IA');
 	});
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');

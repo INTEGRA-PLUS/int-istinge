@@ -1469,4 +1469,15 @@ class CRMController extends Controller
 
         return $crm->etiqueta;
     }
+
+    public function chatIA(Request $request)
+    {
+        $this->getAllPermissions(auth()->user()->id);
+
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 2) // type = 2 para Chat IA
+            ->first();
+
+        return view('crm.chatIA')->with(compact('instance'));
+    }
 }
