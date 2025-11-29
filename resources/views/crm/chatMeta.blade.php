@@ -16,10 +16,7 @@
             @endif
         </div>
     </div>
-
-    @include("crm.chatIA_layout") {{-- si quieres reutilizar estructura --}}
     
-    {{-- O si prefieres copiar la interfaz completa de ChatIA: --}}
     <div class="row" style="height: calc(100vh - 150px);">
         
         {{-- Panel izquierdo --}}
