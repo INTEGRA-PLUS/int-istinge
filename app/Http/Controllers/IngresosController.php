@@ -1095,6 +1095,8 @@ class IngresosController extends Controller
                     #AGREGAMOS A IP_AUTORIZADAS#
 
                     $mensaje = "- Se ha habilitado el secret.";
+                    // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                    DB::reconnect();
 
                     $ingreso->revalidacion_enable_internet = 1;
                     $ingreso->save();
