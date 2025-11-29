@@ -1477,7 +1477,21 @@ class CRMController extends Controller
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 2) // type = 2 para Chat IA
             ->first();
+        
+        view()->share(['title' => 'CRM: Cartera', 'invert' => true]);
 
         return view('crm.chatIA')->with(compact('instance'));
     }
+
+    public function chatMeta(Request $request)
+    {
+        $this->getAllPermissions(auth()->user()->id);
+
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 1) // <<< Instancia tipo META
+            ->first();
+
+        return view('crm.chatMeta')->with(compact('instance'));
+    }
+
 }
