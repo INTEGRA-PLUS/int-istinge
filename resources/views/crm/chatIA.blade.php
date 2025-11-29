@@ -41,7 +41,7 @@
                             </div>
                         </li>
                         <li class="list-group-item">
-                            <strong>Soporte Conecta</strong>
+                            <strong>Soporte</strong>
                             <div class="small text-muted">
                                 Conversación de ejemplo...
                             </div>
