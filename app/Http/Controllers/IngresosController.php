@@ -1107,6 +1107,9 @@ class IngresosController extends Controller
 
                 }else{
 
+                // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                DB::reconnect();
+
                     $API->write('/ip/firewall/address-list/print', false);
                     $API->write('?address=' . $contrato->ip, false);
                     $API->write('?list=morosos', true);
@@ -1136,6 +1139,8 @@ class IngresosController extends Controller
 
 
                             $mensaje = "- Se ha sacado la ip de morosos.";
+                            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                            DB::reconnect();
 
                             $ingreso->revalidacion_enable_internet = 1;
                             $ingreso->save();
