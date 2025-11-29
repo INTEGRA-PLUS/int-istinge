@@ -331,6 +331,9 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             <li class="nav-item" id="crm_whatsapp">
                 <a class="nav-link" href="{{route('crm.cartera2')}}">Clientes IA</a>
             </li>
+            <li class="nav-item" id="crm_chat_ia">
+                <a class="nav-link" href="{{ route('crm.chat_IA') }}">Chat IA</a>
+            </li>
             @endif
         </ul>
     </div>
