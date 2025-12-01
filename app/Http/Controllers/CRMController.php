@@ -1469,7 +1469,7 @@ class CRMController extends Controller
 
         return $crm->etiqueta;
     }
-}
+
 
 
     public function chatIA(Request $request, WapiService $wapiService)
