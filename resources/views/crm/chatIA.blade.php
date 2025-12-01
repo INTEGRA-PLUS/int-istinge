@@ -160,28 +160,36 @@
 
 @push('scripts')
 <script>
-    (function () {
-        // Mensajes entregados desde el backend: { uuid: [ {id, body, sentByMe, createdAt, ...}, ... ], ... }
+    $(function () {
+        // Conversaciones: { uuid: [ {id, body, sentByMe, createdAt, ...}, ... ], ... }
         const messagesByContact = @json($messagesByContact ?? []);
 
-        const contactItems = document.querySelectorAll('.contacto-item');
-        const chatMessages = document.getElementById('chat-messages');
-        const chatBody     = document.getElementById('chat-body');
-        const nameEl       = document.querySelector('.chat-contact-name');
-        const subtitleEl   = document.querySelector('.chat-contact-subtitle');
+        console.log('🔍 Todas las conversaciones agrupadas por contacto:', messagesByContact);
+
+        const $contactItems = $('.contacto-item');
+        const $chatMessages = $('#chat-messages');
+        const $chatBody     = $('#chat-body');
+        const $nameEl       = $('.chat-contact-name');
+        const $subtitleEl   = $('.chat-contact-subtitle');
 
         function renderMessages(uuid, name, phone) {
             const mensajes = messagesByContact[uuid] || [];
 
-            // Header
-            nameEl.textContent = name || 'Sin nombre';
-            subtitleEl.textContent = phone ? phone + ' · Conversación con IA' : 'Conversación con IA';
+            console.log('💬 Conversaciones del contacto', uuid, mensajes);
 
-            // Limpiar mensajes anteriores
-            chatMessages.innerHTML = '';
+            // Header
+            $nameEl.text(name || 'Sin nombre');
+            $subtitleEl.text(
+                phone ? phone + ' · Conversación con IA' : 'Conversación con IA'
+            );
+
+            // Limpiar mensajes
+            $chatMessages.empty();
 
             if (!mensajes.length) {
-                chatMessages.innerHTML = '<div class="text-muted text-center mt-4">No hay mensajes para este contacto.</div>';
+                $chatMessages.html(
+                    '<div class="text-muted text-center mt-4">No hay mensajes para este contacto.</div>'
+                );
                 return;
             }
 
@@ -194,64 +202,71 @@
                 const fromMe = m.sentByMe === true;
                 const texto  = m.body || '';
                 const fecha  = (m.createdAt || '').toString();
-                const hora   = fecha ? fecha.substring(11, 16) : ''; // HH:MM de la ISO simple
+                const hora   = fecha ? fecha.substring(11, 16) : ''; // HH:MM
 
-                const wrapper = document.createElement('div');
-                wrapper.className = 'd-flex mb-3 ' + (fromMe ? 'justify-content-end' : '');
+                const $wrapper = $('<div>')
+                    .addClass('d-flex mb-3 ' + (fromMe ? 'justify-content-end' : ''));
 
-                const bubble = document.createElement('div');
-                bubble.className = 'p-2 rounded';
-                bubble.style.maxWidth = '70%';
-                bubble.style.background = fromMe ? '#dcf8c6' : '#ffffff';
+                const $bubble = $('<div>')
+                    .addClass('p-2 rounded')
+                    .css({
+                        maxWidth: '70%',
+                        background: fromMe ? '#dcf8c6' : '#ffffff'
+                    });
 
-                const label = document.createElement('div');
-                label.className = 'small mb-1';
-                label.innerHTML = '<strong>' + (fromMe ? 'IA' : 'Cliente') + '</strong>';
+                const $label = $('<div>')
+                    .addClass('small mb-1')
+                    .html('<strong>' + (fromMe ? 'IA' : 'Cliente') + '</strong>');
 
-                const body = document.createElement('div');
-                body.textContent = texto;
+                const $body = $('<div>').text(texto);
 
-                const time = document.createElement('div');
-                time.className = 'small text-muted text-right mt-1';
-                time.textContent = hora || '';
+                const $time = $('<div>')
+                    .addClass('small text-muted text-right mt-1')
+                    .text(hora || '');
 
-                bubble.appendChild(label);
-                bubble.appendChild(body);
-                bubble.appendChild(time);
-                wrapper.appendChild(bubble);
-                chatMessages.appendChild(wrapper);
+                $bubble.append($label, $body, $time);
+                $wrapper.append($bubble);
+                $chatMessages.append($wrapper);
             });
 
             // Scroll al final
-            if (chatBody) {
-                chatBody.scrollTop = chatBody.scrollHeight;
+            if ($chatBody.length) {
+                $chatBody.scrollTop($chatBody[0].scrollHeight);
             }
         }
 
-        // Listeners de click en contactos
-        contactItems.forEach(function (item) {
-            item.addEventListener('click', function (e) {
-                e.preventDefault();
+        // Click en contactos
+        $contactItems.on('click', function (e) {
+            // 🔴 Esto es la clave: evita que otros handlers jQuery en este elemento se ejecuten
+            e.preventDefault();
+            e.stopImmediatePropagation();
 
-                const uuid  = this.dataset.uuid;
-                const name  = this.dataset.name;
-                const phone = this.dataset.phone;
+            const $this = $(this);
 
-                // marcar activo
-                contactItems.forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
+            const uuid  = $this.data('uuid');
+            const name  = $this.data('name');
+            const phone = $this.data('phone');
 
-                if (uuid) {
-                    renderMessages(uuid, name, phone);
-                }
-            });
+            console.log('👉 Click en contacto:', { uuid, name, phone });
+
+            // marcar activo en la lista
+            $contactItems.removeClass('active');
+            $this.addClass('active');
+
+            if (uuid) {
+                renderMessages(uuid, name, phone);
+            } else {
+                console.warn('⚠ Este contacto no tiene uuid, no se pueden cargar mensajes');
+            }
         });
 
-        // Si hay un contacto ya marcado como activo, cargarlo al inicio
-        const firstActive = document.querySelector('.contacto-item.active');
-        if (firstActive) {
-            firstActive.click();
+        // Si hay un contacto marcado como activo, disparar su click al cargar
+        const $firstActive = $('.contacto-item.active').first();
+        if ($firstActive.length) {
+            $firstActive.trigger('click');
+        } else {
+            console.log('ℹ No hay contacto activo por defecto');
         }
-    })();
+    });
 </script>
 @endpush
