@@ -1476,11 +1476,11 @@ class CRMController extends Controller
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 2) // type = 2 para Chat IA
             ->first();
-
         $contacts = [];
+        $messagesByContact = [];
         try {
             $response = $wapiService->getContacts();
-            // Normalizar respuesta: puede venir como string, array, objeto con scalar, etc.
+
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1495,19 +1495,53 @@ class CRMController extends Controller
             ) {
                 $contacts = $data['data']['data'];
 
-                // (Opcional) filtrar solo los contactos del canal de esta instancia
+                // Filtrar solo contactos del canal de esta instancia (opcional)
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
                         return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
                     });
+                }
+                // Reindexar por si quieres índices limpios
+                $contacts = array_values($contacts);
+
+                // 🔥 Para cada contacto, traer sus mensajes
+                foreach ($contacts as $contact) {
+                    $contactUuid = $contact['uuid'] ?? null;
+                    if (!$contactUuid) {
+                        continue;
+                    }
+
+                    try {
+                        $msgResponse = $wapiService->getContactMessages($contactUuid);
+
+                        if (is_object($msgResponse) && isset($msgResponse->scalar)) {
+                            $msgData = json_decode($msgResponse->scalar, true);
+                        } elseif (is_string($msgResponse)) {
+                            $msgData = json_decode($msgResponse, true);
+                        } else {
+                            $msgData = (array) $msgResponse;
+                        }
+
+                        // Asumo que viene algo tipo { status: "success", data: [...] }
+                        if (isset($msgData['status']) && $msgData['status'] === 'success') {
+                            // si los mensajes vienen en data.data, ajusta aquí
+                            $messagesByContact[$contactUuid] = $msgData['data'] ?? [];
+                        } else {
+                            $messagesByContact[$contactUuid] = [];
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Error obteniendo mensajes para contacto {$contactUuid}: {$e->getMessage()}");
+                        $messagesByContact[$contactUuid] = [];
+                    }
                 }
             }
         } catch (\Throwable $e) {
             \Log::error("Error obteniendo contactos del Chat IA: {$e->getMessage()}");
         }
         view()->share(['title' => 'CRM: Chat IA', 'invert' => true]);
-        return view('crm.chatIA', compact('instance', 'contacts'));
+        return view('crm.chatIA', compact('instance', 'contacts', 'messagesByContact'));
     }
+
 
     public function chatMeta(Request $request)
     {

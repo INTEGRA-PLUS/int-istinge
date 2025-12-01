@@ -4,9 +4,6 @@
 <div class="container-fluid">
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">
-                <i class="fas fa-robot"></i> Chat IA
-            </h4>
             @if(!$instance)
                 <div class="alert alert-warning mt-3 mb-0">
                     No se encontró una instancia configurada para Chat IA (type = 2).
@@ -27,32 +24,38 @@
                     </button>
                 </div>
 
-                {{-- 👇 OJO: flex-grow-1 + overflow-y --}}
                 <div class="card-body p-0 flex-grow-1" style="overflow-y: auto;">
                     <ul class="list-group list-group-flush">
-                        @forelse($contacts as $contact)
+                        @forelse($contacts as $index => $contact)
                             @php
                                 $name       = $contact['name'] ?? null;
                                 $phone      = $contact['phone'] ?? '';
                                 $profilePic = $contact['profilePic'] ?? null;
                                 $channel    = $contact['channel']['name'] ?? null;
                                 $tags       = $contact['tags'] ?? [];
+                                $uuid       = $contact['uuid'] ?? null;
 
                                 $displayName = $name ?: ($phone ?: 'Sin nombre');
                                 $cleanName   = preg_replace('/\s+/', '', $displayName);
                                 $initial     = strtoupper(substr($cleanName, 0, 1));
                             @endphp
 
-                            <li class="list-group-item contacto-item" data-uuid="{{ $contact['uuid'] }}">
+                            {{-- Usamos <a> para que sea clickeable --}}
+                            <a href="#"
+                               class="list-group-item contacto-item {{ $index === 0 ? 'active' : '' }}"
+                               data-uuid="{{ $uuid }}"
+                               data-name="{{ $displayName }}"
+                               data-phone="{{ $phone }}"
+                            >
                                 <div class="d-flex align-items-center">
                                     @if($profilePic)
                                         <img src="{{ $profilePic }}"
-                                            alt="Avatar"
-                                            class="rounded-circle mr-3"
-                                            style="width: 40px; height: 40px; object-fit: cover;">
+                                             alt="Avatar"
+                                             class="rounded-circle mr-3"
+                                             style="width: 40px; height: 40px; object-fit: cover;">
                                     @else
                                         <div class="rounded-circle mr-3 d-flex align-items-center justify-content-center"
-                                            style="width: 40px; height: 40px; background: #e9ecef;">
+                                             style="width: 40px; height: 40px; background: #e9ecef;">
                                             <span class="font-weight-bold">{{ $initial }}</span>
                                         </div>
                                     @endif
@@ -80,7 +83,7 @@
                                         @endif
                                     </div>
                                 </div>
-                            </li>
+                            </a>
                         @empty
                             <li class="list-group-item text-center text-muted">
                                 No hay contactos registrados aún en el canal de IA.
@@ -102,8 +105,9 @@
                             <i class="fas fa-user"></i>
                         </div>
                         <div>
-                            <div><strong>Cliente de prueba</strong></div>
-                            <div class="small text-muted">
+                            {{-- Estos se actualizarán por JS --}}
+                            <div><strong class="chat-contact-name">Selecciona un contacto</strong></div>
+                            <div class="small text-muted chat-contact-subtitle">
                                 Conversación con IA
                             </div>
                         </div>
@@ -118,45 +122,11 @@
                 </div>
 
                 {{-- Área de mensajes --}}
-                <div class="card-body" style="overflow-y: auto; background: #f5f5f5;">
-                    {{-- Mensaje del cliente --}}
-                    <div class="d-flex mb-3">
-                        <div class="p-2 rounded" style="background: #ffffff; max-width: 70%;">
-                            <div class="small mb-1"><strong>Cliente</strong></div>
-                            <div>Hola, tengo dudas sobre mi factura de este mes.</div>
-                            <div class="small text-muted text-right mt-1">10:15</div>
-                        </div>
-                    </div>
-
-                    {{-- Respuesta de la IA --}}
-                    <div class="d-flex justify-content-end mb-3">
-                        <div class="p-2 rounded" style="background: #dcf8c6; max-width: 70%;">
-                            <div class="small mb-1"><strong>IA</strong></div>
-                            <div>
-                                Claro, con gusto te ayudo. ¿Me confirmas tu número de contrato o cédula
-                                para revisar el detalle de tu factura?
-                            </div>
-                            <div class="small text-muted text-right mt-1">10:16</div>
-                        </div>
-                    </div>
-
-                    {{-- Más mensajes de ejemplo --}}
-                    <div class="d-flex mb-3">
-                        <div class="p-2 rounded" style="background: #ffffff; max-width: 70%;">
-                            <div class="small mb-1"><strong>Cliente</strong></div>
-                            <div>Mi cédula es 123456789.</div>
-                            <div class="small text-muted text-right mt-1">10:17</div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end mb-3">
-                        <div class="p-2 rounded" style="background: #dcf8c6; max-width: 70%;">
-                            <div class="small mb-1"><strong>IA</strong></div>
-                            <div>
-                                Gracias, ya estoy validando tu información. Veo que tu factura de este mes
-                                corresponde al servicio de Internet fibra 100 Mbps por un valor de $85.000.
-                            </div>
-                            <div class="small text-muted text-right mt-1">10:18</div>
+                <div id="chat-body" class="card-body" style="overflow-y: auto; background: #f5f5f5;">
+                    <div id="chat-messages">
+                        {{-- Aquí se van a pintar los mensajes por JS --}}
+                        <div class="text-muted text-center mt-5">
+                            Selecciona un contacto en la izquierda para ver la conversación.
                         </div>
                     </div>
                 </div>
@@ -186,4 +156,105 @@
         </div>
     </div>
 </div>
+
+{{-- Script para manejar el click y renderizar mensajes --}}
+@push('scripts')
+<script>
+    (function () {
+        // Mensajes entregados desde el backend
+        const messagesByContact = @json($messagesByContact ?? []);
+
+        const contactItems = document.querySelectorAll('.contacto-item');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatBody     = document.getElementById('chat-body');
+        const nameEl       = document.querySelector('.chat-contact-name');
+        const subtitleEl   = document.querySelector('.chat-contact-subtitle');
+
+        function renderMessages(uuid, name, phone) {
+            const mensajes = messagesByContact[uuid] || [];
+
+            // Header
+            nameEl.textContent = name || 'Sin nombre';
+            subtitleEl.textContent = phone ? phone + ' · Conversación con IA' : 'Conversación con IA';
+
+            // Limpiar mensajes anteriores
+            chatMessages.innerHTML = '';
+
+            if (!mensajes.length) {
+                chatMessages.innerHTML = '<div class="text-muted text-center mt-4">No hay mensajes para este contacto.</div>';
+                return;
+            }
+
+            // Pintar mensajes
+            mensajes.forEach(function (m) {
+                // Aquí debes adaptar según la estructura REAL de tus mensajes
+                // Ejemplos de campos típicos:
+                //   m.fromMe (boolean)
+                //   m.direction ("in"|"out")
+                //   m.body / m.message / m.text
+                //   m.createdAt
+
+                const fromMe = m.fromMe === true || m.direction === 'out';
+                const texto  = m.body || m.message || m.text || '';
+                const hora   = (m.createdAt || '').toString().substring(11,16); // HH:MM simple
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'd-flex mb-3 ' + (fromMe ? 'justify-content-end' : '');
+
+                const bubble = document.createElement('div');
+                bubble.className = 'p-2 rounded';
+                bubble.style.maxWidth = '70%';
+                bubble.style.background = fromMe ? '#dcf8c6' : '#ffffff';
+
+                const label = document.createElement('div');
+                label.className = 'small mb-1';
+                label.innerHTML = '<strong>' + (fromMe ? 'IA' : 'Cliente') + '</strong>';
+
+                const body = document.createElement('div');
+                body.textContent = texto;
+
+                const time = document.createElement('div');
+                time.className = 'small text-muted text-right mt-1';
+                time.textContent = hora || '';
+
+                bubble.appendChild(label);
+                bubble.appendChild(body);
+                bubble.appendChild(time);
+                wrapper.appendChild(bubble);
+                chatMessages.appendChild(wrapper);
+            });
+
+            // Scroll al final
+            if (chatBody) {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+        }
+
+        // Listeners de click en contactos
+        contactItems.forEach(function (item) {
+            item.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const uuid  = this.dataset.uuid;
+                const name  = this.dataset.name;
+                const phone = this.dataset.phone;
+
+                // marcar activo
+                contactItems.forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+
+                if (uuid) {
+                    renderMessages(uuid, name, phone);
+                }
+            });
+        });
+
+        // Si hay un contacto ya marcado como activo, cargarlo al inicio
+        const firstActive = document.querySelector('.contacto-item.active');
+        if (firstActive) {
+            firstActive.click();
+        }
+    })();
+</script>
+@endpush
 @endsection
