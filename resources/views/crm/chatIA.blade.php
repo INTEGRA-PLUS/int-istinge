@@ -165,7 +165,7 @@
 
         console.log('🔍 Todas las conversaciones agrupadas por contacto:', messagesByContact);
 
-        const $contactItems = $('.contacto-item');
+        const $contactItems = $('.chat-ia-contact');
         const $chatMessages = $('#chat-messages');
         const $chatBody     = $('#chat-body');
         const $nameEl       = $('.chat-contact-name');
@@ -194,10 +194,6 @@
 
             // Pintar mensajes
             mensajes.forEach(function (m) {
-                // Según tu JSON:
-                // "body": "...",
-                // "sentByMe": true/false,
-                // "createdAt": "2025-11-24T13:18:59.041Z",
                 const fromMe = m.sentByMe === true;
                 const texto  = m.body || '';
                 const fecha  = (m.createdAt || '').toString();
@@ -236,9 +232,8 @@
 
         // Click en contactos
         $contactItems.on('click', function (e) {
-            // 🔴 Esto es la clave: evita que otros handlers jQuery en este elemento se ejecuten
+            // ya no hace falta pelearse con otros handlers, no son <a>
             e.preventDefault();
-            e.stopImmediatePropagation();
 
             const $this = $(this);
 
@@ -260,7 +255,7 @@
         });
 
         // Si hay un contacto marcado como activo, disparar su click al cargar
-        const $firstActive = $('.contacto-item.active').first();
+        const $firstActive = $('.chat-ia-contact.active').first();
         if ($firstActive.length) {
             $firstActive.trigger('click');
         } else {
