@@ -164,6 +164,7 @@
         const messagesByContact = @json($messagesByContact ?? []);
 
         console.log('🔍 Todas las conversaciones agrupadas por contacto:', messagesByContact);
+        console.log('🔍 Claves disponibles:', Object.keys(messagesByContact));
 
         const $contactItems = $('.chat-ia-contact');
         const $chatMessages = $('#chat-messages');
@@ -172,9 +173,14 @@
         const $subtitleEl   = $('.chat-contact-subtitle');
 
         function renderMessages(uuid, name, phone) {
-            const mensajes = messagesByContact[uuid] || [];
+            console.log('📌 Intentando renderizar mensajes para UUID:', uuid);
+            console.log('📌 Tipo de UUID:', typeof uuid);
+            
+            // Buscar los mensajes con conversión de tipo
+            const mensajes = messagesByContact[uuid] || messagesByContact[String(uuid)] || [];
 
-            console.log('💬 Conversaciones del contacto', uuid, mensajes);
+            console.log('💬 Mensajes encontrados para', uuid, ':', mensajes);
+            console.log('💬 Cantidad de mensajes:', mensajes.length);
 
             // Header
             $nameEl.text(name || 'Sin nombre');
@@ -206,14 +212,18 @@
                     .addClass('p-2 rounded')
                     .css({
                         maxWidth: '70%',
-                        background: fromMe ? '#dcf8c6' : '#ffffff'
+                        background: fromMe ? '#dcf8c6' : '#ffffff',
+                        border: fromMe ? 'none' : '1px solid #e0e0e0'
                     });
 
                 const $label = $('<div>')
-                    .addClass('small mb-1')
-                    .html('<strong>' + (fromMe ? 'IA' : 'Cliente') + '</strong>');
+                    .addClass('small mb-1 font-weight-bold')
+                    .css('color', fromMe ? '#075e54' : '#128c7e')
+                    .text(fromMe ? 'IA' : 'Cliente');
 
-                const $body = $('<div>').text(texto);
+                const $body = $('<div>')
+                    .css('word-wrap', 'break-word')
+                    .text(texto);
 
                 const $time = $('<div>')
                     .addClass('small text-muted text-right mt-1')
@@ -226,22 +236,23 @@
 
             // Scroll al final
             if ($chatBody.length) {
-                $chatBody.scrollTop($chatBody[0].scrollHeight);
+                setTimeout(function() {
+                    $chatBody.scrollTop($chatBody[0].scrollHeight);
+                }, 100);
             }
         }
 
         // Click en contactos
         $contactItems.on('click', function (e) {
-            // ya no hace falta pelearse con otros handlers, no son <a>
             e.preventDefault();
 
             const $this = $(this);
-
             const uuid  = $this.data('uuid');
             const name  = $this.data('name');
             const phone = $this.data('phone');
 
             console.log('👉 Click en contacto:', { uuid, name, phone });
+            console.log('👉 Tipo de UUID recibido:', typeof uuid);
 
             // marcar activo en la lista
             $contactItems.removeClass('active');
@@ -251,12 +262,16 @@
                 renderMessages(uuid, name, phone);
             } else {
                 console.warn('⚠ Este contacto no tiene uuid, no se pueden cargar mensajes');
+                $chatMessages.html(
+                    '<div class="text-muted text-center mt-4">⚠️ Este contacto no tiene UUID válido</div>'
+                );
             }
         });
 
         // Si hay un contacto marcado como activo, disparar su click al cargar
         const $firstActive = $('.chat-ia-contact.active').first();
         if ($firstActive.length) {
+            console.log('✅ Disparando click en el primer contacto activo');
             $firstActive.trigger('click');
         } else {
             console.log('ℹ No hay contacto activo por defecto');
