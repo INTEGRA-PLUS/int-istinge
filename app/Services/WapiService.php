@@ -113,4 +113,16 @@ class WapiService
         );
     }
 
+    public function getContactMessages(string $contactId)
+    {
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/contacts/{$contactId}/messages",
+            [],
+            [],
+            $this->headers,
+            true
+        );
+    }
+
 }
