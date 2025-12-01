@@ -343,7 +343,7 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('crm.chatboxIA')}}">Chatbox</a>
             </li>
             {{-- @endif --}}
-
+            
         </ul>
     </div>
 </li>
