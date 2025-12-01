@@ -41,49 +41,48 @@
                             @endphp
 
                             {{-- Usamos <a> para que sea clickeable --}}
-                            <a href="#"
-                               class="list-group-item contacto-item {{ $index === 0 ? 'active' : '' }}"
-                               data-uuid="{{ $uuid }}"
-                               data-name="{{ $displayName }}"
-                               data-phone="{{ $phone }}"
-                            >
-                                <div class="d-flex align-items-center">
-                                    @if($profilePic)
-                                        <img src="{{ $profilePic }}"
-                                             alt="Avatar"
-                                             class="rounded-circle mr-3"
-                                             style="width: 40px; height: 40px; object-fit: cover;">
-                                    @else
-                                        <div class="rounded-circle mr-3 d-flex align-items-center justify-content-center"
-                                             style="width: 40px; height: 40px; background: #e9ecef;">
-                                            <span class="font-weight-bold">{{ $initial }}</span>
-                                        </div>
-                                    @endif
+                            <button type="button"
+                                class="list-group-item list-group-item-action chat-ia-contact {{ $index === 0 ? 'active' : '' }}"
+                                data-uuid="{{ $uuid }}"
+                                data-name="{{ $displayName }}"
+                                data-phone="{{ $phone }}">
+                            <div class="d-flex align-items-center">
+                                @if($profilePic)
+                                    <img src="{{ $profilePic }}"
+                                        alt="Avatar"
+                                        class="rounded-circle mr-3"
+                                        style="width: 40px; height: 40px; object-fit: cover;">
+                                @else
+                                    <div class="rounded-circle mr-3 d-flex align-items-center justify-content-center"
+                                        style="width: 40px; height: 40px; background: #e9ecef;">
+                                        <span class="font-weight-bold">{{ $initial }}</span>
+                                    </div>
+                                @endif
 
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between">
-                                            <strong>{{ $displayName }}</strong>
-                                        </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>{{ $displayName }}</strong>
+                                    </div>
 
-                                        <div class="small text-muted">
-                                            {{ $phone ?: 'Sin número' }}
-                                            @if($channel)
-                                                · {{ $channel }}
-                                            @endif
-                                        </div>
-
-                                        @if(!empty($tags))
-                                            <div class="small mt-1">
-                                                @foreach($tags as $tag)
-                                                    <span class="badge badge-light border">
-                                                        {{ is_array($tag) ? ($tag['name'] ?? 'Tag') : $tag }}
-                                                    </span>
-                                                @endforeach
-                                            </div>
+                                    <div class="small text-muted">
+                                        {{ $phone ?: 'Sin número' }}
+                                        @if($channel)
+                                            · {{ $channel }}
                                         @endif
                                     </div>
+
+                                    @if(!empty($tags))
+                                        <div class="small mt-1">
+                                            @foreach($tags as $tag)
+                                                <span class="badge badge-light border">
+                                                    {{ is_array($tag) ? ($tag['name'] ?? 'Tag') : $tag }}
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
-                            </a>
+                            </div>
+                        </button>
                         @empty
                             <li class="list-group-item text-center text-muted">
                                 No hay contactos registrados aún en el canal de IA.
