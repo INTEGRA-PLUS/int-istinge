@@ -5255,7 +5255,10 @@ class FacturasController extends Controller{
 
             $factura->codigo = $nro->prefijo . $inicio;
 
-            $codigoUsado = Factura::where('empresa', 1)->where('codigo', $factura->codigo)->orderBy('nro', 'asc')->get()->last();
+            $codigoUsado = Factura::where('empresa', 1)
+            ->where('codigo', $factura->codigo)
+            ->where('id', '!=', $facturaId)
+            ->first();
 
             if($codigoUsado){
 
