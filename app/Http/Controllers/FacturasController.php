@@ -5258,6 +5258,7 @@ class FacturasController extends Controller{
             $codigoUsado = Factura::where('empresa', 1)
             ->where('codigo', $factura->codigo)
             ->where('id', '!=', $facturaId)
+            ->where('numeracion', $nro->id)
             ->first();
 
             if($codigoUsado){
