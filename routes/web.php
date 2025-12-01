@@ -37,16 +37,16 @@ Route::get('clear', function () {
 });
 
 Route::get('/storage/temp/{filename}', function ($filename) {
-    $path = storage_path('app/public/temp/' . $filename);
+	$path = storage_path('app/public/temp/' . $filename);
 
-    if (!file_exists($path)) {
-        abort(404, 'Archivo no encontrado');
-    }
+	if (!file_exists($path)) {
+		abort(404, 'Archivo no encontrado');
+	}
 
-    return response()->file($path, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'inline; filename="' . $filename . '"',
-    ]);
+	return response()->file($path, [
+		'Content-Type' => 'application/pdf',
+		'Content-Disposition' => 'inline; filename="' . $filename . '"',
+	]);
 })->where('filename', '.*');
 
 Route::get('borrar-cache', function () {
@@ -66,7 +66,7 @@ Route::get('borrar-cache', function () {
 })->name('borrar-cache');
 
 // Route::get('/crear-symlink/{token}', function ($token) {
-    
+
 //     // Validar token de seguridad
 //     if ($token !== config('app.key')) {
 //         abort(403, 'Token inválido. No tienes permiso para ejecutar esta acción.');
@@ -433,29 +433,28 @@ Route::group(['prefix' => 'tecnico', 'middleware' => ['auth']], function () {
 	Route::get('get-location/{tecnico}', [TecnicoController::class, 'getLocation'])->name('tecnico.getLocation');
 });
 
-Route::group(['prefix' => 'Olt'], function(){
-    Route::get('unconfigured-onus/{olt?}','OltController@unConfiguredOnus_view')->name('olt.unconfigured');
-    Route::post('authorized-onus','OltController@authorizedOnus')->name('olt.authorized-onus');
-    Route::get('form-authorized-onu','OltController@formAuthorizeOnu')->name('olt.form-authorized-onus');
-    Route::post('move-onu','OltController@moveOnu')->name('olt.move-onu');
-    Route::post('resync-config-onu','OltController@resyncConfig')->name('olt.resync-config');
-    Route::post('reboot-onu','OltController@rebootOnuResponse')->name('olt.reboot-onu');
-    Route::post('restore-factory','OltController@restoreFactoryResponse')->name('olt.restore-factory');
-    Route::post('disable-onu','OltController@disableOnuResponse')->name('olt.disable-onu');
-    Route::post('enable-onu','OltController@enableOnuResponse')->name('olt.enable-onu');
-    Route::post('delete-onu','OltController@deleteOnuResponse')->name('olt.delete-onu');
-    Route::get('view-onu/{sn?}','OltController@viewOnu')->name('olt.view-onu');
-    Route::get('get-full-status/{sn?}','OltController@getFullOnuSignal')->name('olt.fullstatus');
-    Route::get('show-running-config/{sn?}','OltController@runningConfig')->name('olt.running-config');
+Route::group(['prefix' => 'Olt'], function () {
+	Route::get('unconfigured-onus/{olt?}', 'OltController@unConfiguredOnus_view')->name('olt.unconfigured');
+	Route::post('authorized-onus', 'OltController@authorizedOnus')->name('olt.authorized-onus');
+	Route::get('form-authorized-onu', 'OltController@formAuthorizeOnu')->name('olt.form-authorized-onus');
+	Route::post('move-onu', 'OltController@moveOnu')->name('olt.move-onu');
+	Route::post('resync-config-onu', 'OltController@resyncConfig')->name('olt.resync-config');
+	Route::post('reboot-onu', 'OltController@rebootOnuResponse')->name('olt.reboot-onu');
+	Route::post('restore-factory', 'OltController@restoreFactoryResponse')->name('olt.restore-factory');
+	Route::post('disable-onu', 'OltController@disableOnuResponse')->name('olt.disable-onu');
+	Route::post('enable-onu', 'OltController@enableOnuResponse')->name('olt.enable-onu');
+	Route::post('delete-onu', 'OltController@deleteOnuResponse')->name('olt.delete-onu');
+	Route::get('view-onu/{sn?}', 'OltController@viewOnu')->name('olt.view-onu');
+	Route::get('get-full-status/{sn?}', 'OltController@getFullOnuSignal')->name('olt.fullstatus');
+	Route::get('show-running-config/{sn?}', 'OltController@runningConfig')->name('olt.running-config');
 	Route::get('vlan-oltid/{oltId?}', 'OltController@get_VLAN')->name('olt.get-vlan-oltid');
 	Route::post('update-vlan', 'OltController@update_vlan')->name('olt.update-vlan-sn');
 	Route::post('update-ethernet-port', 'OltController@update_ethernet_port')->name('olt.update-ethernet-port');
 
 	// Modales
-    Route::get('get-modal-location', 'OltController@getModalLocationDetail')->name('olt.get-modal-location');
+	Route::get('get-modal-location', 'OltController@getModalLocationDetail')->name('olt.get-modal-location');
 	Route::get('get-modal-onu', 'OltController@getModalMoveOnu')->name('olt.get-modal-onu');
 	Route::post('move-onu-modal', 'OltController@updateMoveOnuModal')->name('olt.update-modal-onu');
-
 });
 
 Route::group(['prefix' => 'siigo'], function () {
@@ -594,15 +593,15 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('remision/{id}', 'FacturasController@remisionAfactura')->name('factura.remision');
 		/**/
 
-        //json factura microservicio
-        Route::get('jsondian/{id?}/{emails?}', 'FacturasController@jsonDianFacturaVenta')->name('json.dian-factura');
+		//json factura microservicio
+		Route::get('jsondian/{id?}/{emails?}', 'FacturasController@jsonDianFacturaVenta')->name('json.dian-factura');
 
-        Route::get('logs/{contrato}', 'FacturasController@logs');
-        Route::get('{id}/log', 'FacturasController@log')->name('facturas.log');
+		Route::get('logs/{contrato}', 'FacturasController@logs');
+		Route::get('{id}/log', 'FacturasController@log')->name('facturas.log');
 
 
-        Route::get('get_modal_descuento','FacturasController@getModalDescuento')->name('factura.get_modal_descuento');
-        Route::post('send_descuento','FacturasController@sendDescuento')->name('factura.send_descuento');
+		Route::get('get_modal_descuento', 'FacturasController@getModalDescuento')->name('factura.get_modal_descuento');
+		Route::post('send_descuento', 'FacturasController@sendDescuento')->name('factura.send_descuento');
 
 		Route::get('xml/{id}', 'FacturasController@xmlFacturaVenta')->name('xml.factura');
 		Route::get('xmlmasivo', 'FacturasController@xmlFacturaVentaMasivoIni');
@@ -671,26 +670,26 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	});
 
 	// Listar todas las facturas
-    Route::get('factura-index', 'FacturasController@index')->name('facturas.index');
+	Route::get('factura-index', 'FacturasController@index')->name('facturas.index');
 
-    // Formulario para crear factura
-    Route::get('facturas/create', 'FacturasController@create')->name('facturas.create');
+	// Formulario para crear factura
+	Route::get('facturas/create', 'FacturasController@create')->name('facturas.create');
 
-    // Guardar factura nueva
-    Route::post('facturas-store', 'FacturasController@store')->name('facturas.store');
+	// Guardar factura nueva
+	Route::post('facturas-store', 'FacturasController@store')->name('facturas.store');
 
-    // Mostrar una factura específica
-    Route::get('facturas/{factura}', 'FacturasController@show')->name('facturas.show');
+	// Mostrar una factura específica
+	Route::get('facturas/{factura}', 'FacturasController@show')->name('facturas.show');
 
-    // Formulario para editar una factura
-    Route::get('facturas/{factura}/edit', 'FacturasController@edit')->name('facturas.edit');
+	// Formulario para editar una factura
+	Route::get('facturas/{factura}/edit', 'FacturasController@edit')->name('facturas.edit');
 
-    // Actualizar factura (PUT o PATCH)
-    Route::put('facturas/{factura}', 'FacturasController@update')->name('facturas.update');
-    Route::patch('facturas/{factura}', 'FacturasController@update');
+	// Actualizar factura (PUT o PATCH)
+	Route::put('facturas/{factura}', 'FacturasController@update')->name('facturas.update');
+	Route::patch('facturas/{factura}', 'FacturasController@update');
 
-    // Eliminar factura
-    Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
+	// Eliminar factura
+	Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
@@ -985,8 +984,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::group(['prefix' => 'notascredito'], function () {
 
-        //json factura microservicio
-        Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
+		//json factura microservicio
+		Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
 
 		Route::get('xml/{id}', 'NotascreditoController@xmlNotaCredito')->name('xml.notacredito');
 		Route::get('descargar/{nro}', 'NotascreditoController@xml')->name('notascredito.xml');
@@ -1041,7 +1040,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{id}/json', 'FacturaspController@facturap_json')->name('facturasp.json');
 		Route::get('xmlproveedor/{id}/{emails?}', 'FacturaspController@xmlFacturaProveedor')->name('xml.facturaproveedor');
 
-        Route::get('jsondian/{id?}/{emails?}', 'FacturaspController@jsonDianDocumentoSoporte')->name('json.dian-documento-soporte');
+		Route::get('jsondian/{id?}/{emails?}', 'FacturaspController@jsonDianDocumentoSoporte')->name('json.dian-documento-soporte');
 
 		Route::get('/{id}/pdf', 'FacturaspController@pdf')->name('facturasp.pdf');
 		Route::get('/{id}/copia', 'FacturaspController@copia')->name('facturasp.copia');
@@ -1079,7 +1078,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'notasdebito'], function () {
 
 		Route::get('xml/{id}', 'NotasdebitoController@xmlNotaDebito')->name('xml.notadebito');
-        Route::get('jsondian/{id?}/{emails?}', 'NotaDebitoController@jsonDianNotaAjuste')->name('json.dian-nota-ajuste');
+		Route::get('jsondian/{id?}/{emails?}', 'NotaDebitoController@jsonDianNotaAjuste')->name('json.dian-nota-ajuste');
 
 		Route::get('/{id}/imprimir', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir');
 		Route::get('pdf/{id}/{name}', 'NotasdebitoController@Imprimir')->name('notasdebito.imprimir.nombre');
@@ -1454,7 +1453,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/exogena', 'ExportarReportesController@terceros')->name('exportar.terceros');
 
 		Route::get('/contratoperiodo', 'ExportarReportesController@contratoPeriodo')->name('exportar.contratoperiodo');
-        Route::get('/personassincontrato', 'ExportarReportesController@personaSinContrato')->name('exportar.personasincontrato');
+		Route::get('/personassincontrato', 'ExportarReportesController@personaSinContrato')->name('exportar.personasincontrato');
 	});
 
 	//Documentacion escrita
@@ -1468,7 +1467,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	//RADICADOS
 	Route::group(['prefix' => 'radicados'], function () {
-        Route::get('/cambiar-etiqueta/{etiqueta}/{contrato}', 'RadicadosController@cambiarEtiqueta')->name('radicados.cambiar.etiqueta');
+		Route::get('/cambiar-etiqueta/{etiqueta}/{contrato}', 'RadicadosController@cambiarEtiqueta')->name('radicados.cambiar.etiqueta');
 		Route::post('/escalar/{id}', 'RadicadosController@escalar')->name('radicados.escalar');
 		Route::post('/solventar/{id}', 'RadicadosController@solventar')->name('radicados.solventar');
 		Route::get('/{id}/imprimir', 'RadicadosController@imprimir')->name('radicados.imprimir');
@@ -1533,8 +1532,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('ejemplo', 'ContratosController@ejemplo')->name('contratos.ejemplo');
 		Route::post('importar', 'ContratosController@cargando')->name('contratos.importar_cargando');
 
-        Route::get('actualizar', 'ContratosController@actualizar')->name('contratos.actualizar');
-        Route::post('data-ejemplo', 'ContratosController@data_ejemplo')->name('contratos.data_ejemplo');
+		Route::get('actualizar', 'ContratosController@actualizar')->name('contratos.actualizar');
+		Route::post('data-ejemplo', 'ContratosController@data_ejemplo')->name('contratos.data_ejemplo');
 
 		Route::get('importarMK', 'ContratosController@importarMK')->name('contratos.importarMK');
 		Route::post('opciones_dian', 'ContratosController@opcion_dian');
@@ -1721,7 +1720,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
 		Route::get('/cartera2', 'CRMController@whatsapp2')->name('crm.cartera2');
-		//Route::get('/cartera', 'CRMController@whatsapp')->name('crm.whatsapp.post');
+		Route::match(['get', 'post'], '/chatboxIA', 'CRMController@chatbox')->name('crm.chatboxIA');		//Route::get('/cartera', 'CRMController@whatsapp')->name('crm.whatsapp.post');
 		//Route::post('/cartera/{action?}', 'CRMController@whatsappActions')->name('crm.whatsapp.api');
 		Route::get('/cartera/whatsapp/action', 'CRMController@whatsappActions')->name('crm.whatsapp');
 		Route::get('{id}/{crm}/contacto', 'CRMController@contacto')->name('crm.contacto');
@@ -1835,6 +1834,3 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 // RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
-
-
-
