@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Barrios;
+use App\Model\Chatbox;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,8 @@ use App\Etiqueta;
 
 use Barryvdh\DomPDF\Facade as PDF;
 
-include_once(app_path() .'/../public/PHPExcel/Classes/PHPExcel.php');
+include_once(app_path() . '/../public/PHPExcel/Classes/PHPExcel.php');
+
 use PHPExcel;
 use PHPExcel_IOFactory;
 use PHPExcel_Style_Alignment;
@@ -41,19 +43,22 @@ use App\PromesaPago;
 use App\Services\WapiService;
 use GuzzleHttp\Exception\ClientException;
 
-include_once(app_path() .'/../public/routeros_api.class.php');
+include_once(app_path() . '/../public/routeros_api.class.php');
+
 use RouterosAPI;
 
 
 class CRMController extends Controller
 {
-    public function __construct(){
+    public function __construct()
+    {
         $this->middleware('auth');
         set_time_limit(300);
         view()->share(['inicio' => 'master', 'seccion' => 'crm', 'title' => 'CRM', 'icon' => 'fas fa-receipt']);
     }
 
-    public function index(Request $request){
+    public function index(Request $request)
+    {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['subseccion' => 'crm_cartera', 'title' => 'CRM: Cartera', 'invert' => true]);
 
@@ -63,11 +68,12 @@ class CRMController extends Controller
         $grupos_corte = GrupoCorte::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $etiquetas = Etiqueta::where('empresa_id', Auth::user()->empresa)->get();
         $ini = Carbon::create(date('Y'), date('m'), date('d'))->startOfMonth()->format('d-m-Y');
-        $barrios = Barrios::where('status',1)->get();
+        $barrios = Barrios::where('status', 1)->get();
         return view('crm.index')->with(compact('clientes', 'usuarios', 'servidores', 'grupos_corte', 'etiquetas', 'ini', 'barrios'));
     }
 
-    public function informe(Request $request){
+    public function informe(Request $request)
+    {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['subseccion' => 'crm_informe', 'title' => 'CRM: Informe', 'invert' => true]);
         $clientes = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? CRM::join('contactos', 'crm.cliente', '=', 'contactos.id')->where('contactos.oficina', Auth::user()->oficina)->where('crm.empresa', Auth::user()->empresa)->groupBy('crm.cliente')->get() : CRM::join('contactos', 'crm.cliente', '=', 'contactos.id')->where('crm.empresa', Auth::user()->empresa)->groupBy('crm.cliente')->get();
@@ -81,15 +87,26 @@ class CRMController extends Controller
         return view('crm.informe')->with(compact('clientes', 'usuarios', 'ini', 'fin', 'servidores', 'grupos_corte'));
     }
 
-    public function cartera(Request $request, $tipo){
+    public function cartera(Request $request, $tipo)
+    {
         $modoLectura = auth()->user()->modo_lectura();
         $etiquetas = Etiqueta::where('empresa_id', auth()->user()->empresa)->get();
         $contratos = CRM::query()
-			->select('crm.*', 'factura.fecha as fecha_factura', 'contactos.nit as c_nit',
-            'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1',
-            'contactos.apellido2 as c_apellido2', 'contactos.celular as c_celular', 'factura.codigo',
-            'factura.estatus', 'items_factura.precio', 'contactos.barrio_id',
-            DB::raw('(select count(factura.id) from factura where factura.cliente = crm.cliente and factura.estatus = 1) AS facAbiertas'))
+            ->select(
+                'crm.*',
+                'factura.fecha as fecha_factura',
+                'contactos.nit as c_nit',
+                'contactos.id as c_id',
+                'contactos.nombre as c_nombre',
+                'contactos.apellido1 as c_apellido1',
+                'contactos.apellido2 as c_apellido2',
+                'contactos.celular as c_celular',
+                'factura.codigo',
+                'factura.estatus',
+                'items_factura.precio',
+                'contactos.barrio_id',
+                DB::raw('(select count(factura.id) from factura where factura.cliente = crm.cliente and factura.estatus = 1) AS facAbiertas')
+            )
             ->join('contactos', 'crm.cliente', '=', 'contactos.id')
             ->leftjoin('factura', 'crm.factura', '=', 'factura.id')
             ->leftjoin('items_factura', 'items_factura.factura', '=', 'factura.id')
@@ -97,78 +114,78 @@ class CRMController extends Controller
             ->distinct();
 
         if ($request->filtro == true) {
-            if($request->cliente){
+            if ($request->cliente) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.cliente', $request->cliente);
                 });
             }
-            if($request->estado){
-                if($request->estado == 'A'){
+            if ($request->estado) {
+                if ($request->estado == 'A') {
                     $estado = 0;
-                }else{
+                } else {
                     $estado = $request->estado;
                 }
                 $contratos->where(function ($query) use ($estado) {
                     $query->orWhere('crm.estado', $estado);
                 });
             }
-            if($request->etiqueta_id){
-                $contratos->where(function ($query) use ($request){
+            if ($request->etiqueta_id) {
+                $contratos->where(function ($query) use ($request) {
                     $query->where('crm.etiqueta_id', $request->etiqueta_id);
                 });
             }
-            if($request->created_by){
+            if ($request->created_by) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.created_by', $request->created_by);
                 });
             }
-            if($request->desde){
-                $desde = Carbon::parse($request->desde.'00:00:00')->format('Y-m-d H:i:s');
+            if ($request->desde) {
+                $desde = Carbon::parse($request->desde . '00:00:00')->format('Y-m-d H:i:s');
                 $contratos->where(function ($query) use ($desde) {
                     $query->orWhere('crm.updated_at', '>=', $desde);
                 });
             }
-            if($request->fecha_factura){
+            if ($request->fecha_factura) {
                 $fechaFactura = Carbon::parse($request->fecha_factura)->format('Y-m-d');
                 $contratos->where(function ($query) use ($fechaFactura) {
                     $query->orWhere('factura.fecha', '=', $fechaFactura);
                 });
             }
-            if($request->updated_at){
+            if ($request->updated_at) {
                 $updatedAt = Carbon::parse($request->updated_at)->format('Y-m-d');
                 $contratos->where(function ($query) use ($updatedAt) {
-                    $query->orWhere('crm.updated_at', 'like', '%'.$updatedAt.'%');
+                    $query->orWhere('crm.updated_at', 'like', '%' . $updatedAt . '%');
                 });
             }
-            if($request->hasta){
-                $hasta = Carbon::parse($request->hasta.'23:59:59')->format('Y-m-d H:i:s');
+            if ($request->hasta) {
+                $hasta = Carbon::parse($request->hasta . '23:59:59')->format('Y-m-d H:i:s');
                 $contratos->where(function ($query) use ($hasta) {
                     $query->orWhere('crm.updated_at', '<=', $hasta);
                 });
             }
-            if($request->estatus){
-                if($request->estatus == 'A'){
+            if ($request->estatus) {
+                if ($request->estatus == 'A') {
                     $estatus = 0;
-                }else{
+                } else {
                     $estatus = $request->estatus;
                 }
                 $contratos->where(function ($query) use ($estatus) {
                     $query->orWhere('factura.estatus', $estatus);
                 });
             }
-            if($request->grupo_corte){
+            if ($request->grupo_corte) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.grupo_corte', $request->grupo_corte);
                 });
             }
 
-            if($request->barrio_id){
+            if ($request->barrio_id) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('contactos.barrio_id', $request->barrio_id);
                 });
             }
 
-            if($request->servidor){
+            if ($request->servidor) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.servidor', $request->servidor);
                 });
@@ -180,18 +197,18 @@ class CRMController extends Controller
             }
         }
 
-        if($tipo == 1){
+        if ($tipo == 1) {
             $contratos->whereIn('crm.estado', [1, 2, 6]);
-        }else if($tipo == 0){
+        } else if ($tipo == 0) {
             $contratos->whereIn('crm.estado', [0, 3]);
-        }else if($tipo == 'I'){
+        } else if ($tipo == 'I') {
             $contratos->whereIn('crm.estado', [0, 1, 2, 3, 4, 5, 6]);
-        }else{
+        } else {
             $contratos->where('crm.estado', $tipo);
         }
 
-        if(Auth::user()->empresa()->oficina){
-            if(auth()->user()->oficina){
+        if (Auth::user()->empresa()->oficina) {
+            if (auth()->user()->oficina) {
                 $contratos->where('contactos.oficina', auth()->user()->oficina);
             }
         }
@@ -199,22 +216,22 @@ class CRMController extends Controller
         return datatables()->eloquent($contratos)
             ->editColumn('nombre', function (CRM $crm) {
 
-                if($crm->facAbiertas > 0){
+                if ($crm->facAbiertas > 0) {
                     $color = 'color:red';
-                }else{
+                } else {
                     $color = 'color:green';
                 }
 
                 return "<a href=" . route('contactos.show', $crm->cliente) . " target='_blank'>{$crm->c_nombre} {$crm->c_apellido1} {$crm->c_apellido2} <span style='{$color}'>({$crm->facAbiertas})</span></div></a>";
             })
             ->editColumn('nit', function (CRM $crm) {
-                return "<center>".$crm->c_nit."</center>";
+                return "<center>" . $crm->c_nit . "</center>";
             })
             ->editColumn('celular', function (CRM $crm) {
-                return "<center>".$crm->c_celular."</center>";
+                return "<center>" . $crm->c_celular . "</center>";
             })
-            ->addColumn('etiqueta', function(CRM $crm) use($etiquetas){
-                return view('etiquetas.select', compact('etiquetas','crm'));
+            ->addColumn('etiqueta', function (CRM $crm) use ($etiquetas) {
+                return view('etiquetas.select', compact('etiquetas', 'crm'));
             })
             ->editColumn('estado', function (CRM $crm) {
                 return "<center><span class='text-{$crm->estado('true')}'><strong>{$crm->estado()}</strong></span></center>";
@@ -226,7 +243,7 @@ class CRMController extends Controller
                 return "<center><span><strong>{$crm->updated_at->format('Y-m-d H:i:s')}</strong></span></center>";
             })
             ->editColumn('created_by', function (CRM $crm) {
-                return "<center>".$crm->created_by()."</center>";
+                return "<center>" . $crm->created_by() . "</center>";
             })
             ->editColumn('estatus', function (CRM $crm) {
                 return "<center><span class='text-{$crm->factura('true')}'><strong>{$crm->factura()}</strong></span></center>";
@@ -236,44 +253,84 @@ class CRMController extends Controller
             ->toJson();
     }
 
-    private function getInfo(){
+    private function getInfo()
+    {
         $usuarios =  DB::table("usuarios")
-                        ->get();
+            ->get();
 
         $users = [];
         $users[] = [
-            "id"=>0,
-            "username"=>"Sin Asignar",
-            "nombres"=>"Sin Asignar"
+            "id" => 0,
+            "username" => "Sin Asignar",
+            "nombres" => "Sin Asignar"
         ];
-        foreach($usuarios as $usuario){
+        foreach ($usuarios as $usuario) {
             $users[] = [
-                "id"=>$usuario->id,
-                "username"=>$usuario->username,
-                "nombres"=>$usuario->nombres
+                "id" => $usuario->id,
+                "username" => $usuario->username,
+                "nombres" => $usuario->nombres
             ];
         }
 
         $chats = DB::table('chats_whatsapp')
-                        ->orderBy("last_update","desc")
-                        ->get();
+            ->orderBy("last_update", "desc")
+            ->get();
 
-        return [$chats,$users];
+        return [$chats, $users];
+    }
+
+    public function chatbox(Request $request)
+    {
+        $this->getAllPermissions(auth()->user()->id);
+        $usuarioID = auth()->user()->id;
+        $instance = Instance::where('company_id', auth()->user()->empresa)->first();
+
+        // Si es POST, guardar datos
+        if ($request->isMethod('post')) {
+            try {
+                $request->validate([
+                    'pregunta' => 'required|string|max:5000',
+                    'respuesta' => 'required|string|max:5000',
+                ]);
+
+                // Insertar usando Query Builder
+                DB::table('chatbox')->insert([
+                    'pregunta' => $request->pregunta,
+                    'respuesta' => $request->respuesta,
+                    'usuario' => $usuarioID,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Información registrada correctamente'
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al guardar: ' . $e->getMessage()
+                ], 500);
+            }
+        }
+
+        // Si es GET, mostrar vista
+        return view('crm.chatbox', compact('instance'));
     }
 
     public function whatsapp(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
         $instance = Instance::where('company_id', auth()->user()->empresa)
-        ->where('type',1)
-        ->first();
-        if(!$instance) {
+            ->where('type', 1)
+            ->first();
+        if (!$instance) {
             return view('crm.whatsapp')->with(compact('instance'));
         }
         try {
             $response = $wapiService->getInstance($instance->uuid);
         } catch (ClientException $e) {
-            if($e->getResponse()->getStatusCode() === 404) {
+            if ($e->getResponse()->getStatusCode() === 404) {
                 return back()->withErrors([
                     'instance_id' => 'Esta instancia no existe, valida el identificador con tu proveedor.'
                 ])->withInput($request->input());
@@ -287,19 +344,20 @@ class CRMController extends Controller
         return view('crm.whatsapp')->with(compact('instance'));
     }
 
-    public function whatsapp2(Request $request, WapiService $wapiService){
+    public function whatsapp2(Request $request, WapiService $wapiService)
+    {
         $this->getAllPermissions(auth()->user()->id);
         $instance = Instance::where('company_id', auth()->user()->empresa)
-        ->where('type',2)
-        ->first();
+            ->where('type', 2)
+            ->first();
 
-        if(!$instance) {
+        if (!$instance) {
             return view('crm.whatsapp2')->with(compact('instance'));
         }
         try {
             $response = $wapiService->getInstance($instance->uuid);
         } catch (ClientException $e) {
-            if($e->getResponse()->getStatusCode() === 404) {
+            if ($e->getResponse()->getStatusCode() === 404) {
                 return back()->withErrors([
                     'instance_id' => 'Esta instancia no existe, valida el identificador con tu proveedor.'
                 ])->withInput($request->input());
@@ -312,25 +370,25 @@ class CRMController extends Controller
         $instance->save();
 
         return view('crm.whatsapp2')->with(compact('instance'));
-
     }
 
-    public function whatsappActions(Request $request){
+    public function whatsappActions(Request $request)
+    {
 
-         // Configura los datos para la API
-         $telefono =$request->numero;
-         $mensaje = $request->mensaje;
-         $pdf = $request->file;
-            $postdata = array(
-                "contact" => array(
-                    array(
-                        "number" => $telefono,
-                        "message" => $mensaje,
-                        "media" => "document",
-                        "url" => "https://enternet.site/software".$pdf
-                    )
+        // Configura los datos para la API
+        $telefono = $request->numero;
+        $mensaje = $request->mensaje;
+        $pdf = $request->file;
+        $postdata = array(
+            "contact" => array(
+                array(
+                    "number" => $telefono,
+                    "message" => $mensaje,
+                    "media" => "document",
+                    "url" => "https://enternet.site/software" . $pdf
                 )
-            );
+            )
+        );
         $curl = curl_init();
         curl_setopt_array($curl, array(
             CURLOPT_URL => 'https://automatizadovip.com/api/whatsapp/send',
@@ -341,7 +399,7 @@ class CRMController extends Controller
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS =>json_encode($postdata),
+            CURLOPT_POSTFIELDS => json_encode($postdata),
             CURLOPT_HTTPHEADER => array(
                 'Api-key:c47f0efb-6949-4e2c-a65b-160cf3d5e332',
                 'Content-Type: application/json',
@@ -349,26 +407,26 @@ class CRMController extends Controller
         ));
 
         // Ejecuta la solicitud cURL
-            $response = curl_exec($curl);
-            // Verifica el cÃ³digo de respuesta HTTP
-            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $response = curl_exec($curl);
+        // Verifica el cÃ³digo de respuesta HTTP
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
 
-            curl_close($curl);
+        curl_close($curl);
 
-            // Maneja la respuesta (puedes hacer mÃ¡s aquÃ­ segÃºn tus necesidades)
-            $result = array(
-                'success' => $httpCode == 201,
-                'message' => $httpCode == 201 ? 'Mensaje enviado correctamente' : 'Error al enviar el mensaje. CÃ³digo de respuesta: ' . $httpCode
-            );
+        // Maneja la respuesta (puedes hacer mÃ¡s aquÃ­ segÃºn tus necesidades)
+        $result = array(
+            'success' => $httpCode == 201,
+            'message' => $httpCode == 201 ? 'Mensaje enviado correctamente' : 'Error al enviar el mensaje. CÃ³digo de respuesta: ' . $httpCode
+        );
 
-            // EnvÃ­a la respuesta como JSON
+        // EnvÃ­a la respuesta como JSON
 
 
-            // Detiene la ejecuciÃ³n del script despuÃ©s de enviar la respuesta JSON
-            exit();
-            return json_encode(["salida"=>"success","message"=>"No se pudo enviar el mensaje"]);
+        // Detiene la ejecuciÃ³n del script despuÃ©s de enviar la respuesta JSON
+        exit();
+        return json_encode(["salida" => "success", "message" => "No se pudo enviar el mensaje"]);
 
-       /* $unique = uniqid();
+        /* $unique = uniqid();
         DB::table("instancia")
                         ->update(["unique"=>$unique]);
 
@@ -739,7 +797,8 @@ class CRMController extends Controller
         dd("has enviado el mensaje");
     }
 
-    public function carteraContacto($contacto, Request $request){
+    public function carteraContacto($contacto, Request $request)
+    {
         $modoLectura = auth()->user()->modo_lectura();
 
 
@@ -753,7 +812,7 @@ class CRMController extends Controller
         $requestData =  $request;
 
         $contratos = CRM::query()
-			->select('crm.*', 'contactos.nit as c_nit', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1', 'contactos.apellido2 as c_apellido2', 'contactos.celular as c_celular', 'factura.codigo', 'factura.estatus', 'items_factura.precio')
+            ->select('crm.*', 'contactos.nit as c_nit', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1', 'contactos.apellido2 as c_apellido2', 'contactos.celular as c_celular', 'factura.codigo', 'factura.estatus', 'items_factura.precio')
             ->join('contactos', 'crm.cliente', '=', 'contactos.id')
             ->leftjoin('factura', 'crm.factura', '=', 'factura.id')
             ->join('items_factura', 'items_factura.factura', '=', 'factura.id')
@@ -761,46 +820,47 @@ class CRMController extends Controller
             ->where('contactos.id', $contacto);
 
 
-            if (isset($requestData->search['value'])) {
-                $contratos=$contratos->where(function ($query) use ($requestData) {
-                    $query->where('contactos.nit', 'like', '%'.$requestData->search['value'].'%')
-                    ->orwhere('factura.codigo', 'like', '%'.$requestData->search['value'].'%')
-                    ->orwhere('crm.informacion', 'like', '%'.$requestData->search['value'].'%')
-                    ->orwhere('factura.estatus', 'like', '%'.$requestData->search['value'].'%');
-                });
-            }
+        if (isset($requestData->search['value'])) {
+            $contratos = $contratos->where(function ($query) use ($requestData) {
+                $query->where('contactos.nit', 'like', '%' . $requestData->search['value'] . '%')
+                    ->orwhere('factura.codigo', 'like', '%' . $requestData->search['value'] . '%')
+                    ->orwhere('crm.informacion', 'like', '%' . $requestData->search['value'] . '%')
+                    ->orwhere('factura.estatus', 'like', '%' . $requestData->search['value'] . '%');
+            });
+        }
 
-            $totalFiltered=$totalData=$contratos->count();
+        $totalFiltered = $totalData = $contratos->count();
 
-            $contratos=$contratos->skip($requestData['start'])->take($requestData['length']);
-            $contratos=$contratos->orderBy('created_at', 'desc');
-            $contratos=$contratos->distinct()->get();
-            $data = array();
-            foreach ($contratos as $c) {
-                $link = (route('crm.show', $c->id));
-                $nestedData = array();
-                $nestedData[] = "<a target='_blank' href='{$link}'>{$c->id}</a>";
-                $nestedData[] = date('d-m-Y', strtotime($c->created_at));
-                $nestedData[] = "<center><span class='text-{$c->estado('true')}'><strong>{$c->estado()}</strong></span></center>";
-                $nestedData[] = "<center><span class='text-{$c->factura('true')}'><strong>{$c->factura()}</strong></span></center>";
-                $nestedData[] = "<div class='text-center-c'>".($c->informacion)."</div>";
-                $data[] = $nestedData;
-            }
+        $contratos = $contratos->skip($requestData['start'])->take($requestData['length']);
+        $contratos = $contratos->orderBy('created_at', 'desc');
+        $contratos = $contratos->distinct()->get();
+        $data = array();
+        foreach ($contratos as $c) {
+            $link = (route('crm.show', $c->id));
+            $nestedData = array();
+            $nestedData[] = "<a target='_blank' href='{$link}'>{$c->id}</a>";
+            $nestedData[] = date('d-m-Y', strtotime($c->created_at));
+            $nestedData[] = "<center><span class='text-{$c->estado('true')}'><strong>{$c->estado()}</strong></span></center>";
+            $nestedData[] = "<center><span class='text-{$c->factura('true')}'><strong>{$c->factura()}</strong></span></center>";
+            $nestedData[] = "<div class='text-center-c'>" . ($c->informacion) . "</div>";
+            $data[] = $nestedData;
+        }
 
-            $json_data = array(
-                "draw" => intval($requestData->draw),
-                "recordsTotal" => intval($totalData),
-                "recordsFiltered" => intval($totalFiltered),
-                "data" => $data
-            );
+        $json_data = array(
+            "draw" => intval($requestData->draw),
+            "recordsTotal" => intval($totalData),
+            "recordsFiltered" => intval($totalFiltered),
+            "data" => $data
+        );
 
-            return json_encode($json_data);
+        return json_encode($json_data);
     }
 
-    public function reporte(Request $request){
+    public function reporte(Request $request)
+    {
         $modoLectura = auth()->user()->modo_lectura();
         $contratos = CRM::query()
-			->select('crm.*', 'contactos.nit as c_nit', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1', 'contactos.apellido2 as c_apellido2', 'contactos.celular as c_celular', 'factura.codigo', 'factura.estatus', 'items_factura.precio')
+            ->select('crm.*', 'contactos.nit as c_nit', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1', 'contactos.apellido2 as c_apellido2', 'contactos.celular as c_celular', 'factura.codigo', 'factura.estatus', 'items_factura.precio')
             ->join('contactos', 'crm.cliente', '=', 'contactos.id')
             ->join('factura', 'crm.factura', '=', 'factura.id')
             ->join('items_factura', 'items_factura.factura', '=', 'factura.id')
@@ -808,62 +868,62 @@ class CRMController extends Controller
             ->where('crm.empresa', Auth::user()->empresa);
 
         if ($request->filtro == true) {
-            if($request->cliente){
+            if ($request->cliente) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.cliente', $request->cliente);
                 });
             }
-            if($request->estado){
-                if($request->estado == 'A'){
+            if ($request->estado) {
+                if ($request->estado == 'A') {
                     $estado = 0;
-                }else{
+                } else {
                     $estado = $request->estado;
                 }
                 $contratos->where(function ($query) use ($estado) {
                     $query->orWhere('crm.estado', $estado);
                 });
             }
-            if($request->created_by){
+            if ($request->created_by) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.created_by', $request->created_by);
                 });
             }
-            if($request->desde){
-                $desde = Carbon::parse($request->desde.'00:00:00')->format('Y-m-d H:i:s');
+            if ($request->desde) {
+                $desde = Carbon::parse($request->desde . '00:00:00')->format('Y-m-d H:i:s');
                 $contratos->where(function ($query) use ($desde) {
                     $query->orWhere('crm.updated_at', '>=', $desde);
                 });
             }
-            if($request->hasta){
-                $hasta = Carbon::parse($request->hasta.'23:59:59')->format('Y-m-d H:i:s');
+            if ($request->hasta) {
+                $hasta = Carbon::parse($request->hasta . '23:59:59')->format('Y-m-d H:i:s');
                 $contratos->where(function ($query) use ($hasta) {
                     $query->orWhere('crm.updated_at', '<=', $hasta);
                 });
             }
-            if($request->estatus){
-                if($request->estatus == 'A'){
+            if ($request->estatus) {
+                if ($request->estatus == 'A') {
                     $estatus = 0;
-                }else{
+                } else {
                     $estatus = $request->estatus;
                 }
                 $contratos->where(function ($query) use ($estatus) {
                     $query->orWhere('factura.estatus', $estatus);
                 });
             }
-            if($request->grupo_corte){
+            if ($request->grupo_corte) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.grupo_corte', $request->grupo_corte);
                 });
             }
-            if($request->servidor){
+            if ($request->servidor) {
                 $contratos->where(function ($query) use ($request) {
                     $query->orWhere('crm.servidor', $request->servidor);
                 });
             }
         }
 
-        if(Auth::user()->empresa()->oficina){
-            if(auth()->user()->oficina){
+        if (Auth::user()->empresa()->oficina) {
+            if (auth()->user()->oficina) {
                 $contratos->where('contactos.oficina', auth()->user()->oficina);
             }
         }
@@ -873,19 +933,19 @@ class CRMController extends Controller
                 return "<a href=" . route('contactos.show', $crm->cliente) . " target='_blank'>{$crm->c_nombre} {$crm->c_apellido1} {$crm->c_apellido2}</div></a>";
             })
             ->editColumn('nit', function (CRM $crm) {
-                return "<center>".$crm->c_nit."</center>";
+                return "<center>" . $crm->c_nit . "</center>";
             })
             ->editColumn('celular', function (CRM $crm) {
-                return "<center>".$crm->c_celular."</center>";
+                return "<center>" . $crm->c_celular . "</center>";
             })
             ->editColumn('estado', function (CRM $crm) {
                 return "<center><span class='text-{$crm->estado('true')}'><strong>{$crm->estado()}</strong></span></center>";
             })
             ->editColumn('created_by', function (CRM $crm) {
-                return "<center>".$crm->created_by()."</center>";
+                return "<center>" . $crm->created_by() . "</center>";
             })
             ->editColumn('updated_at', function (CRM $crm) {
-                return "<center>".$crm->updated_at()."</center>";
+                return "<center>" . $crm->updated_at() . "</center>";
             })
             ->editColumn('estatus', function (CRM $crm) {
                 return "<center><span class='text-{$crm->factura('true')}'><strong>{$crm->factura()}</strong></span></center>";
@@ -895,7 +955,8 @@ class CRMController extends Controller
             ->toJson();
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         $request->validate([
             'idcliente' => 'required',
             'llamada' => 'required',
@@ -904,7 +965,7 @@ class CRMController extends Controller
 
         $comunicar = true;
 
-        if(request()->modalGestion){
+        if (request()->modalGestion) {
             $comunicar = request()->send_mail;
         }
 
@@ -912,26 +973,26 @@ class CRMController extends Controller
         $crm = CRM::find($request->idCRM);
 
         $accion_log = '';
-        if($crm){
-            if($request->llamada == 0){
+        if ($crm) {
+            if ($request->llamada == 0) {
                 $estado = 3;
                 $accion_log .= 'CRM Gestionado/Sin Contestar';
-            }else{
+            } else {
                 $estado = 1;
                 $accion_log .= 'CRM Gestionado';
             }
 
-            if($request->retirado == 1){
+            if ($request->retirado == 1) {
                 $estado = 4;
                 $accion_log .= ': Cliente Retirado<br>';
-            }else if($request->retirado == 2){
+            } else if ($request->retirado == 2) {
                 $estado = 5;
                 $accion_log .= ': Cliente Retirado Total<br>';
             }
 
             $crm->llamada      = $request->llamada;
             //$crm->informacion  = $request->informacion;
-            $crm->informacion  = ($crm->informacion) ? $crm->informacion.'<hr><b>Fecha: </b>'.date('d-m-Y g:i:s A').'<br><b>Gestionado:</b> '.Auth::user()->nombres.'<br><b>Información: </b>'.$request->informacion : '<b>Fecha: </b>'.date('d-m-Y g:i:s A').'<br><b>Gestionado:</b> '.Auth::user()->nombres.'<br><b>Información: </b>'.$request->informacion;
+            $crm->informacion  = ($crm->informacion) ? $crm->informacion . '<hr><b>Fecha: </b>' . date('d-m-Y g:i:s A') . '<br><b>Gestionado:</b> ' . Auth::user()->nombres . '<br><b>Información: </b>' . $request->informacion : '<b>Fecha: </b>' . date('d-m-Y g:i:s A') . '<br><b>Gestionado:</b> ' . Auth::user()->nombres . '<br><b>Información: </b>' . $request->informacion;
             $crm->promesa_pago = $request->promesa_pago;
             $crm->fecha_pago   = $request->fecha;
             $crm->hora_pago    = $request->hora_pago;
@@ -939,11 +1000,11 @@ class CRMController extends Controller
             $crm->created_by   = auth()->user()->id;
             $crm->empresa      = Auth::user()->empresa;
 
-            if($request->promesa_pago && $request->fecha){
+            if ($request->promesa_pago && $request->fecha) {
                 $factura = Factura::find($crm->factura);
                 $factura->vencimiento = date('Y-m-d', strtotime($request->fecha));
                 $factura->promesa_pago = date('Y-m-d', strtotime($request->fecha));
-                $factura->observaciones = $factura->observaciones.' | Compromiso de Pago ('.$request->fecha.') creada por '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
+                $factura->observaciones = $factura->observaciones . ' | Compromiso de Pago (' . $request->fecha . ') creada por ' . Auth::user()->nombres . ' el ' . date('d-m-Y g:i:s A');
                 $factura->save();
 
                 ### PROMESA DE PAGO ###
@@ -952,7 +1013,7 @@ class CRMController extends Controller
                 $nro_promesa = PromesaPago::all()->count();
                 $nro_promesa++;
 
-                $promesa_pago              = New PromesaPago;
+                $promesa_pago              = new PromesaPago;
                 $promesa_pago->nro         = $nro_promesa;
                 $promesa_pago->factura     = $factura->id;
                 $promesa_pago->cliente     = $factura->cliente;
@@ -1004,18 +1065,18 @@ class CRMController extends Controller
                 // }
 
                 ### LOG CRM ###
-                $accion_log .= ': Asociando Promesa de Pago N° '.$nro_promesa.'<br>';
+                $accion_log .= ': Asociando Promesa de Pago N° ' . $nro_promesa . '<br>';
 
                 ### EVÍO DE SMS AL CLIENTE ##
 
                 $servicio = Integracion::where('empresa', Auth::user()->empresa)->where('tipo', 'SMS')->where('status', 1)->first();
-                if($servicio && $comunicar){
-                    $mensaje = "Hola, usted ha realizado una promesa de pago para el ".$request->fecha.". Lo esperamos en ".auth()->user()->empresa()->nombre;
+                if ($servicio && $comunicar) {
+                    $mensaje = "Hola, usted ha realizado una promesa de pago para el " . $request->fecha . ". Lo esperamos en " . auth()->user()->empresa()->nombre;
                     $factura = Factura::find($crm->factura);
 
-                    if($servicio->nombre == 'Hablame SMS'){
-                        if($servicio->api_key && $servicio->user && $servicio->pass){
-                            if($factura->cliente()->celular){
+                    if ($servicio->nombre == 'Hablame SMS') {
+                        if ($servicio->api_key && $servicio->user && $servicio->pass) {
+                            if ($factura->cliente()->celular) {
                                 $numero = str_replace('+', '', $factura->cliente()->celular);
                                 $numero = str_replace(' ', '', $numero);
                                 $post['toNumber'] = $numero;
@@ -1030,25 +1091,26 @@ class CRMController extends Controller
                                     CURLOPT_TIMEOUT => 0,
                                     CURLOPT_FOLLOWLOCATION => true,
                                     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                                    CURLOPT_CUSTOMREQUEST => 'POST',CURLOPT_POSTFIELDS => json_encode($post),
+                                    CURLOPT_CUSTOMREQUEST => 'POST',
+                                    CURLOPT_POSTFIELDS => json_encode($post),
                                     CURLOPT_HTTPHEADER => array(
-                                        'account: '.$servicio->user,
-                                        'apiKey: '.$servicio->api_key,
-                                        'token: '.$servicio->pass,
+                                        'account: ' . $servicio->user,
+                                        'apiKey: ' . $servicio->api_key,
+                                        'token: ' . $servicio->pass,
                                         'Content-Type: application/json'
                                     ),
                                 ));
-                                $result = curl_exec ($curl);
+                                $result = curl_exec($curl);
                                 $err  = curl_error($curl);
                                 curl_close($curl);
                             }
                         }
-                    }elseif($servicio->nombre == 'SmsEasySms'){
-                        if($servicio->user && $servicio->pass){
-                            if($factura->cliente()->celular){
+                    } elseif ($servicio->nombre == 'SmsEasySms') {
+                        if ($servicio->user && $servicio->pass) {
+                            if ($factura->cliente()->celular) {
                                 $numero = str_replace('+', '', $factura->cliente()->celular);
                                 $numero = str_replace(' ', '', $numero);
-                                $post['to'] = array('57'.$numero);
+                                $post['to'] = array('57' . $numero);
                                 $post['text'] = $mensaje;
                                 $post['from'] = "SMS";
                                 $login = $servicio->user;
@@ -1071,12 +1133,12 @@ class CRMController extends Controller
                                 curl_close($ch);
                             }
                         }
-                    }else{
-                        if($servicio->user && $servicio->pass){
-                            if($factura->cliente()->celular){
+                    } else {
+                        if ($servicio->user && $servicio->pass) {
+                            if ($factura->cliente()->celular) {
                                 $numero = str_replace('+', '', $factura->cliente()->celular);
                                 $numero = str_replace(' ', '', $numero);
-                                $post['to'] = array('57'.$numero);
+                                $post['to'] = array('57' . $numero);
                                 $post['text'] = $mensaje;
                                 $post['from'] = "";
                                 $login = $servicio->user;
@@ -1103,13 +1165,13 @@ class CRMController extends Controller
                 }
             }
 
-            if($request->numero_nuevo){
+            if ($request->numero_nuevo) {
                 $contacto = Contacto::find($crm->cliente);
                 $contacto->celular = $request->numero_nuevo;
                 $contacto->save();
                 $estado = 6;
 
-                $accion_log .= ': Actualización de número telefónico '.$request->numero_nuevo.'<br>';
+                $accion_log .= ': Actualización de número telefónico ' . $request->numero_nuevo . '<br>';
             }
 
             $crm->estado = $estado;
@@ -1117,7 +1179,7 @@ class CRMController extends Controller
 
             ### LOG CRM ###
 
-            $log             = New CRMLOG;
+            $log             = new CRMLOG;
             $log->id_crm     = $crm->id;
             $log->accion     = $accion_log;
             $log->created_by = Auth::user()->id;
@@ -1139,29 +1201,25 @@ class CRMController extends Controller
         ]);
     }
 
-    public function show($id){
+    public function show($id)
+    {
         $this->getAllPermissions(Auth::user()->id);
-        $crm = CRM::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+        $crm = CRM::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
 
-        if($crm){
-            view()->share(['subseccion' => 'crm_cartera', 'title' => 'Detalles CRM: '.$crm->id]);
+        if ($crm) {
+            view()->share(['subseccion' => 'crm_cartera', 'title' => 'Detalles CRM: ' . $crm->id]);
             return view('crm.show')->with(compact('crm'));
         }
     }
 
-    public function edit($id){
+    public function edit($id) {}
 
-    }
+    public function update(Request $request, $id) {}
 
-    public function update(Request $request, $id){
+    public function destroy($id) {}
 
-    }
-
-    public function destroy($id){
-
-    }
-
-    public function contacto($id, $crm){
+    public function contacto($id, $crm)
+    {
         //$contacto = DB::select("SELECT C.id, C.nombre, C.apellido1, C.apellido2, C.nit, C.tip_iden, C.telefono1, C.celular FROM contactos AS C WHERE C.id = '$id'");
 
         $contacto = Contacto::join('crm', 'crm.cliente', '=', 'contactos.id')->where('contactos.id', $id)->where('crm.id', $crm)->select('contactos.id', 'contactos.nombre', 'contactos.apellido1', 'contactos.apellido2', 'contactos.nit', 'contactos.tip_iden', 'contactos.telefono1', 'contactos.celular')->get();
@@ -1170,35 +1228,37 @@ class CRMController extends Controller
         }
     }
 
-    public function exportar(Request $request){
+    public function exportar(Request $request)
+    {
         $this->getAllPermissions(Auth::user()->id);
         $objPHPExcel = new PHPExcel();
         $tituloReporte = "Informe CRM";
         //$titulosColumnas = array('Nombre', 'Identificacion', 'Telefono', 'Estado', 'Gestionado por', 'Gestionado el', 'Factura', 'Corte', 'Servidor');
         $titulosColumnas = array('Nombre', 'Identificacion', 'Celular', 'Estado', 'Gestionado por', 'Gestionado el', 'Grupo Corte', 'Servidor');
-        $letras= array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
+        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
 
         $objPHPExcel->getProperties()->setCreator("Sistema")
-        ->setLastModifiedBy("Sistema")
-        ->setTitle("Informe CRM")
-        ->setSubject("Informe CRM")
-        ->setDescription("Informe CRM")
-        ->setKeywords("Informe CRM")
-        ->setCategory("Informe CRM");
+            ->setLastModifiedBy("Sistema")
+            ->setTitle("Informe CRM")
+            ->setSubject("Informe CRM")
+            ->setDescription("Informe CRM")
+            ->setKeywords("Informe CRM")
+            ->setCategory("Informe CRM");
 
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A1:H1');
 
         $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A1',$tituloReporte);
+            ->setCellValue('A1', $tituloReporte);
 
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A2:H2');
 
         $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A2','Desde '.$request->desde.' hasta '.$request->hasta); // Titulo del reporte
+            ->setCellValue('A2', 'Desde ' . $request->desde . ' hasta ' . $request->hasta); // Titulo del reporte
 
-        $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman' ), 'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+        $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman'), 'alignment' => array(
+            'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
         ));
         $objPHPExcel->getActiveSheet()->getStyle('A1:H3')->applyFromArray($estilo);
 
@@ -1214,77 +1274,80 @@ class CRMController extends Controller
         $objPHPExcel->getActiveSheet()->getStyle('A3:H3')->applyFromArray($estilo);
 
 
-        for ($i=0; $i <count($titulosColumnas) ; $i++) {
-            $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
+        for ($i = 0; $i < count($titulosColumnas); $i++) {
+            $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '3', utf8_decode($titulosColumnas[$i]));
         }
 
-        $i=4;
-        $letra=0;
+        $i = 4;
+        $letra = 0;
 
         $crms = CRM::select('crm.*', 'contactos.nit as c_nit', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.celular as c_celular', 'factura.codigo', 'factura.estatus', 'items_factura.precio')
-        ->join('contactos', 'crm.cliente', '=', 'contactos.id')
-        ->join('factura', 'crm.factura', '=', 'factura.id')
-        ->join('items_factura', 'items_factura.factura', '=', 'factura.id')
-        ->where('crm.empresa', Auth::user()->empresa);
+            ->join('contactos', 'crm.cliente', '=', 'contactos.id')
+            ->join('factura', 'crm.factura', '=', 'factura.id')
+            ->join('items_factura', 'items_factura.factura', '=', 'factura.id')
+            ->where('crm.empresa', Auth::user()->empresa);
 
-        if(isset($request->cliente)){
+        if (isset($request->cliente)) {
             $crms->where('crm.cliente', $request->cliente);
         }
-        if(isset($request->created_by)){
+        if (isset($request->created_by)) {
             $crms->where('crm.created_by', $request->created_by);
         }
-        if(isset($request->desde)){
-            $desde = Carbon::parse($request->desde.'00:00:00')->format('Y-m-d H:i:s');
+        if (isset($request->desde)) {
+            $desde = Carbon::parse($request->desde . '00:00:00')->format('Y-m-d H:i:s');
             $crms->where('crm.updated_at', '>=', $desde);
         }
-        if(isset($request->hasta)){
-            $hasta = Carbon::parse($request->hasta.'23:59:59')->format('Y-m-d H:i:s');
+        if (isset($request->hasta)) {
+            $hasta = Carbon::parse($request->hasta . '23:59:59')->format('Y-m-d H:i:s');
             $crms->where('crm.updated_at', '<=', $hasta);
         }
-        if($request->estatus){
-            if($request->estatus == 'A'){
+        if ($request->estatus) {
+            if ($request->estatus == 'A') {
                 $estatus = 0;
-            }else{
+            } else {
                 $estatus = $request->estatus;
             }
             $crms->where('factura.estatus', $estatus);
         }
-        if(isset($request->servidor)){
+        if (isset($request->servidor)) {
             $crms->where('crm.servidor', $request->servidor);
         }
-        if(isset($request->grupo_corte)){
+        if (isset($request->grupo_corte)) {
             $crms->where('crm.grupo_corte', $request->grupo_corte);
         }
-        if(isset($request->estado)){
+        if (isset($request->estado)) {
             $crms->where('crm.estado', $request->estado);
-        }else{
+        } else {
             $crms->where('crm.estado', '<>', 0);
         }
 
-        $crms=$crms->orderBy('crm.updated_at', 'desc')->get();
+        $crms = $crms->orderBy('crm.updated_at', 'desc')->get();
 
         foreach ($crms as $crm) {
             $objPHPExcel->setActiveSheetIndex(0)
-                ->setCellValue($letras[0].$i, $crm->c_nombre)
-                ->setCellValue($letras[1].$i, $crm->c_nit)
-                ->setCellValue($letras[2].$i, $crm->c_celular)
-                ->setCellValue($letras[3].$i, $crm->estado())
-                ->setCellValue($letras[4].$i, $crm->created_by())
-                ->setCellValue($letras[5].$i, $crm->updated_at())
-                ->setCellValue($letras[6].$i, $crm->grupo_corte())
-                ->setCellValue($letras[7].$i, $crm->servidor());
+                ->setCellValue($letras[0] . $i, $crm->c_nombre)
+                ->setCellValue($letras[1] . $i, $crm->c_nit)
+                ->setCellValue($letras[2] . $i, $crm->c_celular)
+                ->setCellValue($letras[3] . $i, $crm->estado())
+                ->setCellValue($letras[4] . $i, $crm->created_by())
+                ->setCellValue($letras[5] . $i, $crm->updated_at())
+                ->setCellValue($letras[6] . $i, $crm->grupo_corte())
+                ->setCellValue($letras[7] . $i, $crm->servidor());
             $i++;
         }
 
-        $estilo =array('font'  => array('size'  => 12, 'name'  => 'Times New Roman' ),
+        $estilo = array(
+            'font'  => array('size'  => 12, 'name'  => 'Times New Roman'),
             'borders' => array(
                 'allborders' => array(
                     'style' => PHPExcel_Style_Border::BORDER_THIN
                 )
-            ), 'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,));
-        $objPHPExcel->getActiveSheet()->getStyle('A3:H'.$i)->applyFromArray($estilo);
+            ),
+            'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,)
+        );
+        $objPHPExcel->getActiveSheet()->getStyle('A3:H' . $i)->applyFromArray($estilo);
 
-        for($i = 'A'; $i <= $letras[20]; $i++){
+        for ($i = 'A'; $i <= $letras[20]; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
         }
 
@@ -1296,7 +1359,7 @@ class CRMController extends Controller
 
         // Inmovilizar paneles
         $objPHPExcel->getActiveSheet(0)->freezePane('A5');
-        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0,4);
+        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
         $objPHPExcel->setActiveSheetIndex(0);
         header("Pragma: no-cache");
         header('Content-type: application/vnd.ms-excel');
@@ -1308,12 +1371,13 @@ class CRMController extends Controller
         exit;
     }
 
-    public static function notificacion(){
+    public static function notificacion()
+    {
         $fecha = date('d-m-Y');
         $fecha = date('d-m-Y', strtotime("-1 days", strtotime($fecha)));
-        $notificaciones = CRM::join('factura as f','f.id','=','crm.factura')->where('f.estatus',1)->where('crm.fecha_pago', $fecha)->where('crm.created_by', Auth::user()->id)->select('f.id as factura', 'f.cliente', 'f.estatus', 'crm.id', 'crm.estado')->get();
+        $notificaciones = CRM::join('factura as f', 'f.id', '=', 'crm.factura')->where('f.estatus', 1)->where('crm.fecha_pago', $fecha)->where('crm.created_by', Auth::user()->id)->select('f.id as factura', 'f.cliente', 'f.estatus', 'crm.id', 'crm.estado')->get();
 
-        foreach($notificaciones as $notificacion){
+        foreach ($notificaciones as $notificacion) {
             $notificacion->estado = 2;
             $notificacion->notificacion = 1;
             $notificacion->save();
@@ -1328,13 +1392,14 @@ class CRMController extends Controller
         return response()->json(['success' => true, 'data' => $notificaciones]);
     }
 
-    public function status($id){
-        $crm = CRM::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-        if($crm){
+    public function status($id)
+    {
+        $crm = CRM::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        if ($crm) {
             $cliente = Contacto::find($crm->cliente);
             $contrato = Contrato::where('client_id', $cliente->id)->where('empresa', Auth::user()->empresa)->where('status', 1)->first();
 
-            if($contrato){
+            if ($contrato) {
                 $contrato->status = 0;
                 $contrato->save();
             }
@@ -1357,11 +1422,12 @@ class CRMController extends Controller
         ]);
     }
 
-    public function log($id){
+    public function log($id)
+    {
         $this->getAllPermissions(Auth::user()->id);
         $crm = CRM::find($id);
         if ($crm) {
-            view()->share(['icon' => 'fas fa-clipboard-list', 'title' => 'Log | CRM: '.$crm->id]);
+            view()->share(['icon' => 'fas fa-clipboard-list', 'title' => 'Log | CRM: ' . $crm->id]);
             return view('crm.log')->with(compact('crm'));
         } else {
             return back()->with('error', 'NO SE HA PODIDO OBTENER EL LOG DEL CRM');
@@ -1369,29 +1435,31 @@ class CRMController extends Controller
         return back()->with('error', 'NO SE HA PODIDO OBTENER EL LOG DEL CRM');
     }
 
-    public function logsCRM(Request $request, $crm){
+    public function logsCRM(Request $request, $crm)
+    {
         $modoLectura = auth()->user()->modo_lectura();
         $crms = CRMLOG::query();
         $crms->where('id_crm', $crm);
 
         return datatables()->eloquent($crms)
-        ->editColumn('created_at', function (CRMLOG $crm) {
-            return date('d-m-Y g:i:s A', strtotime($crm->created_at));
-        })
-        ->editColumn('created_by', function (CRMLOG $crm) {
-            return $crm->created_by()->nombres;
-        })
-        ->editColumn('accion', function (CRMLOG $crm) {
-            return $crm->accion;
-        })
-        ->editColumn('informacion', function (CRMLOG $crm) {
-            return $crm->crmObj->informacion;
-        })
-        ->rawColumns(['created_at', 'created_by', 'accion', 'informacion'])
-        ->toJson();
+            ->editColumn('created_at', function (CRMLOG $crm) {
+                return date('d-m-Y g:i:s A', strtotime($crm->created_at));
+            })
+            ->editColumn('created_by', function (CRMLOG $crm) {
+                return $crm->created_by()->nombres;
+            })
+            ->editColumn('accion', function (CRMLOG $crm) {
+                return $crm->accion;
+            })
+            ->editColumn('informacion', function (CRMLOG $crm) {
+                return $crm->crmObj->informacion;
+            })
+            ->rawColumns(['created_at', 'created_by', 'accion', 'informacion'])
+            ->toJson();
     }
 
-    public function cambiarEtiqueta($etiqueta, $crm){
+    public function cambiarEtiqueta($etiqueta, $crm)
+    {
 
         $crm =  CRM::where('id', $crm)->where('empresa', Auth::user()->empresa)->first();
 
@@ -1401,6 +1469,8 @@ class CRMController extends Controller
 
         return $crm->etiqueta;
     }
+}
+
 
     public function chatIA(Request $request, WapiService $wapiService)
     {
