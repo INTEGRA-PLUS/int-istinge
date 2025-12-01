@@ -19,36 +19,32 @@
     <div class="row" style="height: calc(100vh - 150px);">
         {{-- Sidebar de chats --}}
         <div class="col-md-4 col-lg-3 d-none d-md-block">
-            <div class="card h-100">
+            <div class="card h-100 d-flex flex-column">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span>Chats</span>
                     <button class="btn btn-sm btn-outline-secondary">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
-                <div class="card-body p-0" style="overflow-y: auto;">
-                    {{-- Lista de chats dummy --}}
+
+                {{-- 👇 OJO: flex-grow-1 + overflow-y --}}
+                <div class="card-body p-0 flex-grow-1" style="overflow-y: auto;">
                     <ul class="list-group list-group-flush">
                         @forelse($contacts as $contact)
                             @php
-                                // Normalizar data
                                 $name       = $contact['name'] ?? null;
                                 $phone      = $contact['phone'] ?? '';
                                 $profilePic = $contact['profilePic'] ?? null;
                                 $channel    = $contact['channel']['name'] ?? null;
                                 $tags       = $contact['tags'] ?? [];
 
-                                // Nombre a mostrar
                                 $displayName = $name ?: ($phone ?: 'Sin nombre');
-
-                                // Inicial para avatar cuando no hay foto
-                                $cleanName = preg_replace('/\s+/', '', $displayName);
-                                $initial   = strtoupper(substr($cleanName, 0, 1));
+                                $cleanName   = preg_replace('/\s+/', '', $displayName);
+                                $initial     = strtoupper(substr($cleanName, 0, 1));
                             @endphp
 
                             <li class="list-group-item contacto-item" data-uuid="{{ $contact['uuid'] }}">
                                 <div class="d-flex align-items-center">
-                                    {{-- Avatar --}}
                                     @if($profilePic)
                                         <img src="{{ $profilePic }}"
                                             alt="Avatar"
@@ -61,7 +57,6 @@
                                         </div>
                                     @endif
 
-                                    {{-- Info del contacto --}}
                                     <div class="flex-grow-1">
                                         <div class="d-flex justify-content-between">
                                             <strong>{{ $displayName }}</strong>
