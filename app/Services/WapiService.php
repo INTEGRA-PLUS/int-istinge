@@ -90,4 +90,16 @@ class WapiService
         );
     }
 
+    public function getContacts()
+    {
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/contacts",
+            [],
+            [],
+            $this->headers,
+            true
+        );
+    }
+
 }

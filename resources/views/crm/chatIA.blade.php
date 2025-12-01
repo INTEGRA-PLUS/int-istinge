@@ -29,29 +29,68 @@
                 <div class="card-body p-0" style="overflow-y: auto;">
                     {{-- Lista de chats dummy --}}
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item active">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>Cliente de prueba</strong>
-                                    <div class="small text-light">
-                                        Último mensaje con IA...
+                        @forelse($contacts as $contact)
+                            @php
+                                // Normalizar data
+                                $name       = $contact['name'] ?? null;
+                                $phone      = $contact['phone'] ?? '';
+                                $profilePic = $contact['profilePic'] ?? null;
+                                $channel    = $contact['channel']['name'] ?? null;
+                                $tags       = $contact['tags'] ?? [];
+
+                                // Nombre a mostrar
+                                $displayName = $name ?: ($phone ?: 'Sin nombre');
+
+                                // Inicial para avatar cuando no hay foto
+                                $cleanName = preg_replace('/\s+/', '', $displayName);
+                                $initial   = strtoupper(substr($cleanName, 0, 1));
+                            @endphp
+
+                            <li class="list-group-item contacto-item" data-uuid="{{ $contact['uuid'] }}">
+                                <div class="d-flex align-items-center">
+                                    {{-- Avatar --}}
+                                    @if($profilePic)
+                                        <img src="{{ $profilePic }}"
+                                            alt="Avatar"
+                                            class="rounded-circle mr-3"
+                                            style="width: 40px; height: 40px; object-fit: cover;">
+                                    @else
+                                        <div class="rounded-circle mr-3 d-flex align-items-center justify-content-center"
+                                            style="width: 40px; height: 40px; background: #e9ecef;">
+                                            <span class="font-weight-bold">{{ $initial }}</span>
+                                        </div>
+                                    @endif
+
+                                    {{-- Info del contacto --}}
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ $displayName }}</strong>
+                                        </div>
+
+                                        <div class="small text-muted">
+                                            {{ $phone ?: 'Sin número' }}
+                                            @if($channel)
+                                                · {{ $channel }}
+                                            @endif
+                                        </div>
+
+                                        @if(!empty($tags))
+                                            <div class="small mt-1">
+                                                @foreach($tags as $tag)
+                                                    <span class="badge badge-light border">
+                                                        {{ is_array($tag) ? ($tag['name'] ?? 'Tag') : $tag }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
-                                <span class="badge badge-light">2</span>
-                            </div>
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Soporte</strong>
-                            <div class="small text-muted">
-                                Conversación de ejemplo...
-                            </div>
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Recordatorio pagos</strong>
-                            <div class="small text-muted">
-                                Flujo automático con IA...
-                            </div>
-                        </li>
+                            </li>
+                        @empty
+                            <li class="list-group-item text-center text-muted">
+                                No hay contactos registrados aún en el canal de IA.
+                            </li>
+                        @endforelse
                     </ul>
                 </div>
             </div>

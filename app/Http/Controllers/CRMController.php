@@ -1470,23 +1470,48 @@ class CRMController extends Controller
         return $crm->etiqueta;
     }
 
-    public function chatIA(Request $request)
+    public function chatIA(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
-
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 2) // type = 2 para Chat IA
             ->first();
-        
-        view()->share(['title' => 'CRM: Cartera', 'invert' => true]);
 
-        return view('crm.chatIA')->with(compact('instance'));
+        $contacts = [];
+        try {
+            $response = $wapiService->getContacts();
+            // Normalizar respuesta: puede venir como string, array, objeto con scalar, etc.
+            if (is_object($response) && isset($response->scalar)) {
+                $data = json_decode($response->scalar, true);
+            } elseif (is_string($response)) {
+                $data = json_decode($response, true);
+            } else {
+                $data = (array) $response;
+            }
+
+            if (
+                isset($data['status']) && $data['status'] === 'success' &&
+                isset($data['data']['data']) && is_array($data['data']['data'])
+            ) {
+                $contacts = $data['data']['data'];
+
+                // (Opcional) filtrar solo los contactos del canal de esta instancia
+                if ($instance) {
+                    $contacts = array_filter($contacts, function ($c) use ($instance) {
+                        return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
+                    });
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::error("Error obteniendo contactos del Chat IA: {$e->getMessage()}");
+        }
+        view()->share(['title' => 'CRM: Chat IA', 'invert' => true]);
+        return view('crm.chatIA', compact('instance', 'contacts'));
     }
 
     public function chatMeta(Request $request)
     {
         $this->getAllPermissions(auth()->user()->id);
-
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 1) // <<< Instancia tipo META
             ->first();
