@@ -157,11 +157,10 @@
     </div>
 </div>
 
-{{-- Script para manejar el click y renderizar mensajes --}}
 @push('scripts')
 <script>
     (function () {
-        // Mensajes entregados desde el backend
+        // Mensajes entregados desde el backend: { uuid: [ {id, body, sentByMe, createdAt, ...}, ... ], ... }
         const messagesByContact = @json($messagesByContact ?? []);
 
         const contactItems = document.querySelectorAll('.contacto-item');
@@ -187,16 +186,14 @@
 
             // Pintar mensajes
             mensajes.forEach(function (m) {
-                // Aquí debes adaptar según la estructura REAL de tus mensajes
-                // Ejemplos de campos típicos:
-                //   m.fromMe (boolean)
-                //   m.direction ("in"|"out")
-                //   m.body / m.message / m.text
-                //   m.createdAt
-
-                const fromMe = m.fromMe === true || m.direction === 'out';
-                const texto  = m.body || m.message || m.text || '';
-                const hora   = (m.createdAt || '').toString().substring(11,16); // HH:MM simple
+                // Según tu JSON:
+                // "body": "...",
+                // "sentByMe": true/false,
+                // "createdAt": "2025-11-24T13:18:59.041Z",
+                const fromMe = m.sentByMe === true;
+                const texto  = m.body || '';
+                const fecha  = (m.createdAt || '').toString();
+                const hora   = fecha ? fecha.substring(11, 16) : ''; // HH:MM de la ISO simple
 
                 const wrapper = document.createElement('div');
                 wrapper.className = 'd-flex mb-3 ' + (fromMe ? 'justify-content-end' : '');
@@ -257,4 +254,3 @@
     })();
 </script>
 @endpush
-@endsection
