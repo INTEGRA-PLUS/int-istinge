@@ -1408,11 +1408,12 @@ class CRMController extends Controller
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 2) // type = 2 para Chat IA
             ->first();
+
         $contacts = [];
         $messagesByContact = [];
         try {
             $response = $wapiService->getContacts();
-
+            // Normalizar respuesta
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1426,17 +1427,14 @@ class CRMController extends Controller
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
                 $contacts = $data['data']['data'];
-
-                // Filtrar solo contactos del canal de esta instancia (opcional)
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
                         return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
                     });
                 }
-                // Reindexar por si quieres índices limpios
                 $contacts = array_values($contacts);
 
-                // 🔥 Para cada contacto, traer sus mensajes
+                // Por cada contacto, traer sus mensajes
                 foreach ($contacts as $contact) {
                     $contactUuid = $contact['uuid'] ?? null;
                     if (!$contactUuid) {
@@ -1454,10 +1452,12 @@ class CRMController extends Controller
                             $msgData = (array) $msgResponse;
                         }
 
-                        // Asumo que viene algo tipo { status: "success", data: [...] }
-                        if (isset($msgData['status']) && $msgData['status'] === 'success') {
-                            // si los mensajes vienen en data.data, ajusta aquí
-                            $messagesByContact[$contactUuid] = $msgData['data'] ?? [];
+                        // Estructura: { status, data: { data: [ ...mensajes... ], pagination: {...} } }
+                        if (
+                            isset($msgData['status']) && $msgData['status'] === 'success' &&
+                            isset($msgData['data']['data']) && is_array($msgData['data']['data'])
+                        ) {
+                            $messagesByContact[$contactUuid] = $msgData['data']['data'];
                         } else {
                             $messagesByContact[$contactUuid] = [];
                         }
