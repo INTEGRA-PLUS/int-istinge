@@ -4032,7 +4032,7 @@ class CronController extends Controller
                 ->whereIn('c.grupo_corte', $grupos_corte_array)
                 ->select('factura.*')
                 ->orderBy('factura.updated_at', 'asc')
-                ->limit(45)
+                ->limit(20)
                 ->get();
 
             Log::info("Facturas seleccionadas para envío: " . $facturas->count());
@@ -4233,7 +4233,6 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
-                    // 🔴 Manejo especial del statusCode
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         // Si sabemos que, a pesar del 500, el mensaje se envía igual:
@@ -4242,6 +4241,7 @@ class CronController extends Controller
                             $factura->save();
                             Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
                         }
+                        sleep(5);
                         continue;
                     }
 
@@ -4251,12 +4251,15 @@ class CronController extends Controller
 
                     if (!isset($response->status) || $response->status !== "success") {
                         Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($response));
+                        sleep(5);
                         continue;
                     }
 
                     $factura->whatsapp = 1;
                     $factura->save();
                     Log::info("Factura {$factura->codigo}: enviada por META ✅");
+                    sleep(5);
+
                 }
             }
 
