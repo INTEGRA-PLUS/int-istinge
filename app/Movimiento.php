@@ -91,7 +91,12 @@ class Movimiento extends Model
             return IngresoR::find($this->id_modulo)->detalle();
         }
         else if ($this->modulo==3) {
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
             return Gastos::find($this->id_modulo)->detalle();
+            }else{
+                return "Pago a documento";
+            }
         }
         else if($this->modulo==6){
             if(Ingreso::find($this->id_modulo)){
