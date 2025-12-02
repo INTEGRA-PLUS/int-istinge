@@ -44,7 +44,12 @@ class Movimiento extends Model
             return route($this->modulo()->modulo.'.show', IngresoR::find($this->id_modulo)->id);
         }
         else if ($this->modulo==3) {
-            return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            }else{
+                return route('pagos.show', $this->id_modulo);
+            }
         }
     }
 
