@@ -9,9 +9,9 @@
         @csrf
     </form>
 
-    <a href="{{route('bancos.show', $id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
+    <a href="{{route('bancos.show', $nro)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
     @if(isset($session['284']) && $lectura==0 && $nombre !== 'Saldos a favor')
-        <a href="{{route('bancos.edit', $id)}}" class="btn btn-outline-primary btn-icons"><i class="fas fa-edit"></i></a>
+        <a href="{{route('bancos.edit', $nro)}}" class="btn btn-outline-primary btn-icons"><i class="fas fa-edit"></i></a>
     @endif
 
     @if(!$uso)
