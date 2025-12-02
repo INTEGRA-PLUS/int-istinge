@@ -111,7 +111,20 @@ class ReportesController extends Controller
             ->where('factura.estatus','<>',2)
             ->groupby('fc.factura_id');
 
-            $example = $facturas->get()->last();
+            // Obtener ejemplo con manejo de reconexión
+            // Guardar una copia del query builder antes de ejecutarlo
+            $exampleQuery = clone $facturas;
+            try {
+                $example = $facturas->get()->last();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Si se pierde la conexión, reconectar y reintentar
+                if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                    DB::reconnect();
+                    $example = $exampleQuery->get()->last();
+                } else {
+                    throw $e;
+                }
+            }
 
             $dates = $this->setDateRequest($request);
 
@@ -134,7 +147,21 @@ class ReportesController extends Controller
             }
 
             $ides=array();
-            $facturas=$facturas->OrderBy($orderby, $order)->get();
+
+            // Obtener facturas con manejo de reconexión y chunking para evitar "MySQL server has gone away"
+            // Guardar una copia del query builder antes de ejecutarlo
+            $facturasQuery = clone $facturas;
+            try {
+                $facturas=$facturas->OrderBy($orderby, $order)->get();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Si se pierde la conexión, reconectar y reintentar
+                if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                    DB::reconnect();
+                    $facturas=$facturasQuery->OrderBy($orderby, $order)->get();
+                } else {
+                    throw $e;
+                }
+            }
 
             foreach ($facturas as $factura) {
                 $ides[]=$factura->id;
@@ -142,14 +169,29 @@ class ReportesController extends Controller
 
             $totalFacturas=0;
             foreach ($facturas as $invoice) {
+                try {
+                    $totalInvoice = $invoice->total();
 
-                $totalInvoice = $invoice->total();
-
-                $invoice->subtotal = $totalInvoice->subsub;
-                $invoice->iva = $invoice->impuestos_totales();
-                $invoice->retenido = $factura->retenido(true);
-                $invoice->total = $totalInvoice->total - $invoice->devoluciones();
-                $totalFacturas+= $invoice->total;
+                    $invoice->subtotal = $totalInvoice->subsub;
+                    $invoice->iva = $invoice->impuestos_totales();
+                    $invoice->retenido = $invoice->retenido(true);
+                    $invoice->total = $totalInvoice->total - $invoice->devoluciones();
+                    $totalFacturas+= $invoice->total;
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Si se pierde la conexión durante el procesamiento, reconectar y continuar
+                    if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                        DB::reconnect();
+                        // Reintentar la operación
+                        $totalInvoice = $invoice->total();
+                        $invoice->subtotal = $totalInvoice->subsub;
+                        $invoice->iva = $invoice->impuestos_totales();
+                        $invoice->retenido = $invoice->retenido(true);
+                        $invoice->total = $totalInvoice->total - $invoice->devoluciones();
+                        $totalFacturas+= $invoice->total;
+                    } else {
+                        throw $e;
+                    }
+                }
             }
             if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
                 switch ($request->orderby){
@@ -172,9 +214,47 @@ class ReportesController extends Controller
 
             $subtotal=$total=0;
             if ($ides) {
-                $result=DB::table('items_factura')->whereIn('factura', $ides)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
-                $subtotal=$this->precision($result->total-$result->descuento);
-                $total=$this->precision((float)$totalFacturas);
+                // Procesar en chunks si hay muchos IDs para evitar "MySQL server has gone away"
+                $chunkSize = 500; // Procesar 500 facturas a la vez
+                $chunks = array_chunk($ides, $chunkSize);
+                $totalSum = 0;
+                $descuentoSum = 0;
+                $impuestoSum = 0;
+
+                foreach ($chunks as $chunk) {
+                    try {
+                        $result = DB::table('items_factura')
+                            ->whereIn('factura', $chunk)
+                            ->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))
+                            ->first();
+
+                        if ($result) {
+                            $totalSum += $result->total ?? 0;
+                            $descuentoSum += $result->descuento ?? 0;
+                            $impuestoSum += $result->impuesto ?? 0;
+                        }
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        // Si se pierde la conexión, reconectar y reintentar
+                        if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                            DB::reconnect();
+                            $result = DB::table('items_factura')
+                                ->whereIn('factura', $chunk)
+                                ->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))
+                                ->first();
+
+                            if ($result) {
+                                $totalSum += $result->total ?? 0;
+                                $descuentoSum += $result->descuento ?? 0;
+                                $impuestoSum += $result->impuesto ?? 0;
+                            }
+                        } else {
+                            throw $e;
+                        }
+                    }
+                }
+
+                $subtotal = $this->precision($totalSum - $descuentoSum);
+                $total = $this->precision((float)$totalFacturas);
             }
 
 
