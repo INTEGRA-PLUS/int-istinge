@@ -201,7 +201,13 @@ class Movimiento extends Model
                 return $obs->observaciones;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->observaciones;
+            $gasto = Gastos::find($this->id_modulo);
+
+            if($gasto){
+                return Gastos::find($this->id_modulo)->observaciones;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 
@@ -212,7 +218,12 @@ class Movimiento extends Model
                 return $notas->notas;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->notas;
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return Gastos::find($this->id_modulo)->notas;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 
