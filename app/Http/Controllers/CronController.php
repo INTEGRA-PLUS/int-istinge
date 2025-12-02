@@ -4233,9 +4233,15 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
-
+                    // 🔴 Manejo especial del statusCode
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
+                        // Si sabemos que, a pesar del 500, el mensaje se envía igual:
+                        if ($response->statusCode == 500) {
+                            $factura->whatsapp = 1;
+                            $factura->save();
+                            Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
+                        }
                         continue;
                     }
 
