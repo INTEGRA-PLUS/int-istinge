@@ -32,20 +32,32 @@ use Illuminate\Support\Facades\Log;
 |
 */
 Route::post('contrato-digital/{key}', function (Request $request, $key) {
+    $contacto = Contacto::where('referencia_asignacion', $key)->first();
+    \Log::info('Resultado búsqueda contacto', [
+        'contacto_id' => optional($contacto)->id,
+        'empresa'     => optional($contacto)->empresa,
+    ]);
 
-    $contacto = ContratoDigital::where('referencia_asignacion', $key)->first();
-    if($contacto){
-        $contacto->firma = $request->firma_isp;
-        $contacto->fecha_firma = date('Y-m-d');
+    if ($contacto) {
+        $contacto->firma_isp            = $request->firma_isp;
+        $contacto->fecha_isp            = date('Y-m-d');
         $contacto->referencia_asignacion = null;
         $contacto->save();
 
-        $empresa = Empresa::find(1);
+        $empresa    = Empresa::find($contacto->empresa);
         $formulario = false;
-        $title = $empresa->nombre;
-        view()->share(['seccion' => 'contratos', 'subseccion' => 'asignaciones', 'title' => 'Asignaciones', 'icon' =>'fas fa-file-contract']);
-        return view('asignaciones.firma')->with(compact('contacto', 'title', 'empresa', 'formulario'));
+        $title      = $empresa->nombre;
+
+        view()->share([
+            'seccion'    => 'contratos',
+            'subseccion' => 'asignaciones',
+            'title'      => 'Asignaciones',
+            'icon'       => 'fas fa-file-contract'
+        ]);
+        return view('asignaciones.firma')
+            ->with(compact('contacto', 'title', 'empresa', 'formulario'));
     }
+    \Log::warning('Contrato digital 403: no se encontró contacto para key', ['key' => $key]);
     abort(403, 'ACCIÓN NO AUTORIZADA');
 })->name('asignaciones.store_firma');
 
