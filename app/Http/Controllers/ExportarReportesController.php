@@ -728,20 +728,35 @@ class ExportarReportesController extends Controller
                 $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
             }
 
-            $facturas = Factura::where('factura.empresa',Auth::user()->empresa)
+            $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
             ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
             ->leftjoin('contracts as ctr', 'ctr.nro', '=', 'fc.contrato_nro')
             ->join('contactos as c', 'factura.cliente', '=', 'c.id')
             ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
             ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
             ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
-            ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-                    'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus',
-                    'municipio.nombre as municipioNombre', 'c.vereda',
-                    'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
+            ->select(
+                'factura.id',
+                'factura.codigo',
+                'factura.nro',
+                'factura.cot_nro',
+                DB::raw('c.nombre as nombrecliente'),
+                'factura.cliente',
+                'factura.fecha',
+                'factura.vencimiento',
+                'factura.estatus',
+                'municipio.nombre as municipioNombre',
+                'c.vereda',
+                'factura.empresa',
+                'i.fecha as pagada',
+                'i.cuenta',
+                DB::raw('SUM(ig.pago) as pagadoTotal'),
+                'fc.contrato_nro'
+            )
             ->whereIn('factura.tipo', [1,2])
             ->where('factura.estatus','<>',2)
-            ->groupby('fc.factura_id');
+            ->groupBy('fc.factura_id');
+
 
             $dates = $this->setDateRequest($request);
 

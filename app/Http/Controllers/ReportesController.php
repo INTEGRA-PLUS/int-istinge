@@ -176,7 +176,7 @@ class ReportesController extends Controller
                     $invoice->iva = $invoice->impuestos_totales();
                     $invoice->retenido = $invoice->retenido(true);
                     $invoice->total = $totalInvoice->total - $invoice->devoluciones();
-                    $totalFacturas+= $invoice->total;
+                    $totalFacturas+= $invoice->pagadoTotal;
                 } catch (\Illuminate\Database\QueryException $e) {
                     // Si se pierde la conexión durante el procesamiento, reconectar y continuar
                     if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
@@ -187,7 +187,7 @@ class ReportesController extends Controller
                         $invoice->iva = $invoice->impuestos_totales();
                         $invoice->retenido = $invoice->retenido(true);
                         $invoice->total = $totalInvoice->total - $invoice->devoluciones();
-                        $totalFacturas+= $invoice->total;
+                        $totalFacturas+= $invoice->pagadoTotal;
                     } else {
                         throw $e;
                     }

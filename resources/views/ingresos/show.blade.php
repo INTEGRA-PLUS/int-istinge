@@ -168,7 +168,6 @@
 								<tr>
 									<td><a href="{{route('facturas.show', $item->factura()->id)}}" target="_blank">{{$item->factura()->codigo}}</a></td>
 									<td>{{date('d-m-Y', strtotime($item->factura()->fecha))}}</td>
-
 									<td>{{date('d-m-Y', strtotime($item->factura()->vencimiento))}}</td>
 									<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->factura()->total()->total)}}</td>
 									<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->factura()->pagado())}}</td>
