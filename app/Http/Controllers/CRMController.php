@@ -1569,13 +1569,15 @@ class CRMController extends Controller
             ->where('meta', 0)
             ->first();
 
-        $contacts = [];
-        $messagesByContact = [];
+        $contacts    = [];
+        $pagination  = null;
+
+        $page    = (int) $request->input('page', 1);
+        $perPage = 20;
 
         try {
-            $response = $wapiService->getContacts();
+            $response = $wapiService->getContacts($page, $perPage);
 
-            // Normalizar respuesta
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1588,62 +1590,28 @@ class CRMController extends Controller
                 isset($data['status']) && $data['status'] === 'success' &&
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
-                $contacts = $data['data']['data'];
+                $contacts   = $data['data']['data'];
+                $pagination = $data['data']['pagination'] ?? null;
 
-                // Filtrar por canal META de esta instancia
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
-                        return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
+                        return isset($c['channel']['uuid']) &&
+                            $c['channel']['uuid'] === $instance->uuid;
                     });
                 }
 
                 $contacts = array_values($contacts);
-
-                // Por cada contacto, traer sus mensajes
-                foreach ($contacts as $contact) {
-                    $contactUuid = $contact['uuid'] ?? null;
-
-                    if (!$contactUuid) {
-                        \Log::warning("Contacto sin UUID encontrado (META): " . json_encode($contact));
-                        continue;
-                    }
-
-                    try {
-                        $msgResponse = $wapiService->getContactMessages($contactUuid);
-
-                        if (is_object($msgResponse) && isset($msgResponse->scalar)) {
-                            $msgData = json_decode($msgResponse->scalar, true);
-                        } elseif (is_string($msgResponse)) {
-                            $msgData = json_decode($msgResponse, true);
-                        } else {
-                            $msgData = (array) $msgResponse;
-                        }
-
-                        if (
-                            isset($msgData['status']) && $msgData['status'] === 'success' &&
-                            isset($msgData['data']['data']) && is_array($msgData['data']['data'])
-                        ) {
-                            $messagesByContact[(string) $contactUuid] = $msgData['data']['data'];
-                            \Log::info("Mensajes cargados para contacto META {$contactUuid}: " . count($msgData['data']['data']));
-                        } else {
-                            $messagesByContact[(string) $contactUuid] = [];
-                            \Log::warning("No se pudieron obtener mensajes META para contacto {$contactUuid}");
-                        }
-                    } catch (\Throwable $e) {
-                        \Log::error("Error obteniendo mensajes META para contacto {$contactUuid}: {$e->getMessage()}");
-                        $messagesByContact[(string) $contactUuid] = [];
-                    }
-                }
             }
 
-            \Log::info("Total de contactos META cargados: " . count($contacts));
-            \Log::info("Contactos META con mensajes: " . count($messagesByContact));
+            \Log::info("Total de contactos META cargados en página {$page}: " . count($contacts));
         } catch (\Throwable $e) {
             \Log::error("Error obteniendo contactos del Chat META: {$e->getMessage()}");
         }
 
         view()->share(['title' => 'CRM: Chat Meta', 'invert' => true]);
-        return view('crm.chatMeta', compact('instance', 'contacts', 'messagesByContact'));
+
+        // OJO: ya no mandamos $messagesByContact aquí. Eso se hará por AJAX.
+        return view('crm.chatMeta', compact('instance', 'contacts', 'pagination', 'page', 'perPage'));
     }
 
 }
