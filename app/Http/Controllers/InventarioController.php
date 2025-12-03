@@ -1300,6 +1300,69 @@ class InventarioController extends Controller{
         exit;
     }
 
+    public function validacionFacturasElectronicas(Request $request){
+
+        $empresa = Empresa::Find(1);
+       $imagen = $request->file('archivo');
+       $nombre_imagen = time().'archivo.'.$imagen->getClientOriginalExtension();
+       $path = public_path() .'/images/Empresas/Empresa'.$empresa->id;
+       $imagen->move($path,$nombre_imagen);
+       Ini_set ('max_execution_time', 3600);
+       $fileWithPath=$path."/".$nombre_imagen;
+       $inputFileType = PHPExcel_IOFactory::identify($fileWithPath);
+       $objReader = PHPExcel_IOFactory::createReader($inputFileType);
+       $objPHPExcel = $objReader->load($fileWithPath);
+       $sheet = $objPHPExcel->getSheet(0);
+       $highestRow = $sheet->getHighestRow();
+       $highestColumn = $sheet->getHighestColumn();
+       $letras= array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
+       $lista = '';
+
+
+       $fechaValidar = "2025-12-01";
+       $facturas = Factura::where('fecha',$fechaValidar)->where('tipo',2)->where('emitida',1)->get();
+
+       for ($row = 13; $row <= $highestRow; $row++){
+
+           $nitCliente=(string)$sheet->getCell("H".$row)->getValue();
+           $codigo=$sheet->getCell("E".$row)->getValue();
+           $cufe = $sheet->getCell("AD".$row)->getValue();
+           $fechaDian =(string)$sheet->getCell("K".$row)->getValue();
+           $totalDian = $sheet->getCell("AC".$row)->getValue();
+
+           $totalDian = str_replace(',00', '', $totalDian);
+           $number = str_replace('.', '', $totalDian);   // quitar separadores de miles
+           $number = str_replace(',', '.', $number);  // convertir coma decimal a punto
+           $totalDianNumero = round($number);
+
+
+           $fechaDian = Carbon::parse($fechaDian)->format('Y-m-d');
+
+           $facAreemplazar = Factura::join('contactos as c','c.id','factura.cliente')
+           ->where('c.nit',$nitCliente)->where('factura.fecha',$fechaDian)
+           ->where('factura.id',53046)
+           ->select('factura.*')
+           ->get();
+
+           foreach($facAreemplazar as $fac){
+
+               $total = $fac->total()->total;
+
+               if(round($total) == round($totalDianNumero)){
+
+                   $fac->uuid = $cufe;
+                   $fac->codigo = $codigo;
+                   $fac->save();
+               }
+
+           }
+
+       }
+
+       return "facturas corregidas";
+
+   }
+
     public function importarFacturasXlsx(Request $request){
 
         $empresa = Empresa::Find(1);
