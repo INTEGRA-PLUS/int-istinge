@@ -1614,4 +1614,46 @@ class CRMController extends Controller
         return view('crm.chatMeta', compact('instance', 'contacts', 'pagination', 'page', 'perPage'));
     }
 
+    public function chatMetaMessages(string $uuid, Request $request, WapiService $wapiService)
+    {
+        try {
+            $msgResponse = $wapiService->getContactMessages($uuid);
+
+            if (is_object($msgResponse) && isset($msgResponse->scalar)) {
+                $msgData = json_decode($msgResponse->scalar, true);
+            } elseif (is_string($msgResponse)) {
+                $msgData = json_decode($msgResponse, true);
+            } else {
+                $msgData = (array) $msgResponse;
+            }
+
+            \Log::info("[META] Mensajes RAW para contacto {$uuid}: " . json_encode($msgData));
+
+            if (
+                isset($msgData['status']) && $msgData['status'] === 'success' &&
+                isset($msgData['data']['data']) && is_array($msgData['data']['data'])
+            ) {
+                return response()->json([
+                    'status'     => 'success',
+                    'messages'   => $msgData['data']['data'],
+                    'pagination' => $msgData['data']['pagination'] ?? null,
+                ]);
+            }
+
+            return response()->json([
+                'status'   => 'error',
+                'messages' => [],
+                'raw'      => $msgData,
+            ], 200);
+
+        } catch (\Throwable $e) {
+            \Log::error("Error obteniendo mensajes META para contacto {$uuid}: {$e->getMessage()}");
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }

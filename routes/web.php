@@ -1733,6 +1733,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/cambiar-etiqueta/{etiqueta}/{crm}', 'CRMController@cambiarEtiqueta')->name('crm.cambiar.etiqueta');
 		Route::get('/chat-ia', 'CRMController@chatIA')->name('crm.chat_IA');
 		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
+		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
 	});
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');

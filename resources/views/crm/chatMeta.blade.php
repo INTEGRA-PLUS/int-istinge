@@ -157,11 +157,8 @@
 @push('scripts')
 <script>
     $(function () {
-        // Conversaciones: { uuid: [ {id, body, sentByMe, createdAt, ...}, ... ], ... }
-        const messagesByContact = @json($messagesByContact ?? []);
-
-        console.log('🔍 [META] Todas las conversaciones agrupadas por contacto:', messagesByContact);
-        console.log('🔍 [META] Claves disponibles:', Object.keys(messagesByContact));
+        // Cache local de mensajes por contacto: { uuid: [ {id, body, ...}, ... ] }
+        const messagesByContact = {};
 
         const $contactItems = $('.chat-meta-contact');
         const $chatMessages = $('#chat-messages');
@@ -169,12 +166,13 @@
         const $nameEl       = $('.chat-contact-name');
         const $subtitleEl   = $('.chat-contact-subtitle');
 
-        function renderMessages(uuid, name, phone) {
-            console.log('📌 [META] Intentando renderizar mensajes para UUID:', uuid);
-            const mensajes = messagesByContact[uuid] || messagesByContact[String(uuid)] || [];
+        // URL base del endpoint de mensajes, con un marcador para el UUID
+        const baseMessagesUrl = @json(route('crm.chatMeta.messages', ['uuid' => 'UUID_PLACEHOLDER']));
 
-            console.log('💬 [META] Mensajes encontrados para', uuid, ':', mensajes);
-            console.log('💬 [META] Cantidad de mensajes:', mensajes.length);
+        function renderMessages(uuid, name, phone) {
+            const mensajes = messagesByContact[uuid] || [];
+
+            console.log('💬 [META] Renderizando mensajes para', uuid, ' -> ', mensajes);
 
             $nameEl.text(name || 'Sin nombre');
             $subtitleEl.text(
@@ -232,6 +230,46 @@
             }
         }
 
+        function loadMessages(uuid, name, phone) {
+            // Si ya tenemos mensajes en cache, no pegamos al backend
+            if (messagesByContact[uuid]) {
+                console.log('♻ [META] Usando mensajes en cache para', uuid);
+                renderMessages(uuid, name, phone);
+                return;
+            }
+
+            // Construir URL reemplazando el placeholder
+            const url = baseMessagesUrl.replace('UUID_PLACEHOLDER', uuid);
+
+            console.log('🌐 [META] Llamando a AJAX para mensajes:', url);
+
+            $chatMessages.html(
+                '<div class="text-muted text-center mt-4">Cargando mensajes...</div>'
+            );
+
+            $.get(url)
+                .done(function (res) {
+                    console.log('✅ [META] Respuesta del 2do paso (getContactMessages) para', uuid, ':', res);
+
+                    if (res.status === 'success') {
+                        messagesByContact[uuid] = res.messages || [];
+                        renderMessages(uuid, name, phone);
+                    } else {
+                        messagesByContact[uuid] = [];
+                        $chatMessages.html(
+                            '<div class="text-muted text-center mt-4">No se pudieron obtener mensajes.</div>'
+                        );
+                    }
+                })
+                .fail(function (xhr) {
+                    console.error('❌ [META] Error AJAX al cargar mensajes:', xhr);
+                    $chatMessages.html(
+                        '<div class="text-muted text-center mt-4">Error al cargar mensajes.</div>'
+                    );
+                });
+        }
+
+        // Click en contacto
         $contactItems.on('click', function (e) {
             e.preventDefault();
 
@@ -246,7 +284,7 @@
             $this.addClass('active');
 
             if (uuid) {
-                renderMessages(uuid, name, phone);
+                loadMessages(uuid, name, phone); // 👈 Aquí se llama a tu método del controller
             } else {
                 console.warn('⚠ [META] Este contacto no tiene uuid, no se pueden cargar mensajes');
                 $chatMessages.html(
@@ -255,6 +293,7 @@
             }
         });
 
+        // Disparar el click en el primer contacto activo (si existe)
         const $firstActive = $('.chat-meta-contact.active').first();
         if ($firstActive.length) {
             console.log('✅ [META] Disparando click en el primer contacto activo');
