@@ -1565,7 +1565,8 @@ class CRMController extends Controller
         $this->getAllPermissions(auth()->user()->id);
 
         $instance = Instance::where('company_id', auth()->user()->empresa)
-            ->where('type', 1) // META
+            ->where('type', 1)
+            ->where('meta', 0)
             ->first();
 
         $contacts = [];
