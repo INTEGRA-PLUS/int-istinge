@@ -1116,6 +1116,37 @@
             nuevoTip(firstTip);
         }
 
+        // Refrescar todos los períodos de nómina al cargar la página
+        let periodosIds = [];
+
+        // Recopilar todos los IDs de períodos de nómina de los elementos con id que empieza con "extras"
+        $('[id^="extras"]').each(function() {
+            let id = $(this).attr('id').replace('extras', '');
+            if (id && !periodosIds.includes(id)) {
+                periodosIds.push(id);
+            }
+        });
+
+        // Ejecutar refrescarPeriodo para cada período sin mostrar mensajes
+        let promesas = [];
+        periodosIds.forEach(function(idPeriodo) {
+            promesas.push(
+                new Promise(function(resolve) {
+                    var urlTemplate = '{{ route("nomina.refrescar.periodo.individual", ["idNominaPeriodo" => ":idPeriodo"]) }}';
+                    var url = urlTemplate.replace(':idPeriodo', idPeriodo);
+                    $.get(url, function(response){
+                        formatPago(response.valorTotal, response.idPeriodoNomina);
+                        resolve();
+                    });
+                })
+            );
+        });
+
+        // Refrescar el costo una sola vez después de que todos los períodos se hayan actualizado
+        Promise.all(promesas).then(function() {
+            refrescarCosto();
+        });
+
     });
 
     function datesV(id) {
@@ -1163,13 +1194,15 @@
     }
 
 
-    function refrescarPeriodo(idPeriodo){
+    function refrescarPeriodo(idPeriodo, mostrarMensaje = true){
         var urlTemplate = '{{ route("nomina.refrescar.periodo.individual", ["idNominaPeriodo" => ":idPeriodo"]) }}';
         var url = urlTemplate.replace(':idPeriodo', idPeriodo);
         $.get(url, function(response){
             formatPago(response.valorTotal, response.idPeriodoNomina);
-            refrescarCosto();
-            swal("Registro Actualizado", "El pago al empleado se ha actualizado correctamente, cálculos refrescados!", "success");
+            if (mostrarMensaje) {
+                refrescarCosto();
+                swal("Registro Actualizado", "El pago al empleado se ha actualizado correctamente, cálculos refrescados!", "success");
+            }
         });
     }
 
