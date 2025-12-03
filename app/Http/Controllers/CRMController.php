@@ -1563,21 +1563,21 @@ class CRMController extends Controller
     public function chatMeta(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
-
+    
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 1)
             ->where('meta', 0)
             ->first();
-
+    
         $contacts    = [];
         $pagination  = null;
-
+    
         $page    = (int) $request->input('page', 1);
         $perPage = 20;
-
+    
         try {
             $response = $wapiService->getContacts($page, $perPage);
-
+    
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1585,32 +1585,30 @@ class CRMController extends Controller
             } else {
                 $data = (array) $response;
             }
-
+    
             if (
                 isset($data['status']) && $data['status'] === 'success' &&
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
                 $contacts   = $data['data']['data'];
                 $pagination = $data['data']['pagination'] ?? null;
-
+    
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
                         return isset($c['channel']['uuid']) &&
                             $c['channel']['uuid'] === $instance->uuid;
                     });
                 }
-
                 $contacts = array_values($contacts);
+    
+                \Log::info("Total de contactos META cargados en página {$page}: " . count($contacts));
             }
-
-            \Log::info("Total de contactos META cargados en página {$page}: " . count($contacts));
+    
         } catch (\Throwable $e) {
             \Log::error("Error obteniendo contactos del Chat META: {$e->getMessage()}");
         }
 
         view()->share(['title' => 'CRM: Chat Meta', 'invert' => true]);
-
-        // OJO: ya no mandamos $messagesByContact aquí. Eso se hará por AJAX.
         return view('crm.chatMeta', compact('instance', 'contacts', 'pagination', 'page', 'perPage'));
     }
 

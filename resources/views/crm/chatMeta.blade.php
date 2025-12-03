@@ -154,23 +154,38 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+    /* Forzar que el contacto activo se vea azul/blanco */
+    .chat-meta-contact.active {
+        background-color: #007bff !important;
+        color: #fff !important;
+    }
+
+    .chat-meta-contact.active .small,
+    .chat-meta-contact.active strong {
+        color: #fff !important;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
     $(function () {
         // Cache local de mensajes por contacto: { uuid: [ {id, body, ...}, ... ] }
-        const messagesByContact = {};
+        var messagesByContact = {};
 
-        const $contactItems = $('.chat-meta-contact');
-        const $chatMessages = $('#chat-messages');
-        const $chatBody     = $('#chat-body');
-        const $nameEl       = $('.chat-contact-name');
-        const $subtitleEl   = $('.chat-contact-subtitle');
+        var $contactItems = $('.chat-meta-contact');
+        var $chatMessages = $('#chat-messages');
+        var $chatBody     = $('#chat-body');
+        var $nameEl       = $('.chat-contact-name');
+        var $subtitleEl   = $('.chat-contact-subtitle');
 
         // URL base del endpoint de mensajes, con un marcador para el UUID
-        const baseMessagesUrl = @json(route('crm.chatMeta.messages', ['uuid' => 'UUID_PLACEHOLDER']));
+        var baseMessagesUrl = @json(route('crm.chatMeta.messages', ['uuid' => 'UUID_PLACEHOLDER']));
 
         function renderMessages(uuid, name, phone) {
-            const mensajes = messagesByContact[uuid] || [];
+            var mensajes = messagesByContact[uuid] || [];
 
             console.log('💬 [META] Renderizando mensajes para', uuid, ' -> ', mensajes);
 
@@ -188,40 +203,45 @@
                 return;
             }
 
-            mensajes.forEach(function (m) {
-                const fromMe = m.sentByMe === true;
-                const texto  = m.body || '';
-                const fecha  = (m.createdAt || '').toString();
-                const hora   = fecha ? fecha.substring(11, 16) : '';
+            // 🔽🔽🔽 AQUÍ VA EL NUEVO CÓDIGO DE LAS BURBUJAS 🔽🔽🔽
+            $.each(mensajes, function (i, m) {
+                var fromMe = m.sentByMe === true;
+                var texto  = m.body || '';
+                var fecha  = (m.createdAt || '').toString();
+                var hora   = fecha ? fecha.substring(11, 16) : '';
 
-                const $wrapper = $('<div>')
-                    .addClass('d-flex mb-3 ' + (fromMe ? 'justify-content-end' : ''));
+                // Contenedor alineado izquierda/derecha
+                var $wrapper = $('<div>')
+                    .addClass('d-flex mb-2')
+                    .css('justify-content', fromMe ? 'flex-end' : 'flex-start');
 
-                const $bubble = $('<div>')
-                    .addClass('p-2 rounded')
-                    .css({
-                        maxWidth: '70%',
-                        background: fromMe ? '#dcf8c6' : '#ffffff',
-                        border: fromMe ? 'none' : '1px solid #e0e0e0'
-                    });
+                // Estilo tipo WhatsApp
+                var bubbleStyles = {
+                    maxWidth: '70%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
+                    background: fromMe ? '#d1f7c4' : '#ffffff',   // verde suave / blanco
+                    border: fromMe ? '1px solid #b2e59e' : '1px solid #ddd',
+                    color: '#333',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                };
 
-                const $label = $('<div>')
-                    .addClass('small mb-1 font-weight-bold')
-                    .css('color', fromMe ? '#075e54' : '#128c7e')
-                    .text(fromMe ? 'Meta' : 'Cliente');
+                var $bubble = $('<div>').css(bubbleStyles);
 
-                const $body = $('<div>')
-                    .css('word-wrap', 'break-word')
-                    .text(texto);
+                var $body = $('<div>').text(texto);
 
-                const $time = $('<div>')
+                var $time = $('<div>')
                     .addClass('small text-muted text-right mt-1')
+                    .css({ fontSize: '11px' })
                     .text(hora || '');
 
-                $bubble.append($label, $body, $time);
+                $bubble.append($body, $time);
                 $wrapper.append($bubble);
                 $chatMessages.append($wrapper);
             });
+            // 🔼🔼🔼 FIN NUEVO CÓDIGO DE LAS BURBUJAS 🔼🔼🔼
 
             if ($chatBody.length) {
                 setTimeout(function() {
@@ -239,7 +259,7 @@
             }
 
             // Construir URL reemplazando el placeholder
-            const url = baseMessagesUrl.replace('UUID_PLACEHOLDER', uuid);
+            var url = baseMessagesUrl.replace('UUID_PLACEHOLDER', uuid);
 
             console.log('🌐 [META] Llamando a AJAX para mensajes:', url);
 
@@ -249,7 +269,8 @@
 
             $.get(url)
                 .done(function (res) {
-                    console.log('✅ [META] Respuesta del 2do paso (getContactMessages) para', uuid, ':', res);
+                    console.log('✅ [META] Respuesta completa del 2do paso para', uuid, ':', res);
+                    console.log('📦 [META] Mensajes (res.messages) para', uuid, ':', res.messages);
 
                     if (res.status === 'success') {
                         messagesByContact[uuid] = res.messages || [];
@@ -269,22 +290,23 @@
                 });
         }
 
-        // Click en contacto
+        // Click en contacto (para cuando el usuario cambie a otro)
         $contactItems.on('click', function (e) {
             e.preventDefault();
 
-            const $this = $(this);
-            const uuid  = $this.data('uuid');
-            const name  = $this.data('name');
-            const phone = $this.data('phone');
+            var $this = $(this);
+            var uuid  = $this.data('uuid');
+            var name  = $this.data('name');
+            var phone = $this.data('phone');
 
-            console.log('👉 [META] Click en contacto:', { uuid, name, phone });
+            console.log('👉 [META] Click en contacto:', { uuid: uuid, name: name, phone: phone });
 
+            // Marcar visualmente el contacto activo
             $contactItems.removeClass('active');
             $this.addClass('active');
 
             if (uuid) {
-                loadMessages(uuid, name, phone); // 👈 Aquí se llama a tu método del controller
+                loadMessages(uuid, name, phone); // Aquí se llama a tu método del controller vía AJAX
             } else {
                 console.warn('⚠ [META] Este contacto no tiene uuid, no se pueden cargar mensajes');
                 $chatMessages.html(
@@ -293,11 +315,22 @@
             }
         });
 
-        // Disparar el click en el primer contacto activo (si existe)
-        const $firstActive = $('.chat-meta-contact.active').first();
+        // 🚀 Al entrar a la vista: cargar mensajes del primer contacto activo (el azul)
+        var $firstActive = $('.chat-meta-contact.active').first();
         if ($firstActive.length) {
-            console.log('✅ [META] Disparando click en el primer contacto activo');
-            $firstActive.trigger('click');
+            var firstUuid  = $firstActive.data('uuid');
+            var firstName  = $firstActive.data('name');
+            var firstPhone = $firstActive.data('phone');
+
+            console.log('✅ [META] Cargando mensajes iniciales para primer contacto activo:', {
+                uuid: firstUuid,
+                name: firstName,
+                phone: firstPhone
+            });
+
+            if (firstUuid) {
+                loadMessages(firstUuid, firstName, firstPhone);
+            }
         } else {
             console.log('ℹ [META] No hay contacto activo por defecto');
         }
