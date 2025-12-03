@@ -125,6 +125,7 @@
                             Selecciona un contacto en la izquierda para ver la conversación.
                         </div>
                     </div>
+                    <div id="ajax-debug"></div>
                 </div>
 
                 {{-- Input para escribir mensaje --}}
@@ -269,6 +270,11 @@
 
             $.get(url)
                 .done(function (res) {
+                    $('#ajax-debug').html(
+                        "<div class='alert alert-info'>AJAX ejecutado para UUID: "+ uuid +"</div>"
+                    );
+
+                    console.log('AJAX EJECUTADO:', res);
                     console.log('✅ [META] Respuesta completa del 2do paso para', uuid, ':', res);
                     console.log('📦 [META] Mensajes (res.messages) para', uuid, ':', res.messages);
 
@@ -283,6 +289,11 @@
                     }
                 })
                 .fail(function (xhr) {
+                    $('#ajax-debug').html(
+                        "<div class='alert alert-danger'>AJAX ERROR para UUID: "+ uuid +"<br>Status: "+xhr.status+"</div>"
+                    );
+
+                    console.error('❌ AJAX ERROR:', xhr);
                     console.error('❌ [META] Error AJAX al cargar mensajes:', xhr);
                     $chatMessages.html(
                         '<div class="text-muted text-center mt-4">Error al cargar mensajes.</div>'
