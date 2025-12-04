@@ -1834,3 +1834,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 // RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
+
+//Rutas agregadas para cajas naps
+Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');
+Route::get('/caja-naps/create', 'CajaNapController@create')->name('caja.naps.create');
+Route::post('/caja-naps/store', 'CajaNapController@store')->name('caja.naps.store');
