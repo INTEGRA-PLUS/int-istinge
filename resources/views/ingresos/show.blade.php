@@ -288,7 +288,15 @@
 						</thead>
 						<tfoot>
 							<tr>
-								<td class="text-left"><a href="{{route('notasdebito.show',$ingreso->notas()->nro)}}" >{{$ingreso->notas()->nro}}</a> </td>
+								@if(isset($ingreso->notas->nro))
+									<td class="text-left">
+										<a href="{{ route('notasdebito.show', $ingreso->notas->nro) }}">
+											{{ $ingreso->notas->nro }}
+										</a>
+									</td>
+								@else
+									<td class="text-left">-</td>
+								@endif
 								<td class="text-left">{{date('d-m-Y', strtotime($ingreso->fecha))}}</td>
 								<td class="text-right">{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($ingreso->total_debito)}}</td>
 							</tr>
