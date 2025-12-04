@@ -24,8 +24,9 @@
                     </button>
                 </div>
 
-                <div class="card-body p-0 flex-grow-1" style="overflow-y: auto;">
-                    <ul class="list-group list-group-flush">
+                {{-- Lista de contactos con altura máxima de 10 contactos --}}
+                <div class="card-body p-0 flex-grow-1" style="overflow-y: auto; max-height: 500px;">
+                    <ul class="list-group list-group-flush" id="contacts-list">
                         @forelse($contacts as $index => $contact)
                             @php
                                 $name       = $contact['name'] ?? null;
@@ -89,6 +90,34 @@
                         @endforelse
                     </ul>
                 </div>
+
+                {{-- Paginación de contactos --}}
+                @if($pagination)
+                <div class="card-footer p-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted" id="pagination-info">
+                            Página {{ $pagination['page'] ?? 1 }} de {{ $pagination['totalPages'] ?? 1 }}
+                            ({{ count($contacts) }} de {{ $pagination['total'] ?? 0 }})
+                        </small>
+                        <div class="btn-group btn-group-sm" role="group" id="pagination-controls">
+                            <button type="button" 
+                                    class="btn btn-outline-secondary" 
+                                    id="btn-prev-page"
+                                    data-page="{{ ($pagination['page'] ?? 1) - 1 }}"
+                                    {{ !($pagination['hasPrevPage'] ?? false) ? 'disabled' : '' }}>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-outline-secondary" 
+                                    id="btn-next-page"
+                                    data-page="{{ ($pagination['page'] ?? 1) + 1 }}"
+                                    {{ !($pagination['hasNextPage'] ?? false) ? 'disabled' : '' }}>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 
@@ -167,6 +196,11 @@
     .chat-meta-contact.active strong {
         color: #fff !important;
     }
+
+    /* Cada contacto con altura fija para que quepan exactamente 10 */
+    .chat-meta-contact {
+        min-height: 70px;
+    }
 </style>
 @endpush
 
@@ -184,8 +218,143 @@
     var $chatBody     = $('#chat-body');
     var $nameEl       = $('.chat-contact-name');
     var $subtitleEl   = $('.chat-contact-subtitle');
+    var $contactsList = $('#contacts-list');
+    var $paginationInfo = $('#pagination-info');
+    var $btnPrev = $('#btn-prev-page');
+    var $btnNext = $('#btn-next-page');
     
     var baseMessagesUrl = @json(route('crm.chatMeta.messages', ['uuid' => 'UUID_PLACEHOLDER']));
+    var loadMoreUrl = @json(route('crm.chatMeta.loadMore'));
+    
+    // Función para crear HTML de un contacto
+    function createContactHTML(contact, isActive) {
+        var name = contact.name || null;
+        var phone = contact.phone || '';
+        var profilePic = contact.profilePic || null;
+        var channel = (contact.channel && contact.channel.name) ? contact.channel.name : null;
+        var tags = contact.tags || [];
+        var uuid = contact.uuid || null;
+        
+        var displayName = name || (phone || 'Sin nombre');
+        var cleanName = displayName.replace(/\s+/g, '');
+        var initial = cleanName.charAt(0).toUpperCase();
+        
+        var activeClass = isActive ? 'active' : '';
+        
+        var html = '<button type="button" class="list-group-item list-group-item-action chat-meta-contact ' + activeClass + '" ';
+        html += 'data-uuid="' + uuid + '" ';
+        html += 'data-name="' + displayName + '" ';
+        html += 'data-phone="' + phone + '">';
+        html += '<div class="d-flex align-items-center">';
+        
+        // Avatar
+        if (profilePic) {
+            html += '<img src="' + profilePic + '" alt="Avatar" class="rounded-circle mr-3" style="width: 40px; height: 40px; object-fit: cover;">';
+        } else {
+            html += '<div class="rounded-circle mr-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e9ecef;">';
+            html += '<span class="font-weight-bold">' + initial + '</span>';
+            html += '</div>';
+        }
+        
+        html += '<div class="flex-grow-1">';
+        html += '<div class="d-flex justify-content-between">';
+        html += '<strong>' + displayName + '</strong>';
+        html += '</div>';
+        html += '<div class="small text-muted">';
+        html += (phone || 'Sin número');
+        if (channel) {
+            html += ' · ' + channel;
+        }
+        html += '</div>';
+        
+        // Tags
+        if (tags.length > 0) {
+            html += '<div class="small mt-1">';
+            tags.forEach(function(tag) {
+                var tagName = typeof tag === 'object' ? (tag.name || 'Tag') : tag;
+                html += '<span class="badge badge-light border">' + tagName + '</span> ';
+            });
+            html += '</div>';
+        }
+        
+        html += '</div></div></button>';
+        
+        return html;
+    }
+    
+    // Función para cargar contactos de una página
+    function loadContactsPage(page) {
+        console.log('📄 [META] Cargando página de contactos:', page);
+        
+        // Deshabilitar botones mientras carga
+        $btnPrev.prop('disabled', true);
+        $btnNext.prop('disabled', true);
+        
+        // Mostrar indicador de carga
+        $contactsList.html('<li class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando contactos...</li>');
+        
+        $.ajax({
+            url: loadMoreUrl,
+            method: 'GET',
+            data: { page: page },
+            dataType: 'json',
+            success: function(response) {
+                console.log('✅ [META] Contactos cargados:', response);
+                
+                if (response.status === 'success' && response.contacts.length > 0) {
+                    // Limpiar lista actual
+                    $contactsList.empty();
+                    
+                    // Agregar nuevos contactos
+                    response.contacts.forEach(function(contact, index) {
+                        var html = createContactHTML(contact, index === 0);
+                        $contactsList.append(html);
+                    });
+                    
+                    // Actualizar paginación
+                    if (response.pagination) {
+                        var p = response.pagination;
+                        $paginationInfo.text('Página ' + p.page + ' de ' + p.totalPages + ' (' + response.contacts.length + ' de ' + p.total + ')');
+                        
+                        // Actualizar botones
+                        $btnPrev.data('page', p.page - 1).prop('disabled', !p.hasPrevPage);
+                        $btnNext.data('page', p.page + 1).prop('disabled', !p.hasNextPage);
+                    }
+                    
+                    // Cargar mensajes del primer contacto
+                    var $firstContact = $('.chat-meta-contact').first();
+                    if ($firstContact.length) {
+                        var uuid = $firstContact.data('uuid');
+                        var name = $firstContact.data('name');
+                        var phone = $firstContact.data('phone');
+                        loadMessages(uuid, name, phone);
+                    }
+                    
+                } else {
+                    $contactsList.html('<li class="list-group-item text-center text-muted">No hay contactos en esta página.</li>');
+                }
+            },
+            error: function(xhr) {
+                console.error('❌ [META] Error al cargar contactos:', xhr);
+                $contactsList.html('<li class="list-group-item text-center text-danger">Error al cargar contactos.</li>');
+                $btnPrev.prop('disabled', false);
+                $btnNext.prop('disabled', false);
+            }
+        });
+    }
+    
+    // Event listeners para botones de paginación
+    $btnPrev.on('click', function() {
+        var page = $(this).data('page');
+        if (page > 0) {
+            loadContactsPage(page);
+        }
+    });
+    
+    $btnNext.on('click', function() {
+        var page = $(this).data('page');
+        loadContactsPage(page);
+    });
     
     function renderMessages(uuid, name, phone) {
         var mensajes = messagesByContact[uuid] || [];
@@ -275,10 +444,6 @@
             success: function(res) {
                 console.log('✅ [META] Respuesta recibida para', uuid, ':', res);
                 
-                $('#ajax-debug').html(
-                    "<div class='alert alert-success'>✅ AJAX exitoso para UUID: "+ uuid +"</div>"
-                );
-                
                 if (res.status === 'success') {
                     messagesByContact[uuid] = res.messages || [];
                     renderMessages(uuid, name, phone);
@@ -292,11 +457,6 @@
             },
             error: function(xhr, status, error) {
                 console.error('❌ [META] Error AJAX:', { xhr, status, error });
-                
-                $('#ajax-debug').html(
-                    "<div class='alert alert-danger'>❌ AJAX ERROR para UUID: "+ uuid +"<br>Status: "+xhr.status+"<br>Error: "+error+"</div>"
-                );
-                
                 $chatMessages.html(
                     '<div class="text-muted text-center mt-4">Error al cargar mensajes.</div>'
                 );
@@ -304,7 +464,8 @@
         });
     }
     
-    $('.list-group-flush').on('click', '.chat-meta-contact', function (e) {
+    // Delegación de eventos para contactos (incluyendo los que se cargan dinámicamente)
+    $(document).on('click', '.chat-meta-contact', function (e) {
         e.preventDefault();
         e.stopPropagation();
         
