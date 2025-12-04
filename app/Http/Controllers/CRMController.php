@@ -1612,6 +1612,7 @@ class CRMController extends Controller
         return view('crm.chatMeta', compact('instance', 'contacts', 'pagination', 'page', 'perPage'));
     }
 
+    // Funcion para cargar mensajes de los contactos
     public function chatMetaMessages(string $uuid, Request $request, WapiService $wapiService)
     {
         try {
@@ -1650,6 +1651,67 @@ class CRMController extends Controller
             return response()->json([
                 'status'  => 'error',
                 'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // Funcion para cargar mas CONTACTOS
+    public function chatMetaLoadMore(Request $request, WapiService $wapiService)
+    {
+        $page = (int) $request->input('page', 1);
+        $perPage = 20;
+        
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 1)
+            ->where('meta', 0)
+            ->first();
+
+        try {
+            $response = $wapiService->getContacts($page, $perPage);
+
+            if (is_object($response) && isset($response->scalar)) {
+                $data = json_decode($response->scalar, true);
+            } elseif (is_string($response)) {
+                $data = json_decode($response, true);
+            } else {
+                $data = (array) $response;
+            }
+
+            if (
+                isset($data['status']) && $data['status'] === 'success' &&
+                isset($data['data']['data']) && is_array($data['data']['data'])
+            ) {
+                $contacts = $data['data']['data'];
+                $pagination = $data['data']['pagination'] ?? null;
+
+                if ($instance) {
+                    $contacts = array_filter($contacts, function ($c) use ($instance) {
+                        return isset($c['channel']['uuid']) &&
+                            $c['channel']['uuid'] === $instance->uuid;
+                    });
+                }
+                
+                $contacts = array_values($contacts);
+
+                \Log::info("Contactos cargados en página {$page}: " . count($contacts));
+
+                return response()->json([
+                    'status' => 'success',
+                    'contacts' => $contacts,
+                    'pagination' => $pagination
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No se pudieron cargar los contactos'
+            ], 400);
+
+        } catch (\Throwable $e) {
+            \Log::error("Error cargando más contactos: {$e->getMessage()}");
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
             ], 500);
         }
     }
