@@ -11,7 +11,7 @@
 	            </span>
 	        </div>
 	        <div class="col-md-4 form-group">
-	            <label class="control-label">Ubicaci®Æn<span class="text-danger">*</span></label>
+	            <label class="control-label">Ubicaci√≥n<span class="text-danger">*</span></label>
 	            <input type="text" class="form-control"  id="ubicacion" name="ubicacion"  required="" value="{{old('ubicacion')}}" maxlength="200">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('nombre') }}</strong>
