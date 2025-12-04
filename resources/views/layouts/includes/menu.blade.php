@@ -443,6 +443,9 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             </li>
             @endif
             <li class="nav-item" id="nodos">
+                <a class="nav-link" href="{{route('spliter.index')}}">Spliter Optico</a>
+            </li>
+            <li class="nav-item" id="nodos">
                 <a class="nav-link" href="{{route('caja.naps.index')}}">Cajas Nap</a>
             </li>
         </ul>

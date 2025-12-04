@@ -16,7 +16,7 @@
                     <option value="">Selecciona un Spliter</option>
                     @foreach($spliters as $splitter)
                         <option value="{{ $splitter->id }}" {{ old('spliter_asociado') == $splitter->id ? 'selected' : '' }}>
-                            {{ $splitter->nombre }} {{-- Ajusta el atributo seg¨²n el nombre real en tu modelo --}}
+                            {{ $splitter->nombre }} {{-- Ajusta el atributo segï¿½ï¿½n el nombre real en tu modelo --}}
                         </option>
                     @endforeach
                 </select>
@@ -39,13 +39,13 @@
 	            </span>
 	        </div>
 	        <div class="col-md-4 form-group">
-	            <label class="control-label">Ubicaci¨®n <span class="text-danger">*</span></label>
+	            <label class="control-label">UbicaciÃ³n <span class="text-danger">*</span></label>
 	            <input type="text" class="form-control"  id="ubicacion" name="ubicacion"  required="" value="{{old('ubicacion')}}" maxlength="200">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('ubicacion') }}</strong>
 	            </span>
 	        </div>
-	        
+
 	         <div class="col-md-4 form-group">
 	            <label class="control-label">Coordenadas<span class="text-danger">*</span></label>
 	            <input type="text" class="form-control"  id="coordenadas" name="coordenadas"  required="" value="{{old('coordenadas')}}" maxlength="200">
@@ -53,7 +53,7 @@
 	                <strong>{{ $errors->first('coordenadas') }}</strong>
 	            </span>
 	        </div>
-	        
+
 	          <div class="col-md-4 form-group">
 	            <label class="control-label">Cantidad de Puertos disponibles<span class="text-danger">*</span></label>
 	            <input type="text" class="form-control"  id="caja_naps_disponible" name="caja_naps_disponible"  required="" value="{{old('caja_naps_disponible')}}" maxlength="200">
@@ -61,7 +61,7 @@
 	                <strong>{{ $errors->first('caja_naps_disponible') }}</strong>
 	            </span>
 	        </div>
-	        
+
 	        <div class="col-md-4 form-group">
 	            <label class="control-label">Estado <span class="text-danger">*</span></label>
 	            <select class="form-control selectpicker" name="status" id="status" title="Seleccione" required="">

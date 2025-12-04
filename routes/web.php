@@ -1835,6 +1835,12 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
 
+//Rutas agregadas Spliter
+Route::get('/spliter/index', 'SpliterController@index')->name('spliter.index');
+Route::get('/spliter/create', 'SpliterController@create')->name('spliter.create');
+Route::post('/spliter/store', 'SpliterController@store')->name('spliter.store');
+Route::get('spliter', 'SpliterController@spliter');
+
 //Rutas agregadas para cajas naps
 Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');
 Route::get('/caja-naps/create', 'CajaNapController@create')->name('caja.naps.create');
