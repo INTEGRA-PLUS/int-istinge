@@ -1735,6 +1735,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
 		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
+		Route::get('/chat-meta/search', 'CRMController@chatMetaSearch')->name('crm.chatMeta.search');
 	});
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');
