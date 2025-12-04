@@ -858,11 +858,11 @@
                 </footer>
                 <!-- partial -->
             </div>
-            {{-- <div class="whatsapp ">
+            <div class="whatsapp ">
                 <div class="ai-icon-bubble">
                     <i class="fas fa-robot"></i>
                 </div>
-            </div> --}}
+            </div>
         </div>
     </div>
 
