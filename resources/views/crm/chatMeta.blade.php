@@ -252,6 +252,9 @@
     var $paginationCtrls = $('#pagination-controls');
     var $paginationWrap  = $('#pagination-wrapper');
 
+    // ⚡ Guardar HTML inicial de la lista para restaurar sin recargar
+    var initialContactsHtml = $contactsList.html();
+
     // Buscador
     var $searchInput = $('#contact-search');
     var $searchHelper = $('#search-helper');
@@ -523,34 +526,39 @@
         loadMessages(uuid, name, phone);
     });
 
-    // =============== BUSCADOR ===============
+    // =============== BUSCADOR (sin recargar) ===============
 
     function performSearch(query) {
         query = (query || '').trim();
-
+        // 🔄 Si el input está vacío → restaurar lista original, sin recargar
         if (!query) {
-            // Si se borró la búsqueda, volvemos al estado normal recargando
+            console.log('🔄 [META] Limpiando búsqueda, restaurando lista inicial');
             isSearching = false;
             $searchInfo.addClass('d-none').text('');
             $searchHelper.removeClass('d-none');
+            // Restaurar contactos iniciales
+            $contactsList.html(initialContactsHtml);
+            // Volver a mostrar paginación
             if ($paginationWrap.length) {
                 $paginationWrap.show();
             }
-            // Recargar la página limpia (sin query string)
-            window.location.href = window.location.pathname;
+
             return;
         }
 
         if (query.length < 3) {
-            // No llamamos al backend, solo mensaje al usuario
-            $searchInfo.removeClass('d-none').text('Escribe al menos 3 caracteres para buscar...');
+            $searchInfo
+                .removeClass('d-none')
+                .removeClass('text-danger')
+                .addClass('text-muted')
+                .text('Escribe al menos 3 caracteres para buscar...');
             return;
         }
 
         isSearching = true;
-        console.log('🔎 [META] Buscando contactos con:', query);
+        console.log('🔎 [META] Buscando contactos con:', query, 'URL:', searchUrl);
 
-        // Ocultamos paginación en modo búsqueda
+        // Ocultar paginación mientras estamos en modo búsqueda
         if ($paginationWrap.length) {
             $paginationWrap.hide();
         }
