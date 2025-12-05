@@ -2020,12 +2020,14 @@ class ReportesController extends Controller
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
             $movimientosTodos = Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
         }
