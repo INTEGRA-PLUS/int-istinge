@@ -96,20 +96,40 @@ class ReportesController extends Controller
             $orderby=$campos[$request->orderby];
             $order=$request->order==1?'DESC':'ASC';
 
-            $facturas = Factura::where('factura.empresa',Auth::user()->empresa)
-            ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
-            ->leftjoin('contracts as ctr', 'ctr.nro', '=', 'fc.contrato_nro')
-            ->join('contactos as c', 'factura.cliente', '=', 'c.id')
-            ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
-            ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
-            ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
-            ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-                    'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus',
-                    'municipio.nombre as municipioNombre', 'c.vereda',
-                    'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
-            ->whereIn('factura.tipo', [1,2])
-            ->where('factura.estatus','<>',2)
-            ->groupby('fc.factura_id');
+            $pagos = DB::table('ingresos_factura')
+            ->select('factura', DB::raw('SUM(pago) as totalPagado'))
+            ->groupBy('factura');
+
+            $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
+                ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+                ->join('contactos as c', 'factura.cliente', '=', 'c.id')
+                ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
+                ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
+                ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
+                ->leftJoinSub($pagos, 'pagos', function ($join) {
+                    $join->on('pagos.factura', '=', 'factura.id');
+                })
+                ->select(
+                    'factura.id',
+                    'factura.codigo',
+                    'factura.nro',
+                    'factura.cot_nro',
+                    DB::raw('c.nombre as nombrecliente'),
+                    'factura.cliente',
+                    'factura.fecha',
+                    'factura.vencimiento',
+                    'factura.estatus',
+                    'municipio.nombre as municipioNombre',
+                    'i.fecha as pagada',
+                    'i.cuenta',
+                    'c.vereda',
+                    'factura.empresa',
+                    'pagos.totalPagado as pagadoTotal',
+                    'fc.contrato_nro'
+                )
+                ->whereIn('factura.tipo', [1,2])
+                ->where('factura.estatus','<>',2)
+            ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
 
             // Obtener ejemplo con manejo de reconexión
             // Guardar una copia del query builder antes de ejecutarlo
@@ -2020,12 +2040,14 @@ class ReportesController extends Controller
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
             $movimientosTodos = Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
         }
