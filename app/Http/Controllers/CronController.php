@@ -954,7 +954,11 @@ class CronController extends Controller
 
                 if(isset($grupo_corte->nro_factura_vencida) && $grupo_corte->nro_factura_vencida > 1){
                     $contrato = Contrato::Find($contacto->contrato_id);
-                    $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    if($contrato){
+                        $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    }else{
+                        continue;
+                    }
                 }
                 //** Fin desarrollo nuevo
 
@@ -4901,6 +4905,67 @@ class CronController extends Controller
             }
         }
             return "Cambio completado";
+    }
+
+
+    public function validacionFacturasContratos(){
+        $facturasContratos = DB::table('facturas_contratos')->get();
+
+        foreach($facturasContratos as $fc){
+
+            $contrato = Contrato::where('nro',$fc->contrato_nro)->first();
+            if($contrato){
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $contrato->client_id
+                ]);
+            }else{
+                $factura = Factura::Find($fc->factura_id);
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $factura->cliente
+                ]);
+            }
+
+        }
+
+        //Revision de que facturas_contratos si pertenezcan al contrato que es
+        $facturasContratos = DB::table('facturas_contratos')->get();
+
+        foreach($facturasContratos as $fc){
+
+            $factura = Factura::Find($fc->factura_id);
+            if($factura->cliente != $fc->client_id){
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $factura->cliente
+                ]);
+            }
+
+            $contratos = Contrato::where('client_id',$factura->cliente)->get();
+
+            $siPertenece = 0;
+            foreach($contratos as $c){
+                if($c->nro == $fc->contrato_nro && $siPertenece == 0){
+                    $siPertenece = 1;
+                }
+            }
+
+            if($siPertenece == 0){
+                $fc->contrato_nro = $c->nro;
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'contrato_nro' => $c->nro
+                ]);
+            }
+
+        }
+
+        return "ok validaciones";
     }
 
         /**
