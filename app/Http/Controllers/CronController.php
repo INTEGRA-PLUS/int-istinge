@@ -966,7 +966,9 @@ class CronController extends Controller
 
                 //ESto es lo que hay que refactorizar.
                 $facturaContratos = DB::table('facturas_contratos')
-                ->where('factura_id',$factura->id)->pluck('contrato_nro');
+                ->where('factura_id',$factura->id)
+                ->where('client_id',$factura->cliente)
+                ->pluck('contrato_nro');
 
                 if(!DB::table('facturas_contratos')
                 ->where('factura_id',$factura->id)->first()){
