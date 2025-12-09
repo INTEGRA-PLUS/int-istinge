@@ -262,7 +262,7 @@
 
 <div>
     <p id="contratos_nombres"></p>
-    <input type="hidden" name="contratos_asociados" id="contratos_asociados">
+    <input type="hidden" name="contratos_asociados" id="contratos_asociados" value="{{$contratosFacturas->contrato_nro}}">
 </div>
 
             <!-- Desgloce -->

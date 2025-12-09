@@ -1565,6 +1565,8 @@ class FacturasController extends Controller{
             return back()->with('error', 'Debe escoger un contrato asociado a la factura.');
        }
 
+       return $request->all();
+
         $user = Auth::user();
         if ($factura) {
             if ($factura->estatus==1) {
