@@ -1565,8 +1565,6 @@ class FacturasController extends Controller{
             return back()->with('error', 'Debe escoger un contrato asociado a la factura.');
        }
 
-       return $request->all();
-
         $user = Auth::user();
         if ($factura) {
             if ($factura->estatus==1) {
@@ -1619,16 +1617,35 @@ class FacturasController extends Controller{
 
                 //Asociamos los contratos asociados a la factura.
                 if(isset($request->contratos_asociados)){
+                    // Eliminamos todas las relaciones de contratos asociados para evitar duplicados
+                    DB::table('facturas_contratos')
+                        ->where('factura_id', $factura->id)
+                        ->where('is_cron', 0)
+                        ->delete();
 
                     $contratosArray = explode(',',$request->contratos_asociados);
+                    // Eliminamos valores vacíos del array
+                    $contratosArray = array_filter($contratosArray, function($value) {
+                        return trim($value) !== '';
+                    });
+
                     for($i = 0 ; $i < count($contratosArray); $i++){
-                        DB::table('facturas_contratos')->insert([
-                            'factura_id' => $factura->id,
-                            'contrato_nro' => $contratosArray[$i],
-                            'client_id' => $factura->cliente,
-                            'is_cron' => 0,
-                            'created_by' => $user->id,
-                        ]);
+                        $contratoNro = trim($contratosArray[$i]);
+                        // Verificamos que no exista ya esta relación para evitar duplicados
+                        $existe = DB::table('facturas_contratos')
+                            ->where('factura_id', $factura->id)
+                            ->where('contrato_nro', $contratoNro)
+                            ->first();
+
+                        if(!$existe){
+                            DB::table('facturas_contratos')->insert([
+                                'factura_id' => $factura->id,
+                                'contrato_nro' => $contratoNro,
+                                'client_id' => $factura->cliente,
+                                'is_cron' => 0,
+                                'created_by' => $user->id,
+                            ]);
+                        }
                     }
                 }
 
