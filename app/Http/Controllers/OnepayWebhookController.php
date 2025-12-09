@@ -33,6 +33,23 @@ class OnepayWebhookController extends Controller
             'headers' => $request->headers->all(),
         ]);
 
+        if (!$tokenHeader) {
+            Log::warning('Onepay webhook sin x-webhook-token', [
+                'all_headers' => $request->headers->all(),
+            ]);
+
+            return response()->json(['message' => 'Token faltante'], 401);
+        }
+
+        // Si tenemos un token esperado y no coincide, solo lo dejamos en log
+        if ($expectedTokenId && $tokenHeader !== $expectedTokenId) {
+            Log::warning('Onepay webhook token ID distinto (no se bloquea la petición)', [
+                'expected_token_id' => $expectedTokenId,
+                'received_token_id' => $tokenHeader,
+            ]);
+            // OJO: aquí NO hacemos return, seguimos al siguiente paso
+        }
+
         // 2) Validar firma HMAC del body
         if (!$signatureHeader) {
             Log::warning('Onepay webhook sin signature', [
@@ -40,6 +57,19 @@ class OnepayWebhookController extends Controller
             ]);
 
             return response()->json(['message' => 'Sin firma'], 401);
+        }
+
+        // Onepay firma el body bruto con HMAC-SHA256 (hex)
+        $calculatedSignature = hash_hmac('sha256', $rawBody, $secretKey);
+        // Si Onepay la enviara en base64, sería:
+        // $calculatedSignature = base64_encode(hash_hmac('sha256', $rawBody, $secretKey, true));
+
+        if (!hash_equals($calculatedSignature, $signatureHeader)) {
+            Log::warning('Onepay webhook firma HMAC inválida', [
+                'expected_signature' => $calculatedSignature,
+                'received_signature' => $signatureHeader,
+            ]);
+            return response()->json(['message' => 'Firma inválida'], 401);
         }
 
         // 3) Si llegamos aquí, el webhook es válido ✅
