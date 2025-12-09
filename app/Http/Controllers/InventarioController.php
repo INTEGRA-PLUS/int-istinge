@@ -956,36 +956,52 @@ class InventarioController extends Controller{
 
             $services = array();
 
-            if(isset($request->inventario)){
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
                 array_push($services,$request->inventario);
             }
 
-            if(isset($request->costo)){
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
                 array_push($services,$request->costo);
             }
 
-            if(isset($request->venta)){
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
                 array_push($services,$request->venta);
             }
 
-            if(isset($request->devolucion)){
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
                 array_push($services,$request->devolucion);
             }
 
-            if(isset($request->autoretencion)){
+            if(isset($request->autoretencion) && $request->autoretencion != '' && $request->autoretencion != '0'){
                 array_push($services,$request->autoretencion);
             }
 
+            // Eliminar valores vacíos y duplicados del array de servicios
+            $services = array_filter($services, function($value) {
+                return trim($value) !== '' && $value !== '0' && $value !== 0;
+            });
+            $services = array_values(array_unique($services));
+
             if($request->cuentacontable){
-                $request->cuentacontable = array_merge($request->cuentacontable, $services);
+                // Eliminar valores vacíos y duplicados del array de cuentas contables
+                $request->cuentacontable = array_filter($request->cuentacontable, function($value) {
+                    return trim($value) !== '' && $value !== '0' && $value !== 0;
+                });
+                $request->cuentacontable = array_values($request->cuentacontable);
+                // Combinar y eliminar duplicados
+                $request->cuentacontable = array_values(array_unique(array_merge($request->cuentacontable, $services)));
             }else{
                 $request->cuentacontable = $services;
             }
 
             //actualizando cuentas del inventario
             $insertsCuenta=array();
-            if ($request->cuentacontable) {
+            if ($request->cuentacontable && count($request->cuentacontable) > 0) {
                 foreach ($request->cuentacontable as $key) {
+                    // Asegurar que el valor no esté vacío
+                    if(trim($key) === '' || $key === '0' || $key === 0){
+                        continue;
+                    }
 
                     if(!DB::table('producto_cuentas')->
                     where('cuenta_id',$key)->
@@ -1015,7 +1031,7 @@ class InventarioController extends Controller{
             }
 
             //Actualizacion de cuentas contables por tipo
-            if(isset($request->inventario)){
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
                 $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->inventario)->first();
                 if($inven){
                     $inven->tipo = 1;
@@ -1023,7 +1039,7 @@ class InventarioController extends Controller{
                 }
             }
 
-            if(isset($request->costo)){
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
                 $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->costo)->first();
                 if($inven){
                     $inven->tipo = 2;
@@ -1031,7 +1047,7 @@ class InventarioController extends Controller{
                 }
             }
 
-            if(isset($request->venta)){
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
                 $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->venta)->first();
                 if($inven){
                     $inven->tipo = 3;
@@ -1039,7 +1055,7 @@ class InventarioController extends Controller{
                 }
             }
 
-            if(isset($request->devolucion)){
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
                 $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->devolucion)->first();
                 if($inven){
                     $inven->tipo = 4;
