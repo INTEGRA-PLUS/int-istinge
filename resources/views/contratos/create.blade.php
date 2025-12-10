@@ -567,6 +567,7 @@
                                     required="" title="Seleccione" onchange="visibilidad(this)">
                                     <option value="1">Fibra</option>
                                     <option value="2">Inalámbrico</option>
+                                    <option value="3">Cableado UTP</option>
                                 </select>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('tecnologia') }}</strong>
