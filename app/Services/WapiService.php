@@ -90,22 +90,37 @@ class WapiService
         );
     }
 
-    public function getContacts(int $page = 1, int $perPage = 20)
-    {
+    public function getContacts(
+        int $page = 1,
+        int $perPage = 20,
+        ?string $channelId = null,
+        ?string $q = null
+    ) {
         $query = [
             'page'    => $page,
             'perPage' => $perPage,
         ];
 
+        // Siempre que haya canal, lo mandamos
+        if (!is_null($channelId) && trim($channelId) !== '') {
+            $query['channelId'] = trim($channelId);
+        }
+
+        // Solo si queremos búsqueda, usamos q
+        if (!is_null($q) && trim($q) !== '') {
+            $query['q'] = trim($q);
+        }
+
         return $this->makeRequest(
             "GET",
             $this->baseUri . "/api/v1/contacts",
-            $query, // 👈 query string con page/perPage
+            $query,      // query string: page, perPage, channelId, q
             [],
             $this->headers,
             true
         );
     }
+
 
 
     public function getContactMessages(string $contactId)
