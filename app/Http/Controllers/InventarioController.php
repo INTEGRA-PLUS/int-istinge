@@ -956,95 +956,167 @@ class InventarioController extends Controller{
 
             $services = array();
 
-            if(isset($request->inventario)){
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
                 array_push($services,$request->inventario);
             }
 
-            if(isset($request->costo)){
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
                 array_push($services,$request->costo);
             }
 
-            if(isset($request->venta)){
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
                 array_push($services,$request->venta);
             }
 
-            if(isset($request->devolucion)){
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
                 array_push($services,$request->devolucion);
             }
 
-            if(isset($request->autoretencion)){
+            if(isset($request->autoretencion) && $request->autoretencion != '' && $request->autoretencion != '0'){
                 array_push($services,$request->autoretencion);
             }
 
+            // Eliminar solo valores vacíos, pero mantener duplicados ya que pueden ser de diferentes tipos
+            $services = array_filter($services, function($value) {
+                return trim($value) !== '' && $value !== '0' && $value !== 0;
+            });
+            $services = array_values($services);
+
             if($request->cuentacontable){
-                $request->cuentacontable = array_merge($request->cuentacontable, $services);
+                // Eliminar solo valores vacíos del array de cuentas contables
+                $request->cuentacontable = array_filter($request->cuentacontable, function($value) {
+                    return trim($value) !== '' && $value !== '0' && $value !== 0;
+                });
+                $request->cuentacontable = array_values($request->cuentacontable);
+                // Combinar sin eliminar duplicados (pueden ser de diferentes tipos)
+                $request->cuentacontable = array_values(array_merge($request->cuentacontable, $services));
             }else{
                 $request->cuentacontable = $services;
             }
 
-            //actualizando cuentas del inventario
+            // Primero procesar los tipos específicos (inventario, costo, venta, devolucion)
+            // Cada tipo debe tener su propio registro, incluso si comparten la misma cuenta_id
             $insertsCuenta=array();
-            if ($request->cuentacontable) {
+
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->inventario)->where('tipo', 1)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 1 (inventario)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->inventario;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 1;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 1;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->costo)->where('tipo', 2)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 2 (costo)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->costo;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 2;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 2;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->venta)->where('tipo', 3)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 3 (venta)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->venta;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 3;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 3;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->devolucion)->where('tipo', 4)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 4 (devolucion)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->devolucion;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 4;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 4;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            // Ahora procesar las cuentas contables adicionales (las que no son de tipo específico)
+            // Crear array con las cuentas de tipo específico para excluirlas
+            $cuentasTipoEspecifico = array();
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0') $cuentasTipoEspecifico[] = $request->inventario;
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0') $cuentasTipoEspecifico[] = $request->costo;
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0') $cuentasTipoEspecifico[] = $request->venta;
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0') $cuentasTipoEspecifico[] = $request->devolucion;
+            if(isset($request->autoretencion) && $request->autoretencion != '' && $request->autoretencion != '0') $cuentasTipoEspecifico[] = $request->autoretencion;
+
+            if ($request->cuentacontable && count($request->cuentacontable) > 0) {
                 foreach ($request->cuentacontable as $key) {
+                    // Asegurar que el valor no esté vacío
+                    if(trim($key) === '' || $key === '0' || $key === 0){
+                        continue;
+                    }
 
-                    if(!DB::table('producto_cuentas')->
+                    // Si esta cuenta es de tipo específico, ya fue procesada arriba, saltarla
+                    if(in_array($key, $cuentasTipoEspecifico)){
+                        continue;
+                    }
+
+                    // Verificar si existe algún registro con esta cuenta_id sin tipo específico
+                    $existe = DB::table('producto_cuentas')->
                     where('cuenta_id',$key)->
-                    where('inventario_id',$inventario->id)->first()){
+                    where('inventario_id',$inventario->id)->
+                    whereNull('tipo')->first();
 
+                    if(!$existe){
+                        // Si no existe, insertar uno nuevo sin tipo
                         $idCuentaPro = DB::table('producto_cuentas')->insertGetId([
                             'cuenta_id' => $key,
                             'inventario_id' => $inventario->id
                         ]);
-
+                        $insertsCuenta[]=$idCuentaPro;
                     }else{
-                        $idCuentaPro = DB::table('producto_cuentas')->
-                        where('cuenta_id',$key)->
-                        where('inventario_id',$inventario->id)->first()->id;
+                        // Si ya existe, usar ese ID
+                        $insertsCuenta[]=$existe->id;
                     }
-                    $insertsCuenta[]=$idCuentaPro;
                 }
-                if (count($insertsCuenta)>0) {
-                    DB::table('producto_cuentas')
-                    ->where('inventario_id',$inventario->id)
-                    ->whereNotIn('id',$insertsCuenta)->delete();
-                }
+            }
+
+            // Eliminar registros que no están en la lista
+            if (count($insertsCuenta)>0) {
+                DB::table('producto_cuentas')
+                ->where('inventario_id',$inventario->id)
+                ->whereNotIn('id',$insertsCuenta)->delete();
             }else{
+                // Si no hay registros para mantener, eliminar todos
                 DB::table('producto_cuentas')
                     ->where('inventario_id',$inventario->id)
                     ->delete();
-            }
-
-            //Actualizacion de cuentas contables por tipo
-            if(isset($request->inventario)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->inventario)->first();
-                if($inven){
-                    $inven->tipo = 1;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->costo)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->costo)->first();
-                if($inven){
-                    $inven->tipo = 2;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->venta)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->venta)->first();
-                if($inven){
-                    $inven->tipo = 3;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->devolucion)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->devolucion)->first();
-                if($inven){
-                    $inven->tipo = 4;
-                    $inven->save();
-                }
             }
 
             if(isset($request->autoretencion)){
