@@ -28,6 +28,8 @@ use App\Model\Ingresos\FacturaRetencion;
 use App\Producto;
 use Auth;
 use App\Services\EmisionesService;
+use App\FormaPago;
+use App\Puc;
 
 include_once(app_path() .'/../public/routeros_api.class.php');
 use RouterosAPI;
@@ -5224,4 +5226,201 @@ class CronController extends Controller
 
         return response()->json($resultado);
     }
+
+    public function onepayIngresosCron()
+    {
+        $pendientes = DB::table('onepay_events')
+            ->where('status', 'pending')
+            ->orderBy('id')
+            ->limit(50)
+            ->get();
+
+        if ($pendientes->isEmpty()) {
+            Log::info('Onepay Cron: no hay eventos pendientes');
+            return response('Sin pendientes', 200);
+        }
+
+        foreach ($pendientes as $evento) {
+
+            DB::beginTransaction();
+
+            try {
+
+                // 1) Buscar la factura asociada
+                $factura = Factura::find($evento->factura_id);
+
+                if (!$factura) {
+                    DB::table('onepay_events')
+                        ->where('id', $evento->id)
+                        ->update([
+                            'status'        => 'failed',
+                            'error_message' => 'Factura no encontrada',
+                            'updated_at'    => now(),
+                        ]);
+
+                    DB::commit();
+                    continue;
+                }
+
+                $empresaId = $factura->empresa;
+
+                // 2) Elegir un usuario "sistema" para esa empresa
+                $user = DB::table('users')
+                    ->where('empresa', $empresaId)
+                    ->orderBy('id')
+                    ->first();
+
+                if (!$user) {
+                    throw new \Exception('Usuario sistema no encontrado para esta empresa');
+                }
+
+                Auth::loginUsingId($user->id);
+
+                // 3) Elegir banco/caja donde se va a registrar el ingreso
+                $banco = Banco::where('empresa', $empresaId)
+                    ->where('estatus', 1)
+                    ->first();
+
+                if (!$banco) {
+                    throw new \Exception('No hay un banco activo para esta empresa');
+                }
+
+                // 4) Buscar cuenta PUC (contable) para Onepay → forma_pago (puc_banco)
+                //    Usamos el modelo Puc (asegúrate de tener: use App\Puc; arriba)
+                $pucOnepay = Puc::where('empresa', $empresaId)
+                    ->where('nombre', 'like', '%onepay%')
+                    ->first();
+
+                if (!$pucOnepay) {
+                    throw new \Exception('No existe una cuenta PUC con nombre LIKE "%onepay%"');
+                }
+
+                // 5) Buscar forma de pago Onepay (metodo_pago)
+                //    Usamos el modelo FormaPago (asegúrate de tener: use App\FormaPago; arriba)
+                $formaPagoOnepay = FormaPago::where('empresa', $empresaId)
+                    ->where('nombre', 'like', '%onepay%')
+                    ->first();
+
+                if (!$formaPagoOnepay) {
+                    // búsqueda global si no existe por empresa
+                    $formaPagoOnepay = FormaPago::whereNull('empresa')
+                        ->where('nombre', 'like', '%onepay%')
+                        ->first();
+                }
+
+                if (!$formaPagoOnepay) {
+                    throw new \Exception('No existe un método de pago con nombre LIKE "%onepay%"');
+                }
+
+                // 6) Fecha y monto del evento
+                $payload = json_decode($evento->payload, true) ?: [];
+
+                $fechaPago = data_get($payload, 'invoice.paid_at')
+                    ?? data_get($payload, 'paid_at')
+                    ?? now()->toDateString();
+
+                $amount = (float) $evento->amount;
+
+                if ($amount <= 0) {
+                    throw new \Exception('Monto <= 0 en el evento Onepay');
+                }
+
+                // 7) Crear un Request falso igual al del store()
+                $fakeRequest = new \Illuminate\Http\Request();
+
+                $fakeRequest->merge([
+                    'tipo'              => 1,  // pago a facturas
+                    'realizar'          => 1,  // pagos normales (no categoría)
+                    'cliente'           => $factura->cliente,
+                    'cuenta'            => $banco->id,
+                    'metodo_pago'       => $formaPagoOnepay->id,
+                    'notas'             => 'Pago automático Onepay',
+                    'fecha'             => Carbon::parse($fechaPago)->format('Y-m-d'),
+                    'observaciones'     => 'Pago automático Onepay '.$evento->onepay_invoice_id,
+                    'comprobante_pago'  => 'ONEPAY-'.$evento->onepay_invoice_id,
+                    'factura_pendiente' => [$factura->id],
+                    'precio'            => [$amount],
+                    'tipo_electronica'  => null,
+                    'saldofavor'        => 0,
+                    'uso_saldo'         => 0,
+                    'cant_facturas'     => 1,
+                    'tirilla'           => 0,
+                    'tirilla_wpp'       => 0,
+
+                    // 👉 Muy importante: esta es la cuenta PUC (puc_banco) que usará IngresosFactura
+                    'forma_pago'        => $pucOnepay->id,
+                ]);
+
+                // 8) Reutilizar toda la lógica del store original
+                /** @var \App\Http\Controllers\IngresosController $ingresosController */
+                $ingresosController = app(\App\Http\Controllers\IngresosController::class);
+                $response = $ingresosController->store($fakeRequest);
+                // Lo importante es si se creó el ingreso, no el redirect
+
+                // 9) Buscar ingreso creado
+                $ingresoCreado = Ingreso::where('empresa', $empresaId)
+                    ->where('cliente', $factura->cliente)
+                    ->where('comprobante_pago', 'ONEPAY-'.$evento->onepay_invoice_id)
+                    ->orderBy('id', 'desc')
+                    ->first();
+
+                if (!$ingresoCreado) {
+                    DB::table('onepay_events')
+                        ->where('id', $evento->id)
+                        ->update([
+                            'status'        => 'failed',
+                            'error_message' => 'Ingreso no creado (ver logs store)',
+                            'updated_at'    => now(),
+                        ]);
+
+                    DB::commit();
+                    Auth::logout();
+                    continue;
+                }
+
+                // 10) Evento procesado
+                DB::table('onepay_events')
+                    ->where('id', $evento->id)
+                    ->update([
+                        'status'       => 'processed',
+                        'ingreso_id'   => $ingresoCreado->id,
+                        'processed_at' => now(),
+                        'updated_at'   => now(),
+                    ]);
+
+                DB::commit();
+
+                Log::info('Onepay procesado correctamente', [
+                    'event_id'  => $evento->id,
+                    'invoice'   => $evento->onepay_invoice_id,
+                    'factura'   => $factura->id,
+                    'ingreso'   => $ingresoCreado->id,
+                ]);
+
+                Auth::logout();
+
+            } catch (\Throwable $e) {
+
+                DB::rollBack();
+
+                DB::table('onepay_events')
+                    ->where('id', $evento->id)
+                    ->update([
+                        'status'        => 'failed',
+                        'error_message' => substr($e->getMessage(), 0, 250),
+                        'updated_at'    => now(),
+                    ]);
+
+                Log::error('Error Onepay Cron', [
+                    'event_id' => $evento->id,
+                    'error'    => $e->getMessage(),
+                ]);
+
+                Auth::logout();
+            }
+        }
+
+        return response('OK Onepay Cron', 200);
+    }
+
 }

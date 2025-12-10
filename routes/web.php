@@ -103,8 +103,9 @@ Route::get('/estatus-emision-dian', 'CronController@validateEmisionApi');
 Route::get('/validar-factura-doble', 'CronController@validarFacturasDobles');
 Route::get('/validate-codigo-emision', 'CronController@validateCodeEmision');
 Route::get('/ejemploGenerarFacturas', 'CronController@ejemploGenerarFacturas');
-/*PAYU*/
+Route::get('/cron/onepay-ingresos', 'CronController@onepayIngresosCron')->name('cron.onepay.ingresos');
 
+/*PAYU*/
 Route::get('/respuestapayu', 'Controller@respuestapayu')->name('respuestapayu');
 Route::get('/pagopayu', 'Controller@pagopayu')->name('pagopayu');
 
