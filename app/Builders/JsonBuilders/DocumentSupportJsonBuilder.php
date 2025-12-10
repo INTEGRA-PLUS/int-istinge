@@ -329,7 +329,7 @@ class DocumentSupportJsonBuilder
                 'name' => $cliente->nombre,
                 'identificationType' => $cliente->identificacion->codigo_dian,
                 'address1' => $cliente->direccion,
-                'email' => $cliente->email,
+                'EMailAddress' => $cliente->email,
                 'phoneNum' => $cliente->telefono1,
                 'country' => $cliente->fk_idpais,
                 'state' => $departamento->nombre,
