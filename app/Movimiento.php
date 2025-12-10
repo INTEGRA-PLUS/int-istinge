@@ -44,7 +44,12 @@ class Movimiento extends Model
             return route($this->modulo()->modulo.'.show', IngresoR::find($this->id_modulo)->id);
         }
         else if ($this->modulo==3) {
-            return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            }else{
+                return route('pagos.show', $this->id_modulo);
+            }
         }
     }
 
@@ -86,7 +91,12 @@ class Movimiento extends Model
             return IngresoR::find($this->id_modulo)->detalle();
         }
         else if ($this->modulo==3) {
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
             return Gastos::find($this->id_modulo)->detalle();
+            }else{
+                return "Pago a documento";
+            }
         }
         else if($this->modulo==6){
             if(Ingreso::find($this->id_modulo)){
@@ -191,7 +201,13 @@ class Movimiento extends Model
                 return $obs->observaciones;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->observaciones;
+            $gasto = Gastos::find($this->id_modulo);
+
+            if($gasto){
+                return Gastos::find($this->id_modulo)->observaciones;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 
@@ -202,7 +218,12 @@ class Movimiento extends Model
                 return $notas->notas;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->notas;
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return Gastos::find($this->id_modulo)->notas;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 

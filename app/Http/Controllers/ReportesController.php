@@ -96,21 +96,56 @@ class ReportesController extends Controller
             $orderby=$campos[$request->orderby];
             $order=$request->order==1?'DESC':'ASC';
 
-            $facturas = Factura::where('factura.empresa',Auth::user()->empresa)
-            ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
-            ->leftjoin('contracts as ctr', 'ctr.nro', '=', 'fc.contrato_nro')
-            ->join('contactos as c', 'factura.cliente', '=', 'c.id')
-            ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
-            ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
-            ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
-            ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-                    'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus',
-                    'municipio.nombre as municipioNombre', 'c.vereda',
-                    'factura.empresa', 'i.fecha as pagada', 'i.cuenta', 'ig.pago as pagadoTotal','fc.contrato_nro')
-            ->whereIn('factura.tipo', [1,2])
-            ->where('factura.estatus','<>',2);
+            $pagos = DB::table('ingresos_factura')
+            ->select('factura', DB::raw('SUM(pago) as totalPagado'))
+            ->groupBy('factura');
 
-            $example = $facturas->get()->last();
+            $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
+                ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+                ->leftjoin('contracts as ctr', 'ctr.id', '=', 'fc.contrato_nro') // <-- agrega esto (ajusta columnas)
+                ->join('contactos as c', 'factura.cliente', '=', 'c.id')
+                ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
+                ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
+                ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
+                ->leftJoinSub($pagos, 'pagos', function ($join) {
+                    $join->on('pagos.factura', '=', 'factura.id');
+                })
+                ->select(
+                    'factura.id',
+                    'factura.codigo',
+                    'factura.nro',
+                    'factura.cot_nro',
+                    DB::raw('c.nombre as nombrecliente'),
+                    'factura.cliente',
+                    'factura.fecha',
+                    'factura.vencimiento',
+                    'factura.estatus',
+                    'municipio.nombre as municipioNombre',
+                    'i.fecha as pagada',
+                    'i.cuenta',
+                    'c.vereda',
+                    'factura.empresa',
+                    'pagos.totalPagado as pagadoTotal',
+                    'fc.contrato_nro'
+                )
+                ->whereIn('factura.tipo', [1,2])
+                ->where('factura.estatus','<>',2)
+            ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
+
+            // Obtener ejemplo con manejo de reconexión
+            // Guardar una copia del query builder antes de ejecutarlo
+            $exampleQuery = clone $facturas;
+            try {
+                $example = $facturas->get()->last();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Si se pierde la conexión, reconectar y reintentar
+                if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                    DB::reconnect();
+                    $example = $exampleQuery->get()->last();
+                } else {
+                    throw $e;
+                }
+            }
 
             $dates = $this->setDateRequest($request);
 
@@ -124,8 +159,8 @@ class ReportesController extends Controller
                     $facturas=$facturas->whereIn('i.cuenta', $cajasUsuario);
                 }
             }
-            if($request->grupo){
-                $facturas=$facturas->where('contracts.grupo_corte', $request->grupo);
+            if ($request->grupo) {
+                $facturas = $facturas->where('ctr.grupo_corte', $request->grupo);
             }
 
             if($request->formapago){
@@ -133,7 +168,21 @@ class ReportesController extends Controller
             }
 
             $ides=array();
-            $facturas=$facturas->OrderBy($orderby, $order)->get();
+
+            // Obtener facturas con manejo de reconexión y chunking para evitar "MySQL server has gone away"
+            // Guardar una copia del query builder antes de ejecutarlo
+            $facturasQuery = clone $facturas;
+            try {
+                $facturas=$facturas->OrderBy($orderby, $order)->get();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Si se pierde la conexión, reconectar y reintentar
+                if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                    DB::reconnect();
+                    $facturas=$facturasQuery->OrderBy($orderby, $order)->get();
+                } else {
+                    throw $e;
+                }
+            }
 
             foreach ($facturas as $factura) {
                 $ides[]=$factura->id;
@@ -141,14 +190,29 @@ class ReportesController extends Controller
 
             $totalFacturas=0;
             foreach ($facturas as $invoice) {
+                try {
+                    $totalInvoice = $invoice->total();
 
-                $totalInvoice = $invoice->total();
-
-                $invoice->subtotal = $totalInvoice->subsub;
-                $invoice->iva = $invoice->impuestos_totales();
-                $invoice->retenido = $factura->retenido(true);
-                $invoice->total = $totalInvoice->total - $invoice->devoluciones();
-                $totalFacturas+= $invoice->total;
+                    $invoice->subtotal = $totalInvoice->subsub;
+                    $invoice->iva = $invoice->impuestos_totales();
+                    $invoice->retenido = $invoice->retenido(true);
+                    $invoice->total = $totalInvoice->total - $invoice->devoluciones();
+                    $totalFacturas+= $invoice->pagadoTotal;
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Si se pierde la conexión durante el procesamiento, reconectar y continuar
+                    if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                        DB::reconnect();
+                        // Reintentar la operación
+                        $totalInvoice = $invoice->total();
+                        $invoice->subtotal = $totalInvoice->subsub;
+                        $invoice->iva = $invoice->impuestos_totales();
+                        $invoice->retenido = $invoice->retenido(true);
+                        $invoice->total = $totalInvoice->total - $invoice->devoluciones();
+                        $totalFacturas+= $invoice->pagadoTotal;
+                    } else {
+                        throw $e;
+                    }
+                }
             }
             if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
                 switch ($request->orderby){
@@ -171,9 +235,47 @@ class ReportesController extends Controller
 
             $subtotal=$total=0;
             if ($ides) {
-                $result=DB::table('items_factura')->whereIn('factura', $ides)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
-                $subtotal=$this->precision($result->total-$result->descuento);
-                $total=$this->precision((float)$totalFacturas);
+                // Procesar en chunks si hay muchos IDs para evitar "MySQL server has gone away"
+                $chunkSize = 500; // Procesar 500 facturas a la vez
+                $chunks = array_chunk($ides, $chunkSize);
+                $totalSum = 0;
+                $descuentoSum = 0;
+                $impuestoSum = 0;
+
+                foreach ($chunks as $chunk) {
+                    try {
+                        $result = DB::table('items_factura')
+                            ->whereIn('factura', $chunk)
+                            ->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))
+                            ->first();
+
+                        if ($result) {
+                            $totalSum += $result->total ?? 0;
+                            $descuentoSum += $result->descuento ?? 0;
+                            $impuestoSum += $result->impuesto ?? 0;
+                        }
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        // Si se pierde la conexión, reconectar y reintentar
+                        if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+                            DB::reconnect();
+                            $result = DB::table('items_factura')
+                                ->whereIn('factura', $chunk)
+                                ->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))
+                                ->first();
+
+                            if ($result) {
+                                $totalSum += $result->total ?? 0;
+                                $descuentoSum += $result->descuento ?? 0;
+                                $impuestoSum += $result->impuesto ?? 0;
+                            }
+                        } else {
+                            throw $e;
+                        }
+                    }
+                }
+
+                $subtotal = $this->precision($totalSum - $descuentoSum);
+                $total = $this->precision((float)$totalFacturas);
             }
 
 
@@ -185,8 +287,6 @@ class ReportesController extends Controller
             return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','formasPago'));
 
         }
-
-
     }
 
     public function ventasExport($actual, $minus){
@@ -1941,12 +2041,14 @@ class ReportesController extends Controller
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
             $movimientosTodos = Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
                 ->where('fecha', '>=', $dates['inicio'])
                 ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
         }
@@ -2550,7 +2652,7 @@ class ReportesController extends Controller
                 ->where('factura.fecha', '<=', $dates['fin']);
         }
         $ides = [];
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[] = $factura->id;
@@ -2627,7 +2729,7 @@ class ReportesController extends Controller
         }
 
         $ides=array();
-        $facturas=$facturas->OrderBy($orderby, $order)->limit(500)->get();
+        $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
             $ides[]=$factura->id;
@@ -3018,33 +3120,34 @@ class ReportesController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Terceros', 'icon' => '']);
-
+    
         // Fechas
         $dates = $this->setDateRequest($request);
-
-        // Campos para ordenar (ajusta si necesitas otras columnas)
+    
+        // Campos para ordenar
         $campos = [
             'contactos.tip_iden',
             'contactos.nit',
             'contactos.nombre',
             'm.nombre',
             'd.nombre',
-            'contactos.direccion',   // 👈 dirección antes
-            'ingresosBrutos'         // 👈 ingresos después
+            'contactos.direccion',   // dirección
+            'ingresosBrutos'         // suma de pagos
         ];
-
+    
         // Ordenamiento por defecto
         if (!$request->orderby) {
             $request->orderby = 2; // por nombre
             $request->order = 0;   // ascendente
         }
-
+    
         $orderby = $campos[$request->orderby] ?? 'contactos.nombre';
         $order   = $request->order == 1 ? 'DESC' : 'ASC';
-
+    
         // Consulta
         $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
-            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
+            // 👇 CAMBIO CLAVE: leftJoin en vez de join
+            ->leftJoin('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
             ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
             ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
             ->whereIn('f.tipo', [2])
@@ -3056,7 +3159,7 @@ class ReportesController extends Controller
                 'contactos.nombre',
                 'contactos.apellido1',
                 'contactos.apellido2',
-                'contactos.direccion',  // 👈 dirección aquí
+                'contactos.direccion',
                 'contactos.vereda',
                 'contactos.barrio',
                 'contactos.cod_postal',
@@ -3069,7 +3172,8 @@ class ReportesController extends Controller
                 'm.nombre as municipio',
                 'd.nombre as departamento',
                 'contactos.status',
-                DB::raw('SUM(ig.pago) as ingresosBrutos') // 👈 ingresos brutos al final
+                // 👇 CAMBIO CLAVE: COALESCE para que sea 0 si no hay ingresos
+                DB::raw('COALESCE(SUM(ig.pago), 0) as ingresosBrutos')
             )
             ->groupBy(
                 'contactos.id',
@@ -3093,20 +3197,20 @@ class ReportesController extends Controller
                 'd.nombre',
                 'contactos.status'
             );
-
-        // Filtro por fechas
+    
+        // Filtro por fechas (sobre la fecha de la factura)
         if ($request->input('fechas') != 8 || (!$request->has('fechas'))) {
             $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
         }
-
+    
         // Ordenar
         $contactos = $contactos->orderBy($orderby, $order)->get();
-
+    
         // Paginar igual que en balance
         $contactos = $this->paginate($contactos, 15, $request->page, $request);
-
+    
         $empresa = Empresa::find(Auth::user()->empresa);
-
+    
         return view('reportes.terceros.index')
             ->with(compact('contactos', 'request', 'empresa'));
     }

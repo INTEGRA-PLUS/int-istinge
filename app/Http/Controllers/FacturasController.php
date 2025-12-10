@@ -7,7 +7,6 @@ use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use App\Empresa; use App\Contacto; use App\TipoIdentificacion;
 use App\Impuesto; use App\NumeracionFactura;
 use App\TerminosPago; use App\Funcion; use App\Vendedor;
@@ -1481,7 +1480,7 @@ class FacturasController extends Controller{
         }else if($tipo == 2){
             return redirect('empresa/facturas/facturas_electronica')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
         }
-        return redirect('empresa/facturas')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
+        return redirect('empresa/factura-index')->with('success', $mensaje)->with('print', $print)->with('codigo', $factura->id);
     }
 
   /**
@@ -1617,16 +1616,35 @@ class FacturasController extends Controller{
 
                 //Asociamos los contratos asociados a la factura.
                 if(isset($request->contratos_asociados)){
+                    // Eliminamos todas las relaciones de contratos asociados para evitar duplicados
+                    DB::table('facturas_contratos')
+                        ->where('factura_id', $factura->id)
+                        ->where('is_cron', 0)
+                        ->delete();
 
                     $contratosArray = explode(',',$request->contratos_asociados);
+                    // Eliminamos valores vacíos del array
+                    $contratosArray = array_filter($contratosArray, function($value) {
+                        return trim($value) !== '';
+                    });
+
                     for($i = 0 ; $i < count($contratosArray); $i++){
-                        DB::table('facturas_contratos')->insert([
-                            'factura_id' => $factura->id,
-                            'contrato_nro' => $contratosArray[$i],
-                            'client_id' => $factura->cliente,
-                            'is_cron' => 0,
-                            'created_by' => $user->id,
-                        ]);
+                        $contratoNro = trim($contratosArray[$i]);
+                        // Verificamos que no exista ya esta relación para evitar duplicados
+                        $existe = DB::table('facturas_contratos')
+                            ->where('factura_id', $factura->id)
+                            ->where('contrato_nro', $contratoNro)
+                            ->first();
+
+                        if(!$existe){
+                            DB::table('facturas_contratos')->insert([
+                                'factura_id' => $factura->id,
+                                'contrato_nro' => $contratoNro,
+                                'client_id' => $factura->cliente,
+                                'is_cron' => 0,
+                                'created_by' => $user->id,
+                            ]);
+                        }
                     }
                 }
 
@@ -2684,6 +2702,23 @@ class FacturasController extends Controller{
             }else{
 
                 $factura = Factura::Find($id);
+            }
+
+
+            //Validacion de dia 00 en vencimiento
+            if (substr($factura->vencimiento, -2) == '00' || $factura->vencimiento < Carbon::now()->format("Y-m-d")) {
+                $anoMes = substr($factura->vencimiento, 0, 7);
+                $fecha = Carbon::createFromFormat('Y-m', $anoMes)->endOfMonth();
+                $factura->vencimiento = $fecha->toDateString();
+                $factura->save();
+            }
+
+            //Validacion de dia 00 en suspension
+            if (substr($factura->suspension, -2) == '00' || $factura->suspension < Carbon::now()->format("Y-m-d")) {
+                $anoMes = substr($factura->suspension, 0, 7);
+                $fecha = Carbon::createFromFormat('Y-m', $anoMes)->endOfMonth();
+                $factura->suspension = $fecha->toDateString();
+                $factura->save();
             }
 
             $empresa = Empresa::Find($factura->empresa);
@@ -5238,7 +5273,11 @@ class FacturasController extends Controller{
 
             $factura->codigo = $nro->prefijo . $inicio;
 
-            $codigoUsado = Factura::where('empresa', 1)->where('codigo', $factura->codigo)->orderBy('nro', 'asc')->get()->last();
+            $codigoUsado = Factura::where('empresa', 1)
+            ->where('codigo', $factura->codigo)
+            ->where('id', '!=', $facturaId)
+            ->where('numeracion', $nro->id)
+            ->first();
 
             if($codigoUsado){
 

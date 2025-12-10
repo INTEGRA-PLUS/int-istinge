@@ -764,7 +764,11 @@
 
     <div class="nota-content">
         <p>
+            @if($factura->term_cond != '')
+            {{ $factura->term_cond }}
+            @else
             {{ $empresa->terminos_cond }}
+            @endif
         </p>
     </div>
 

@@ -1095,6 +1095,8 @@ class IngresosController extends Controller
                     #AGREGAMOS A IP_AUTORIZADAS#
 
                     $mensaje = "- Se ha habilitado el secret.";
+                    // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                    DB::reconnect();
 
                     $ingreso->revalidacion_enable_internet = 1;
                     $ingreso->save();
@@ -1104,6 +1106,9 @@ class IngresosController extends Controller
 
 
                 }else{
+
+                // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                DB::reconnect();
 
                     $API->write('/ip/firewall/address-list/print', false);
                     $API->write('?address=' . $contrato->ip, false);
@@ -1134,6 +1139,8 @@ class IngresosController extends Controller
 
 
                             $mensaje = "- Se ha sacado la ip de morosos.";
+                            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                            DB::reconnect();
 
                             $ingreso->revalidacion_enable_internet = 1;
                             $ingreso->save();
@@ -1533,7 +1540,7 @@ class IngresosController extends Controller
             ];
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
-            $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro por un monto de $$total pesos.";
+            $message = "Estimado cliente. $nameEmpresa le informa que se ha procesado su pago por un monto de $$total pesos. Verifica el pago en el siguiente documento.";
             $body = [
                 "contact" => $contact,
                 "message" => $message,

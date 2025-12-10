@@ -887,6 +887,7 @@ class CronController extends Controller
         ->where('status', 1)
         ->where('hora_suspension','<=',$horaActual)
         ->where('fecha_suspension','!=',0)
+        ->orderby('nro_factura_vencida','asc')
         ->get();
 
         if($grupos_corte->count() > 0){
@@ -896,6 +897,8 @@ class CronController extends Controller
             foreach($grupos_corte as $grupo){
                 array_push($grupos_corte_array,$grupo->id);
             }
+
+            $whereOrder = implode(',', $grupos_corte_array);
 
             //Estamos tomando la ultima factura siempre del cliente con el orderby y el groupby, despues analizamos si esta ultima ya vencio
             $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
@@ -913,6 +916,7 @@ class CronController extends Controller
                 where('cs.fecha_suspension', null)->
                 where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
                 whereDate('f.vencimiento', '<=', now())->
+                orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
                 take(40)->
                 get();
@@ -950,7 +954,11 @@ class CronController extends Controller
 
                 if(isset($grupo_corte->nro_factura_vencida) && $grupo_corte->nro_factura_vencida > 1){
                     $contrato = Contrato::Find($contacto->contrato_id);
-                    $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    if($contrato){
+                        $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    }else{
+                        continue;
+                    }
                 }
                 //** Fin desarrollo nuevo
 
@@ -958,7 +966,9 @@ class CronController extends Controller
 
                 //ESto es lo que hay que refactorizar.
                 $facturaContratos = DB::table('facturas_contratos')
-                ->where('factura_id',$factura->id)->pluck('contrato_nro');
+                ->where('factura_id',$factura->id)
+                ->where('client_id',$factura->cliente)
+                ->pluck('contrato_nro');
 
                 if(!DB::table('facturas_contratos')
                 ->where('factura_id',$factura->id)->first()){
@@ -4028,7 +4038,7 @@ class CronController extends Controller
                 ->whereIn('c.grupo_corte', $grupos_corte_array)
                 ->select('factura.*')
                 ->orderBy('factura.updated_at', 'asc')
-                ->limit(45)
+                ->limit(20)
                 ->get();
 
             Log::info("Facturas seleccionadas para envío: " . $facturas->count());
@@ -4229,9 +4239,15 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
-
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
+                        // Si sabemos que, a pesar del 500, el mensaje se envía igual:
+                        if ($response->statusCode == 500) {
+                            $factura->whatsapp = 1;
+                            $factura->save();
+                            Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
+                        }
+                        sleep(5);
                         continue;
                     }
 
@@ -4241,12 +4257,15 @@ class CronController extends Controller
 
                     if (!isset($response->status) || $response->status !== "success") {
                         Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($response));
+                        sleep(5);
                         continue;
                     }
 
                     $factura->whatsapp = 1;
                     $factura->save();
                     Log::info("Factura {$factura->codigo}: enviada por META ✅");
+                    sleep(5);
+
                 }
             }
 
@@ -4888,6 +4907,67 @@ class CronController extends Controller
             }
         }
             return "Cambio completado";
+    }
+
+
+    public function validacionFacturasContratos(){
+        $facturasContratos = DB::table('facturas_contratos')->get();
+
+        foreach($facturasContratos as $fc){
+
+            $contrato = Contrato::where('nro',$fc->contrato_nro)->first();
+            if($contrato){
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $contrato->client_id
+                ]);
+            }else{
+                $factura = Factura::Find($fc->factura_id);
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $factura->cliente
+                ]);
+            }
+
+        }
+
+        //Revision de que facturas_contratos si pertenezcan al contrato que es
+        $facturasContratos = DB::table('facturas_contratos')->get();
+
+        foreach($facturasContratos as $fc){
+
+            $factura = Factura::Find($fc->factura_id);
+            if($factura->cliente != $fc->client_id){
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'client_id' => $factura->cliente
+                ]);
+            }
+
+            $contratos = Contrato::where('client_id',$factura->cliente)->get();
+
+            $siPertenece = 0;
+            foreach($contratos as $c){
+                if($c->nro == $fc->contrato_nro && $siPertenece == 0){
+                    $siPertenece = 1;
+                }
+            }
+
+            if($siPertenece == 0){
+                $fc->contrato_nro = $c->nro;
+                DB::table('facturas_contratos')
+                ->where('id',$fc->id)
+                ->update([
+                   'contrato_nro' => $c->nro
+                ]);
+            }
+
+        }
+
+        return "ok validaciones";
     }
 
         /**

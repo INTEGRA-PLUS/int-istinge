@@ -90,4 +90,34 @@ class WapiService
         );
     }
 
+    public function getContacts(int $page = 1, int $perPage = 20)
+    {
+        $query = [
+            'page'    => $page,
+            'perPage' => $perPage,
+        ];
+
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/contacts",
+            $query, // 👈 query string con page/perPage
+            [],
+            $this->headers,
+            true
+        );
+    }
+
+
+    public function getContactMessages(string $contactId)
+    {
+        return $this->makeRequest(
+            "GET",
+            $this->baseUri . "/api/v1/contacts/{$contactId}/messages",
+            [],
+            [],
+            $this->headers,
+            true
+        );
+    }
+
 }
