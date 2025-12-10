@@ -1774,45 +1774,44 @@ class CRMController extends Controller
         }
     }
 
-    // Funcion para filtro de busqueda de numeros de telefono
     public function chatMetaSearch(Request $request, WapiService $wapiService)
     {
         $query = trim($request->input('q', ''));
-
+    
         if (strlen($query) < 3) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'La búsqueda debe tener al menos 3 caracteres',
             ], 400);
         }
-
+    
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 1)
             ->where('meta', 0)
             ->first();
-
+    
         if (!$instance || !$instance->uuid) {
             \Log::warning("🔎 [META] Búsqueda '{$query}' sin instancia/uuid válida");
-
+    
             return response()->json([
                 'status'  => 'error',
                 'message' => 'No se encontró instancia de Chat Meta con canal válido.',
             ], 400);
         }
-
+    
         try {
             $page    = 1;
-            $perPage = 50; // máximo de resultados que queremos
-
+            $perPage = 20; // pedimos bastantes para filtrar luego
+    
             \Log::info("🔎 [META] Búsqueda '{$query}' usando q + channelId", [
                 'page'      => $page,
                 'perPage'   => $perPage,
                 'channelId' => $instance->uuid,
             ]);
-
-            // AHORA: getContacts con channelId + q
+    
+            // 👉 Llamamos a la API CON channelId y q
             $response = $wapiService->getContacts($page, $perPage, $instance->uuid, $query);
-
+    
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1820,49 +1819,65 @@ class CRMController extends Controller
             } else {
                 $data = (array) $response;
             }
-
+    
             \Log::info("🔎 [META] Respuesta RAW búsqueda '{$query}': " . json_encode($data));
-
+    
             if (
-                isset($data['status']) && $data['status'] === 'success' &&
-                isset($data['data']['data']) && is_array($data['data']['data'])
+                !isset($data['status']) ||
+                $data['status'] !== 'success' ||
+                !isset($data['data']['data']) ||
+                !is_array($data['data']['data'])
             ) {
-                $contacts   = $data['data']['data'];
-                $pagination = $data['data']['pagination'] ?? null;
-
-                // Extra filtro por seguridad
-                $contacts = array_filter($contacts, function ($c) use ($instance) {
-                    return isset($c['channel']['uuid']) &&
-                        $c['channel']['uuid'] === $instance->uuid;
-                });
-
-                $contacts = array_values($contacts);
-                $total    = $pagination['total'] ?? count($contacts);
-
-                // Limitar por si acaso
-                $contactsLimited = array_slice($contacts, 0, 50);
-
-                return response()->json([
-                    'status'   => 'success',
-                    'contacts' => $contactsLimited,
-                    'total'    => $total,
+                \Log::warning("🔎 [META] Respuesta inválida al buscar '{$query}'", [
+                    'data' => $data,
                 ]);
+    
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Respuesta inválida de la API de contactos',
+                ], 400);
             }
-
-            \Log::warning("🔎 [META] Respuesta inválida al buscar '{$query}'", [
-                'data' => $data,
-            ]);
-
+    
+            // Contactos que devolvió la API
+            $contacts   = $data['data']['data'];
+            $pagination = $data['data']['pagination'] ?? null;
+    
+            // 1️⃣ Filtro por canal (por seguridad, por si la API ignora channelId)
+            $contacts = array_filter($contacts, function ($c) use ($instance) {
+                return isset($c['channel']['uuid']) &&
+                       $c['channel']['uuid'] === $instance->uuid;
+            });
+    
+            // 2️⃣ Filtro local por nombre/teléfono usando la query
+            $contacts = array_filter($contacts, function ($c) use ($query) {
+                $phone = $c['phone'] ?? '';
+                $name  = $c['name']  ?? '';
+    
+                return (
+                    stripos($phone, $query) !== false ||
+                    stripos($name,  $query) !== false
+                );
+            });
+    
+            $contacts = array_values($contacts);
+    
+            $total = $pagination['total'] ?? count($contacts);
+    
+            $contactsLimited = array_slice($contacts, 0, 50);
+    
+            \Log::info("🔎 [META] Búsqueda '{$query}' => " . count($contactsLimited) . " resultados después de filtro local");
+    
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Respuesta inválida de la API de contactos',
-            ], 400);
-
+                'status'   => 'success',
+                'contacts' => $contactsLimited,
+                'total'    => $total,
+            ]);
+    
         } catch (\Throwable $e) {
             \Log::error("❌ [META] Error en búsqueda de contactos '{$query}': {$e->getMessage()}", [
                 'trace' => $e->getTraceAsString(),
             ]);
-
+    
             return response()->json([
                 'status'  => 'error',
                 'message' => $e->getMessage(),

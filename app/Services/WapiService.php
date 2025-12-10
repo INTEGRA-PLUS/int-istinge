@@ -96,32 +96,33 @@ class WapiService
         ?string $channelId = null,
         ?string $q = null
     ) {
+        // Query string que se enviará al endpoint /api/v1/contacts
         $query = [
             'page'    => $page,
             'perPage' => $perPage,
         ];
-
-        // Siempre que haya canal, lo mandamos
+    
+        // Filtro de canal (uuid del canal Meta)
         if (!is_null($channelId) && trim($channelId) !== '') {
             $query['channelId'] = trim($channelId);
         }
-
-        // Solo si queremos búsqueda, usamos q
+    
+        // Filtro de búsqueda (nombre / número)
         if (!is_null($q) && trim($q) !== '') {
             $query['q'] = trim($q);
         }
-
+    
+        \Log::info('[WAPI] getContacts() con query', $query);
+    
         return $this->makeRequest(
-            "GET",
-            $this->baseUri . "/api/v1/contacts",
-            $query,      // query string: page, perPage, channelId, q
+            'GET',
+            $this->baseUri . '/api/v1/contacts',
+            $query,  
             [],
             $this->headers,
             true
         );
     }
-
-
 
     public function getContactMessages(string $contactId)
     {
