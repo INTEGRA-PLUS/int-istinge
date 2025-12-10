@@ -295,7 +295,7 @@ class DocumentSupportJsonBuilder
                 'country'=> $empresa->fk_idpais,
                 'postalZone_c'=> $municipio->codigo_completo,
                 'phoneNum'=> $empresa->telefono,
-                'email' => $empresa->email,
+                'EMailAddress' => $empresa->email,
                 'attrOperationType_c' => "",
                 'faxNum' =>  '',
                 'webPage' => '',
