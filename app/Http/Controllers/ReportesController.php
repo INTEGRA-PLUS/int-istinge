@@ -102,6 +102,7 @@ class ReportesController extends Controller
 
             $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
                 ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+                ->leftjoin('contracts as ctr', 'ctr.id', '=', 'fc.contrato_nro') // <-- agrega esto (ajusta columnas)
                 ->join('contactos as c', 'factura.cliente', '=', 'c.id')
                 ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
                 ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
