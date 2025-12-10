@@ -5501,14 +5501,16 @@ class FacturasController extends Controller{
         $moneda = auth()->user()->empresa()->moneda;
 
         foreach ($facturas as $factura) {
+
+            $total = $factura->total();
             $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[0].$i, $factura->codigo)
                 ->setCellValue($letras[1].$i, date('d-m-Y', strtotime($factura->fecha)))
                 ->setCellValue($letras[2].$i, $factura->nombrecliente.' '.$factura->ape1cliente.' '.$factura->ape2cliente)
                 ->setCellValue($letras[3].$i, $factura->cliente()->tip_iden('true').' '.$factura->nitcliente)
-                ->setCellValue($letras[4].$i, $moneda.' '.$factura->parsear(($factura->total - $factura->impuestos_totales())))
+                ->setCellValue($letras[4].$i, $moneda.' '.$factura->parsear(($total->subtotal)))
                 ->setCellValue($letras[5].$i, $moneda.' '.$factura->parsear(($factura->impuestos_totales())))
-                ->setCellValue($letras[6].$i, $moneda.' '.$factura->parsear(($factura->total()->total)))
+                ->setCellValue($letras[6].$i, $moneda.' '.$factura->parsear(($total->total)))
                 ->setCellValue($letras[7].$i, $moneda.' '.$factura->parsear(($factura->pagado)))
                 ->setCellValue($letras[8].$i, $moneda.' '.$factura->parsear(($factura->porpagar)))
                 ->setCellValue($letras[9].$i, ($factura->cuenta_id) ?$factura->formaPago()->nombre:'');
