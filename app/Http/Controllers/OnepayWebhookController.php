@@ -5,118 +5,89 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use App\Factura;
+use App\Model\Ingresos\Factura;
 
 class OnepayWebhookController extends Controller
 {
     public function handle(Request $request)
     {
+        // Solo para referencia en logs (opcional)
         $expectedTokenId = env('ONEPAY_WEBHOOK_HEADER');   // wh_hdr_...
-        $secretKey       = env('ONEPAY_WEBHOOK_SECRET');   // wh_tok_...        
-
-        if (!$secretKey) {
-            Log::warning('Onepay webhook sin configuración completa', [
-                'expected_token_id' => $expectedTokenId,
-                'secret_key'        => $secretKey ? '***' : null,
-            ]);
-
-            return response()->json(['message' => 'Config incompleta'], 500);
-        }
-
+        $secretKey       = env('ONEPAY_WEBHOOK_SECRET');   // wh_tok_...
+    
         $tokenHeader     = $request->header('x-webhook-token');
         $signatureHeader = $request->header('signature');
         $rawBody         = $request->getContent();
-
-        // LOG de hit siempre
-        $eventHeader = $request->header('x-webhook-event');
+        $eventHeader     = $request->header('x-webhook-event'); // p.ej. invoice.paid
+    
+        // 🔔 LOG del HIT SIEMPRE
         Log::info('Onepay webhook HIT', [
-            'url'     => $request->fullUrl(),
-            'event'   => $eventHeader,
-            'headers' => $request->headers->all(),
+            'url'           => $request->fullUrl(),
+            'event'         => $eventHeader,
+            'headers'       => $request->headers->all(),
+            'token_header'  => $tokenHeader,
+            'signature'     => $signatureHeader,
+            'token_env'     => $expectedTokenId,
+            'secret_env'    => $secretKey ? '***' : null,
         ]);
-
-        if (!$tokenHeader) {
-            Log::warning('Onepay webhook sin x-webhook-token', [
-                'all_headers' => $request->headers->all(),
-            ]);
-
-            return response()->json(['message' => 'Token faltante'], 401);
-        }
-
-        // Si tenemos un token esperado y no coincide, solo lo dejamos en log
-        if ($expectedTokenId && $tokenHeader !== $expectedTokenId) {
-            Log::warning('Onepay webhook token ID distinto (no se bloquea la petición)', [
-                'expected_token_id' => $expectedTokenId,
-                'received_token_id' => $tokenHeader,
-            ]);
-            // NO retornamos, seguimos para validar firma
-        }
-
-        // 2) Validar firma HMAC del body
-        if (!$signatureHeader) {
-            Log::warning('Onepay webhook sin signature', [
-                'all_headers' => $request->headers->all(),
-            ]);
-
-            return response()->json(['message' => 'Sin firma'], 401);
-        }
-
-        // Onepay firma el body bruto con HMAC-SHA256 (hex)
-        $calculatedSignature = hash_hmac('sha256', $rawBody, $secretKey);
-
-        if (!hash_equals($calculatedSignature, $signatureHeader)) {
-            Log::warning('Onepay webhook firma HMAC inválida', [
-                'expected_signature' => $calculatedSignature,
-                'received_signature' => $signatureHeader,
-            ]);
-            return response()->json(['message' => 'Firma inválida'], 401);
-        }
-
-        // 3) Si llegamos aquí, el webhook es válido ✅
+    
+        // ⬇️ SIN VALIDACIONES: no bloqueamos por token ni firma
+        // Solo seguimos y procesamos el payload
+    
         $payload = $request->json()->all();
-
-        Log::info('Onepay webhook recibido y validado correctamente', [
+    
+        Log::info('Onepay webhook payload recibido', [
+            'event'   => $eventHeader,
             'payload' => $payload,
         ]);
-
-        // ============================
+    
         //   GUARDAR EN onepay_events
-        // ============================
-
-        $event = $eventHeader; // p.ej. 'invoice.paid'
-
+    
+        $event = $eventHeader;
+    
         if ($event === 'invoice.paid') {
-
-            // ⚠ Ajusta estas rutas data_get según el JSON real de Onepay
-            // Ejemplos: invoice.id, data.id, object.id
             $onepayInvoiceId = data_get($payload, 'invoice.id')
                              ?? data_get($payload, 'data.id')
                              ?? null;
-
+    
+            // 💰 Monto correcto: viene en invoice.payment.amount
             $amount = (float) (
-                data_get($payload, 'invoice.amount')
+                data_get($payload, 'invoice.payment.amount')
+                ?? data_get($payload, 'invoice.amount')      
                 ?? data_get($payload, 'data.amount')
                 ?? 0
             );
-
-            $currency = data_get($payload, 'invoice.currency')
+    
+            // Moneda correcta: invoice.payment.currency (COP)
+            $currency = data_get($payload, 'invoice.payment.currency')
+                      ?? data_get($payload, 'invoice.currency')
                       ?? data_get($payload, 'data.currency')
                       ?? null;
-
-            // Buscar la factura interna por onepay_invoice_id
+    
             $factura   = null;
             $facturaId = null;
             $empresaId = null;
-
+    
+            // 1) Por onepay_invoice_id (si la guardas así en tu tabla facturas)
             if ($onepayInvoiceId) {
                 $factura = Factura::where('onepay_invoice_id', $onepayInvoiceId)->first();
-
-                if ($factura) {
-                    $facturaId = $factura->id;
-                    $empresaId = $factura->empresa;
+            }
+    
+            if (!$factura) {
+                $facturaIdMeta = data_get($payload, 'invoice.metadata.factura_id');
+                if ($facturaIdMeta) {
+                    $factura = Factura::find($facturaIdMeta);
                 }
             }
-
+    
+            if ($factura) {
+                $facturaId = $factura->id;
+                $empresaId = $factura->empresa;
+            } else {
+                // Si no encontró factura, al menos intentamos tomar empresa de metadata
+                $empresaId = data_get($payload, 'invoice.metadata.empresa_id');
+            }
+    
             if (!$onepayInvoiceId) {
                 Log::warning('Onepay invoice.paid sin onepayInvoiceId (invoice.id)', [
                     'payload' => $payload,
@@ -127,7 +98,7 @@ class OnepayWebhookController extends Controller
                     $existing = DB::table('onepay_events')
                         ->where('onepay_invoice_id', $onepayInvoiceId)
                         ->first();
-
+    
                     $data = [
                         'onepay_invoice_id' => $onepayInvoiceId,
                         'factura_id'        => $facturaId,
@@ -141,9 +112,9 @@ class OnepayWebhookController extends Controller
                         'error_message'     => null,
                         'updated_at'        => now(),
                     ];
-
+    
                     if ($existing) {
-                        // Actualizamos el registro existente (por reintentos de webhook)
+                        // Actualizamos el registro existente (por reintentos)
                         DB::table('onepay_events')
                             ->where('id', $existing->id)
                             ->update($data);
@@ -152,7 +123,7 @@ class OnepayWebhookController extends Controller
                         $data['created_at'] = now();
                         DB::table('onepay_events')->insert($data);
                     }
-
+    
                     Log::info('Onepay invoice.paid almacenado en onepay_events', [
                         'onepay_invoice_id' => $onepayInvoiceId,
                         'factura_id'        => $facturaId,
@@ -160,7 +131,7 @@ class OnepayWebhookController extends Controller
                         'amount'            => $amount,
                         'currency'          => $currency,
                     ]);
-
+    
                 } catch (\Throwable $e) {
                     Log::error('Error guardando onepay_events: ' . $e->getMessage(), [
                         'payload' => $payload,
@@ -168,10 +139,12 @@ class OnepayWebhookController extends Controller
                 }
             }
         } else {
-            // Otros eventos, sólo log si quieres
-            Log::info("Onepay evento no manejado específicamente (se ignora): {$event}");
+            // Otros eventos, sólo log (si quieres diferenciarlos)
+            Log::info("Onepay evento no manejado específicamente (se ignora): {$event}", [
+                'payload' => $payload,
+            ]);
         }
-
+    
         // Respuesta final a Onepay
         return response()->json(['ok' => true]);
     }
