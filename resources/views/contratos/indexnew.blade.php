@@ -198,6 +198,7 @@
                             <select title="Tipo de Tecnología" class="form-control selectpicker" id="tecnologia_s" name="tecnologia_s">
                                 <option value="1">Fibra</option>
                                 <option value="2">Inalámbrica</option>
+                                <option value="3">Cableado UTP</option>
                             </select>
                         </div>
                         <div class="col-md-3 pl-1 pt-1">

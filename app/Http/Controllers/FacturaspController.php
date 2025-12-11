@@ -1503,9 +1503,9 @@ class FacturaspController extends Controller
                 $mensajeCorreo = '';
 
                 // Envio de correo con el zip.
-                if($modoBTW == 'prod'){
-                    $mensajeCorreo = $this->sendPdfEmailBTW($btw,$documentoSoporte,$cliente,$empresa,3);
-                }
+                // if($modoBTW == 'prod'){
+                //     $mensajeCorreo = $this->sendPdfEmailBTW($btw,$documentoSoporte,$cliente,$empresa,3);
+                // }
                 // Fin envio de correo con el zip.
 
                 if(request()->code){

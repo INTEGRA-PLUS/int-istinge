@@ -4987,6 +4987,8 @@ class ContratosController extends Controller
                 $request->tecnologia = 1;
             } elseif ($request->tecnologia == 'Inalambrica') {
                 $request->tecnologia = 2;
+            } elseif ($request->tecnologia == 'Cableado UTP') {
+                $request->tecnologia = 3;
             }
 
             if ($request->state == 'Habilitado') {
@@ -5205,6 +5207,8 @@ class ContratosController extends Controller
                 $request->tecnologia = 1;
             } elseif ($request->tecnologia == 'Inalambrica') {
                 $request->tecnologia = 2;
+            } elseif ($request->tecnologia == 'Cableado UTP') {
+                $request->tecnologia = 3;
             }
 
             $request->mk = (strtoupper($request->mk) == 'NO') ? 0 : 1;

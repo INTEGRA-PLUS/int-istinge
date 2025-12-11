@@ -11,6 +11,7 @@ use App\Numeracion;
 use App\Model\Inventario\Inventario;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\ItemsFactura;
+use Illuminate\Support\Facades\Schema; 
 use App\Model\Ingresos\Ingreso;
 use App\Model\Ingresos\IngresosFactura;
 use App\Model\Ingresos\IngresosCategoria;
@@ -2253,32 +2254,104 @@ class IngresosController extends Controller
         return back()->with('error', 'No existe un registro con ese id');
     }
 
-    public function destroy($id){
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+  
+    public function destroy($id)
+    {
+        $ingreso = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $id)->first();
         if ($ingreso) {
-            if ($ingreso->tipo==3) {
-                return redirect('empresa/pagos')->with('error', 'No puede editar un pago de nota de débito');
-            }else if ($ingreso->tipo==1) {
-                if ($ingreso->estatus!=2) {
-                    $ids=DB::table('ingresos_factura')->where('ingreso', $ingreso->id)->select('factura', 'pago')->get();
-                    $factura=array();
-                    foreach ($ids as $id) {
-                        $factura[]=$id->factura;
+            // ========== CAPTURAR DATOS PARA LOG (ANTES DE ELIMINAR NADA) ==========
+            $logData = null;
+            if (Schema::hasTable('logs_ingresos')) {
+                try {
+                    $logData = [
+                        'ingreso_id' => $ingreso->id,
+                        'ingreso_nro' => $ingreso->nro,
+                        'ingreso_tipo' => $ingreso->tipo,
+                        'ingreso_valor' => $ingreso->pago(), // Llamar al método pago() ANTES de borrar
+                        'ingreso_fecha' => $ingreso->fecha,
+                        'ingreso_estatus' => $ingreso->estatus,
+                        'usuario_id' => Auth::user()->id,
+                        'usuario_nombre' => Auth::user()->nombres ?? Auth::user()->name,
+                        'empresa_id' => Auth::user()->empresa,
+                        'accion' => 'eliminado',
+                        'ip' => request()->ip(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    // Capturar según el tipo (ANTES de borrar)
+                    if ($ingreso->tipo == 1) {
+                        // Facturas asociadas
+                        $facturas = DB::table('ingresos_factura')
+                            ->join('factura', 'ingresos_factura.factura', '=', 'factura.id')
+                            ->where('ingresos_factura.ingreso', $ingreso->id)
+                            ->select('factura.id', 'factura.codigo', 'ingresos_factura.pago')
+                            ->get();
+                        $logData['facturas_asociadas'] = json_encode($facturas);
+                    } elseif ($ingreso->tipo == 2) {
+                        // Categorías asociadas
+                        $categorias = IngresosCategoria::where('ingreso', $ingreso->id)->get();
+                        $logData['categorias_asociadas'] = json_encode($categorias);
+                    } elseif ($ingreso->tipo == 4) {
+                        // Gasto asociado
+                        $categorias = IngresosCategoria::where('ingreso', $ingreso->id)->get();
+                        $logData['categorias_asociadas'] = json_encode($categorias);
+
+                        $mov1 = Movimiento::where('modulo', 1)->where('id_modulo', $ingreso->id)->first();
+                        if ($mov1) {
+                            $gasto = Gastos::where('id', $mov1->id_modulo)->first();
+                            if ($gasto) {
+                                $gastoCategorias = GastosCategoria::where('gasto', $gasto->id)->get();
+                                $logData['gasto_asociado'] = json_encode([
+                                    'gasto_id' => $gasto->id,
+                                    'gasto_nro' => $gasto->nro ?? null,
+                                    'gasto_valor' => $gasto->pago ?? $gasto->total ?? null,
+                                    'categorias' => $gastoCategorias,
+                                ]);
+                            }
+                        }
                     }
-                    DB::table('factura')->where('empresa',Auth::user()->empresa)->whereIn('id', $factura)->update(['estatus'=>1]);
+
+                    // Retenciones (para todos los tipos)
+                    $retenciones = DB::table('ingresos_retenciones')
+                        ->where('ingreso', $ingreso->id)
+                        ->get();
+                    if ($retenciones->count() > 0) {
+                        $logData['retenciones_asociadas'] = json_encode($retenciones);
+                    }
+
+                    // Datos completos del ingreso (relaciones cargadas)
+                    $logData['datos_completos'] = json_encode($ingreso->toArray());
+                } catch (\Exception $e) {
+                    \Log::error('Error preparando log de eliminación ingreso: ' . $e->getMessage());
+                    $logData = null; // Si falla, no bloquear la eliminación
+                }
+            }
+            // ========== FIN CAPTURA DE DATOS ==========
+            
+            if ($ingreso->tipo == 3) {
+                return redirect('empresa/pagos')->with('error', 'No puede editar un pago de nota de débito');
+            } else if ($ingreso->tipo == 1) {
+                if ($ingreso->estatus != 2) {
+                    $ids = DB::table('ingresos_factura')->where('ingreso', $ingreso->id)->select('factura', 'pago')->get();
+                    $factura = array();
+                    foreach ($ids as $id) {
+                        $factura[] = $id->factura;
+                    }
+                    DB::table('factura')->where('empresa', Auth::user()->empresa)->whereIn('id', $factura)->update(['estatus' => 1]);
                 }
                 IngresosFactura::where('ingreso', $ingreso->id)->delete();
                 //ingresos
                 $this->destroy_transaccion(1, $ingreso->id);
-            }else if ($ingreso->tipo==2){
+            } else if ($ingreso->tipo == 2) {
                 IngresosCategoria::where('ingreso', $ingreso->id)->delete();
                 //ingresos
                 $this->destroy_transaccion(1, $ingreso->id);
-            }else if($ingreso->tipo==4){
+            } else if ($ingreso->tipo == 4) {
                 IngresosCategoria::where('ingreso', $ingreso->id)->delete();
-                $mov1=Movimiento::where('modulo', 1)->where('id_modulo', $ingreso->id)->first();
+                $mov1 = Movimiento::where('modulo', 1)->where('id_modulo', $ingreso->id)->first();
                 if ($mov1) {
-                    $gasto=Gastos::where('id', $mov1->id_modulo)->first();
+                    $gasto = Gastos::where('id', $mov1->id_modulo)->first();
                     if ($gasto) {
                         GastosCategoria::where('gasto', $gasto->id)->delete();
                         $gasto->delete();
@@ -2289,12 +2362,22 @@ class IngresosController extends Controller
             }
 
             DB::table('ingresos_retenciones')->where('ingreso', $ingreso->id)->delete();
+            // ========== GUARDAR LOG ANTES DE ELIMINAR EL INGRESO ==========
+            if ($logData !== null) {
+                try {
+                    DB::table('logs_ingresos')->insert($logData);   
+                } catch (\Exception $e) {
+                    \Log::error('Error guardando log ingreso: ' . $e->getMessage());
+                }
+            }
+            // ========== FIN GUARDADO LOG ==========
             $ingreso->delete();
 
-            $mensaje='Se ha eliminado satisfactoriamente el ingreso';
+            $mensaje = 'Se ha eliminado satisfactoriamente el ingreso';
             //return redirect('empresa/ingresos')->with('success', $mensaje);
             return back()->with('success', $mensaje);
         }
+
         return redirect('empresa/ingresos')->with('error', 'No existe un registro con ese id');
     }
 

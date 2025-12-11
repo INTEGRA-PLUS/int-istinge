@@ -102,6 +102,7 @@ class ReportesController extends Controller
 
             $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
                 ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+                ->leftjoin('contracts as ctr', 'ctr.id', '=', 'fc.contrato_nro') // <-- agrega esto (ajusta columnas)
                 ->join('contactos as c', 'factura.cliente', '=', 'c.id')
                 ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
                 ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
@@ -3119,33 +3120,34 @@ class ReportesController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Terceros', 'icon' => '']);
-
+    
         // Fechas
         $dates = $this->setDateRequest($request);
-
-        // Campos para ordenar (ajusta si necesitas otras columnas)
+    
+        // Campos para ordenar
         $campos = [
             'contactos.tip_iden',
             'contactos.nit',
             'contactos.nombre',
             'm.nombre',
             'd.nombre',
-            'contactos.direccion',   // 👈 dirección antes
-            'ingresosBrutos'         // 👈 ingresos después
+            'contactos.direccion',   // dirección
+            'ingresosBrutos'         // suma de pagos
         ];
-
+    
         // Ordenamiento por defecto
         if (!$request->orderby) {
             $request->orderby = 2; // por nombre
             $request->order = 0;   // ascendente
         }
-
+    
         $orderby = $campos[$request->orderby] ?? 'contactos.nombre';
         $order   = $request->order == 1 ? 'DESC' : 'ASC';
-
+    
         // Consulta
         $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
-            ->join('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
+            // 👇 CAMBIO CLAVE: leftJoin en vez de join
+            ->leftJoin('ingresos_factura as ig', 'f.id', '=', 'ig.factura')
             ->leftJoin('municipios as m', 'm.id', '=', 'contactos.fk_idmunicipio')
             ->leftJoin('departamentos as d', 'd.id', '=', 'contactos.fk_iddepartamento')
             ->whereIn('f.tipo', [2])
@@ -3157,7 +3159,7 @@ class ReportesController extends Controller
                 'contactos.nombre',
                 'contactos.apellido1',
                 'contactos.apellido2',
-                'contactos.direccion',  // 👈 dirección aquí
+                'contactos.direccion',
                 'contactos.vereda',
                 'contactos.barrio',
                 'contactos.cod_postal',
@@ -3170,7 +3172,8 @@ class ReportesController extends Controller
                 'm.nombre as municipio',
                 'd.nombre as departamento',
                 'contactos.status',
-                DB::raw('SUM(ig.pago) as ingresosBrutos') // 👈 ingresos brutos al final
+                // 👇 CAMBIO CLAVE: COALESCE para que sea 0 si no hay ingresos
+                DB::raw('COALESCE(SUM(ig.pago), 0) as ingresosBrutos')
             )
             ->groupBy(
                 'contactos.id',
@@ -3194,20 +3197,20 @@ class ReportesController extends Controller
                 'd.nombre',
                 'contactos.status'
             );
-
-        // Filtro por fechas
+    
+        // Filtro por fechas (sobre la fecha de la factura)
         if ($request->input('fechas') != 8 || (!$request->has('fechas'))) {
             $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
         }
-
+    
         // Ordenar
         $contactos = $contactos->orderBy($orderby, $order)->get();
-
+    
         // Paginar igual que en balance
         $contactos = $this->paginate($contactos, 15, $request->page, $request);
-
+    
         $empresa = Empresa::find(Auth::user()->empresa);
-
+    
         return view('reportes.terceros.index')
             ->with(compact('contactos', 'request', 'empresa'));
     }

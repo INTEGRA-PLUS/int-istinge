@@ -1571,14 +1571,17 @@ class CRMController extends Controller
 
         $contacts = [];
         $pagination = null;
-        $allContactsIndex = []; // Índice para búsqueda rápida
+        $allContactsIndex = [];
 
         $page = (int) $request->input('page', 1);
         $perPage = 20;
 
         try {
-            // Primero, cargar contactos para la vista inicial (página 1)
-            $response = $wapiService->getContacts($page, $perPage);
+            // ⚠️ AHORA: siempre que tengamos instancia, pasamos channelId = uuid
+            $channelId = $instance ? $instance->uuid : null;
+
+            // Página principal para la vista
+            $response = $wapiService->getContacts($page, $perPage, $channelId);
 
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
@@ -1592,9 +1595,10 @@ class CRMController extends Controller
                 isset($data['status']) && $data['status'] === 'success' &&
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
-                $contacts = $data['data']['data'];
+                $contacts   = $data['data']['data'];
                 $pagination = $data['data']['pagination'] ?? null;
 
+                // Por seguridad, filtramos igual por uuid del canal
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
                         return isset($c['channel']['uuid']) &&
@@ -1603,15 +1607,15 @@ class CRMController extends Controller
                 }
                 $contacts = array_values($contacts);
 
-                // Cargar TODOS los contactos para el índice de búsqueda
+                // Construcción de índice de búsqueda
                 $allContacts = [];
-                $totalPages = $pagination['totalPages'] ?? 1;
-                
-                // Cargar todas las páginas en paralelo (optimizado)
-                for ($i = 1; $i <= min($totalPages, 10); $i++) { // Limitar a 10 páginas por rendimiento
+                $totalPages  = $pagination['totalPages'] ?? 1;
+
+                for ($i = 1; $i <= min($totalPages, 10); $i++) {
                     try {
-                        $pageResponse = $wapiService->getContacts($i, 100); // 100 por página
-                        
+                        // ⚠️ AHORA: todas las páginas también filtradas por channelId
+                        $pageResponse = $wapiService->getContacts($i, 100, $channelId);
+
                         if (is_object($pageResponse) && isset($pageResponse->scalar)) {
                             $pageData = json_decode($pageResponse->scalar, true);
                         } elseif (is_string($pageResponse)) {
@@ -1625,30 +1629,29 @@ class CRMController extends Controller
                             isset($pageData['data']['data']) && is_array($pageData['data']['data'])
                         ) {
                             $pageContacts = $pageData['data']['data'];
-                            
+
                             if ($instance) {
                                 $pageContacts = array_filter($pageContacts, function ($c) use ($instance) {
                                     return isset($c['channel']['uuid']) &&
                                         $c['channel']['uuid'] === $instance->uuid;
                                 });
                             }
-                            
+
                             $allContacts = array_merge($allContacts, $pageContacts);
                         }
-                        
-                        usleep(100000); // 100ms delay entre peticiones
+
+                        usleep(100000); // 100ms
                     } catch (\Throwable $e) {
                         \Log::error("Error cargando página {$i}: {$e->getMessage()}");
                     }
                 }
 
-                // Crear índice simple para búsqueda: uuid => phone
                 foreach ($allContacts as $contact) {
                     if (isset($contact['uuid']) && isset($contact['phone'])) {
                         $allContactsIndex[] = [
-                            'uuid' => $contact['uuid'],
+                            'uuid'  => $contact['uuid'],
                             'phone' => $contact['phone'],
-                            'name' => $contact['name'] ?? null,
+                            'name'  => $contact['name'] ?? null,
                         ];
                     }
                 }
@@ -1663,6 +1666,7 @@ class CRMController extends Controller
         view()->share(['title' => 'CRM: Chat Meta', 'invert' => true]);
         return view('crm.chatMeta', compact('instance', 'contacts', 'pagination', 'page', 'perPage', 'allContactsIndex'));
     }
+
 
     // Funcion para cargar mensajes de los contactos
     public function chatMetaMessages(string $uuid, Request $request, WapiService $wapiService)
@@ -1712,14 +1716,16 @@ class CRMController extends Controller
     {
         $page = (int) $request->input('page', 1);
         $perPage = 20;
-        
+
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('type', 1)
             ->where('meta', 0)
             ->first();
 
         try {
-            $response = $wapiService->getContacts($page, $perPage);
+            $channelId = $instance ? $instance->uuid : null;
+
+            $response = $wapiService->getContacts($page, $perPage, $channelId);
 
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
@@ -1733,7 +1739,7 @@ class CRMController extends Controller
                 isset($data['status']) && $data['status'] === 'success' &&
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
-                $contacts = $data['data']['data'];
+                $contacts   = $data['data']['data'];
                 $pagination = $data['data']['pagination'] ?? null;
 
                 if ($instance) {
@@ -1742,33 +1748,32 @@ class CRMController extends Controller
                             $c['channel']['uuid'] === $instance->uuid;
                     });
                 }
-                
+
                 $contacts = array_values($contacts);
 
                 \Log::info("Contactos cargados en página {$page}: " . count($contacts));
 
                 return response()->json([
-                    'status' => 'success',
-                    'contacts' => $contacts,
+                    'status'     => 'success',
+                    'contacts'   => $contacts,
                     'pagination' => $pagination
                 ]);
             }
 
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'No se pudieron cargar los contactos'
             ], 400);
 
         } catch (\Throwable $e) {
             \Log::error("Error cargando más contactos: {$e->getMessage()}");
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
 
-    // Funcion para filtro de busqueda de numeros de telefono
     public function chatMetaSearch(Request $request, WapiService $wapiService)
     {
         $query = trim($request->input('q', ''));
@@ -1785,110 +1790,93 @@ class CRMController extends Controller
             ->where('meta', 0)
             ->first();
     
+        if (!$instance || !$instance->uuid) {
+            \Log::warning("🔎 [META] Búsqueda '{$query}' sin instancia/uuid válida");
+    
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No se encontró instancia de Chat Meta con canal válido.',
+            ], 400);
+        }
+    
         try {
-            $results   = [];
-            $page      = 1;
-            $perPage   = 20;   // 🔴 Usamos el mismo perPage que en loadMore
-            $maxPages  = 50;   // por si acaso, límite duro
-            $totalPages = 1;
-            $alreadyChecked = false;
+            $page    = 1;
+            $perPage = 20; // pedimos bastantes para filtrar luego
     
-            do {
-                \Log::info("🔎 [META] Búsqueda '{$query}': consultando página {$page} (perPage={$perPage})");
+            \Log::info("🔎 [META] Búsqueda '{$query}' usando q + channelId", [
+                'page'      => $page,
+                'perPage'   => $perPage,
+                'channelId' => $instance->uuid,
+            ]);
     
-                $response = $wapiService->getContacts($page, $perPage);
+            // 👉 Llamamos a la API CON channelId y q
+            $response = $wapiService->getContacts($page, $perPage, $instance->uuid, $query);
     
-                if (is_object($response) && isset($response->scalar)) {
-                    $data = json_decode($response->scalar, true);
-                } elseif (is_string($response)) {
-                    $data = json_decode($response, true);
-                } else {
-                    $data = (array) $response;
-                }
+            if (is_object($response) && isset($response->scalar)) {
+                $data = json_decode($response->scalar, true);
+            } elseif (is_string($response)) {
+                $data = json_decode($response, true);
+            } else {
+                $data = (array) $response;
+            }
     
-                if (
-                    isset($data['status']) && $data['status'] === 'success' &&
-                    isset($data['data']['data']) && is_array($data['data']['data'])
-                ) {
-                    $contacts   = $data['data']['data'];
-                    $pagination = $data['data']['pagination'] ?? null;
+            \Log::info("🔎 [META] Respuesta RAW búsqueda '{$query}': " . json_encode($data));
     
-                    \Log::info("🔎 [META] Página {$page}: " . count($contacts) . " contactos antes de filtros");
+            if (
+                !isset($data['status']) ||
+                $data['status'] !== 'success' ||
+                !isset($data['data']['data']) ||
+                !is_array($data['data']['data'])
+            ) {
+                \Log::warning("🔎 [META] Respuesta inválida al buscar '{$query}'", [
+                    'data' => $data,
+                ]);
     
-                    // Actualizar totalPages con lo que diga la API
-                    if ($pagination && isset($pagination['totalPages']) && !$alreadyChecked) {
-                        $totalPages = (int) $pagination['totalPages'];
-                        $alreadyChecked = true;
-                        \Log::info("🔎 [META] Total de páginas reportado por API: {$totalPages}");
-                    }
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Respuesta inválida de la API de contactos',
+                ], 400);
+            }
     
-                    // Filtrar por instancia (canal)
-                    if ($instance) {
-                        $contacts = array_filter($contacts, function ($c) use ($instance) {
-                            return isset($c['channel']['uuid']) &&
-                                $c['channel']['uuid'] === $instance->uuid;
-                        });
-                    }
+            // Contactos que devolvió la API
+            $contacts   = $data['data']['data'];
+            $pagination = $data['data']['pagination'] ?? null;
     
-                    \Log::info("🔎 [META] Página {$page}: " . count($contacts) . " contactos tras filtro instancia");
+            // 1️⃣ Filtro por canal (por seguridad, por si la API ignora channelId)
+            $contacts = array_filter($contacts, function ($c) use ($instance) {
+                return isset($c['channel']['uuid']) &&
+                       $c['channel']['uuid'] === $instance->uuid;
+            });
     
-                    // Filtrar por query (nombre o teléfono)
-                    foreach ($contacts as $contact) {
-                        $phone = $contact['phone'] ?? '';
-                        $name  = $contact['name']  ?? '';
+            // 2️⃣ Filtro local por nombre/teléfono usando la query
+            $contacts = array_filter($contacts, function ($c) use ($query) {
+                $phone = $c['phone'] ?? '';
+                $name  = $c['name']  ?? '';
     
-                        if (
-                            stripos($phone, $query) !== false ||
-                            stripos($name, $query) !== false
-                        ) {
-                            $results[] = $contact;
-                        }
-                    }
+                return (
+                    stripos($phone, $query) !== false ||
+                    stripos($name,  $query) !== false
+                );
+            });
     
-                    \Log::info("🔎 [META] Acumulados " . count($results) . " resultados tras página {$page}");
+            $contacts = array_values($contacts);
     
-                    // ¿Hay siguiente página?
-                    $hasNextPage = $pagination['hasNextPage'] ?? false;
+            $total = $pagination['total'] ?? count($contacts);
     
-                    // Condiciones de parada
-                    if (count($results) >= 50) {
-                        \Log::info("🔎 [META] Ya hay 50 resultados, deteniendo búsqueda");
-                        break;
-                    }
+            $contactsLimited = array_slice($contacts, 0, 50);
     
-                    if (!$hasNextPage) {
-                        \Log::info("🔎 [META] No hay más páginas según la API, deteniendo búsqueda");
-                        break;
-                    }
-    
-                    if ($page >= $totalPages) {
-                        \Log::info("🔎 [META] Llegamos a totalPages ({$totalPages}), deteniendo búsqueda");
-                        break;
-                    }
-    
-                    if ($page >= $maxPages) {
-                        \Log::warning("🔎 [META] maxPages ({$maxPages}) alcanzado, deteniendo búsqueda por seguridad");
-                        break;
-                    }
-    
-                    $page++;
-                } else {
-                    \Log::warning("🔎 [META] Respuesta inválida en página {$page} para búsqueda '{$query}'");
-                    break;
-                }
-    
-            } while (true);
-    
-            \Log::info("🔎 [META] Búsqueda '{$query}' encontró " . count($results) . " resultados totales");
+            \Log::info("🔎 [META] Búsqueda '{$query}' => " . count($contactsLimited) . " resultados después de filtro local");
     
             return response()->json([
                 'status'   => 'success',
-                'contacts' => array_slice($results, 0, 50),
-                'total'    => count($results),
+                'contacts' => $contactsLimited,
+                'total'    => $total,
             ]);
     
         } catch (\Throwable $e) {
-            \Log::error("❌ [META] Error en búsqueda de contactos: {$e->getMessage()}");
+            \Log::error("❌ [META] Error en búsqueda de contactos '{$query}': {$e->getMessage()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
     
             return response()->json([
                 'status'  => 'error',
@@ -1896,5 +1884,6 @@ class CRMController extends Controller
             ], 500);
         }
     }
+
 
 }

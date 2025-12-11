@@ -90,23 +90,39 @@ class WapiService
         );
     }
 
-    public function getContacts(int $page = 1, int $perPage = 20)
-    {
+    public function getContacts(
+        int $page = 1,
+        int $perPage = 20,
+        ?string $channelId = null,
+        ?string $q = null
+    ) {
+        // Query string que se enviará al endpoint /api/v1/contacts
         $query = [
             'page'    => $page,
             'perPage' => $perPage,
         ];
-
+    
+        // Filtro de canal (uuid del canal Meta)
+        if (!is_null($channelId) && trim($channelId) !== '') {
+            $query['channelId'] = trim($channelId);
+        }
+    
+        // Filtro de búsqueda (nombre / número)
+        if (!is_null($q) && trim($q) !== '') {
+            $query['q'] = trim($q);
+        }
+    
+        \Log::info('[WAPI] getContacts() con query', $query);
+    
         return $this->makeRequest(
-            "GET",
-            $this->baseUri . "/api/v1/contacts",
-            $query, // 👈 query string con page/perPage
+            'GET',
+            $this->baseUri . '/api/v1/contacts',
+            $query,  
             [],
             $this->headers,
             true
         );
     }
-
 
     public function getContactMessages(string $contactId)
     {

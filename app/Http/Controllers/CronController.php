@@ -560,7 +560,7 @@ class CronController extends Controller
 
                                                 if($cm->rd_item_vencimiento == 1){
 
-                                                    if($cm->dt_item_hasta > now()){
+                                                    if($cm->dt_item_hasta >= now()){
                                                         $item_reg->save();
                                                     }
                                                 }else{
