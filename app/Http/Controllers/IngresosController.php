@@ -1052,6 +1052,142 @@ class IngresosController extends Controller
         }
     }
 
+    public function storeFromOnepay(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+    
+            $empresaId   = $data['empresa_id'];
+            $clienteId   = $data['cliente_id'];
+            $facturaId   = $data['factura_id'];
+            $bancoId     = $data['banco_id'];        // ID del banco (tabla bancos) -> Onepay
+            $pucBancoId  = $data['puc_banco_id'];    // ID del PUC del banco Onepay
+            $formaPagoId = $data['forma_pago_id'];   // ID forma de pago (tabla metodos_pago o como la tengas)
+            $amount      = $data['amount'];          // valor pagado
+            $fechaPago   = $data['fecha_pago'];      // string o Carbon
+            $comprobante = $data['comprobante_pago'];
+            $userId      = $data['user_id'] ?? auth()->id();
+    
+            Log::info('storeFromOnepay: inicio', [
+                'empresa_id'   => $empresaId,
+                'cliente_id'   => $clienteId,
+                'factura_id'   => $facturaId,
+                'banco_id'     => $bancoId,
+                'puc_banco_id' => $pucBancoId,
+                'forma_pago_id'=> $formaPagoId,
+                'amount'       => $amount,
+                'comprobante'  => $comprobante,
+                'user_id'      => $userId,
+            ]);
+    
+            $factura = Factura::findOrFail($facturaId);
+    
+            // 1) Obtener numeración / caja
+            $nro = Numeracion::where('empresa', $empresaId)->firstOrFail();
+            $caja = $nro->caja;
+    
+            while (Ingreso::where('empresa', $empresaId)->where('nro', $caja)->exists()) {
+                $caja++;
+            }
+    
+            // 2) Crear el ingreso sencillo
+            $ingreso = new Ingreso;
+            $ingreso->nro              = $caja;
+            $ingreso->empresa          = $empresaId;
+            $ingreso->cliente          = $clienteId;
+            $ingreso->cuenta           = $bancoId;
+            $ingreso->metodo_pago      = $formaPagoId;
+            $ingreso->tipo             = 1; // pago a factura
+            $ingreso->fecha            = Carbon::parse($fechaPago)->format('Y-m-d');
+            $ingreso->created_by       = $userId;
+            $ingreso->comprobante_pago = $comprobante;
+            $ingreso->notas            = 'Pago automático Onepay';
+            $ingreso->observaciones    = 'Pago automático Onepay';
+            $ingreso->save();
+    
+            Log::info('storeFromOnepay: ingreso creado', [
+                'ingreso_id'  => $ingreso->id,
+                'ingreso_nro' => $ingreso->nro,
+            ]);
+    
+            // 3) Crear relación IngresosFactura
+            $items              = new IngresosFactura;
+            $items->ingreso     = $ingreso->id;
+            $items->factura     = $factura->id;
+            $items->pagado      = $amount;
+            $items->puc_factura = $factura->cuenta_id;
+            $items->puc_banco   = $pucBancoId;
+            $items->pago        = $amount;
+            $items->anticipo    = null;
+    
+            Log::info('storeFromOnepay: guardando IngresosFactura', [
+                'ingreso_id'   => $items->ingreso,
+                'factura_id'   => $items->factura,
+                'pagado'       => $items->pagado,
+                'puc_factura'  => $items->puc_factura,
+                'puc_banco'    => $items->puc_banco,
+                'pago'         => $items->pago,
+            ]);
+    
+            $items->save();
+    
+            // 4) Actualizar estado de la factura si ya quedó pagada
+            $sumaPagos = IngresosFactura::join('ingresos as i', 'i.id', 'ingresos_factura.ingreso')
+                ->where('factura', $factura->id)
+                ->where('i.estatus', 1)
+                ->sum('pago');
+    
+            $totalFact = $factura->total()->total;
+    
+            if (round($sumaPagos) >= round($totalFact)) {
+                $factura->estatus = 0; // pagada
+                $factura->save();
+    
+                Log::info('storeFromOnepay: factura quedó pagada totalmente', [
+                    'factura_id' => $factura->id,
+                    'sumaPagos'  => $sumaPagos,
+                    'totalFact'  => $totalFact,
+                ]);
+            }
+    
+            // 5) Avanzar numeración caja
+            $nro->caja = $caja + 1;
+            $nro->save();
+    
+            // 6) (Opcional) movimientos contables tipo up_transaccion / PucMovimiento
+            try {
+                $this->up_transaccion(
+                    1,
+                    $ingreso->id,
+                    $ingreso->cuenta,
+                    $ingreso->cliente,
+                    1,
+                    $amount,
+                    $ingreso->fecha,
+                    'Pago Onepay ' . $factura->codigo
+                );
+    
+                // Simular lo mínimo que necesita PucMovimiento::ingreso
+                $fakeReq = new Request([
+                    'forma_pago' => $pucBancoId,
+                ]);
+                $ingreso->puc_banco = $pucBancoId;
+    
+                PucMovimiento::ingreso($ingreso, 1, 2, $fakeReq);
+            } catch (\Throwable $e) {
+                Log::error('storeFromOnepay: error creando movimientos contables', [
+                    'ingreso_id' => $ingreso->id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+    
+            Log::info('storeFromOnepay: fin OK', [
+                'ingreso_id' => $ingreso->id,
+            ]);
+    
+            return $ingreso;
+        });
+    }
+
     public function funcionesPagoMK($contrato,$empresa,$ingreso){
 
         $mensaje = "";
