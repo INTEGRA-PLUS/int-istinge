@@ -583,27 +583,31 @@ class PagosController extends Controller
             }
         }else{
             $inner=array();
-            foreach ($request->categoria as $key => $value) {
-                if ($request->precio_categoria[$key]) {
-                    $impuesto = Impuesto::where('id', $request->impuesto_categoria[$key])->first();
-                    if (!$impuesto) { $impuesto = Impuesto::where('id', 0)->first(); }
-                    $cat='id_cate'.($key+1);
+            if ($request->categoria && is_array($request->categoria)) {
+                foreach ($request->categoria as $key => $value) {
+                    if ($request->precio_categoria[$key]) {
+                        $impuesto = Impuesto::where('id', $request->impuesto_categoria[$key])->first();
+                        if (!$impuesto) { $impuesto = Impuesto::where('id', 0)->first(); }
+                        $cat='id_cate'.($key+1);
 
-                    $items = new GastosCategoria;
-                    $items->gasto=$gasto->id;
-                    if($request->$cat){ //Consultar que exista el id de ese item
-                        $item = GastosCategoria::where('id', $request->$cat)->where('gasto', $gasto->id)->first();
-                        if ($item) { $items = $item; }
+                        $items = new GastosCategoria;
+                        $items->gasto=$gasto->id;
+                        if($request->$cat){ //Consultar que exista el id de ese item
+                            $item = GastosCategoria::where('id', $request->$cat)->where('gasto', $gasto->id)->first();
+                            if ($item) { $items = $item; }
+                        }
+                        $items->valor=$this->precision($request->precio_categoria[$key]);
+                        $items->id_impuesto=$request->impuesto_categoria[$key];
+                        $items->categoria=$request->categoria[$key];
+                        $items->cant=$request->cant_categoria[$key];
+                        $items->descripcion=$request->descripcion_categoria[$key];
+                        $items->impuesto=$impuesto->porcentaje;
+                        $items->save();
+                        $inner[]=$items->id;
                     }
-                    $items->valor=$this->precision($request->precio_categoria[$key]);
-                    $items->id_impuesto=$request->impuesto_categoria[$key];
-                    $items->categoria=$request->categoria[$key];
-                    $items->cant=$request->cant_categoria[$key];
-                    $items->descripcion=$request->descripcion_categoria[$key];
-                    $items->impuesto=$impuesto->porcentaje;
-                    $items->save();
-                    $inner[]=$items->id;
                 }
+            }else{
+                return redirect('empresa/pagos')->with('error', 'No hay una categoria seleccionada');
             }
             //Eliminar los items que no se hayan modificado
             if (count($inner)>0) {

@@ -12,18 +12,35 @@
 	@endif
 @endsection
 @section('content')
-	@if(Session::has('success'))
+
+    @if(Session::has('success'))
 		<div class="alert alert-success" >
 			{{Session::get('success')}}
 		</div>
 
 		<script type="text/javascript">
-			setTimeout(function(){ 
+			setTimeout(function(){
 			    $('.alert').hide();
 			    $('.active_table').attr('class', ' ');
 			}, 5000);
 		</script>
 	@endif
+
+    @if(Session::has('error'))
+        <div class="alert alert-danger" >
+            {{Session::get('error')}}
+        </div>
+
+        <script type="text/javascript">
+            setTimeout(function(){
+                $('.alert').hide();
+                $('.active_table').attr('class', ' ');
+            }, 8000);
+        </script>
+    @endif
+
+
+
 	<div class="row card-description">
 		<div class="col-md-12 mb-5 table-responsive">
 		    <form action="{{route('pagos.index')}}">
@@ -63,7 +80,7 @@
                     @endif
                 </div>
             </form>
-            
+
             <table class="table table-striped table-hover nowrap" id="table-facturas">
                 <thead class="thead-dark">
                     <tr>
@@ -90,7 +107,7 @@
     						<td>
     							<a  href="{{route('pagos.show',$gasto->id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
     							@if(Auth::user()->modo_lectura())
-    
+
     							@else
     								<a   href="{{route('pagos.imprimir.nombre',['id' => $gasto->id, 'name'=> 'Pago No. '.$gasto->nro.'.pdf'])}}" target="_black" class="btn btn-outline-primary btn-icons" title="Imprimir"><i class="fas fa-print"></i></a>
     								@if($gasto->tipo!=3)
@@ -106,18 +123,18 @@
     									@endif
     								@endif
     							@endif
-    							
-    
+
+
     							<form action="{{ route('pagos.destroy',$gasto->id) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-gasto{{$gasto->id}}">
         						{{ csrf_field() }}
     							<input name="_method" type="hidden" value="DELETE">
     							</form>
     							<button class="btn btn-outline-danger  btn-icons negative_paging" type="submit" title="Eliminar" onclick="confirmar('eliminar-gasto{{$gasto->id}}', '¿Estas seguro que deseas eliminar el gasto?', 'Se borrara de forma permanente');"><i class="fas fa-times"></i></button>
-    							@endif 
-    
-    						</td>  
-    					</tr> 
-    				@endforeach			
+    							@endif
+
+    						</td>
+    					</tr>
+    				@endforeach
     			</tbody>
     		</table>
     		{{$gastos->render()}}
