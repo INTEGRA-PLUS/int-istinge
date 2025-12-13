@@ -3995,11 +3995,16 @@ class CronController extends Controller
         ]);
     }
 
-    public function envioFacturaWpp(WapiService $wapiService){
+    public function envioFacturaWpp(WapiService $wapiService)
+    {
         Log::info("=== Inicio de ejecución: envioFacturaWpp() ===");
 
         try {
             $empresa = Empresa::find(1);
+            if (!$empresa) {
+                Log::error("Empresa no encontrada (id=1).");
+                return;
+            }
             Log::info("Empresa encontrada: {$empresa->nombre}");
 
             $fecha = $empresa->cron_fecha_whatsapp ?? date('Y-m-d');
@@ -4015,6 +4020,7 @@ class CronController extends Controller
                 Log::info("cron_fecha_whatsapp reiniciada a: {$empresa->cron_fecha_whatsapp}");
             }
 
+            // Refrescar empresa (por si cambió algo)
             $empresa = Empresa::find(1);
 
             $grupos_corte = GrupoCorte::where('status', 1)->get();
@@ -4027,6 +4033,26 @@ class CronController extends Controller
 
             $grupos_corte_array = $grupos_corte->pluck('id')->toArray();
 
+            // ===========================
+            // ✅ Buscar instancia UNA VEZ
+            // ===========================
+            $instance = Instance::where('company_id', $empresa->id)
+                ->where('type', 1)
+                ->where('activo', 1)
+                ->first();
+
+            if (!$instance) {
+                Log::error("Instancia no encontrada para company_id={$empresa->id}.");
+                return;
+            }
+
+            // ✅ Límite dinámico según modo
+            $limit = ($instance->meta == 0) ? 45 : 15;
+            Log::info("Modo de envío detectado: " . ($instance->meta == 0 ? "WABA/Vibio (meta=0)" : "META directo (meta=1)") . " | Límite lote: {$limit}");
+
+            // ===========================
+            // ✅ Query de facturas (excluye pagas)
+            // ===========================
             $facturas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
                 ->join('contactos as con', 'con.id', 'c.client_id')
                 ->where(function ($query) {
@@ -4036,9 +4062,14 @@ class CronController extends Controller
                 ->where('factura.fecha', $fecha)
                 ->where('factura.whatsapp', 0)
                 ->whereIn('c.grupo_corte', $grupos_corte_array)
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('ingresos_factura as i')
+                        ->whereColumn('i.factura', 'factura.id'); // i.factura = factura.id
+                })
                 ->select('factura.*')
                 ->orderBy('factura.updated_at', 'asc')
-                ->limit(20)
+                ->limit($limit)
                 ->get();
 
             Log::info("Facturas seleccionadas para envío: " . $facturas->count());
@@ -4046,18 +4077,19 @@ class CronController extends Controller
             foreach ($facturas as $factura) {
                 Log::info("Procesando factura: {$factura->codigo}");
 
-                view()->share(['title' => 'Imprimir Factura']);
+                // ✅ Blindaje por si pagó entre selección y envío
+                $yaPago = DB::table('ingresos_factura')
+                    ->where('factura', $factura->id)
+                    ->exists();
 
-                $instance = Instance::where('company_id', $empresa->id)
-                    ->where('type', 1)
-                    ->where('activo', 1)
-                    ->first();
-
-                if (!$instance) {
-                    Log::error("Factura {$factura->codigo}: Instancia no encontrada.");
+                if ($yaPago) {
+                    Log::warning("Factura {$factura->codigo}: omitida porque ya registra pago en ingresos_factura.");
                     continue;
                 }
 
+                view()->share(['title' => 'Imprimir Factura']);
+
+                // Actualizar para control de orden/lotes
                 $factura->updated_at = now();
                 $factura->save();
 
@@ -4082,7 +4114,7 @@ class CronController extends Controller
                 // Prefijo dinámico
                 $prefijo = '57';
                 if (!empty($contacto->fk_idpais)) {
-                    $prefijoData = \DB::table('prefijos_telefonicos')
+                    $prefijoData = DB::table('prefijos_telefonicos')
                         ->where('iso2', strtoupper($contacto->fk_idpais))
                         ->first();
 
@@ -4239,6 +4271,7 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
+
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         // Si sabemos que, a pesar del 500, el mensaje se envía igual:
@@ -4265,7 +4298,6 @@ class CronController extends Controller
                     $factura->save();
                     Log::info("Factura {$factura->codigo}: enviada por META ✅");
                     sleep(5);
-
                 }
             }
 

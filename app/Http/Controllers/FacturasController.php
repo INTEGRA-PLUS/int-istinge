@@ -5626,33 +5626,49 @@ class FacturasController extends Controller{
         }
 
         $totalFaltantes = Factura::
-        leftjoin('contracts as c','c.id','=','factura.contrato_id')
-        ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
-        ->where('factura.fecha',$request->fecha)
-        ->where('factura.whatsapp',0)
-        // ->whereIn('c.grupo_corte',$grupos_corte_array)
-        ->select('factura.*', 'gc.nombre as grupoNombre')->count('factura.id');
+            leftJoin('contracts as c','c.id','=','factura.contrato_id')
+            ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
+            ->where('factura.fecha', $request->fecha)
+            ->where('factura.whatsapp', 0)
+            // ->whereIn('c.grupo_corte',$grupos_corte_array) // si lo vuelves a activar, igual aplica el filtro
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('ingresos_factura as i')
+                  ->whereColumn('i.factura', 'factura.id');
+            })
+            ->count('factura.id');
+
 
         $facturas = Factura::
-        leftjoin('contracts as c','c.id','=','factura.contrato_id')
-        ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
-        ->where('factura.fecha',$request->fecha)
-        ->where('factura.whatsapp',0)
-        ->whereIn('c.grupo_corte',$grupos_corte_array)
-        ->select('factura.*', 'gc.nombre as grupoNombre')
-        ->paginate();
+            leftJoin('contracts as c','c.id','=','factura.contrato_id')
+            ->join('grupos_corte as gc','gc.id','=','c.grupo_corte')
+            ->where('factura.fecha', $request->fecha)
+            ->where('factura.whatsapp', 0)
+            ->whereIn('c.grupo_corte', $grupos_corte_array)
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('ingresos_factura as i')
+                  ->whereColumn('i.factura', 'factura.id'); // i.factura = factura.id
+            })
+            ->select('factura.*', 'gc.nombre as grupoNombre')
+            ->paginate();
+
 
         $sinTelefono = Factura::
-            leftjoin('contracts as c', 'c.id', '=', 'factura.contrato_id')
+            leftJoin('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as con', 'con.id', 'c.client_id')
             ->where(function ($query) {
                 $query->whereNull('con.celular')
-                      ->WhereNull('con.telefono1');
+                      ->whereNull('con.telefono1');
             })
             ->where('factura.fecha', $request->fecha)
             ->where('factura.whatsapp', 0)
             ->whereIn('c.grupo_corte', $grupos_corte_array)
-            ->select('factura.*')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('ingresos_factura as i')
+                  ->whereColumn('i.factura', 'factura.id');
+            })
             ->count();
 
         $request->fecha = Carbon::parse($request->fecha)->format('d-m-Y');
