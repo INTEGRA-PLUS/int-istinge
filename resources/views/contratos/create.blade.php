@@ -404,7 +404,7 @@
                             <div class="col-md-4 form-group d-none" id="div_dhcp">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" id="simple_queue" name="simple_queue"
-                                    required="" title="Seleccione" data-live-search="true" data-size="5">
+                                    required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
                                     <option value="dinamica" {{ old('simple_queue') == 'dinamica' ? 'selected' : '' }}>
                                         Dinámica</option>
                                     <option value="estatica" {{ old('simple_queue') == 'estatica' ? 'selected' : '' }}>
@@ -450,7 +450,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_segmento_ip">
                                 <label class="control-label" id="div_local_address">Segmento de IP<span
                                         class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -466,7 +466,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4 form-group ">
+                            <div class="col-md-4 form-group" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address)<span
                                         class="text-danger">*</span></label>
                                 <div class="input-group">

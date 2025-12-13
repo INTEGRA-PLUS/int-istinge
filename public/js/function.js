@@ -4428,6 +4428,9 @@ function interfazChange(){
 
         document.getElementById("div_dhcp").classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
     }else if(document.getElementById("conexion").value == 1){
 
       //  document.getElementById("usuario").value = '';
@@ -4470,6 +4473,12 @@ function interfazChange(){
         document.getElementById("div_local_address").innerHTML = "Local Address";
         document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
 
+        // Asegurar que los campos de segmento e IP se muestren cuando no es DHCP
+        var divSegmentoIp = document.getElementById("div_segmento_ip");
+        var divDireccionIp = document.getElementById("div_direccion_ip");
+        if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
+        if(divDireccionIp) divDireccionIp.classList.remove('d-none');
+
         document.getElementById("div_usuario").classList.remove('d-none');
         document.getElementById("div_password").classList.remove('d-none');
 
@@ -4498,6 +4507,60 @@ function interfazChange(){
     document.getElementById("mac_address").removeAttribute('required');
     $("#conexion").selectpicker('refresh');
     $("#conexion_bd").val(document.getElementById("conexion").value);
+}
+
+function toggleCamposDHCP(){
+    var conexion = document.getElementById("conexion");
+    var simpleQueue = document.getElementById("simple_queue");
+
+    // Verificar si los elementos existen (pueden no existir en todas las páginas)
+    if(!conexion || !simpleQueue) return;
+
+    // Solo aplicar la lógica si el tipo de conexión es DHCP (valor 2)
+    if(conexion.value == 2){
+        var divInterfaz = document.getElementById("div_interfaz");
+        var divSegmentoIp = document.getElementById("div_segmento_ip");
+        var divDireccionIp = document.getElementById("div_direccion_ip");
+        var localAddress = document.getElementById("local_address");
+        var ip = document.getElementById("ip");
+
+        // Si Simple Queue es dinámica, ocultar los campos
+        if(simpleQueue.value == 'dinamica'){
+            if(divInterfaz) {
+                divInterfaz.classList.add('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) interfaz.removeAttribute('required');
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.add('d-none');
+                if(localAddress) localAddress.removeAttribute('required');
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.add('d-none');
+                if(ip) ip.removeAttribute('required');
+            }
+        } else {
+            // Si Simple Queue es estática, mostrar los campos
+            if(divInterfaz) {
+                divInterfaz.classList.remove('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) interfaz.setAttribute('required', true);
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.remove('d-none');
+                if(localAddress) localAddress.setAttribute('required', true);
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.remove('d-none');
+                if(ip) ip.setAttribute('required', true);
+            }
+        }
+
+        // Refrescar selectpicker si está disponible
+        if(typeof $ !== 'undefined' && $.fn.selectpicker) {
+            if(simpleQueue) $("#simple_queue").selectpicker('refresh');
+        }
+    }
 }
 
 function modificarPromesa(id) {

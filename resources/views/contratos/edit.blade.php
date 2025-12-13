@@ -300,7 +300,7 @@
                             </div>
                             <div class="col-md-4 form-group {{$contrato->conexion==2?'':'d-none'}}" id="div_dhcp">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
-                                <select class="form-control selectpicker" id="simple_queue" name="simple_queue"  required="" title="Seleccione" data-live-search="true" data-size="5">
+                                <select class="form-control selectpicker" id="simple_queue" name="simple_queue"  required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
                                     <option value="dinamica" {{$contrato->simple_queue == 'dinamica' ? 'selected':''}}>Dinámica</option>
                                     <option value="estatica" {{$contrato->simple_queue == 'estatica' ? 'selected':''}}>Estática</option>
                                 </select>
@@ -319,7 +319,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_segmento_ip">
                                 <label class="control-label" id="div_local_address">Segmento de IP</label>
                                   <div class="input-group">
                                     <input type="hidden" id="segmento_bd" value="{{ $contrato->local_address }}">
@@ -331,7 +331,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address) <span class="text-danger">*</span></label>
                                   <div class="input-group">
                                     <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" required="" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46">
@@ -1086,6 +1086,12 @@
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
             getInterfaces($("#server_configuration_id").val());
+
+            // Verificar y ocultar campos si es DHCP con Simple Queue dinámica al cargar la página
+            if(typeof toggleCamposDHCP === 'function') {
+                toggleCamposDHCP();
+            }
+
             $('#contrato_permanencia').change(function(){
                 if($('#contrato_permanencia').val() == 1){
                     $("#div_meses").removeClass('d-none');
