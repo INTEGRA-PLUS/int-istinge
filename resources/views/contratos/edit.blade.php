@@ -461,6 +461,31 @@
                                     <strong>{{ $errors->first('puerto_conexion') }}</strong>
                                 </span>
                             </div>
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_id" id="cajanap_id" title="Seleccione" data-live-search="true" data-size="5" onchange="cargarPuertosNap()">
+                                        <option value="">Ninguna</option>
+                                        @foreach($cajasNaps as $cajaNap)
+                                            <option value="{{$cajaNap->id}}" {{$cajaNap->id == $contrato->cajanap_id? 'selected':''}}>{{$cajaNap->nombre}}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_id') }}</strong>
+                                </span>
+                            </div>
+                            <div class="col-md-4 form-group" id="div_puerto_nap" style="{{$contrato->cajanap_id ? '' : 'display:none;'}}">
+                                <label class="control-label">Puerto Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_puerto" id="cajanap_puerto" title="Seleccione" data-live-search="true" data-size="5">
+                                        <option value="">Seleccione un puerto</option>
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_puerto') }}</strong>
+                                </span>
+                            </div>
                             <div class="col-md-3 form-group d-none">
                                 <label class="control-label">Marca Router</label>
                                 <select class="form-control selectpicker" id="marca_router" name="marca_router" required="" value="{{ $contrato->marca_router }}" title="Seleccione">
@@ -526,7 +551,6 @@
                                     </span>
                                 </div>
                             </div>
-
 
                             <div class="form-group col-md-4">
                                 <label class="control-label">¿Agregar iva al servicio de internet?  <a><i
@@ -1092,6 +1116,7 @@
                 toggleCamposDHCP();
             }
 
+
             $('#contrato_permanencia').change(function(){
                 if($('#contrato_permanencia').val() == 1){
                     $("#div_meses").removeClass('d-none');
@@ -1215,6 +1240,85 @@
         $('#puerto_conexion').val(null).trigger('change');
 
     }
+
+    function cargarPuertosNap() {
+        // Obtener el valor del select usando jQuery
+        var cajaNapId = $('#cajanap_id').val();
+
+        if (!cajaNapId || cajaNapId == '') {
+            $('#div_puerto_nap').hide();
+            $('#cajanap_puerto').val('').selectpicker('refresh');
+            return;
+        }
+
+        var contratoId = $('#contrato_id').val() || null;
+        var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+        if (contratoId) {
+            url += '/' + contratoId;
+        }
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                $('#cajanap_puerto').empty();
+                $('#cajanap_puerto').append('<option value="">Seleccione un puerto</option>');
+
+                if (data.puertos_disponibles && data.puertos_disponibles.length > 0) {
+                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
+
+                    $.each(data.puertos_disponibles, function(index, puerto) {
+                        var selected = (puertoActual && puerto == puertoActual) ? 'selected' : '';
+                        $('#cajanap_puerto').append('<option value="' + puerto + '" ' + selected + '>Puerto ' + puerto + '</option>');
+                    });
+
+                    // Si el puerto actual no está en disponibles pero existe, agregarlo de todas formas
+                    if (puertoActual && data.puertos_disponibles.indexOf(puertoActual) === -1) {
+                        $('#cajanap_puerto').prepend('<option value="' + puertoActual + '" selected>Puerto ' + puertoActual + ' (Ocupado)</option>');
+                    }
+
+                    $('#div_puerto_nap').show();
+                } else {
+                    // Si hay un puerto actual pero no hay disponibles, mostrarlo de todas formas
+                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
+                    if (puertoActual) {
+                        $('#cajanap_puerto').append('<option value="' + puertoActual + '" selected>Puerto ' + puertoActual + ' (Ocupado)</option>');
+                        $('#div_puerto_nap').show();
+                    } else {
+                        $('#div_puerto_nap').hide();
+                        Swal.fire({
+                            title: 'Sin puertos disponibles',
+                            text: 'Esta caja NAP no tiene puertos disponibles',
+                            type: 'warning',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+                }
+
+                $('#cajanap_puerto').selectpicker('refresh');
+            },
+            error: function() {
+                $('#div_puerto_nap').hide();
+                Swal.fire({
+                    title: 'Error',
+                    text: 'No se pudieron cargar los puertos disponibles',
+                    type: 'error',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            }
+        });
+    }
+
+    // Cargar puertos al iniciar si ya hay una caja NAP seleccionada
+    $(document).ready(function() {
+        @if(isset($contrato) && $contrato->cajanap_id)
+            // El valor ya está seleccionado en el select, solo llamar la función
+            cargarPuertosNap();
+        @endif
+    });
 
     </script>
 @endsection

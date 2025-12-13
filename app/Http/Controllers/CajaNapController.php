@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use Mail;
 use Validator;
 use Illuminate\Validation\Rule;
-use Auth;
 use DB;
 use Session;
 
@@ -18,6 +17,7 @@ use App\Contrato;
 use App\CajaNap;
 use App\Spliter;
 use App\Campos;
+use Illuminate\Support\Facades\Auth;
 
 class CajaNapController extends Controller
 {
@@ -29,45 +29,53 @@ class CajaNapController extends Controller
 
     public function index(Request $request){
         $this->getAllPermissions(Auth::user()->id);
-        $cajanaps = CajaNap::all();
-        return view('cajas-naps.index',compact('cajanaps'));
+        return view('cajas-naps.index');
     }
 
-    public function nodos(Request $request){
+    public function cajasNaps(Request $request){
         $modoLectura = auth()->user()->modo_lectura();
-        $nodos = CajaNap::query()
-            ->where('empresa', Auth::user()->empresa);
+        $cajasNaps = CajaNap::query();
 
         if ($request->filtro == true) {
-            if($request->nro){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('nro', 'like', "%{$request->nro}%");
-                });
+            if($request->nombre && $request->nombre != ''){
+                $cajasNaps->where('nombre', 'like', "%{$request->nombre}%");
             }
-            if($request->nombre){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('nombre', 'like', "%{$request->nombre}%");
-                });
-            }
-            if($request->status >=0){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('status', 'like', "%{$request->status}%");
-                });
+            if($request->status !== null && $request->status !== '' && $request->status >= 0){
+                $cajasNaps->where('status', '=', $request->status);
             }
         }
 
-        return datatables()->eloquent($nodos)
-            ->editColumn('nro', function (Nodo $nodo) {
-                return "<a href=" . route('nodos.show', $nodo->id) . ">{$nodo->nro}</div></a>";
+        return datatables()->eloquent($cajasNaps)
+            ->editColumn('nombre', function (CajaNap $cajaNap) {
+                return "<a href=" . route('caja.naps.show', $cajaNap->id) . ">{$cajaNap->nombre}</a>";
             })
-            ->editColumn('nombre', function (Nodo $nodo) {
-                return "<a href=" . route('nodos.show', $nodo->id) . ">{$nodo->nombre}</div></a>";
+            ->editColumn('spliter_asociado', function (CajaNap $cajaNap) {
+                $spliter = Spliter::find($cajaNap->spliter_asociado);
+                return $spliter ? $spliter->nombre : 'N/A';
             })
-            ->editColumn('status', function (Nodo $nodo) {
-                return "<span class='text-{$nodo->status("true")}'><strong>{$nodo->status()}</strong></span>";
+            ->editColumn('cant_puertos', function (CajaNap $cajaNap) {
+                return $cajaNap->cant_puertos;
             })
-            ->addColumn('acciones', $modoLectura ?  "" : "nodos.acciones")
-            ->rawColumns(['acciones', 'nombre', 'nro', 'status'])
+            ->editColumn('ubicacion', function (CajaNap $cajaNap) {
+                return $cajaNap->ubicacion;
+            })
+            ->editColumn('coordenadas', function (CajaNap $cajaNap) {
+                return $cajaNap->coordenadas;
+            })
+            ->editColumn('puertos_disponibles', function (CajaNap $cajaNap) {
+                return "{$cajaNap->caja_naps_disponible} / {$cajaNap->cant_puertos}";
+            })
+            ->editColumn('status', function (CajaNap $cajaNap) {
+                return "<span class='text-{$cajaNap->status("true")}'><strong>{$cajaNap->status()}</strong></span>";
+            })
+            ->addColumn('acciones', function (CajaNap $cajaNap) use ($modoLectura) {
+                return view('cajas-naps.acciones', [
+                    'id' => $cajaNap->id,
+                    'caja_naps_disponible' => $cajaNap->caja_naps_disponible,
+                    'cant_puertos' => $cajaNap->cant_puertos
+                ])->render();
+            })
+            ->rawColumns(['acciones', 'nombre', 'status'])
             ->toJson();
     }
 
@@ -105,54 +113,63 @@ class CajaNapController extends Controller
 
     public function show($id){
         $this->getAllPermissions(Auth::user()->id);
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
-        $tabla = Campos::where('modulo', 2)->where('estado', 1)->where('empresa', Auth::user()->empresa)->orderBy('orden', 'asc')->get();
+        $caja_nap = CajaNap::find($id);
+        $spliter = Spliter::find($caja_nap->spliter_asociado);
 
-        if ($nodo) {
-            $contratos = Contrato::where('nodo', $nodo->id)->get();
-            view()->share(['title' => $nodo->nombre]);
-            return view('nodos.show')->with(compact('nodo', 'contratos','tabla'));
+        if ($caja_nap) {
+            view()->share(['title' => $caja_nap->nombre]);
+            return view('cajas-naps.show')->with(compact('caja_nap', 'spliter'));
         }
-        return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect('caja-naps')->with('danger', 'CAJA NAP NO ENCONTRADA, INTENTE NUEVAMENTE');
     }
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $caja_nap = CajaNap::find($id);
+        $spliters = Spliter::all();
 
-        if ($nodo) {
-            view()->share(['title' => 'Editar Nodo: '.$nodo->nombre]);
-
-            return view('nodos.edit')->with(compact('nodo'));
+        if ($caja_nap) {
+            view()->share(['title' => 'Editar Caja Nap: '.$caja_nap->nombre]);
+            return view('cajas-naps.edit')->with(compact('caja_nap', 'spliters'));
         }
-        return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect('caja-naps')->with('danger', 'CAJA NAP NO ENCONTRADA, INTENTE NUEVAMENTE');
     }
 
     public function update(Request $request, $id){
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $caja_nap = CajaNap::find($id);
 
-        if ($nodo) {
-            $nodo->nombre = $request->nombre;
-            $nodo->status = $request->status;
-            $nodo->descripcion = $request->descripcion;
-            $nodo->updated_by = Auth::user()->id;
-            $nodo->save();
+        if ($caja_nap) {
+            $caja_nap->nombre = $request->nombre;
+            $caja_nap->spliter_asociado = $request->spliter_asociado;
+            $caja_nap->cant_puertos = $request->cant_puertos;
+            $caja_nap->ubicacion = $request->ubicacion;
+            $caja_nap->coordenadas = $request->coordenadas;
+            $caja_nap->caja_naps_disponible = $request->caja_naps_disponible;
+            $caja_nap->status = $request->status;
+            $caja_nap->descripcion = $request->descripcion;
+            $caja_nap->updated_by = Auth::user()->id;
+            $caja_nap->save();
 
-            $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE EL NODO';
-            return redirect('empresa/nodos')->with('success', $mensaje);
+            $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE LA CAJA NAP';
+            return redirect('caja-naps')->with('success', $mensaje);
         }
-        return redirect('empresa/nodos')->with('danger', 'CLIENTE NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect('caja-naps')->with('danger', 'CAJA NAP NO ENCONTRADA, INTENTE NUEVAMENTE');
     }
 
     public function destroy($id){
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $caja_nap = CajaNap::find($id);
 
-        if($nodo){
-            $nodo->delete();
-            $mensaje = 'SE HA ELIMINADO EL NODO CORRECTAMENTE';
-            return redirect('empresa/nodos')->with('success', $mensaje);
+        if($caja_nap){
+            // Validar que caja_naps_disponible sea igual a cant_puertos
+            if($caja_nap->caja_naps_disponible == $caja_nap->cant_puertos){
+                $caja_nap->delete();
+                $mensaje = 'SE HA ELIMINADO LA CAJA NAP CORRECTAMENTE';
+                return redirect('caja-naps')->with('success', $mensaje);
+            }else{
+                return redirect('caja-naps')->with('danger', 'NO SE PUEDE ELIMINAR LA CAJA NAP. LA CANTIDAD DE PUERTOS DISPONIBLES DEBE SER IGUAL A LA CANTIDAD TOTAL DE PUERTOS');
+            }
         }else{
-            return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+            return redirect('caja-naps')->with('danger', 'CAJA NAP NO ENCONTRADA, INTENTE NUEVAMENTE');
         }
     }
 
@@ -227,6 +244,36 @@ class CajaNapController extends Controller
             'fallidos'  => $fail,
             'correctos' => $succ,
             'state'     => 'eliminados'
+        ]);
+    }
+
+    public function getPuertosDisponibles($cajaNapId, $contratoId = null){
+        $cajaNap = CajaNap::find($cajaNapId);
+
+        if (!$cajaNap) {
+            return response()->json(['error' => 'Caja NAP no encontrada'], 404);
+        }
+
+        // Obtener todos los puertos ocupados por otros contratos (excluyendo el contrato actual si se está editando)
+        $puertosOcupados = Contrato::where('cajanap_id', $cajaNapId)
+            ->where('status', 1);
+
+        if ($contratoId) {
+            $puertosOcupados->where('id', '!=', $contratoId);
+        }
+
+        $puertosOcupados = $puertosOcupados->pluck('cajanap_puerto')->toArray();
+
+        // Generar lista de todos los puertos posibles (1 hasta cant_puertos)
+        $todosLosPuertos = range(1, $cajaNap->cant_puertos);
+
+        // Filtrar los puertos disponibles (excluir los ocupados)
+        $puertosDisponibles = array_diff($todosLosPuertos, $puertosOcupados);
+
+        return response()->json([
+            'puertos_disponibles' => array_values($puertosDisponibles),
+            'cant_puertos' => $cajaNap->cant_puertos,
+            'puertos_ocupados' => $puertosOcupados
         ]);
     }
 }

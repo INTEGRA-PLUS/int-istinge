@@ -12,7 +12,7 @@
 	        </div>
 	        <div class="col-md-4 form-group">
                 <label class="control-label">Spliter Asociado <span class="text-danger">*</span></label>
-                <select class="form-control" id="spliter_asociado" name="spliter_asociado" required="">
+                <select class="form-control selectpicker" id="spliter_asociado" name="spliter_asociado" required="" title="Seleccione" data-live-search="true" data-size="5">
                     <option value="">Selecciona un Spliter</option>
                     @foreach($spliters as $splitter)
                         <option value="{{ $splitter->id }}" {{ old('spliter_asociado') == $splitter->id ? 'selected' : '' }}>
@@ -25,15 +25,8 @@
                 </span>
             </div>
 	        <div class="col-md-4 form-group">
-	            <label class="control-label">Nombre de la caja <span class="text-danger">*</span></label>
-	            <input type="text" class="form-control"  id="nombre" name="nombre"  required="" value="{{old('nombre')}}" maxlength="200">
-	            <span class="help-block error">
-	                <strong>{{ $errors->first('nombre') }}</strong>
-	            </span>
-	        </div>
-	        <div class="col-md-4 form-group">
 	            <label class="control-label">Cantidad de Puertos <span class="text-danger">*</span></label>
-	            <input type="text" class="form-control"  id="cant_puertos" name="cant_puertos"  required="" value="{{old('cant_puertos')}}" maxlength="200">
+	            <input type="number" class="form-control"  id="cant_puertos" name="cant_puertos"  required="" value="{{old('cant_puertos')}}" min="1">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('cant_puertos') }}</strong>
 	            </span>
@@ -56,7 +49,7 @@
 
 	          <div class="col-md-4 form-group">
 	            <label class="control-label">Cantidad de Puertos disponibles<span class="text-danger">*</span></label>
-	            <input type="text" class="form-control"  id="caja_naps_disponible" name="caja_naps_disponible"  required="" value="{{old('caja_naps_disponible')}}" maxlength="200">
+	            <input type="number" class="form-control"  id="caja_naps_disponible" name="caja_naps_disponible"  required="" value="{{old('caja_naps_disponible')}}" min="0">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('caja_naps_disponible') }}</strong>
 	            </span>
@@ -81,7 +74,7 @@
 	    <hr>
 	    <div class="row" >
 	        <div class="col-sm-12" style="text-align: right;  padding-top: 1%;">
-	            <a href="{{route('nodos.index')}}" class="btn btn-outline-secondary">Cancelar</a>
+	            <a href="{{route('caja.naps.index')}}" class="btn btn-outline-secondary">Cancelar</a>
 	            <button type="submit" id="submitcheck" onclick="submitLimit(this.id)" class="btn btn-success">Guardar</button>
 	        </div>
 	    </div>
