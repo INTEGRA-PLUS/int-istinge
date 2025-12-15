@@ -880,6 +880,7 @@ class CronController extends Controller
         if(request()->fechaCorte){
             $fecha = request()->fechaCorte;
         }
+        $swGrupo = 1; //masivo
         $horaActual = date('H:i');
 
         $grupos_corte = DB::table('grupos_corte')
@@ -912,6 +913,7 @@ class CronController extends Controller
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
+                where('cs.fecha_suspension', null)->
                 where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
                 whereDate('f.vencimiento', '<=', now())->
                 orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
@@ -919,9 +921,21 @@ class CronController extends Controller
                 take(40)->
                 get();
 
+        }else{
+            $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
+            join('contracts as cs','cs.client_id','=','contactos.id')->
+            select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+            where('f.estatus',1)->
+            whereIn('f.tipo', [1,2])->
+            where('contactos.status',1)->
+            where('cs.state','enabled')->
+            where('cs.fecha_suspension','!=', null)->
+            take(20)->
+            get();
+            $swGrupo = 0; // personalizado
         }
 
-        if($contactos){
+            if($contactos){
             $empresa = Empresa::find(1);
             foreach ($contactos as $contacto) {
 
@@ -1075,9 +1089,8 @@ class CronController extends Controller
                         }
 
                         //por aca entra cuando estamos deshbilitando de un grupo de corte sus contratos.
-                        if (($contrato && $contrato->fecha_suspension == null) ||
-                            ($contrato && $contrato->fecha_suspension == getdate()['mday']))
-                        {
+                        if (($contrato && $swGrupo == 1) ||
+                        ($contrato && $swGrupo == 0 && $contrato->fecha_suspension == getdate()['mday'])) {
 
                         //segundo filtro de validacion, validando por rango de fechas
                         $diasHabilesNocobro = 0;
