@@ -370,6 +370,7 @@
                             <div class="col-md-4 form-group  {{$contrato->conexion==1?'':'d-none'}}" id="div_profile" {{$contrato->profile ? '':'d-none'}}>
                                 <label class="control-label">Profile</label>
                                 <div class="input-group">
+                                    <input type="hidden" id="profile_bd" value="{{ $contrato->profile }}">
                                     <select class="form-control selectpicker" name="profile" id="div_profile_select"
                                         title="Seleccione" data-live-search="true" data-size="5">
                                     </select>

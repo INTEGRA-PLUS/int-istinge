@@ -4381,6 +4381,13 @@ function getPlanes(mikrotik) {
 
             // Refrescar el selectpicker después de agregar las opciones
             $profileSelect.selectpicker('refresh');
+
+            // Si hay un profile previo guardado, seleccionarlo
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
         },
         error: function(data) {
             cargando(false);
@@ -4442,6 +4449,12 @@ function getProfiles(mikrotik) {
             });
 
             $profileSelect.selectpicker('refresh');
+
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
         }
     });
 }
