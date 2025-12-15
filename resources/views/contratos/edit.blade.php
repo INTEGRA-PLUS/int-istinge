@@ -867,7 +867,9 @@
                             <label class="control-label">Contacto nuevo</label>
                         <select class="form-control selectpicker" name="new_contacto_contrato" id="new_contacto_contrato" required="" title="Seleccione" data-live-search="true" data-size="5">
                             @foreach($contactos as $contacto)
-                                <option value="{{$contacto->id}}" {{$contrato->grupo_corte == $contacto->id ? 'selected' : ''}}>{{$contacto->nombre}}</option>
+                                <option value="{{ $contacto->id }}" {{ $contrato->grupo_corte == $contacto->id ? 'selected' : '' }}>
+                                    {{ collect([$contacto->nombre, $contacto->apellido1, $contacto->apellido2])->filter()->implode(' ') }}
+                                </option>
                             @endforeach
                         </select>
                         </div>
