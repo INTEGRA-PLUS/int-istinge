@@ -435,7 +435,7 @@ Route::group(['prefix' => 'tecnico', 'middleware' => ['auth']], function () {
 });
 
 Route::group(['prefix' => 'Olt'], function () {
-	Route::get('unconfigured-adminolt', 'AdminOLTController@unconfigured')->name('olt.unconfiguredAdminOLT');
+	Route::get('unconfigured-adminolt', 'OltAdminController@unconfigured')->name('olt.unconfiguredAdminOLT');
 	Route::get('unconfigured-onus/{olt?}', 'OltController@unConfiguredOnus_view')->name('olt.unconfigured');
 	Route::post('authorized-onus', 'OltController@authorizedOnus')->name('olt.authorized-onus');
 	Route::get('form-authorized-onu', 'OltController@formAuthorizeOnu')->name('olt.form-authorized-onus');
