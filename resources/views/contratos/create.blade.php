@@ -1330,8 +1330,8 @@
     </script>
 
     <script>
-                // Función global para cargar puertos NAP
-                function cargarPuertosNap() {
+        // Función global para cargar puertos NAP
+        function cargarPuertosNap() {
             // Obtener el valor del select usando jQuery
             var cajaNapId = $('#cajanap_id').val();
 
@@ -1340,6 +1340,13 @@
                 $('#cajanap_puerto').val('').selectpicker('refresh');
                 return;
             }
+
+            if (window.location.pathname.split("/")[1] === "software") {
+				var url='/software/caja-naps/' + cajaNapId + '/puertos-disponibles';
+			}else{
+				var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+			}
+
 
             var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
 
