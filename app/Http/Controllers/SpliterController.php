@@ -29,45 +29,65 @@ class SpliterController extends Controller
 
     public function index(Request $request){
         $this->getAllPermissions(Auth::user()->id);
-        $splitters = Spliter::all();
-        return view('spliter.index',compact('splitters'));
+        return view('spliter.index');
     }
 
     public function spliter(Request $request){
+
         $modoLectura = auth()->user()->modo_lectura();
-        $nodos = Spliter::query()
-            ->where('empresa', Auth::user()->empresa);
+        $splitters = Spliter::query();
 
-        if ($request->filtro == true) {
-            if($request->nro){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('nro', 'like', "%{$request->nro}%");
-                });
-            }
-            if($request->nombre){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('nombre', 'like', "%{$request->nombre}%");
-                });
-            }
-            if($request->status >=0){
-                $nodos->where(function ($query) use ($request) {
-                    $query->orWhere('status', 'like', "%{$request->status}%");
-                });
-            }
-        }
 
-        return datatables()->eloquent($nodos)
-            ->editColumn('nro', function (Nodo $nodo) {
-                return "<a href=" . route('nodos.show', $nodo->id) . ">{$nodo->nro}</div></a>";
+        // if ($request->filtro == true) {
+        //     if($request->nombre){
+        //         $splitters->where(function ($query) use ($request) {
+        //             $query->orWhere('nombre', 'like', "%{$request->nombre}%");
+        //         });
+        //     }
+        //     if($request->status !== null && $request->status !== '' && $request->status >= 0){
+        //         $splitters->where(function ($query) use ($request) {
+        //             $query->orWhere('status', '=', $request->status);
+        //         });
+        //     }
+        // }
+
+        return datatables()->eloquent($splitters)
+            ->editColumn('nombre', function (Spliter $spliter) {
+                return "<a href=" . route('spliter.show', $spliter->id) . ">{$spliter->nombre}</a>";
             })
-            ->editColumn('nombre', function (Nodo $nodo) {
-                return "<a href=" . route('nodos.show', $nodo->id) . ">{$nodo->nombre}</div></a>";
+            ->editColumn('ubicacion', function (Spliter $spliter) {
+                return $spliter->ubicacion;
             })
-            ->editColumn('status', function (Nodo $nodo) {
-                return "<span class='text-{$nodo->status("true")}'><strong>{$nodo->status()}</strong></span>";
+            ->editColumn('coordenadas', function (Spliter $spliter) {
+                return $spliter->coordenadas;
             })
-            ->addColumn('acciones', $modoLectura ?  "" : "spliter.acciones")
-            ->rawColumns(['acciones', 'nombre', 'nro', 'status'])
+            ->editColumn('num_salida', function (Spliter $spliter) {
+                return $spliter->num_salida;
+            })
+            ->editColumn('num_cajas_naps', function (Spliter $spliter) {
+                return $spliter->num_cajas_naps;
+            })
+            ->editColumn('cajas_disponible', function (Spliter $spliter) {
+                return $spliter->cajas_disponible;
+            })
+            ->editColumn('status', function (Spliter $spliter) {
+                return "<span class='text-{$spliter->status("true")}'><strong>{$spliter->status()}</strong></span>";
+            })
+            ->addColumn('acciones', function (Spliter $spliter) use ($modoLectura) {
+                if ($modoLectura) {
+                    return '';
+                }
+
+                return view('spliter.acciones', [
+                    'id'                => $spliter->id,
+                    'status'            => $spliter->status,
+                    'uso'               => $spliter->uso,
+                    'session'           => $spliter->session,
+                    'cajas_disponible'  => $spliter->cajas_disponible,
+                    'num_cajas_naps'    => $spliter->num_cajas_naps,
+                ])->render();
+            })
+            ->rawColumns(['acciones', 'nombre', 'status'])
             ->toJson();
     }
 
@@ -105,55 +125,62 @@ class SpliterController extends Controller
 
     public function show($id){
         $this->getAllPermissions(Auth::user()->id);
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
-        $tabla = Campos::where('modulo', 2)->where('estado', 1)->where('empresa', Auth::user()->empresa)->orderBy('orden', 'asc')->get();
+        $spliter = Spliter::find($id);
 
-        if ($nodo) {
-            $contratos = Contrato::where('nodo', $nodo->id)->get();
-            view()->share(['title' => $nodo->nombre]);
-            return view('nodos.show')->with(compact('nodo', 'contratos','tabla'));
+        if ($spliter) {
+            view()->share(['title' => $spliter->nombre]);
+            return view('spliter.show')->with(compact('spliter'));
         }
-        return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect()->route('spliter.index')->with('danger', 'SPLITER NO ENCONTRADO, INTENTE NUEVAMENTE');
     }
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $spliter = Spliter::find($id);
 
-        if ($nodo) {
-            view()->share(['title' => 'Editar Nodo: '.$nodo->nombre]);
+        if ($spliter) {
+            view()->share(['title' => 'Editar Spliter: '.$spliter->nombre]);
 
-            return view('nodos.edit')->with(compact('nodo'));
+            return view('spliter.edit')->with(compact('spliter'));
         }
-        return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect()->route('spliter.index')->with('danger', 'SPLITER NO ENCONTRADO, INTENTE NUEVAMENTE');
     }
 
     public function update(Request $request, $id){
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $spliter = Spliter::find($id);
 
-        if ($nodo) {
-            $nodo->nombre = $request->nombre;
-            $nodo->status = $request->status;
-            $nodo->descripcion = $request->descripcion;
-            $nodo->updated_by = Auth::user()->id;
-            $nodo->save();
+        if ($spliter) {
+            $spliter->nombre           = $request->nombre;
+            $spliter->ubicacion        = $request->ubicacion;
+            $spliter->coordenadas      = $request->coordenadas;
+            $spliter->num_salida       = $request->num_salida;
+            $spliter->num_cajas_naps   = $request->num_cajas_naps;
+            $spliter->cajas_disponible = $request->cajas_disponible;
+            $spliter->status           = $request->status;
+            $spliter->descripcion      = $request->descripcion;
+            $spliter->updated_by       = Auth::user()->id;
+            $spliter->save();
 
-            $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE EL NODO';
-            return redirect('empresa/nodos')->with('success', $mensaje);
+            $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE EL SPLITER';
+            return redirect()->route('spliter.index')->with('success', $mensaje);
         }
-        return redirect('empresa/nodos')->with('danger', 'CLIENTE NO ENCONTRADO, INTENTE NUEVAMENTE');
+        return redirect()->route('spliter.index')->with('danger', 'SPLITER NO ENCONTRADO, INTENTE NUEVAMENTE');
     }
 
     public function destroy($id){
-        $nodo = Nodo::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
+        $spliter = Spliter::find($id);
 
-        if($nodo){
-            $nodo->delete();
-            $mensaje = 'SE HA ELIMINADO EL NODO CORRECTAMENTE';
-            return redirect('empresa/nodos')->with('success', $mensaje);
-        }else{
-            return redirect('empresa/nodos')->with('danger', 'NODO NO ENCONTRADO, INTENTE NUEVAMENTE');
+        if($spliter){
+            // Solo permitir eliminación si todas las cajas están disponibles
+            if ($spliter->cajas_disponible == $spliter->num_cajas_naps) {
+                $spliter->delete();
+                $mensaje = 'SE HA ELIMINADO EL SPLITER CORRECTAMENTE';
+                return redirect()->route('spliter.index')->with('success', $mensaje);
+            } else {
+                return redirect()->route('spliter.index')->with('danger', 'NO SE PUEDE ELIMINAR EL SPLITER. LA CANTIDAD DE CAJAS DISPONIBLES DEBE SER IGUAL AL TOTAL DE CAJAS NAPS.');
+            }
         }
+        return redirect()->route('spliter.index')->with('danger', 'SPLITER NO ENCONTRADO, INTENTE NUEVAMENTE');
     }
 
     public function act_des($id){

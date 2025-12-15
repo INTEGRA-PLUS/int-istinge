@@ -1845,7 +1845,11 @@ Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name(
 Route::get('/spliter/index', 'SpliterController@index')->name('spliter.index');
 Route::get('/spliter/create', 'SpliterController@create')->name('spliter.create');
 Route::post('/spliter/store', 'SpliterController@store')->name('spliter.store');
-Route::get('spliter', 'SpliterController@spliter');
+Route::get('/spliter/datatable', 'SpliterController@spliter')->name('spliter.datatable');
+Route::get('/spliter/{id}', 'SpliterController@show')->name('spliter.show');
+Route::get('/spliter/{id}/edit', 'SpliterController@edit')->name('spliter.edit');
+Route::patch('/spliter/{id}', 'SpliterController@update')->name('spliter.update');
+Route::delete('/spliter/{id}', 'SpliterController@destroy')->name('spliter.destroy');
 
 //Rutas agregadas para cajas naps
 Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');

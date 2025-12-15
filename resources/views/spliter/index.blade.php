@@ -32,7 +32,7 @@
             }, 5000);
         </script>
     @endif
-    
+
     @if(Session::has('danger'))
         <div class="alert alert-danger" style="margin-left: 2%;margin-right: 2%;">
 	    {{Session::get('danger')}}
@@ -45,25 +45,24 @@
         </script>
     @endif
 
+	{{-- Filtro (opcional). Mantener estructura similar a otros módulos --}}
 	<div class="container-fluid d-none" id="form-filter">
 		<fieldset>
 			<legend>Filtro de Búsqueda</legend>
 			<div class="card shadow-sm border-0">
 				<div class="card-body pb-3 pt-2" style="background: #f9f9f9;">
 					<div class="row">
-						<div class="col-md-2 pl-1 pt-1 offset-md-1">
-							<input type="text" placeholder="Nro" id="nro" class="form-control rounded">
-						</div>
-						<div class="col-md-3 pl-1 pt-1">
+						<div class="col-md-4 pl-1 pt-1">
 							<input type="text" placeholder="Nombre" id="nombre" class="form-control rounded">
 						</div>
 						<div class="col-md-3 pl-1 pt-1">
 						    <select title="Estado" class="form-control rounded selectpicker" id="status">
+						        <option value="">Todos</option>
 						        <option value="1">Habilitado</option>
 								<option value="0">Deshabilitado</option>
 							</select>
 						</div>
-						<div class="col-md-1 pl-1 pt-1 text-left">
+						<div class="col-md-2 pl-1 pt-1 text-left">
 							<a href="javascript:cerrarFiltrador()" class="btn btn-icons ml-1 btn-outline-danger rounded btn-sm p-1 float-right" title="Limpiar parámetros de busqueda"><i class="fas fa-times"></i></a>
 							<a href="javascript:void(0)" id="filtrar" class="btn btn-icons btn-outline-info rounded btn-sm p-1 float-right" title="Iniciar busqueda avanzada"><i class="fas fa-search"></i></a>
 						</div>
@@ -94,7 +93,7 @@
 			</div>
 		@endif
 		<div class="col-md-12">
-			<table class="table table-striped table-hover w-100" id="tabla-nodos">
+			<table class="table table-striped table-hover w-100" id="tabla-spliters">
 				<thead class="thead-dark">
                     <tr>
                         <th>NOMBRE DEL SPLITER</th>
@@ -107,23 +106,6 @@
                         <th>Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach ($splitters as $splitter)
-                    <tr>
-                        <td>{{ $splitter->nombre }}</td>
-                        <td>{{ $splitter->ubicacion }}</td>
-                        <td>{{ $splitter->coordenadas }}</td>
-                        <td>{{ $splitter->num_salida }}</td>
-                        <td>{{ $splitter->num_cajas_naps }}</td>
-                        <td>{{ $splitter->cajas_disponible }}</td>
-                        <td>{{ $splitter->status == 1 ? 'Habilitado' : 'Deshabilitado' }}</td>
-                        <td>
-                            
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-
 			</table>
 		</div>
 	</div>
@@ -131,10 +113,10 @@
 
 @section('scripts')
 <script>
-   /* var tabla = null;
+    var tabla = null;
     window.addEventListener('load',
     function() {
-		tabla = $('#tabla-nodos').DataTable({
+		tabla = $('#tabla-spliters').DataTable({
 			responsive: true,
 			serverSide: true,
 			processing: true,
@@ -146,48 +128,23 @@
 				[0, "desc"]
 			],
 			"pageLength": {{ Auth::user()->empresa()->pageLength }},
-			ajax: '{{url("spliter")}}',
+			ajax: '{{ route("spliter.datatable") }}',
 			headers: {
 				'X-CSRF-TOKEN': '{{csrf_token()}}'
 			},
 			columns: [
-			    {data: 'nombre'},
-			    {data: 'ubicacion'},
-				{data: 'coordenadas'},
-				{data: 'num_salida'},
-				{data: 'num_cajas_naps'},
-				{data: 'cajas_disponible'},
-				{data: 'descripcion'},
-				{data: 'status'},	{
-				data: 'acciones'},
+			    {data: 'nombre', name: 'nombre'},
+			    {data: 'ubicacion', name: 'ubicacion'},
+				{data: 'coordenadas', name: 'coordenadas'},
+				{data: 'num_salida', name: 'num_salida'},
+				{data: 'num_cajas_naps', name: 'num_cajas_naps'},
+				{data: 'cajas_disponible', name: 'cajas_disponible'},
+				{data: 'status', name: 'status'},
+				{data: 'acciones', name: 'acciones', orderable: false, searchable: false},
 			],
-			@if(isset($_SESSION['permisos']['836']))
-			select: true,
-            select: {
-                style: 'multi',
-            },
-			dom: 'Blfrtip',
-            buttons: [{
-            	text: '<i class="fas fa-check"></i> Seleccionar todos',
-            	action: function() {
-            		tabla.rows({
-            			page: 'current'
-            		}).select();
-            	}
-            },
-            {
-            	text: '<i class="fas fa-times"></i> Deseleccionar todos',
-            	action: function() {
-            		tabla.rows({
-            			page: 'current'
-            		}).deselect();
-            	}
-            }]
-            @endif
 		});
 
         tabla.on('preXhr.dt', function(e, settings, data) {
-            data.nro = $('#nro').val();
             data.nombre = $('#nombre').val();
             data.status = $('#status').val();
             data.filtro = true;
@@ -205,7 +162,7 @@
             }
         });
 
-        $('#nro, #nombre').on('keyup',function(e) {
+        $('#nombre').on('keyup',function(e) {
         	if(e.which > 32 || e.which == 8) {
         		getDataTable();
         		return false;
@@ -245,7 +202,6 @@
 	}
 
 	function cerrarFiltrador() {
-		$('#nro').val('');
 		$('#nombre').val('');
 		$('#status').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
@@ -256,7 +212,7 @@
 	function states(state){
         var nodos = [];
 
-        var table = $('#tabla-nodos').DataTable();
+        var table = $('#tabla-spliters').DataTable();
         var nro = table.rows('.selected').data().length;
 
         if(nro<=1){
@@ -327,7 +283,7 @@
     function destroy(){
         var nodos = [];
 
-        var table = $('#tabla-nodos').DataTable();
+        var table = $('#tabla-spliters').DataTable();
         var nro = table.rows('.selected').data().length;
 
         if(nro<=1){
@@ -381,6 +337,6 @@
                 })
             }
         })
-    }*/
+    }
 </script>
 @endsection
