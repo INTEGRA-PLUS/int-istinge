@@ -1737,20 +1737,26 @@ class ContratosController extends Controller
 
                     /*PPPOE*/
                     if ($request->conexion == 1) {
-                        $ppoe_local_adress = $request->direccion_local_address;
-                        $API->comm(
-                            "/ppp/secret/add",
-                            array(
-                                "name"           => $request->usuario,
-                                "password"       => $request->password,
-                                "profile"        => $request->profile,
-                                "local-address"  => $request->direccion_local_address,
-                                "remote-address" => $request->ip,
-                                "service"        => 'pppoe',
-                                "comment"        => $this->normaliza($servicio) . '-' . $request->nro
-                            )
-                        );
 
+                        $ppoe_local_adress = $request->direccion_local_address;
+
+                        $data = [
+                            "name"           => $request->usuario,
+                            "password"       => $request->password,
+                            "profile"        => $request->profile,
+                            "remote-address" => $request->ip,
+                            "service"        => 'pppoe',
+                            "comment"        => $this->normaliza($servicio) . '-' . $contrato->nro
+                        ];
+
+                        // Solo agregar si viene con valor válido
+                        if (!empty($request->direccion_local_address)) {
+                            $data["local-address"] = $request->direccion_local_address;
+                        }
+
+                        $error = $API->comm("/ppp/secret/add", $data);
+
+                        $registro = true;
                         $getall = $API->comm(
                             "/ppp/secret/getall",
                             array(
@@ -1758,6 +1764,7 @@ class ContratosController extends Controller
                             )
                         );
                     }
+
 
                     /*DHCP*/
                     if ($request->conexion == 2) {
