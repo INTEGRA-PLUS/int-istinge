@@ -1418,14 +1418,14 @@ class AsignacionesController extends Controller
 
     public function generar_link($id)
     {
-        $contacto = ContratoDigital::find($id);
+        $contacto = Contacto::find($id);
         $empresa = Empresa::first();
 
         if($contacto) {
             $sw = 1;
             while ($sw == 1) {
                 $ref = Funcion::generateRandomString();
-                if (ContratoDigital::where('referencia_asignacion', $ref)->first()) {
+                if (Contacto::where('referencia_asignacion', $ref)->first()) {
                     $ref = Funcion::generateRandomString();
                 } else {
                     $sw = 0;
