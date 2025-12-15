@@ -1116,6 +1116,8 @@
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
             getInterfaces($("#server_configuration_id").val());
+            // Cargar profiles iniciales del Mikrotik seleccionado
+            getProfiles($("#server_configuration_id").val());
 
             // Seleccionar automáticamente el profile actual del contrato cuando
             // el select asíncrono haya cargado sus opciones

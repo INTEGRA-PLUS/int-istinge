@@ -4388,6 +4388,64 @@ function getPlanes(mikrotik) {
     })
 }
 
+/**
+ * Carga únicamente los profiles del Mikrotik sin tocar planes ni conexión.
+ * Útil para el formulario de edición al cargar por primera vez.
+ */
+function getProfiles(mikrotik) {
+    if (!mikrotik) {
+        return;
+    }
+
+    if (window.location.pathname.split("/")[1] === "software") {
+        var url = '/software/api/getPlanes/' + mikrotik;
+    } else {
+        var url = '/api/getPlanes/' + mikrotik;
+    }
+
+    $.ajax({
+        url: url,
+        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+        method: 'get',
+        success: function(data) {
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            }
+
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
+                }));
+            });
+
+            $profileSelect.selectpicker('refresh');
+        }
+    });
+}
+
 function interfazChange(){
     if(document.getElementById("conexion").value == 3){
         document.getElementById("div_interfaz").classList.remove('d-none');
