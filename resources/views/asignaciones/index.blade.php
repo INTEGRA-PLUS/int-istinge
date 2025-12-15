@@ -83,7 +83,7 @@
 							<tr>
 								<td>{{ $contrato->id }}</td>
 								<td>{{ $contrato->contrato->nro }}</td>
-								<td><a href="{{ route('contactos.show',$contrato->id )}}"  title="Ver">{{ $contrato->cliente->nombre }} {{ $contrato->cliente->apellido1 }} {{ $contrato->cliente->apellido2 }}</a></td>
+								<td><a href="{{ route('contactos.show',$contrato->cliente_id )}}"  title="Ver">{{ $contrato->cliente->nombre }} {{ $contrato->cliente->apellido1 }} {{ $contrato->cliente->apellido2 }}</a></td>
 								<td>{{ $contrato->cliente->nit }}</td>
 								<td>{{date('d-m-Y', strtotime($contrato->fecha_firma))}}</td>
 								<td class="font-weight-bold text-{{ $contrato->asignacion('firma', true) }}">{{ $contrato->asignacion('firma', false) }}</td>
@@ -104,7 +104,7 @@
 									<a href="{{ route('asignaciones.enviar',$contrato->id )}}" onclick="cargando('true');" class="btn btn-outline-success btn-icons" title="Enviar Contrato Digital"><i class="fas fa-envelope"></i></a>
 									@endif
 									@if(isset($_SESSION['permisos']['844']))
-									<a href="javascript:void(0);" onclick="generar_link({{ $contrato->id }});" class="btn btn-outline-warning btn-icons" title="Generar Link de Actualización de Firma"><i class="fas fa-fw fa-link"></i></a>
+									<a href="javascript:void(0);" onclick="generar_link({{ $contrato->cliente_id }});" class="btn btn-outline-warning btn-icons" title="Generar Link de Actualización de Firma"><i class="fas fa-fw fa-link"></i></a>
 									@endif
 									@if(isset($_SESSION['permisos']['846']))
 									{{-- <a href="{{ route('asignaciones.edit',$contrato->id )}}" class="btn btn-outline-primary btn-icons" title="Cargar Documentos"><i class="fas fa-fw fa-upload"></i></a> --}}
