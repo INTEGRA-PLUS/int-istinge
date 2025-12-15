@@ -25,18 +25,20 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
         @if(isset($_SESSION['permisos']['5']))
         <a href="{{route('contactos.create')}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i> Nuevo Cliente</a>
         @endif
+
         @if(isset($_SESSION['permisos']['202']))
         <a href="{{route('radicados.create')}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i> Nuevo Radicado</a>
         @endif
 
-
+        @if(isset($_SESSION['permisos']['405']))
         <a href="javascript:exportarContratos('{{route('contratos.exportar')}}');" class="btn btn-success btn-sm" ><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+        @endif
 
         @if(isset($_SESSION['permisos']['411']))
         <a href="{{route('contratos.create')}}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nuevo Contrato</a>
@@ -180,8 +182,8 @@
                         </div>
                         <div class="col-md-3 pl-1 pt-1">
                             <select title="Vendedor" class="form-control selectpicker" id="vendedor" name="vendedor">
-                                @foreach ($vendedores as $vendedor)
-                                <option value="{{ $vendedor->id }}">{{ $vendedor->nombre }}</option>
+                                @foreach ($vendedores as $v)
+                                    <option value="{{ $v->id }}">{{ $v->nombre }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -427,12 +429,12 @@
 
     var tabla = null;
     var isDataTableInitialized = false;  // Nueva variable para controlar la inicialización
-    var tienePermiso860 = @json(isset($_SESSION['permisos']['860']));
+    var tienePermiso405 = @json(isset($_SESSION['permisos']['405']));
 
     window.addEventListener('load',
     function() {
 
-        if (tienePermiso860) {
+        if (tienePermiso405) {
             tabla = $('#tabla-contratos').DataTable({
 			responsive: true,
 			serverSide: true,

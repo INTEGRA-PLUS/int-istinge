@@ -7,7 +7,7 @@ use App\Contacto; use App\Banco;
 use App\Model\Ingresos\IngresosCategoria;
 use App\Model\Ingresos\IngresosRetenciones;
 use App\Model\Ingresos\IngresosFactura;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Numeracion;
 use App\Retencion;
 use App\Impuesto;
@@ -63,7 +63,7 @@ class Ingreso extends Model
     }
 
     public function notas(){
-        return NotaDedito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_debito)->first();
+        return NotaDebito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_debito)->first();
     }
 
 
@@ -98,7 +98,7 @@ class Ingreso extends Model
             }
         }
         else{
-            $nota=NotaDedito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_debito)->first();
+            $nota=NotaDebito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_debito)->first();
             if ($pdf) {
                 return $pdf.'Devolución en nota débito '.($nota->codigo?$nota->codigo:$nota->nro); die;
             }

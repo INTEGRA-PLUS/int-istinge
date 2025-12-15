@@ -49,6 +49,19 @@
           </div>
         </div>
         <div class="form-group row">
+            <label class="col-sm-4 col-form-label">Tipo de nota débito</label>
+            <div class="col-sm-8">
+              <select class="form-control form-control-sm selectpicker" name="tipo" id="tipo" title="Seleccione" data-live-search="true" data-size="5" required>
+                @foreach($tipos as $tipo)
+                <option value="{{$tipo->id}}"> {{$tipo->tipo}}</option>
+                @endforeach
+              </select>
+            </div>
+            <span class="help-block error">
+              <strong>{{ $errors->first('tipo') }}</strong>
+            </span>
+          </div>
+        <div class="form-group row">
           <label class="col-sm-4 col-form-label">Bodega <span class="text-danger">*</span></label>
           <div class="col-sm-8">
             <select name="bodega" id="bodega" class="form-control" required="">

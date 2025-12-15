@@ -355,7 +355,7 @@ class InventarioController extends Controller{
         //Tomar las categorias del puc que no son transaccionables.
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();
@@ -385,7 +385,7 @@ class InventarioController extends Controller{
         //Tomar las categorias del puc que no son transaccionables.
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $autoRetenciones = Retencion::where('empresa',$empresa->id)->where('estado',1)->where('modulo',2)->get();
         return view('inventario.create')->with(compact('categorias', 'unidades', 'medidas', 'impuestos', 'extras', 'empresa',
@@ -814,7 +814,7 @@ class InventarioController extends Controller{
         // $cuentas = ProductoServicio::where('en_uso',1)->get();
         $cuentas = Puc::where('empresa',$empresa->id)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();
@@ -956,95 +956,167 @@ class InventarioController extends Controller{
 
             $services = array();
 
-            if(isset($request->inventario)){
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
                 array_push($services,$request->inventario);
             }
 
-            if(isset($request->costo)){
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
                 array_push($services,$request->costo);
             }
 
-            if(isset($request->venta)){
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
                 array_push($services,$request->venta);
             }
 
-            if(isset($request->devolucion)){
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
                 array_push($services,$request->devolucion);
             }
 
-            if(isset($request->autoretencion)){
+            if(isset($request->autoretencion) && $request->autoretencion != '' && $request->autoretencion != '0'){
                 array_push($services,$request->autoretencion);
             }
 
+            // Eliminar solo valores vacíos, pero mantener duplicados ya que pueden ser de diferentes tipos
+            $services = array_filter($services, function($value) {
+                return trim($value) !== '' && $value !== '0' && $value !== 0;
+            });
+            $services = array_values($services);
+
             if($request->cuentacontable){
-                $request->cuentacontable = array_merge($request->cuentacontable, $services);
+                // Eliminar solo valores vacíos del array de cuentas contables
+                $request->cuentacontable = array_filter($request->cuentacontable, function($value) {
+                    return trim($value) !== '' && $value !== '0' && $value !== 0;
+                });
+                $request->cuentacontable = array_values($request->cuentacontable);
+                // Combinar sin eliminar duplicados (pueden ser de diferentes tipos)
+                $request->cuentacontable = array_values(array_merge($request->cuentacontable, $services));
             }else{
                 $request->cuentacontable = $services;
             }
 
-            //actualizando cuentas del inventario
+            // Primero procesar los tipos específicos (inventario, costo, venta, devolucion)
+            // Cada tipo debe tener su propio registro, incluso si comparten la misma cuenta_id
             $insertsCuenta=array();
-            if ($request->cuentacontable) {
+
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->inventario)->where('tipo', 1)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 1 (inventario)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->inventario;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 1;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 1;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->costo)->where('tipo', 2)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 2 (costo)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->costo;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 2;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 2;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->venta)->where('tipo', 3)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 3 (venta)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->venta;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 3;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 3;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0'){
+                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->devolucion)->where('tipo', 4)->first();
+                if(!$inven){
+                    // Crear un nuevo registro específico para tipo 4 (devolucion)
+                    $inven = new ProductoCuenta;
+                    $inven->cuenta_id = $request->devolucion;
+                    $inven->inventario_id = $inventario->id;
+                    $inven->tipo = 4;
+                    $inven->save();
+                }else{
+                    // Si ya existe, asegurarse de que tenga el tipo correcto
+                    $inven->tipo = 4;
+                    $inven->save();
+                }
+                $insertsCuenta[]=$inven->id;
+            }
+
+            // Ahora procesar las cuentas contables adicionales (las que no son de tipo específico)
+            // Crear array con las cuentas de tipo específico para excluirlas
+            $cuentasTipoEspecifico = array();
+            if(isset($request->inventario) && $request->inventario != '' && $request->inventario != '0') $cuentasTipoEspecifico[] = $request->inventario;
+            if(isset($request->costo) && $request->costo != '' && $request->costo != '0') $cuentasTipoEspecifico[] = $request->costo;
+            if(isset($request->venta) && $request->venta != '' && $request->venta != '0') $cuentasTipoEspecifico[] = $request->venta;
+            if(isset($request->devolucion) && $request->devolucion != '' && $request->devolucion != '0') $cuentasTipoEspecifico[] = $request->devolucion;
+            if(isset($request->autoretencion) && $request->autoretencion != '' && $request->autoretencion != '0') $cuentasTipoEspecifico[] = $request->autoretencion;
+
+            if ($request->cuentacontable && count($request->cuentacontable) > 0) {
                 foreach ($request->cuentacontable as $key) {
+                    // Asegurar que el valor no esté vacío
+                    if(trim($key) === '' || $key === '0' || $key === 0){
+                        continue;
+                    }
 
-                    if(!DB::table('producto_cuentas')->
+                    // Si esta cuenta es de tipo específico, ya fue procesada arriba, saltarla
+                    if(in_array($key, $cuentasTipoEspecifico)){
+                        continue;
+                    }
+
+                    // Verificar si existe algún registro con esta cuenta_id sin tipo específico
+                    $existe = DB::table('producto_cuentas')->
                     where('cuenta_id',$key)->
-                    where('inventario_id',$inventario->id)->first()){
+                    where('inventario_id',$inventario->id)->
+                    whereNull('tipo')->first();
 
+                    if(!$existe){
+                        // Si no existe, insertar uno nuevo sin tipo
                         $idCuentaPro = DB::table('producto_cuentas')->insertGetId([
                             'cuenta_id' => $key,
                             'inventario_id' => $inventario->id
                         ]);
-
+                        $insertsCuenta[]=$idCuentaPro;
                     }else{
-                        $idCuentaPro = DB::table('producto_cuentas')->
-                        where('cuenta_id',$key)->
-                        where('inventario_id',$inventario->id)->first()->id;
+                        // Si ya existe, usar ese ID
+                        $insertsCuenta[]=$existe->id;
                     }
-                    $insertsCuenta[]=$idCuentaPro;
                 }
-                if (count($insertsCuenta)>0) {
-                    DB::table('producto_cuentas')
-                    ->where('inventario_id',$inventario->id)
-                    ->whereNotIn('id',$insertsCuenta)->delete();
-                }
+            }
+
+            // Eliminar registros que no están en la lista
+            if (count($insertsCuenta)>0) {
+                DB::table('producto_cuentas')
+                ->where('inventario_id',$inventario->id)
+                ->whereNotIn('id',$insertsCuenta)->delete();
             }else{
+                // Si no hay registros para mantener, eliminar todos
                 DB::table('producto_cuentas')
                     ->where('inventario_id',$inventario->id)
                     ->delete();
-            }
-
-            //Actualizacion de cuentas contables por tipo
-            if(isset($request->inventario)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->inventario)->first();
-                if($inven){
-                    $inven->tipo = 1;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->costo)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->costo)->first();
-                if($inven){
-                    $inven->tipo = 2;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->venta)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->venta)->first();
-                if($inven){
-                    $inven->tipo = 3;
-                    $inven->save();
-                }
-            }
-
-            if(isset($request->devolucion)){
-                $inven= ProductoCuenta::where('inventario_id',$inventario->id)->where('cuenta_id',$request->devolucion)->first();
-                if($inven){
-                    $inven->tipo = 4;
-                    $inven->save();
-                }
             }
 
             if(isset($request->autoretencion)){
@@ -1299,6 +1371,69 @@ class InventarioController extends Controller{
         $objWriter->save('php://output');
         exit;
     }
+
+    public function validacionFacturasElectronicas(Request $request){
+
+        $empresa = Empresa::Find(1);
+       $imagen = $request->file('archivo');
+       $nombre_imagen = time().'archivo.'.$imagen->getClientOriginalExtension();
+       $path = public_path() .'/images/Empresas/Empresa'.$empresa->id;
+       $imagen->move($path,$nombre_imagen);
+       Ini_set ('max_execution_time', 3600);
+       $fileWithPath=$path."/".$nombre_imagen;
+       $inputFileType = PHPExcel_IOFactory::identify($fileWithPath);
+       $objReader = PHPExcel_IOFactory::createReader($inputFileType);
+       $objPHPExcel = $objReader->load($fileWithPath);
+       $sheet = $objPHPExcel->getSheet(0);
+       $highestRow = $sheet->getHighestRow();
+       $highestColumn = $sheet->getHighestColumn();
+       $letras= array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
+       $lista = '';
+
+
+       $fechaValidar = "2025-12-01";
+       $facturas = Factura::where('fecha',$fechaValidar)->where('tipo',2)->where('emitida',1)->get();
+
+       for ($row = 13; $row <= $highestRow; $row++){
+
+           $nitCliente=(string)$sheet->getCell("H".$row)->getValue();
+           $codigo=$sheet->getCell("E".$row)->getValue();
+           $cufe = $sheet->getCell("AD".$row)->getValue();
+           $fechaDian =(string)$sheet->getCell("K".$row)->getValue();
+           $totalDian = $sheet->getCell("AC".$row)->getValue();
+
+           $totalDian = str_replace(',00', '', $totalDian);
+           $number = str_replace('.', '', $totalDian);   // quitar separadores de miles
+           $number = str_replace(',', '.', $number);  // convertir coma decimal a punto
+           $totalDianNumero = round($number);
+
+
+           $fechaDian = Carbon::parse($fechaDian)->format('Y-m-d');
+
+           $facAreemplazar = Factura::join('contactos as c','c.id','factura.cliente')
+           ->where('c.nit',$nitCliente)->where('factura.fecha',$fechaDian)
+           ->where('factura.id',53046)
+           ->select('factura.*')
+           ->get();
+
+           foreach($facAreemplazar as $fac){
+
+               $total = $fac->total()->total;
+
+               if(round($total) == round($totalDianNumero)){
+
+                   $fac->uuid = $cufe;
+                   $fac->codigo = $codigo;
+                   $fac->save();
+               }
+
+           }
+
+       }
+
+       return "facturas corregidas";
+
+   }
 
     public function importarFacturasXlsx(Request $request){
 

@@ -115,6 +115,9 @@ class EmpresasController extends Controller
         $empresa->updated_at  = Carbon::now();
         $empresa->carrito = $request->carrito;
         $empresa->web = $request->web;
+        $empresa->proveedor = $request->proveedor;
+        $empresa->estado_dian = $request->estado_dian;
+        $empresa->btw_login = $request->btw_login;
         $empresa->save();
 
         $numeracion = new Numeracion;
@@ -415,6 +418,9 @@ class EmpresasController extends Controller
             $empresa->carrito = $request->carrito;
             $empresa->web = $request->web;
             $empresa->p_personalizado = $request->p_personalizado;
+            $empresa->proveedor = $request->proveedor;
+            $empresa->estado_dian = $request->estado_dian;
+            $empresa->btw_login = $request->btw_login;
             $empresa->save();
             $usuario->nombres = $request->nombre;
             if ($request->changepass) {

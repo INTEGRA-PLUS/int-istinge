@@ -1239,6 +1239,14 @@ class AsignacionesController extends Controller
 
     public function imprimir($id)
     {
+        // TODO: we should really test this method, as the generation of the PDF
+        // can sometimes go wrong. Or make a better error. The following can be
+        // upgraded to use something like Go or Rust, but I feel this is fine
+        // for now.
+        /** @var User $company */
+        $company = ((object) FacadesAuth::user())->empresa();
+        $request = request()->all();
+
 
         $digital = ContratoDigital::Find($id);
 

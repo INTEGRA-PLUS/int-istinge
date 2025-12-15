@@ -210,7 +210,7 @@ class PlanesVelocidadController extends Controller
         //Tomar las categorias del puc que no son transaccionables.
         $cuentas = Puc::where('empresa',$empresa)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();
         $type = '';
@@ -448,14 +448,14 @@ class PlanesVelocidadController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         $empresa = Auth::user()->empresa;
         $plan = PlanesVelocidad::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
-        $plan->ref = Inventario::Find($plan->item)->ref;
         $cuentas = Puc::where('empresa',$empresa)
         ->where('estatus',1)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $autoRetenciones = Retencion::where('empresa',Auth::user()->empresa)->where('estado',1)->where('modulo',2)->get();
 
         if ($plan) {
+            $plan->ref = Inventario::Find($plan->item)->ref;
             $inventario = Inventario::find($plan->item);
             $cuentasInventario = $inventario->cuentas();
             view()->share(['title' => 'Modificar Plan', 'icon' => 'fas fa-server']);

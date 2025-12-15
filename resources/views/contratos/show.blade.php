@@ -5,7 +5,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
 	    @if($contrato->cs_status==1)
@@ -222,7 +222,7 @@
 							<th>Nodo Asociado</th>
 							@if($contrato->nodo())
 							<td><a href="{{ route('nodos.show',$contrato->nodo()->id )}}" target="_blank"><strong>{{ $contrato->nodo()->nombre }}</strong></a></td>
-							@endif
+						@endif
 						</tr>
 						@endif
 						@if($contrato->ap)
@@ -249,6 +249,16 @@
 							<th>Precio Plan</th>
 							<td>{{ Auth::user()->empresa()->moneda }} {{ App\Funcion::Parsear($contrato->plan()->price) }}</td>
 						</tr>
+						@if($servicio_otro)
+						<tr>
+							<th>Otro servicio</th>
+							<td><a href="{{route('inventario.show', $servicio_otro->id)}}" target="_blank"><strong>{{ $servicio_otro->producto }}</strong></a></td>
+						</tr>
+						<tr>
+							<th>Valor otro servicio</th>
+							<td>{{ Auth::user()->empresa()->moneda }} {{ number_format($servicio_otro->precio, 0, ',', '.') }}</td>
+						</tr>
+						@endif
 						@if($contrato->costo_reconexion>0)
 						<tr>
 							<th>Costo de Reconexión</th>

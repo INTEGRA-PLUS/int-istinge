@@ -23,23 +23,23 @@
       </div>
     </div>
   @endif
-  <input type="hidden" name="asociado" value="{{$categoria->nro}}">
-   @csrf 
+  <input type="hidden" name="asociado" value="{{$categoria->asociado()->codigo}}">
+   @csrf
     <div class="row">
-      
+
       <div class="col-md-6 form-group">
         <label class="control-label">Código</label>
         <input type="text" class="form-control"  id="codigo" name="codigo"  value="{{$categoria->codigo}}" maxlength="50">
         <span class="help-block error">
           <strong>{{ $errors->first('codigo') }}</strong>
-        </span> 
+        </span>
       </div>
       <div class="col-md-6 form-group">
         <label class="control-label">Descripción</label>
         <textarea  class="form-control form-control-sm " name="descripcion" >{{$categoria->descripcion}}</textarea>
         <span class="help-block error">
           <strong>{{ $errors->first('descripcion') }}</strong>
-        </span> 
+        </span>
       </div>
     </div>
     <div class="row">

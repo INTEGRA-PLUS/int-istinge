@@ -22,7 +22,10 @@
     </tr>
   </thead>
   <tbody>
-    @php $count = count($facturas); @endphp
+    @php
+        $count = count($facturas);
+        $direccion = "n/a";
+    @endphp
 
     @foreach($facturas as $factura)
 

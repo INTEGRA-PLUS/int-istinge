@@ -38,7 +38,7 @@ class SaldosInicialesController extends Controller
         // $numeracion = Numeracion::where('empresa', Auth::user()->empresa)->first();
         // $siguienteNumero = $numeracion->contabilidad+1;
         // $numeracion->contabilidad = $siguienteNumero;
-        
+
 
         // foreach($movimientos as $mov){
         //     if($mov->documento_id != null && $mov->nro == null){
@@ -55,7 +55,7 @@ class SaldosInicialesController extends Controller
         //         $numeracion->contabilidad = $siguienteNumero;
         //         $numeracion->save();
         //     }
-           
+
         // }
 
         // return "ok";
@@ -88,10 +88,10 @@ class SaldosInicialesController extends Controller
     {
         view()->share(['seccion' => 'saldosiniciales', 'title' => 'Comprobantes Contables', 'icon' =>'fas fa-list-ul']);
         $this->getAllPermissions(Auth::user()->id);
-        
+
         $tipos = DB::table('tipo_comprobante')->get();
         $puc = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $contactos = Contacto::where('empresa',auth()->user()->empresa)->get();
         $proximoNumero = Numeracion::where('empresa',Auth::user()->empresa)->first()->contabilidad;
@@ -109,17 +109,17 @@ class SaldosInicialesController extends Controller
     {
         $detalleFinal = array();
         for($i = 0; $i < count($request->detalleComprobante); $i++){
-            
+
             $detalleFormateado = explode("|",$request->detalleComprobante[$i]);
             $arrayTemp = array("prefijo" => 0, "nroComprobante" => 0, "cuota" => 0, "fecha" => 0);
 
-            for ($k=0; $k < count($detalleFormateado); $k++) { 
+            for ($k=0; $k < count($detalleFormateado); $k++) {
 
                 switch ($k) {
                     case 0:
                         $arrayTemp["prefijo"] = $detalleFormateado[$k];
                         break;
-                    
+
                     case 1:
                         $arrayTemp["nroComprobante"] = $detalleFormateado[$k];
                         break;
@@ -127,11 +127,11 @@ class SaldosInicialesController extends Controller
                     case 2:
                         $arrayTemp["cuota"] = $detalleFormateado[$k];
                         break;
-                    
+
                     case 3:
                         $arrayTemp["fecha"] = $detalleFormateado[$k];
                         break;
-                    
+
                     default:
                     break;
                 }
@@ -139,7 +139,7 @@ class SaldosInicialesController extends Controller
 
             array_push($detalleFinal,$arrayTemp);
         }
-        
+
         //forma de recorrer el anterior array
         // foreach($detalleFinal as $final){
         //     echo ($final["nroComprobante"] . "<br>");
@@ -167,7 +167,7 @@ class SaldosInicialesController extends Controller
 
     public function edit($nro){
         $this->getAllPermissions(Auth::user()->id);
-        
+
         $movimientos = PucMovimiento::where('nro',$nro)->get();
 
         if(count($movimientos) == 0){
@@ -178,7 +178,7 @@ class SaldosInicialesController extends Controller
 
         $tipos = DB::table('tipo_comprobante')->get();
         $puc = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
         $contactos = Contacto::where('empresa',auth()->user()->empresa)->get();
         view()->share(['title' => 'Editar movimiento ' .$nro]);
@@ -187,20 +187,20 @@ class SaldosInicialesController extends Controller
     }
 
     public function update(Request $request){
-    
+
         $detalleFinal = array();
         for($i = 0; $i < count($request->detalleComprobante); $i++){
-            
+
             $detalleFormateado = explode("|",$request->detalleComprobante[$i]);
             $arrayTemp = array("prefijo" => 0, "nroComprobante" => 0, "cuota" => 0, "fecha" => 0);
 
-            for ($k=0; $k < count($detalleFormateado); $k++) { 
+            for ($k=0; $k < count($detalleFormateado); $k++) {
 
                 switch ($k) {
                     case 0:
                         $arrayTemp["prefijo"] = $detalleFormateado[$k];
                         break;
-                    
+
                     case 1:
                         $arrayTemp["nroComprobante"] = $detalleFormateado[$k];
                         break;
@@ -208,11 +208,11 @@ class SaldosInicialesController extends Controller
                     case 2:
                         $arrayTemp["cuota"] = $detalleFormateado[$k];
                         break;
-                    
+
                     case 3:
                         $arrayTemp["fecha"] = $detalleFormateado[$k];
                         break;
-                    
+
                     default:
                     break;
                 }
@@ -220,7 +220,7 @@ class SaldosInicialesController extends Controller
 
             array_push($detalleFinal,$arrayTemp);
         }
-        
+
         //forma de recorrer el anterior array
         // foreach($detalleFinal as $final){
         //     echo ($final["nroComprobante"] . "<br>");
@@ -231,7 +231,7 @@ class SaldosInicialesController extends Controller
 
     public function validateCartera(Request $request){
 
-        if(isset($request->pucId)){ 
+        if(isset($request->pucId)){
             $puc = Puc::find($request->pucId);
 
             if($puc->id_tipo){
@@ -241,9 +241,9 @@ class SaldosInicialesController extends Controller
                     return response()->json(false);
                 }
             }else{
-                return response()->json(false);  
+                return response()->json(false);
             }
-            
+
         }else{
             return response()->json(false);
         }
@@ -255,7 +255,7 @@ class SaldosInicialesController extends Controller
         $movimientos = PucMovimiento::query()->select('puc_movimiento.*')->groupBy('puc_movimiento.nro')->orderByDesc('puc_movimiento.id');
 
         if ($request->filtro == true) {
-            
+
         }
 
         $movimientos->where('puc_movimiento.empresa', auth()->user()->empresa);

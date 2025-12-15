@@ -3,10 +3,10 @@
 namespace App\Model\Ingresos;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Model\Ingresos\Factura; 
-use App\Model\Ingresos\NotaCredito; 
+use App\Model\Ingresos\Factura;
+use App\Model\Ingresos\NotaCredito;
 
-class NotaCreditoFactura extends Model 
+class NotaCreditoFactura extends Model
 {
     protected $table = "notas_factura";
     protected $primaryKey = 'id';
@@ -19,7 +19,7 @@ class NotaCreditoFactura extends Model
         'nota', 'factura', 'pago', 'created_at', 'updated_at'
     ];
 
-    
+
     public function factura(){
          return Factura::where('id',$this->factura)->first();
     }
@@ -43,14 +43,20 @@ class NotaCreditoFactura extends Model
         }
         return '';
     }
-    
+
     public function nota_nro_seguro() {
         $nota = $this->nota();
         return $nota ? $nota->nro : 'N/A';
     }
-    
+
     public function nota_fecha_segura() {
         $nota = $this->nota();
         return $nota && $nota->fecha ? date('d-m-Y', strtotime($nota->fecha)) : 'N/A';
     }
+
+    public function facturaObj()
+    {
+        return $this->belongsTo(Factura::class, 'factura');
+    }
+
 }

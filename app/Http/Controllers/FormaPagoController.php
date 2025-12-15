@@ -19,7 +19,7 @@ class FormaPagoController extends Controller
 
         //Tomar las categorias del puc que no son transaccionables.
         $categorias = Puc::where('empresa',auth()->user()->empresa)
-        ->whereRaw('length(codigo) > 6')
+        ->whereRaw('length(codigo) >= 6')
         ->get();
 
         $mediosPago = FormaPagoMedio::all();
@@ -35,7 +35,7 @@ class FormaPagoController extends Controller
         $pago->nombre = $request->nombre;
         $pago->relacion = $request->relacion;
         $pago->cuenta_id = $request->cuenta_id;
-        $pago->medio_pago_id = $request->medio_pago_id; 
+        $pago->medio_pago_id = $request->medio_pago_id;
         $pago->save();
 
 
@@ -54,7 +54,7 @@ class FormaPagoController extends Controller
         //Obtenemos el medio de pago
         $pago->medioPago = FormaPagoMedio::where('id',$request->medio_pago_id)->first()->nombre;
 
-        
+
         return response()->json($pago);
     }
 
@@ -79,7 +79,7 @@ class FormaPagoController extends Controller
             $pago->nombre = $request->nombre;
             $pago->relacion = $request->relacion;
             $pago->cuenta_id = $request->cuenta_id;
-            $pago->medio_pago_id = $request->medio_pago_id; 
+            $pago->medio_pago_id = $request->medio_pago_id;
             $pago->save();
             return response()->json([
                 'forma' => $pago
@@ -95,7 +95,7 @@ class FormaPagoController extends Controller
         if($forma){
             $forma->delete();
         }
-        
+
         return response()->json(['forma' => true]);
     }
 }

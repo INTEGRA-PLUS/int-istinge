@@ -331,7 +331,21 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             <li class="nav-item" id="crm_whatsapp">
                 <a class="nav-link" href="{{route('crm.cartera2')}}">Clientes IA</a>
             </li>
+            <li class="nav-item" id="crm_chat_ia">
+                <a class="nav-link" href="{{ route('crm.chat_IA') }}">Chat IA</a>
+            </li>
             @endif
+            @if(Auth::user()->empresa()->wppNuevo == 1)
+            <li class="nav-item" id="crm_chat_meta">
+                <a class="nav-link" href="{{ route('crm.chat_meta') }}">Chat Meta</a>
+            </li>
+            @endif
+            {{-- @if(Auth::user()->empresa()->chat_ia == 1) --}}
+            <li class="nav-item" id="crm_whatsapp">
+                <a class="nav-link" href="{{route('crm.chatboxIA')}}">Chatbox</a>
+            </li>
+            {{-- @endif --}}
+            
         </ul>
     </div>
 </li>
@@ -436,6 +450,12 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('grupos-corte.estados')}}">Estados de corte</a>
             </li>
             @endif
+            <li class="nav-item" id="nodos">
+                <a class="nav-link" href="{{route('spliter.index')}}">Spliter Optico</a>
+            </li>
+            <li class="nav-item" id="nodos">
+                <a class="nav-link" href="{{route('caja.naps.index')}}">Cajas Nap</a>
+            </li>
         </ul>
     </div>
 </li>

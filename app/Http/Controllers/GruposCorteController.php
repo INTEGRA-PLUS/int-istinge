@@ -241,6 +241,7 @@ class GruposCorteController extends Controller
             $grupo->status                = $request->status;
             $grupo->prorroga_tv           = $request->prorroga_tv;
             $grupo->updated_by            = Auth::user()->id;
+            $grupo->nro_factura_vencida = $request->nro_factura_vencida;
             $grupo->save();
 
             $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE EL GRUPO DE CORTE';

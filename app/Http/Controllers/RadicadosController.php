@@ -21,6 +21,7 @@ use DB;
 use Carbon\Carbon;
 use Session;
 use App\Campos;
+use App\Etiqueta;
 use App\Instance;
 use Barryvdh\DomPDF\Facade as PDF;
 use Illuminate\Support\Facades\Storage;
@@ -97,6 +98,7 @@ class RadicadosController extends Controller
             ->join('servicios as s', 's.id', '=', 'radicados.servicio')
             ->select('radicados.*', 's.nombre as nombre_servicio')
             ->where('radicados.empresa', Auth::user()->empresa);
+        $etiquetas = Etiqueta::where('empresa_id', auth()->user()->empresa)->get();
 
         if ($request->filtro == true) {
             if ($request->codigo) {
@@ -224,6 +226,12 @@ class RadicadosController extends Controller
             ->editColumn('telefono', function (Radicado $radicado) {
                 return  $radicado->telefono;
             })
+            ->editColumn('usuario_pppoe', function (Radicado $radicado) {
+                return  $radicado->contrato()?$radicado->contrato()->usuario:'';
+            })
+            ->editColumn('password_pppoe', function (Radicado $radicado) {
+                return  $radicado->contrato()?$radicado->contrato()->password:'';
+            })
             ->editColumn('servicio', function (Radicado $radicado) {
                 return  $radicado->nombre_servicio;
             })
@@ -289,6 +297,9 @@ class RadicadosController extends Controller
                 return ($radicado->tiempo_fin) ? date('d-m-Y g:i:s A', strtotime($radicado->tiempo_fin)) : 'N/A';
             })
             ->addColumn('acciones', $modoLectura ?  "" : "radicados.acciones")
+            ->addColumn('etiqueta', function(Radicado $radicado)use ($etiquetas){
+                return view('radicados.etiqueta', compact('etiquetas','radicado'));
+            })
             ->rawColumns(['ip', 'codigo', 'estatus', 'acciones', 'creado', 'prioridad', 'tecnico', 'desconocido', 'tiempo_fin'])
             ->toJson();
     }
@@ -306,7 +317,7 @@ class RadicadosController extends Controller
         $departamentos = DB::table('departamentos')->get();
         $planes = PlanesVelocidad::where('empresa', Auth::user()->empresa)->get();
         $servicios = Servicio::where('empresa', Auth::user()->empresa)->where('estatus', 1)->get();
-        $tecnicos = User::where('empresa', Auth::user()->empresa)->where('rol', 4)->get();
+        $tecnicos = User::where('empresa', Auth::user()->empresa)->where('rol', 4)->where('user_status',1)->get();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         view()->share(['icon' => 'far fa-life-ring', 'title' => 'Nuevo Caso']);
         return view('radicados.create')->with(compact('clientes', 'identificaciones', 'paises', 'departamentos', 'tipos_empresa', 'prefijos', 'vendedores', 'listas', 'planes', 'servicios', 'tecnicos', 'cliente', 'oficinas'));
@@ -416,7 +427,7 @@ class RadicadosController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
         $servicios = Servicio::where('empresa', Auth::user()->empresa)->where('estatus', 1)->get();
-        $tecnicos = User::where('empresa', Auth::user()->empresa)->where('rol', 4)->get();
+        $tecnicos = User::where('empresa', Auth::user()->empresa)->where('rol', 4)->where('user_status',1)->get();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $detalle_equipos = DB::table('radicados_detalles_equipos')->where('radicado_id', $radicado->id)->get();
         if ($radicado) {
@@ -431,7 +442,6 @@ class RadicadosController extends Controller
 
         $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
         $estatusViejo = $radicado->estatus;
-
         //elminacion de un posible detalle de detalle de euqipos
         DB::table('radicados_detalles_equipos')->where('radicado_id', $radicado->id)->delete();
         if(isset($request->marca)){
@@ -559,6 +569,48 @@ class RadicadosController extends Controller
                 return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
             }
 
+            if ($request->adjunto5) {
+
+                $radicado->adjunto_5 = $request->adjunto4;
+                $file = $request->file('adjunto5');
+                $nombre = $radicado->codigo . '-' . '5' . date('Ymd') . '.' . $file->extension();
+                $ruta = public_path('/adjuntos/documentos/');
+                $file->move($ruta, $nombre);
+
+                $radicado->adjunto_5 = $nombre;
+                $radicado->update();
+                $mensaje = 'SE HA CARGADO EL ARCHIVO ADJUNTO SATISFACTORIAMENTE.';
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = Auth::user()->id;
+                $log->accion = 'Carga de archivo adjunto.';
+                $log->save();
+
+                return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
+            }
+
+            if ($request->adjunto6) {
+
+                $radicado->adjunto_6 = $request->adjunto4;
+                $file = $request->file('adjunto6');
+                $nombre = $radicado->codigo . '-' . '6' . date('Ymd') . '.' . $file->extension();
+                $ruta = public_path('/adjuntos/documentos/');
+                $file->move($ruta, $nombre);
+
+                $radicado->adjunto_6 = $nombre;
+                $radicado->update();
+                $mensaje = 'SE HA CARGADO EL ARCHIVO ADJUNTO SATISFACTORIAMENTE.';
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = Auth::user()->id;
+                $log->accion = 'Carga de archivo adjunto.';
+                $log->save();
+
+                return redirect('empresa/radicados/' . $id)->with('success', $mensaje);
+            }
+
             if ($request->archivo_de_audio) {
                 $radicado->adjunto_audio = $request->archivo_de_audio;
                 $file = $request->file('archivo_de_audio');
@@ -634,7 +686,8 @@ class RadicadosController extends Controller
             $radicado->tecnico = $request->tecnico;
             $radicado->estatus = $request->estatus;
             $radicado->prioridad = $request->prioridad;
-            //$radicado->responsable = Auth::user()->id;
+            $radicado->medio = $request->medio;
+            $radicado->grado = $request->grado;
             $radicado->valor = ($request->servicio == 4) ? $request->valor : null;
             $radicado->oficina = $request->oficina;
             $radicado->revision = $request->revision;
@@ -723,6 +776,14 @@ class RadicadosController extends Controller
 
             if ($radicado->adjunto_4) {
                 Storage::disk('documentos')->delete($radicado->adjunto_4);
+            }
+
+            if ($radicado->adjunto_5) {
+                Storage::disk('documentos')->delete($radicado->adjunto_5);
+            }
+
+            if ($radicado->adjunto_6) {
+                Storage::disk('documentos')->delete($radicado->adjunto_6);
             }
 
             $radicado->delete();
@@ -906,23 +967,24 @@ class RadicadosController extends Controller
         return json_encode($json_data);
     }
 
-    public function proceder($id)
-    {
+    public function proceder($id){
         $this->getAllPermissions(Auth::user()->id);
-        $radicado = Radicado::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        $radicado = Radicado::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
         if ($radicado) {
             if ($radicado->tiempo_ini == null) {
                 $radicado->tiempo_ini = Carbon::now()->toDateTimeString();
                 $radicado->tiempo_est = $radicado->servicio()->tiempo;
-                $mensaje = 'Radicado Iniciado, recuerde que tiene un tiempo de ' . $radicado->tiempo_est . 'min para solventarlo';
+                $mensaje = 'Radicado Iniciado, recuerde que tiene un tiempo de '.$radicado->tiempo_est.'min para solventarlo';
                 $msj = 'Iniciado el tiempo para solventar el radicado.';
-            } else {
+                $radicado->temp_status = 1;
+            }else{
                 $radicado->tiempo_fin = Carbon::now()->toDateTimeString();
                 $inicio = Carbon::parse($radicado->tiempo_ini);
                 $cierre = Carbon::parse($radicado->tiempo_fin);
                 $duracion = $inicio->diffInMinutes($cierre);
-                $mensaje = 'Radicado Finalizado, con una duración de ' . $duracion . 'min';
+                $mensaje = 'Radicado Finalizado, con una duración de '.$duracion.'min';
                 $msj = 'Finalizado el tiempo para solventar el radicado.';
+                $radicado->temp_status = 2;
             }
 
             $radicado->update();
@@ -937,6 +999,7 @@ class RadicadosController extends Controller
         }
         return back('empresa/radicados')->with('danger', 'No existe un registro con ese id');
     }
+
 
     public function eliminarAdjunto($id)
     {
@@ -1327,7 +1390,16 @@ class RadicadosController extends Controller
                 $log = new RadicadoLOG;
                 $log->id_radicado = $radicado->id;
                 $log->id_usuario = Auth::user()->id;
-                $log->accion = ($state == 'solventar') ? 'Se ha solventado el caso radicado.' : 'Reabriendo el caso radicado.';
+
+                $accion = "";
+                if ($state == 'solventar') {
+                    $accion = 'Se ha solventado el caso radicado.';
+                } else if ($state == 'reabrir') {
+                    $accion = 'Reabriendo el caso radicado.';
+                }else if($state == 'escalar') {
+                    $accion = 'Se ha escalado el caso radicado.';
+                }
+                $log->accion = $accion;
                 $log->save();
 
                 if ($state == 'solventar') {
@@ -1467,15 +1539,37 @@ class RadicadosController extends Controller
     {
         $radicados = $request->input('radicados');
         $tecnico = $request->input('tecnico');
+        $user = Auth::user();
+        $tecnicoUser = User::find($tecnico);
 
         foreach ($radicados as $radicadoId) {
             $radicado = Radicado::find($radicadoId);
             if ($radicado) {
                 $radicado->tecnico = $tecnico;
                 $radicado->save();
+
+                $log = new RadicadoLOG;
+                $log->id_radicado = $radicado->id;
+                $log->id_usuario = $user->id;
+                $log->accion = 'El usuario ' . $user->nombres . ' ha asignado el tecnico ' . $tecnicoUser->nombres . ' el radicado ' . $radicado->codigo;
+                $log->save();
             }
         }
 
         return response()->json(['message' => 'Técnico asignado a los radicados correctamente.']);
+    }
+
+    public function cambiarEtiqueta($etiqueta, $radicado){
+
+        $radicado =  Radicado::where('id', $radicado)->where('empresa', Auth::user()->empresa)->first();
+        if($etiqueta == 0){
+            $radicado->etiqueta_id = null;
+        }else{
+            $radicado->etiqueta_id = $etiqueta;
+        }
+
+
+        $radicado->update();
+        return $radicado->etiqueta;
     }
 }

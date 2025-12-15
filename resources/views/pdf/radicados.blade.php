@@ -172,9 +172,16 @@
                         </tr>
                         <tr>
                             <th style="text-align: left; padding-left: 9px;">Nro. Telefónico</th>
-                            <td style="padding-left: 9px;">{{$radicado->telefono}}
-                                 {{ $radicado->cliente()->telefono1 }}
-                                {{ $radicado->cliente()->telefono1 }}  {{ $radicado->cliente()->celular }}
+                            <td style="padding-left: 9px;">
+                                @if (!empty($radicado->telefono))
+                                    {{ $radicado->telefono }}
+                                @elseif (!empty($radicado->cliente()->celular))
+                                    {{ $radicado->cliente()->celular }}
+                                @elseif (!empty($radicado->cliente()->telefono1))
+                                    {{ $radicado->cliente()->telefono1 }}
+                                @else
+                                    Sin teléfono
+                                @endif
                             </td>
                         </tr>
                         <tr>

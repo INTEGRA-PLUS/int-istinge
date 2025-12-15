@@ -6,16 +6,17 @@ use App\Retencion;
 use Illuminate\Database\Eloquent\Model;
 use Auth;
 use App\Contacto;
-use App\Impuesto; 
-use App\TerminosPago;  use DB; 
+use App\Impuesto;
+use App\TerminosPago;
+use DB;
 use App\NotaRetencion;
 
-use App\Model\Gastos\NotaDeditoFactura;
-use App\Model\Gastos\ItemsNotaDedito;
+use App\Model\Gastos\NotaDebitoFactura;
+use App\Model\Gastos\ItemsNotaDebito;
 use App\Model\Gastos\DevolucionesDebito;
 
-use App\Model\Inventario\Bodega; 
-class NotaDedito extends Model
+use App\Model\Inventario\Bodega;
+class NotaDebito extends Model
 {
     protected $table = "notas_debito";
     protected $primaryKey = 'id';
@@ -32,10 +33,10 @@ class NotaDedito extends Model
         return Contacto::where('id',$this->proveedor)->first();
     }
 
-    
+
     public function total(){
         $totales=array('total'=>0, 'subtotal'=>0, 'descuento'=>0, 'subsub'=>0, 'totalreten' => 0,'imp'=>Impuesto::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get());
-        $items=ItemsNotaDedito::where('nota',$this->id)->get();
+        $items=ItemsNotaDebito::where('nota',$this->id)->get();
         $totales["reten"]= Retencion::where('empresa',Auth::user()->empresa)->orWhere('empresa', null)->Where('estado', 1)->get();
         $result=0; $desc=0; $impuesto=0;
         foreach ($items as $item) {
@@ -91,11 +92,11 @@ class NotaDedito extends Model
         return (object) $totales;
 
     }
-    
+
     public function factura_detalle(){
-        
+
     }
-    
+
     public function impuestos_totales(){
         $total=0;
         foreach ($this->total()->imp as $value) {
@@ -105,18 +106,18 @@ class NotaDedito extends Model
         }
         return  $total;
     }
-    
+
     public function cliente(){
          return Contacto::where('id',$this->proveedor)->first();
     }
 
     public function por_aplicar(){
-        $facturas=NotaDeditoFactura::where('nota',$this->id)->sum('pago');
+        $facturas=NotaDebitoFactura::where('nota',$this->id)->sum('pago');
         $devoluciones=DevolucionesDebito::where('nota',$this->id)->sum('monto');
        return $facturas;//-$facturas-$devoluciones;
     }
 
-    
+
     public function bodega(){
         $bodega=Bodega::where('empresa',Auth::user()->empresa)->where('id', $this->bodega)->first();
         if (!$bodega) { return ''; }
@@ -133,7 +134,7 @@ class NotaDedito extends Model
 
         return $total;
     }
-    
+
      public function info_cufe($id, $impTotal)
     {
             $factura = FacturaProveedores::find($id);
@@ -154,9 +155,15 @@ class NotaDedito extends Model
               'ClvTec' => 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
               'TipoAmb'=> 2,
           ];
-    
+
       $CUFE = $infoCufe['Numfac'].$infoCufe['FecFac'].$infoCufe['HorFac'].$infoCufe['ValFac'].$infoCufe['CodImp'].$infoCufe['ValImp'].$infoCufe['CodImp2'].$infoCufe['ValImp2'].$infoCufe['CodImp3'].$infoCufe['ValImp3'].$infoCufe['ValTot'].$infoCufe['NitFE'].$infoCufe['NumAdq'].$infoCufe['ClvTec'].$infoCufe['TipoAmb'];
-    
+
          return hash('sha384',$CUFE);
     }
-}   
+
+    public function items()
+    {
+        return $this->hasMany(ItemsNotaDebito::class, 'nota');
+    }
+
+}
