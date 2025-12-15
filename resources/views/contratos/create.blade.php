@@ -1347,9 +1347,6 @@
 				var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
 			}
 
-
-            var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
-
             $.ajax({
                 url: url,
                 method: 'GET',

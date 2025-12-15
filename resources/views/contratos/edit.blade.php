@@ -1254,7 +1254,13 @@
         }
 
         var contratoId = $('#contrato_id').val() || null;
-        var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+
+        if (window.location.pathname.split("/")[1] === "software") {
+				var url='/software/caja-naps/' + cajaNapId + '/puertos-disponibles';
+		}else{
+				var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+		}
+
         if (contratoId) {
             url += '/' + contratoId;
         }
