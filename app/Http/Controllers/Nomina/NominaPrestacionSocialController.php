@@ -9,7 +9,7 @@ use DB;
 use App\Model\Nomina\NominaPrestacionSocial;
 use App\Model\Nomina\Nomina;
 use App\Model\Nomina\Persona;
-use Barryvdh\DomPDF\Facade\Pdf as PDF;
+use Barryvdh\DomPDF\Facade as PDF;
 use Validator;
 
 class NominaPrestacionSocialController extends Controller
