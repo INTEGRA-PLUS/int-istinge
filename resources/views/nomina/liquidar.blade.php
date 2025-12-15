@@ -195,7 +195,7 @@
 
 
     <div class="row text-center pt-2">
-        @if(isset($_SESSION['permisos']['163']))
+        @if(isset($_SESSION['permisos']['163']) || 1==1)
         <div class="col-4">
             <a href="{{ route('nomina.resumenExcel', ['periodo' => $periodo, 'year'=> $year, 'tipo' => $tipo]) }}" style="text-decoration: underline;">Resumen nómina</a>
         </div>
@@ -210,7 +210,6 @@
             <a href="#" style="text-decoration: underline;">Cargar novedades</a>
         </div>
         --}}
-        @if(isset($_SESSION['permisos']['165']))
         <div class="col-4">
             <div class="btn-group dropdown">
                 <a style="text-decoration:underline; color: #41a17f !important" href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="btn-prestaciones-sociales">
@@ -226,7 +225,6 @@
                 </div>
             </div>
         </div>
-        @endif
     </div>
 
 
