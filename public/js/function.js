@@ -4337,27 +4337,50 @@ function getPlanes(mikrotik) {
             getInterfaces(mikrotik);
             $("#amarre_mac").val(data.mikrotik.amarre_mac);
             $('#conexion').val('').selectpicker('refresh');
-            // Vaciar el select para evitar duplicados
-            $("#div_profile_select").empty();
 
-            // Asegurarnos de que profile sea un array
-            var profiles = data.profile;
-            if (typeof profiles === "number" || typeof profiles === "string") {
-                profiles = [ { name: profiles } ];
-            } else if (!Array.isArray(profiles)) {
-                profiles = []; // fallback a vacío
+            // Vaciar el select de profiles para evitar duplicados
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            // Normalizar data.profile a un arreglo de objetos { name: 'PROFILE' }
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                // Array: puede ser de strings/números u objetos
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object") {
+                        if (value.name) {
+                            normalizedProfiles.push({ name: value.name });
+                        }
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                // Un solo valor simple
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                // Objeto: iterar sus propiedades
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
             }
 
-            // Iterar sobre los perfiles y agregar cada uno como una opción al select
-            $.each(profiles, function(key, value) {
-                $("#div_profile_select").append($('<option>', {
-                    value: value.name,
-                    text: value.name
+            // Agregar opciones al select
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
                 }));
             });
 
             // Refrescar el selectpicker después de agregar las opciones
-            $('#div_profile_select').selectpicker('refresh');
+            $profileSelect.selectpicker('refresh');
         },
         error: function(data) {
             cargando(false);
