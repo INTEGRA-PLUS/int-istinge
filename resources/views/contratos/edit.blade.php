@@ -369,7 +369,11 @@
 
                             <div class="col-md-4 form-group  {{$contrato->conexion==1?'':'d-none'}}" id="div_profile" {{$contrato->profile ? '':'d-none'}}>
                                 <label class="control-label">Profile</label>
-                                <input type="text" class="form-control" name="profile" id="profile" value="{{ $contrato->profile}}">
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="profile" id="div_profile_select"
+                                        title="Seleccione" data-live-search="true" data-size="5">
+                                    </select>
+                                </div>
                             </div>
 
 
@@ -1101,17 +1105,35 @@
         $(document).ready(function () {
 
             $('input[name="change_cliente"]').on('change', function () {
-            if ($(this).val() == '1') {
-                $('.divnew_contacto').removeClass('d-none');
-            } else {
-                $('.divnew_contacto').addClass('d-none');
-            }
+                if ($(this).val() == '1') {
+                    $('.divnew_contacto').removeClass('d-none');
+                } else {
+                    $('.divnew_contacto').addClass('d-none');
+                }
             });
 
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
             getInterfaces($("#server_configuration_id").val());
+
+            // Seleccionar automáticamente el profile actual del contrato cuando
+            // el select asíncrono haya cargado sus opciones
+            var currentProfile = "{{ $contrato->profile }}";
+            if (currentProfile) {
+                var profileInterval = setInterval(function () {
+                    var $profileSelect = $('#div_profile_select');
+                    if ($profileSelect.length && $profileSelect.children('option').length) {
+                        $profileSelect.val(currentProfile).selectpicker('refresh');
+                        clearInterval(profileInterval);
+                    }
+                }, 500);
+
+                // Dejar de intentar después de un tiempo razonable
+                setTimeout(function () {
+                    clearInterval(profileInterval);
+                }, 10000);
+            }
 
             // Verificar y ocultar campos si es DHCP con Simple Queue dinámica al cargar la página
             if(typeof toggleCamposDHCP === 'function') {
