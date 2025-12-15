@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Auth;
 
-class AdminOLTController extends Controller
+class OltAdminController extends Controller
 {
+    #Esta vista es un index, para mostrar las onus no configuradas
     public function unconfigured()
     {
         // (Opcional) seguridad
