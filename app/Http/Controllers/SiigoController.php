@@ -400,6 +400,7 @@ class SiigoController extends Controller
             ];
 
 
+
             //Envio a curl invoice
             $curl = curl_init();
 
@@ -554,12 +555,21 @@ class SiigoController extends Controller
         return redirect()->route('siigo.mapeo_vendedores')->with('success', 'Vendedores guardados correctamente.');
     }
 
-    public function getProducts(){
-        $empresa = Empresa::Find(1);
+    public function getProducts($page = 1, $pageSize = 25)
+    {
+        $empresa = Empresa::find(1);
+
+        $url = 'https://api.siigo.com/v1/products'
+            . '?page=' . $page
+            . '&page_size=' . $pageSize
+            . '&order_by=code'
+            . '&order_direction=asc'
+            . '&status=active';
+
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://api.siigo.com/v1/products?limit=1000&offset=0&order_by=code&order_direction=asc&status=active',
+        curl_setopt_array($curl, [
+            CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -567,37 +577,98 @@ class SiigoController extends Controller
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_HTTPHEADER => array(
+            CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
-            ),
-        ));
+            ],
+        ]);
 
         $response = curl_exec($curl);
-        $response = json_decode($response, true);
         curl_close($curl);
-        return $response;
+
+        return json_decode($response, true);
     }
 
-    public function mapeoProductos(){
+
+    public function mapeoProductos()
+    {
         $this->getAllPermissions(Auth::user()->id);
-        view()->share(['title' => 'Mapeo de productos', 'icon' => 'fa fa-cogs', 'seccion' => 'Configuración']);
-        $productos = Inventario::where('status', 1)->get();
-        $productosSiigo = $this->getProducts()['results'];
 
-        return view('siigo.productos', compact('productos','productosSiigo'));
+        view()->share([
+            'title'   => 'Mapeo de productos',
+            'icon'    => 'fa fa-cogs',
+            'seccion' => 'Configuración'
+        ]);
+
+        $productos = Inventario::where('status', 1)->get();
+
+        // 🔹 Traer todos los productos de Siigo
+        $productosSiigo = [];
+        $page = 1;
+        $pageSize = 25;
+        $total = 0;
+
+        do {
+            $response = $this->getProducts($page, $pageSize);
+
+            if (!empty($response['results'])) {
+                $productosSiigo = array_merge($productosSiigo, $response['results']);
+            }
+
+            $total = $response['pagination']['total_results'] ?? 0;
+            $page++;
+
+        } while (count($productosSiigo) < $total);
+
+        return view('siigo.productos', compact('productos', 'productosSiigo'));
     }
 
-    public function storeProductos(Request $request){
-        for($i = 0; $i < count($request->productos); $i++){
+
+    public function storeProductos(Request $request)
+    {
+        for ($i = 0; $i < count($request->productos); $i++) {
+
             $producto = Inventario::find($request->productos[$i]);
-            $producto->siigo_id = $request->siigo_productos[$i];
+
+            // Valor que viene del select de Siigo
+            $siigoValue = $request->siigo_productos[$i] ?? null;
+
+            if (empty($siigoValue) || $siigoValue === '0') {
+                $producto->siigo_id = null;
+                $producto->codigo_siigo = null;
+                $producto->save();
+                continue;
+            }
+
+            if (strpos($siigoValue, '|') === false) {
+                // Formato inválido → no guardamos basura
+                $producto->siigo_id = null;
+                $producto->codigo_siigo = null;
+                $producto->save();
+                continue;
+            }
+
+            [$siigo_id, $siigo_code] = explode('|', $siigoValue, 2);
+
+            // Validación final por seguridad
+            if (empty($siigo_id) || empty($siigo_code)) {
+                $producto->siigo_id = null;
+                $producto->siigo_code = null;
+            } else {
+                $producto->siigo_id = trim($siigo_id);
+                $producto->codigo_siigo = trim($siigo_code);
+            }
+
             $producto->save();
         }
 
-        return redirect()->route('siigo.mapeo_productos')->with('success', 'Productos guardados correctamente.');
+        return redirect()
+            ->route('siigo.mapeo_productos')
+            ->with('success', 'Productos guardados correctamente.');
     }
+
+
 
     public function createItem($item){
 
@@ -713,6 +784,7 @@ class SiigoController extends Controller
                     $request->merge(['tipo_comprobante' => $servidor->tipodoc_siigo_id]);
 
                     $response = $this->sendInvoice($request,$factura);
+
                     // Extraer contenido del JSON si es instancia de Response
                     if ($response instanceof \Illuminate\Http\JsonResponse) {
                         $data = $response->getData(true);

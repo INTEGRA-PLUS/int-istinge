@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\ACSController;
-
+use App\Http\Controllers\PlanesVelocidadController;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 
@@ -147,6 +147,7 @@ Route::get('/generarfactura', 'CronController@CrearFactura')->name('CrearFactura
 Route::get('/deleteAll', 'CronController@deleteFactura');
 Route::get('/aplicateProrrateo', 'CronController@aplicateProrrateo');
 Route::get('/cortarfacturas', 'CronController@CortarFacturas')->name('CortarFacturas');
+Route::get('/cortarfacturasdiaespecifico', 'CronController@CortarFacturasDiaEspecifico')->name('CortarFacturasDiaEspecifico');
 Route::get('/cortartelevision', 'CronController@CortarTelevision');
 Route::get('/enviarsms', 'CronController@EnviarSMS')->name('EnviarSMS');
 Route::get('/migrarCRM', 'CronController@migrarCRM')->name('migrarCRM');
@@ -1848,5 +1849,11 @@ Route::get('spliter', 'SpliterController@spliter');
 
 //Rutas agregadas para cajas naps
 Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');
+Route::get('/caja-naps/datatable', 'CajaNapController@cajasNaps')->name('caja.naps.datatable');
 Route::get('/caja-naps/create', 'CajaNapController@create')->name('caja.naps.create');
 Route::post('/caja-naps/store', 'CajaNapController@store')->name('caja.naps.store');
+Route::get('/caja-naps/{id}', 'CajaNapController@show')->name('caja.naps.show');
+Route::get('/caja-naps/{id}/edit', 'CajaNapController@edit')->name('caja.naps.edit');
+Route::patch('/caja-naps/{id}', 'CajaNapController@update')->name('caja.naps.update');
+Route::delete('/caja-naps/{id}', 'CajaNapController@destroy')->name('caja.naps.destroy');
+Route::get('/caja-naps/{id}/puertos-disponibles/{contratoId?}', 'CajaNapController@getPuertosDisponibles')->name('caja.naps.puertos.disponibles');

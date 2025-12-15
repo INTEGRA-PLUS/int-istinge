@@ -47,6 +47,7 @@ use App\Campos;
 use App\Puerto;
 use App\Oficina;
 use App\CRM;
+use App\CajaNap;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\ItemsFactura;
 use App\NumeracionFactura;
@@ -682,6 +683,7 @@ class ContratosController extends Controller
         $canales = Canal::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $gmaps = Integracion::where('empresa', Auth::user()->empresa)->where('tipo', 'GMAPS')->first();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+        $cajasNaps = CajaNap::where('status', 1)->get();
 
         view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Nuevo Contrato']);
         return view('contratos.create')->with(compact(
@@ -703,7 +705,8 @@ class ContratosController extends Controller
             'canales',
             'gmaps',
             'oficinas',
-            'serviciosOtros'
+            'serviciosOtros',
+            'cajasNaps'
         ));
     }
 
@@ -1083,6 +1086,8 @@ class ContratosController extends Controller
             $contrato->ip_autorizada           = $ip_autorizada;
             $contrato->empresa                 = Auth::user()->empresa;
             $contrato->puerto_conexion         = $request->puerto_conexion;
+            $contrato->cajanap_id              = $request->cajanap_id;
+            $contrato->cajanap_puerto          = $request->cajanap_puerto;
             $contrato->latitude                = $request->latitude;
             $contrato->longitude               = $request->longitude;
             $contrato->contrato_permanencia    = $request->contrato_permanencia;
@@ -1490,7 +1495,9 @@ class ContratosController extends Controller
             'contracts.fact_primer_mes',
             'contracts.rd_item_vencimiento',
             'contracts.dt_item_hasta',
-            'contracts.pago_siigo_contrato'
+            'contracts.pago_siigo_contrato',
+            'contracts.cajanap_id',
+            'contracts.cajanap_puerto'
         )
             ->where('contracts.id', $id)->where('contracts.empresa', Auth::user()->empresa)->first();
 
@@ -1511,6 +1518,7 @@ class ContratosController extends Controller
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $contactos = Contacto::where('status',1)->get();
         $empresa = Empresa::find(1);
+        $cajasNaps = CajaNap::where('status', 1)->get();
 
         if ($contrato) {
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Editar Contrato: ' . $contrato->nro]);
@@ -1529,6 +1537,7 @@ class ContratosController extends Controller
                 'canales',
                 'gmaps',
                 'oficinas',
+                'cajasNaps',
                 'serviciosOtros',
                 'contactos',
                 'empresa'
@@ -1948,6 +1957,8 @@ class ContratosController extends Controller
                     }
 
                     $contrato->puerto_conexion    = $request->puerto_conexion;
+                    $contrato->cajanap_id         = $request->cajanap_id;
+                    $contrato->cajanap_puerto     = $request->cajanap_puerto;
                     $contrato->plan_id            = $request->plan_id;
                     $contrato->usuario            = $request->usuario;
                     $contrato->password           = $request->password;
