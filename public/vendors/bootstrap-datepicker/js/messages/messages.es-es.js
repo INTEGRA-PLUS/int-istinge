@@ -40,7 +40,7 @@ gj.editor.messages['es-es'] = {
     redo: 'Repetir'
 };
 gj.core.messages['es-es'] = {
-    monthNames: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'],
+    monthNames: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
     monthShortNames: ['ene.', 'feb.', 'mar', 'abr.', 'may', 'jun', 'jul.', 'ago', 'set.', 'oct.', 'nov.', 'dic.'],
     weekDaysMin: ['D', 'L', 'M', 'M', 'J', 'V', 'S'],
     weekDaysShort: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
