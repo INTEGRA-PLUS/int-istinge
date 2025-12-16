@@ -130,14 +130,72 @@
             </table>
         </div>
     </div>
+    {{-- Pasar facility al front --}}
+    <script>
+        window.ADMINOLT_FACILITY_VLANS = @json($facility_vlans ?? null);
+        window.ADMINOLT_FACILITY_UNAUTHORIZED = @json($facility_unauthorized ?? null);
+    </script>
 
 @endsection
+
 @section('scripts')
+    {{-- AdminOLT WS base --}}
+    <input id="WEBSOCKET_URI" type="hidden" value="wss://novalinksp.adminolt.co/ws/">
+
+    {{-- Librerías AdminOLT --}}
+    <script type="text/javascript" src="https://adminolt.com/static/js/ws4redis.js"></script>
+    <script type="text/javascript" src="https://adminolt.com/static/js/websocket-adminolt.js"></script>
+
     <script>
+        // ========= WS START (SECUENCIAL: VLANS -> UNAUTHORIZED) =========    
+        window.ADMINOLT_QUEUE = [];
+        window.ADMINOLT_CURRENT = null;
+    
+        function adminoltQueueInit() {
+            window.ADMINOLT_QUEUE = [];
+    
+            if (window.ADMINOLT_FACILITY_VLANS) {
+                window.ADMINOLT_QUEUE.push({ label: 'VLANS', facility: window.ADMINOLT_FACILITY_VLANS });
+            }
+            if (window.ADMINOLT_FACILITY_UNAUTHORIZED) {
+                window.ADMINOLT_QUEUE.push({ label: 'UNAUTHORIZED', facility: window.ADMINOLT_FACILITY_UNAUTHORIZED });
+            }
+        }
+    
+        function adminoltStartNext() {
+            if (typeof task_adminolt_ajax !== 'function') return;
+            if (!window.ADMINOLT_QUEUE.length) return;
+    
+            window.ADMINOLT_CURRENT = window.ADMINOLT_QUEUE.shift();
+            task_adminolt_ajax(window.ADMINOLT_CURRENT.facility);
+        }
+    
+        // ✅ ÚNICO LOG (pero ahora sí con label correcto)
+        window.task_custom_done = function (data) {
+            console.log('✅ AdminOLT DONE data:', {
+                label: window.ADMINOLT_CURRENT?.label || null,
+                facility: window.ADMINOLT_CURRENT?.facility || null,
+                data: data
+            });
+    
+            adminoltStartNext();
+        };
+    
+        // sin ruido
+        window.task_custom_message = function () {};
+        window.task_custom_error = function () {};
+    
+        $(document).ready(function () {
+            adminoltQueueInit();
+            adminoltStartNext();
+        });
+    </script>
 
+
+    <script>
         function formAuthorizeOnu(index){
-
             let row = document.getElementById('olt_' + index);
+            if(!row) return;
 
             let ponType = row.cells[0].innerText;
             let board = row.cells[1].innerText;
@@ -150,18 +208,17 @@
 
             let url = `{{ route('olt.form-authorized-onus') }}?ponType=${encodeURIComponent(ponType)}&board=${encodeURIComponent(board)}&port=${encodeURIComponent(port)}&ponDescription=${encodeURIComponent(ponDescription)}&sn=${encodeURIComponent(sn)}&onuTypeName=${encodeURIComponent(onuTypeName)}&status=${encodeURIComponent(status)}&olt_id=${olt_id}`;
             window.location.href = url;
-
         }
 
         function authorizeOnu(index){
-
             if (window.location.pathname.split("/")[1] === "software") {
-				var url='/software/Olt/authorized-onus';
-			}else{
-				var url = '/Olt/authorized-onus';
-			}
+                var url='/software/Olt/authorized-onus';
+            } else {
+                var url = '/Olt/authorized-onus';
+            }
 
             let row = document.getElementById('olt_' + index);
+            if(!row) return;
 
             let ponType = row.cells[0].innerText;
             let board = row.cells[1].innerText;
@@ -175,17 +232,8 @@
                 url: url,
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'get',
-                data: {
-                    ponType,
-                    board,
-                    port,
-                    ponDescription,
-                    sn,
-                    onuTypeName,
-                    status
-                },
-                success: function (data) {
-                }
+                data: { ponType, board, port, ponDescription, sn, onuTypeName, status },
+                success: function (data) {}
             });
         }
 
@@ -206,26 +254,20 @@
 
             $('#form-filter').addClass('d-none');
             $('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
-
         }
 
         function oltChange(id){
-
             Swal.fire({
                 title: 'Cargando...',
                 text: 'Por favor espera mientras se procesa la solicitud.',
-                type: 'info',
+                icon: 'info',
                 showConfirmButton: false,
                 allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading(); // Muestra el preloader de carga
-                }
+                didOpen: () => Swal.showLoading()
             });
 
-            let url = `{{ route('olt.unconfigured') }}?olt=${id}`;
+            let url = `{{ route('olt.unconfiguredAdminOLT') }}?olt_id=${id}`;
             window.location.href = url;
-
         }
-
     </script>
 @endsection
