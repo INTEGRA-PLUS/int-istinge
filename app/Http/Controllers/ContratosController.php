@@ -176,6 +176,11 @@ class ContratosController extends Controller
             ->where('contracts.empresa', Auth::user()->empresa)
             ->where('contracts.status', '!=', 0);
 
+            ->join('contactos', 'contracts.client_id', '=', 'contactos.id')
+            ->leftJoin('municipios', 'contactos.fk_idmunicipio', '=', 'municipios.id')
+            ->leftJoin('etiquetas as e', 'e.id', '=', 'contracts.etiqueta_id')
+            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id')
+
         //Buscamos los contratos con server configuration + los que no tienen conf pero son de tv.
         if ($user->servidores->count() > 0) {
             $servers = $user->servidores->pluck('id')->toArray();
@@ -2939,7 +2944,8 @@ class ContratosController extends Controller
             'Longitud',
             'Fecha Creacion',
             'Creador',
-            'Ultimo pago'
+            'Ultimo pago',
+            'Desactivado'
         );
 
         $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP');
@@ -2953,13 +2959,13 @@ class ContratosController extends Controller
             ->setCategory("Reporte excel"); //Categorias
         // Se combinan las celdas A1 hasta D1, para colocar ah171717 el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AO1');
+            ->mergeCells('A1:AQ1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', $tituloReporte);
         // Titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AO1');
+            ->mergeCells('A1:AQ1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', 'Reporte Contratos - Fecha ' . date('d-m-Y')); // Titulo del reporte
@@ -2991,7 +2997,7 @@ class ContratosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER
             )
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AQ2')->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '2', utf8_decode($titulosColumnas[$i]));
@@ -3314,7 +3320,9 @@ class ContratosController extends Controller
                 ->setCellValue($letras[38] . $i, $contrato->c_longitude)
                 ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
                 ->setCellValue($letras[40] . $i, $contrato->creador)
-                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago())
+                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago()
+                ->setCellValue($letras[42] . $i, $contrato->status ? 'No' : 'Si')
+                )
                 ;
             $i++;
         }
@@ -3334,7 +3342,7 @@ class ContratosController extends Controller
             ),
             'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,)
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A3:AP' . $i)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:AQ' . $i)->applyFromArray($estilo);
 
         for ($i = 'A'; $i <= $letras[41]; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
