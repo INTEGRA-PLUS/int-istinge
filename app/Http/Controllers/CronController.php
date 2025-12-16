@@ -1217,20 +1217,27 @@ class CronController extends Controller
                 leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
                 ->leftJoin('contracts as cs', function ($join) {
                     $join->on('cs.nro', '=', 'fcs.contrato_nro');
-                        //  ->orOn('cs.id', '=', 'f.contrato_id');
                 })->
-                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus',
+                 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
                 where('f.estatus',1)->
                 whereIn('f.tipo', [1,2])->
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
                 where('cs.fecha_suspension', null)->
-                where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
+                where('cs.server_configuration_id','!=',null)->
                 whereDate('f.vencimiento', '<=', now())->
+                where('f.id', function ($subquery) {
+                    $subquery->selectRaw('MAX(f2.id)')
+                        ->from('factura as f2')
+                        ->whereColumn('f2.cliente', 'contactos.id')
+                        ->where('f2.estatus', 1)
+                        ->whereIn('f2.tipo', [1, 2])
+                        ->whereDate('f2.vencimiento', '<=', now());
+                })->
                 orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
-                take(40)->
                 get();
 
         }else{
