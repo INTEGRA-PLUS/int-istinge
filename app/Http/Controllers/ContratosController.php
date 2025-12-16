@@ -176,11 +176,6 @@ class ContratosController extends Controller
             ->where('contracts.empresa', Auth::user()->empresa)
             ->where('contracts.status', '!=', 0);
 
-            ->join('contactos', 'contracts.client_id', '=', 'contactos.id')
-            ->leftJoin('municipios', 'contactos.fk_idmunicipio', '=', 'municipios.id')
-            ->leftJoin('etiquetas as e', 'e.id', '=', 'contracts.etiqueta_id')
-            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id')
-
         //Buscamos los contratos con server configuration + los que no tienen conf pero son de tv.
         if ($user->servidores->count() > 0) {
             $servers = $user->servidores->pluck('id')->toArray();
