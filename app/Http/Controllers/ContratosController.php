@@ -172,7 +172,9 @@ class ContratosController extends Controller
             ->selectRaw('INET_ATON(contracts.ip) as ipformat')
             ->join('contactos', 'contracts.client_id', '=', 'contactos.id')
             ->leftJoin('municipios', 'contactos.fk_idmunicipio', '=', 'municipios.id')
-            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id');
+            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id')
+            ->where('contracts.empresa', Auth::user()->empresa)
+            ->where('contracts.status', '!=', 0);
 
         //Buscamos los contratos con server configuration + los que no tienen conf pero son de tv.
         if ($user->servidores->count() > 0) {
