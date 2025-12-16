@@ -1734,6 +1734,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/etiquetas', 'EtiquetaController@index')->name('crm.etiquetas');
 		Route::get('/cambiar-etiqueta/{etiqueta}/{crm}', 'CRMController@cambiarEtiqueta')->name('crm.cambiar.etiqueta');
 		Route::get('/chat-ia', 'CRMController@chatIA')->name('crm.chat_IA');
+		Route::get('/chat-ia/{uuid}/messages', 'CRMController@chatIAMessages')->name('crm.chatIA.messages');
+		Route::get('/chat-ia/contacts/load-more', 'CRMController@chatIALoadMore')->name('crm.chatIA.loadMore');
+		Route::get('/chat-ia/search', 'CRMController@chatIASearch')->name('crm.chatIA.search');
 		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
 		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
