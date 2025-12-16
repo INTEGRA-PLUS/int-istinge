@@ -2943,7 +2943,7 @@ class ContratosController extends Controller
             'Desactivado'
         );
 
-        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ');
+        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ','AR');
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
             ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific171717
@@ -2968,12 +2968,12 @@ class ContratosController extends Controller
         $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman'), 'alignment' => array(
             'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A1:AP1')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A1:AQ1')->applyFromArray($estilo);
         $estilo = array('fill' => array(
             'type' => PHPExcel_Style_Fill::FILL_SOLID,
             'color' => array('rgb' => 'd08f50')
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AQ2')->applyFromArray($estilo);
 
         $estilo = array(
             'fill' => array(
