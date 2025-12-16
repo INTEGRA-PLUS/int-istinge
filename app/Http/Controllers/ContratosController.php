@@ -3315,10 +3315,8 @@ class ContratosController extends Controller
                 ->setCellValue($letras[38] . $i, $contrato->c_longitude)
                 ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
                 ->setCellValue($letras[40] . $i, $contrato->creador)
-                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago()
-                ->setCellValue($letras[42] . $i, $contrato->status ? 'No' : 'Si')
-                )
-                ;
+                ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago())
+                ->setCellValue($letras[42] . $i, $contrato->status ? 'No' : 'Si');
             $i++;
         }
 
