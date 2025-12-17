@@ -54,6 +54,13 @@ class Contrato extends Model
         return $this->state == 'enabled' ? 'Habilitado' : 'Deshabilitado';
     }
 
+    public function statusTV($class=false){
+        if($class){
+            return $this->state_olt_catv == '1' ? 'success' : 'danger';
+        }
+        return $this->state_olt_catv == '1' ? 'Habilitado' : 'Deshabilitado';
+    }
+
     public function cliente(){
         return Contacto::where('id', $this->client_id)->first();
     }

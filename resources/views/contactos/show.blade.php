@@ -371,9 +371,17 @@
 								@endif
 								@if($contrato->state)
 								<tr>
-									<th width="20%">Estado del Contrato</th>
+									<th width="20%">Estado del Contrato <i class="fas fa-wifi"></i></th>
 									<td>
 									    <strong class="text-{{$contrato->status('true')}}">{{$contrato->status()}}</strong>
+									</td>
+								</tr>
+								@endif
+								@if($contrato->olt_sn_mac != null)
+								<tr>
+									<th width="20%">Estado del Contrato <i class="fas fa-tv"></i></th>
+									<td>
+									    <strong class="text-{{$contrato->statusTV('true')}}">{{$contrato->statusTV()}}</strong>
 									</td>
 								</tr>
 								@endif
