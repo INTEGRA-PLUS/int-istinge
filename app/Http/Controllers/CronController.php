@@ -1599,11 +1599,18 @@ class CronController extends Controller
             ->where('f.estatus', 1)
             ->whereIn('f.tipo', [1, 2])
             ->where('contactos.status', 1)
-            // ->where('cs.state', 'enabled') // Solo si aplica
             ->whereDate('f.vencimiento', '<=', now())
             ->whereIn('cs.grupo_corte', $grupos_corte_array)
             ->where('cs.fecha_suspension', null)
             ->where('cs.state_olt_catv', true)
+            ->where('f.id', function ($subquery) {
+                $subquery->selectRaw('MAX(f2.id)')
+                    ->from('factura as f2')
+                    ->whereColumn('f2.cliente', 'contactos.id')
+                    ->where('f2.estatus', 1)
+                    ->whereIn('f2.tipo', [1, 2])
+                    ->whereDate('f2.vencimiento', '<=', now());
+            })
             ->orderBy('contactos.updated_at', 'asc')
             ->take(50)
             ->get();
