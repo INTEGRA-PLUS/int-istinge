@@ -179,7 +179,7 @@
 
                 {{-- Input --}}
                 <div class="card-footer">
-                    <form action="javascript:void(0);">
+                    {{-- <form action="javascript:void(0);">
                         <div class="input-group">
                             <div class="input-group-prepend d-none d-md-flex">
                                 <button class="btn btn-outline-secondary" type="button">
@@ -196,7 +196,7 @@
                         <div class="small text-muted mt-1">
                             (Luego conectamos envío real. Por ahora solo lectura.)
                         </div>
-                    </form>
+                    </form> --}}
                 </div>
             </div>
         </div>
