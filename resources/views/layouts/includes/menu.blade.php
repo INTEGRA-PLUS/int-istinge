@@ -86,6 +86,13 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{ route('olt.unconfigured') }}">Onus desconfiguradas</a>
             </li>
             @endif
+            @if(isset($_SESSION['permisos']['858']) && Auth::user()->empresa()->nombre === 'NOVA LINK TELECOMUNICACIONES S.A.S')
+                <li class="nav-item" id="proveedores">
+                    <a class="nav-link" href="{{ route('olt.unconfiguredAdminOLT') }}">
+                        Onus AdminOLT
+                    </a>
+                </li>
+            @endif
         </ul>
     </div>
 </li>

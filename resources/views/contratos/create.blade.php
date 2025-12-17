@@ -404,7 +404,7 @@
                             <div class="col-md-4 form-group d-none" id="div_dhcp">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" id="simple_queue" name="simple_queue"
-                                    required="" title="Seleccione" data-live-search="true" data-size="5">
+                                    required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
                                     <option value="dinamica" {{ old('simple_queue') == 'dinamica' ? 'selected' : '' }}>
                                         Dinámica</option>
                                     <option value="estatica" {{ old('simple_queue') == 'estatica' ? 'selected' : '' }}>
@@ -450,7 +450,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_segmento_ip">
                                 <label class="control-label" id="div_local_address">Segmento de IP<span
                                         class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -466,7 +466,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4 form-group ">
+                            <div class="col-md-4 form-group" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address)<span
                                         class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -499,10 +499,7 @@
                                     onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46 || event.charCode==47">
                             </div>
 
-                            {{-- <div class="col-md-4 form-group d-none" id="div_profile" >
-                                <label class="control-label">Profile</label>
-                                <input type="text" class="form-control" name="profile" id="div_profile" >
-                            </div> --}}
+
                             <div class="col-md-4 form-group d-none" id="div_profile">
                                 <label class="control-label">Profile<span class="text-danger">*</span></label>
                                 <div class="input-group">
@@ -510,11 +507,6 @@
                                         required="" title="Seleccione" data-live-search="true" data-size="5">
 
                                     </select>
-                                    {{-- <div class="input-group-append">
-                                       <a href="#" data-toggle="modal" data-target="#planModal" class="btn btn-outline-success btn-sm">
-                                            <i class="fas fa-plus" style="margin: 2px;"></i>
-                                        </a>
-                                    </div> --}}
                                 </div>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('div_profile_select') }}</strong>
@@ -662,6 +654,34 @@
                                 </div>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('puerto_conexion') }}</strong>
+                                </span>
+                            </div>
+
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_id" id="cajanap_id" title="Seleccione" data-live-search="true" data-size="5"
+                                    onchange="cargarPuertosNap()">
+                                        <option value="">Ninguna</option>
+                                        @foreach($cajasNaps as $cajaNap)
+                                            <option value="{{$cajaNap->id}}" {{old('cajanap_id') == $cajaNap->id ? 'selected':''}}>{{$cajaNap->nombre}}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_id') }}</strong>
+                                </span>
+                            </div>
+
+                            <div class="col-md-4 form-group" id="div_puerto_nap" style="display:none;">
+                                <label class="control-label">Puerto Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_puerto" id="cajanap_puerto" title="Seleccione" data-live-search="true" data-size="5">
+                                        <option value="">Seleccione un puerto</option>
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_puerto') }}</strong>
                                 </span>
                             </div>
 
@@ -1246,6 +1266,7 @@
             </div>
         </div>
     </div>
+
     <script>
         function visibilidad(selectElement) {
 
@@ -1300,11 +1321,71 @@
         });
     </script>
 
+    <script>
+        // Función global para cargar puertos NAP
+        function cargarPuertosNap() {
+            // Obtener el valor del select usando jQuery
+            var cajaNapId = $('#cajanap_id').val();
+
+            if (!cajaNapId || cajaNapId == '') {
+                $('#div_puerto_nap').hide();
+                $('#cajanap_puerto').val('').selectpicker('refresh');
+                return;
+            }
+
+            if (window.location.pathname.split("/")[1] === "software") {
+				var url='/software/caja-naps/' + cajaNapId + '/puertos-disponibles';
+			}else{
+				var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+			}
+
+            $.ajax({
+                url: url,
+                method: 'GET',
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                success: function(data) {
+                    $('#cajanap_puerto').empty();
+                    $('#cajanap_puerto').append('<option value="">Seleccione un puerto</option>');
+
+                    if (data.puertos_disponibles && data.puertos_disponibles.length > 0) {
+                        $.each(data.puertos_disponibles, function(index, puerto) {
+                            $('#cajanap_puerto').append('<option value="' + puerto + '">Puerto ' + puerto + '</option>');
+                        });
+                        $('#div_puerto_nap').show();
+                    } else {
+                        $('#div_puerto_nap').hide();
+                        Swal.fire({
+                            title: 'Sin puertos disponibles',
+                            text: 'Esta caja NAP no tiene puertos disponibles',
+                            type: 'warning',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+
+                    $('#cajanap_puerto').selectpicker('refresh');
+                },
+                error: function() {
+                    $('#div_puerto_nap').hide();
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'No se pudieron cargar los puertos disponibles',
+                        type: 'error',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+            });
+        }
+    </script>
+
+
 
 @endsection
 
 @section('scripts')
     <script>
+
         $("#formGrupo").submit(function() {
             return false;
         });
@@ -1362,6 +1443,7 @@
                     }
                 },
             });
+
         });
     </script>
 @endsection

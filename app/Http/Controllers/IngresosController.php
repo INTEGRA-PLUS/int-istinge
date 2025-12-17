@@ -401,6 +401,20 @@ class IngresosController extends Controller
                         $montoPago = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
 
+                        if($factura->contratos() !== null && $factura->contratos()->first()->contrato_nro){
+                            $contrato = $factura->contratos()->first()->contrato_nro;
+                            $contrato = Contrato::where('nro',$contrato)->first();
+
+                            if($empresa->pago_siigo == 1 || ($contrato && $contrato->pago_siigo_contrato == 1)){
+                                $siigo = new SiigoController();
+                                $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
+                                Log::info($response);
+                                if(isset($response['success']) && $response['success'] == false){
+                                    return back()->with('danger', "No se ha podido establecer conexión con siigo y no se ha generado el pago")->withInput();
+                                }
+                            }
+                        }
+
                         $pagoRepetido = IngresosFactura::where('factura', $factura_id)
                             ->where('pagado', $montoPago)
                             ->whereHas('ingresoRelation', function ($query) {

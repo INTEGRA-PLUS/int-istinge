@@ -874,6 +874,318 @@ class CronController extends Controller
         self::up_transaccion_(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $precio, $ingreso->fecha, "Uso de saldo a favor automatico.",null,$empresa);
     }
 
+    public static function cortarFacturasDiaEspecifico(){
+
+        $i=0;
+        $fecha = date('Y-m-d');
+
+        if(request()->fechaCorte){
+            $fecha = request()->fechaCorte;
+        }
+        $swGrupo = 1; //masivo
+        $horaActual = date('H:i');
+
+        $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
+        join('contracts as cs','cs.client_id','=','contactos.id')->
+        select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+        where('f.estatus',1)->
+        whereIn('f.tipo', [1,2])->
+        where('contactos.status',1)->
+        where('cs.state','enabled')->
+        where('cs.fecha_suspension','!=', null)->
+        take(20)->
+        get();
+
+        if($contactos){
+            $empresa = Empresa::find(1);
+            foreach ($contactos as $contacto) {
+
+                //** Desarrollo nuevo:
+                //** Analizar la cantidad de facturas abiertas del contrato y el grupo de corte
+                $contacto->updated_at = now();
+                $contacto->save();
+
+                $grupo_corte = null;
+                $cant_fac_grupo_corte = 1;
+                $cantFacturasVencidas = 1;
+                if(isset($contacto->grupo_corte) && $contacto->grupo_corte != ""){
+                    $grupo_corte = GrupoCorte::Find($contacto->grupo_corte);
+                    $cant_fac_grupo_corte = $grupo_corte->nro_factura_vencida;
+                }
+
+                if(isset($grupo_corte->nro_factura_vencida) && $grupo_corte->nro_factura_vencida > 1){
+                    $contrato = Contrato::Find($contacto->contrato_id);
+                    if($contrato){
+                        $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    }else{
+                        continue;
+                    }
+                }
+                //** Fin desarrollo nuevo
+
+                $factura = Factura::find($contacto->factura);
+
+                //ESto es lo que hay que refactorizar.
+                $facturaContratos = DB::table('facturas_contratos')
+                ->where('factura_id',$factura->id)
+                ->where('client_id',$factura->cliente)
+                ->pluck('contrato_nro');
+
+                if(!DB::table('facturas_contratos')
+                ->where('factura_id',$factura->id)->first()){
+
+                    $contratoVerificar = Contrato::where('id',$factura->contrato_id)->first();
+                    //Validando que si se trate de el contrato del verdadero cliente
+                    if($factura->cliente != $contratoVerificar->client_id){
+                        $contrato = Contrato::where('client_id',$factura->cliente)->first();
+                        if(!$contrato){
+                            $factura->contrato_id = null;
+                        }else{
+                            $factura->contrato_id = $contrato->id;
+                        }
+                        $factura->save();
+                    }
+                    $facturaContratos = Contrato::where('id',$factura->contrato_id)->pluck('nro');
+                }
+
+                $contratosId = Contrato::whereIn('nro',$facturaContratos)
+                ->pluck('id');
+
+                $ultimaFacturaRegistrada = Factura::
+                where('cliente',$factura->cliente)
+                ->where('estatus','<>',2)
+                ->whereIn('contrato_id',$contratosId)
+                ->orderBy('created_at', 'desc')
+                ->value('id');
+
+                //manera antigua de buscar el contrato.
+                if(!$ultimaFacturaRegistrada){
+                      $ultimaFacturaRegistrada = Factura::
+                        where('cliente',$factura->cliente)
+                        ->where('contrato_id',$factura->contrato_id)
+                        ->orderBy('created_at', 'desc')
+                        ->value('id');
+                }
+
+                //** Validacion nueva:
+                ///** validamos que segun el grupo_corte la cantidad de facturas vencidas si sea igual
+                if($factura->id == $ultimaFacturaRegistrada && $cantFacturasVencidas >= $cant_fac_grupo_corte){
+
+                    //1. debemos primero mirar si los contrsatos existen en la tabla detalle, si no hacemos el proceso antiguo
+                    $contratos = Contrato::whereIn('nro',$facturaContratos)->get();
+                    if(!$contratos){
+                        if($factura->contrato_id != null){
+                            $contratos = Contrato::where('id',$factura->contrato_id)->get();
+                        }else{
+                            $contratos = Contrato::where('id',$contacto->contrato_id)->get();
+                        }
+                    }
+
+                    $promesaExtendida = DB::table('promesa_pago')->where('factura', $contacto->factura)->where('vencimiento', '>=', $fecha)->count();
+
+                    //2. Debemos recorrer el o los contratos para que haga el disabled.
+                    foreach($contratos as $contrato){
+                        $crm = CRM::where('cliente', $contacto->id)->whereIn('estado', [0, 3])->delete();
+                        $crm = new CRM();
+                        $crm->cliente = $contacto->id;
+                        $crm->factura = $contacto->factura;
+                        $crm->estado = 0;
+                        $crm->servidor = isset($contrato->server_configuration_id) ? $contrato->server_configuration_id : '';
+                        $crm->grupo_corte = isset($contrato->grupo_corte) ? $contrato->grupo_corte : '';
+                        $crm->save();
+
+                        if($promesaExtendida > 0){
+
+                            if($contrato->state != 'enabled' && $empresa->consultas_mk ==1){
+
+                                if(isset($contrato->server_configuration_id) && $factura->estatus != 0){
+
+                                    $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+                                    $API = new RouterosAPI();
+                                    $API->port = $mikrotik->puerto_api;
+
+                                    if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                        $API->write('/ip/firewall/address-list/print', TRUE);
+                                        $ARRAYS = $API->read();
+
+
+                                    #ELIMINAMOS DE MOROSOS#
+                                    $API->write('/ip/firewall/address-list/print', false);
+                                    $API->write('?address='.$contrato->ip, false);
+                                    $API->write("?list=morosos",false);
+                                    $API->write('=.proplist=.id');
+                                    $ARRAYS = $API->read();
+
+                                    if(count($ARRAYS)>0){
+                                        $API->write('/ip/firewall/address-list/remove', false);
+                                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                                        $READ = $API->read();
+
+                                        $contrato->state = 'enabled';
+                                        $contrato->update();
+                                    }
+                                    #ELIMINAMOS DE MOROSOS#
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->disconnect();
+                                    }
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        //por aca entra cuando estamos deshbilitando de un grupo de corte sus contratos.
+                        if (($contrato && $swGrupo == 1) ||
+                        ($contrato && $swGrupo == 0 && $contrato->fecha_suspension == getdate()['mday'])) {
+
+                        //segundo filtro de validacion, validando por rango de fechas
+                        $diasHabilesNocobro = 0;
+                        if($contrato->tipo_nosuspension == 1 &&  $contrato->fecha_desde_nosuspension <= $fecha && $contrato->fecha_hasta_nosuspension >= $fecha){
+                            $diasHabilesNocobro = 1;
+                        }
+
+                        if($diasHabilesNocobro == 0){
+                            if(isset($contrato->server_configuration_id) || $promesaExtendida == 0){
+
+                                $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+                                $API = new RouterosAPI();
+                                $API->port = $mikrotik->puerto_api;
+
+                                if($empresa->consultas_mk ==1){
+                                if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                    $API->write('/ip/firewall/address-list/print', TRUE);
+                                    $ARRAYS = $API->read();
+                                    if($contrato->state == 'enabled'){
+                                        if($contrato->ip){
+                                            $API->comm("/ip/firewall/address-list/add", array(
+                                                "address" => $contrato->ip,
+                                                "comment" => $contrato->servicio,
+                                                "list" => 'morosos'
+                                                )
+                                            );
+
+                                            #ELIMINAMOS DE IP_AUTORIZADAS#
+                                            $API->write('/ip/firewall/address-list/print', false);
+                                            $API->write('?address='.$contrato->ip, false);
+                                            $API->write("?list=ips_autorizadas",false);
+                                            $API->write('=.proplist=.id');
+                                            $ARRAYS = $API->read();
+                                            if(count($ARRAYS)>0){
+                                                $API->write('/ip/firewall/address-list/remove', false);
+                                                $API->write('=.id='.$ARRAYS[0]['.id']);
+                                                $READ = $API->read();
+                                            }
+                                            #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                            if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                                #DESHABILITACION DEL PPPoE#
+                                                if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                                    // Buscar el ID interno del secret con ese nombre
+                                                    $API->write('/ppp/secret/print', false);
+                                                    $API->write('?name=' . $contrato->usuario, true);
+                                                    $ARRAYS = $API->read();
+
+                                                    if (count($ARRAYS) > 0) {
+                                                        $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                        // Deshabilitar el secret
+                                                        $API->write('/ppp/secret/disable', false);
+                                                        $API->write('=numbers=' . $id, true);
+                                                        $response = $API->read();
+
+                                                    }
+                                                }
+                                                #DESHABILITACION DEL PPPoE#
+
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                                if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                                    $API->write('/ppp/active/print', false);
+                                                    $API->write('?name=' . $contrato->usuario);
+                                                    $response = $API->read();
+
+                                                    if(isset($response['0']['.id'])){
+                                                        $API->comm("/ppp/active/remove", [
+                                                            ".id" => $response['0']['.id']
+                                                        ]);
+                                                    }
+                                                    else{ //NUEVO CODIGO
+
+                                                        //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
+                                                        $API->write('/ppp/active/print', false);
+                                                        $API->write('?name=' . $contrato->nro);
+                                                        $response = $API->read();
+
+                                                        if(isset($response['0']['.id'])){
+                                                            $API->comm("/ppp/active/remove", [
+                                                                ".id" => $response['0']['.id']
+                                                            ]);
+                                                        }
+                                                    }
+
+                                                }
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                            }
+
+
+                                        }
+                                        $i++;
+                                    }
+                                    $API->disconnect();
+                                }
+                                }
+
+                                $contrato->state = 'disabled';
+                                $contrato->observaciones = $contrato->observaciones. " - Contrato deshabilitado automaticamente";
+                                $contrato->save();
+
+                                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado por cronjob de corte facturas<br>';
+                                $movimiento = new MovimientoLOG();
+                                $movimiento->contrato    = $contrato->id;
+                                $movimiento->modulo      = 5;
+                                $movimiento->descripcion = $descripcion;
+                                $movimiento->created_by  = 1;
+                                $movimiento->empresa     = $contrato->empresa;
+                                $movimiento->save();
+                            }
+                        }
+                        }
+                    }
+                }
+            }
+
+            if (file_exists("CorteFacturas.txt")){
+                $file = fopen("CorteFacturas.txt", "a");
+                fputs($file, "-----------------".PHP_EOL);
+                fputs($file, "Fecha de Corte: ".date('Y-m-d').''. PHP_EOL);
+                fputs($file, "Contratos Deshabilitados: ".$i.''. PHP_EOL);
+                fputs($file, "-----------------".PHP_EOL);
+                fclose($file);
+            }else{
+                $file = fopen("CorteFacturas.txt", "w");
+                fputs($file, "-----------------".PHP_EOL);
+                fputs($file, "Fecha de Corte: ".date('Y-m-d').''. PHP_EOL);
+                fputs($file, "Contratos Deshabilitados: ".$i.''. PHP_EOL);
+                fputs($file, "-----------------".PHP_EOL);
+                fclose($file);
+            }
+
+            if(request()->fechaCorte){
+                return back();
+            }
+        }
+
+    }
+
 
     public static function CortarFacturas(){
         $i=0;
@@ -907,20 +1219,27 @@ class CronController extends Controller
                 leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
                 ->leftJoin('contracts as cs', function ($join) {
                     $join->on('cs.nro', '=', 'fcs.contrato_nro');
-                        //  ->orOn('cs.id', '=', 'f.contrato_id');
                 })->
-                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus',
+                 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
                 where('f.estatus',1)->
                 whereIn('f.tipo', [1,2])->
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
                 where('cs.fecha_suspension', null)->
-                where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
+                where('cs.server_configuration_id','!=',null)->
                 whereDate('f.vencimiento', '<=', now())->
+                where('f.id', function ($subquery) {
+                    $subquery->selectRaw('MAX(f2.id)')
+                        ->from('factura as f2')
+                        ->whereColumn('f2.cliente', 'contactos.id')
+                        ->where('f2.estatus', 1)
+                        ->whereIn('f2.tipo', [1, 2])
+                        ->whereDate('f2.vencimiento', '<=', now());
+                })->
                 orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
-                take(40)->
                 get();
 
         }else{
@@ -1282,11 +1601,18 @@ class CronController extends Controller
             ->where('f.estatus', 1)
             ->whereIn('f.tipo', [1, 2])
             ->where('contactos.status', 1)
-            // ->where('cs.state', 'enabled') // Solo si aplica
             ->whereDate('f.vencimiento', '<=', now())
             ->whereIn('cs.grupo_corte', $grupos_corte_array)
             ->where('cs.fecha_suspension', null)
             ->where('cs.state_olt_catv', true)
+            ->where('f.id', function ($subquery) {
+                $subquery->selectRaw('MAX(f2.id)')
+                    ->from('factura as f2')
+                    ->whereColumn('f2.cliente', 'contactos.id')
+                    ->where('f2.estatus', 1)
+                    ->whereIn('f2.tipo', [1, 2])
+                    ->whereDate('f2.vencimiento', '<=', now());
+            })
             ->orderBy('contactos.updated_at', 'asc')
             ->take(50)
             ->get();

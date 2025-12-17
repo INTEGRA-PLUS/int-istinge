@@ -734,6 +734,7 @@ class ExportarReportesController extends Controller
 
             $facturas = Factura::where('factura.empresa', Auth::user()->empresa)
                 ->leftjoin('facturas_contratos as fc', 'fc.factura_id', '=', 'factura.id')
+                ->leftjoin('contracts as ctr', 'ctr.id', '=', 'fc.contrato_nro') // ✅ ESTE FALTABA
                 ->join('contactos as c', 'factura.cliente', '=', 'c.id')
                 ->join('municipios as municipio','municipio.id','=','c.fk_idmunicipio')
                 ->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
@@ -762,7 +763,6 @@ class ExportarReportesController extends Controller
                 ->whereIn('factura.tipo', [1,2])
                 ->where('factura.estatus','<>',2)
             ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
-
 
             $dates = $this->setDateRequest($request);
 

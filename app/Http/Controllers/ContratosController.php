@@ -47,6 +47,7 @@ use App\Campos;
 use App\Puerto;
 use App\Oficina;
 use App\CRM;
+use App\CajaNap;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\ItemsFactura;
 use App\NumeracionFactura;
@@ -171,7 +172,9 @@ class ContratosController extends Controller
             ->selectRaw('INET_ATON(contracts.ip) as ipformat')
             ->join('contactos', 'contracts.client_id', '=', 'contactos.id')
             ->leftJoin('municipios', 'contactos.fk_idmunicipio', '=', 'municipios.id')
-            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id');
+            ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id')
+            ->where('contracts.empresa', Auth::user()->empresa)
+            ->where('contracts.status', '!=', 0);
 
         //Buscamos los contratos con server configuration + los que no tienen conf pero son de tv.
         if ($user->servidores->count() > 0) {
@@ -682,6 +685,7 @@ class ContratosController extends Controller
         $canales = Canal::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $gmaps = Integracion::where('empresa', Auth::user()->empresa)->where('tipo', 'GMAPS')->first();
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+        $cajasNaps = CajaNap::where('status', 1)->get();
 
         view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Nuevo Contrato']);
         return view('contratos.create')->with(compact(
@@ -703,7 +707,8 @@ class ContratosController extends Controller
             'canales',
             'gmaps',
             'oficinas',
-            'serviciosOtros'
+            'serviciosOtros',
+            'cajasNaps'
         ));
     }
 
@@ -1083,6 +1088,8 @@ class ContratosController extends Controller
             $contrato->ip_autorizada           = $ip_autorizada;
             $contrato->empresa                 = Auth::user()->empresa;
             $contrato->puerto_conexion         = $request->puerto_conexion;
+            $contrato->cajanap_id              = $request->cajanap_id;
+            $contrato->cajanap_puerto          = $request->cajanap_puerto;
             $contrato->latitude                = $request->latitude;
             $contrato->longitude               = $request->longitude;
             $contrato->contrato_permanencia    = $request->contrato_permanencia;
@@ -1490,7 +1497,9 @@ class ContratosController extends Controller
             'contracts.fact_primer_mes',
             'contracts.rd_item_vencimiento',
             'contracts.dt_item_hasta',
-            'contracts.pago_siigo_contrato'
+            'contracts.pago_siigo_contrato',
+            'contracts.cajanap_id',
+            'contracts.cajanap_puerto'
         )
             ->where('contracts.id', $id)->where('contracts.empresa', Auth::user()->empresa)->first();
 
@@ -1511,6 +1520,7 @@ class ContratosController extends Controller
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $contactos = Contacto::where('status',1)->get();
         $empresa = Empresa::find(1);
+        $cajasNaps = CajaNap::where('status', 1)->get();
 
         if ($contrato) {
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Editar Contrato: ' . $contrato->nro]);
@@ -1529,6 +1539,7 @@ class ContratosController extends Controller
                 'canales',
                 'gmaps',
                 'oficinas',
+                'cajasNaps',
                 'serviciosOtros',
                 'contactos',
                 'empresa'
@@ -1728,20 +1739,26 @@ class ContratosController extends Controller
 
                     /*PPPOE*/
                     if ($request->conexion == 1) {
-                        $ppoe_local_adress = $request->direccion_local_address;
-                        $API->comm(
-                            "/ppp/secret/add",
-                            array(
-                                "name"           => $request->usuario,
-                                "password"       => $request->password,
-                                "profile"        => $request->profile,
-                                "local-address"  => $request->direccion_local_address,
-                                "remote-address" => $request->ip,
-                                "service"        => 'pppoe',
-                                "comment"        => $this->normaliza($servicio) . '-' . $request->nro
-                            )
-                        );
 
+                        $ppoe_local_adress = $request->direccion_local_address;
+
+                        $data = [
+                            "name"           => $request->usuario,
+                            "password"       => $request->password,
+                            "profile"        => $request->profile,
+                            "remote-address" => $request->ip,
+                            "service"        => 'pppoe',
+                            "comment"        => $this->normaliza($servicio) . '-' . $contrato->nro
+                        ];
+
+                        // Solo agregar si viene con valor válido
+                        if (!empty($request->direccion_local_address)) {
+                            $data["local-address"] = $request->direccion_local_address;
+                        }
+
+                        $error = $API->comm("/ppp/secret/add", $data);
+
+                        $registro = true;
                         $getall = $API->comm(
                             "/ppp/secret/getall",
                             array(
@@ -1749,6 +1766,7 @@ class ContratosController extends Controller
                             )
                         );
                     }
+
 
                     /*DHCP*/
                     if ($request->conexion == 2) {
@@ -1948,6 +1966,8 @@ class ContratosController extends Controller
                     }
 
                     $contrato->puerto_conexion    = $request->puerto_conexion;
+                    $contrato->cajanap_id         = $request->cajanap_id;
+                    $contrato->cajanap_puerto     = $request->cajanap_puerto;
                     $contrato->plan_id            = $request->plan_id;
                     $contrato->usuario            = $request->usuario;
                     $contrato->password           = $request->password;
@@ -2919,10 +2939,11 @@ class ContratosController extends Controller
             'Longitud',
             'Fecha Creacion',
             'Creador',
-            'Ultimo pago'
+            'Ultimo pago',
+            'Desactivado'
         );
 
-        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP');
+        $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ','AR');
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
             ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific171717
@@ -2933,13 +2954,13 @@ class ContratosController extends Controller
             ->setCategory("Reporte excel"); //Categorias
         // Se combinan las celdas A1 hasta D1, para colocar ah171717 el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AO1');
+            ->mergeCells('A1:AQ1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', $tituloReporte);
         // Titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
-            ->mergeCells('A1:AO1');
+            ->mergeCells('A1:AQ1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->setCellValue('A1', 'Reporte Contratos - Fecha ' . date('d-m-Y')); // Titulo del reporte
@@ -2947,12 +2968,12 @@ class ContratosController extends Controller
         $estilo = array('font'  => array('bold'  => true, 'size'  => 12, 'name'  => 'Times New Roman'), 'alignment' => array(
             'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A1:AP1')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A1:AQ1')->applyFromArray($estilo);
         $estilo = array('fill' => array(
             'type' => PHPExcel_Style_Fill::FILL_SOLID,
             'color' => array('rgb' => 'd08f50')
         ));
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AQ2')->applyFromArray($estilo);
 
         $estilo = array(
             'fill' => array(
@@ -2971,7 +2992,7 @@ class ContratosController extends Controller
                 'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER
             )
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A2:AP2')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A2:AQ2')->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '2', utf8_decode($titulosColumnas[$i]));
@@ -3295,7 +3316,7 @@ class ContratosController extends Controller
                 ->setCellValue($letras[39] . $i, Carbon::parse($contrato->created_at)->format('Y-m-d'))
                 ->setCellValue($letras[40] . $i, $contrato->creador)
                 ->setCellValue($letras[41] . $i, $contrato->fechaUltimoPago())
-                ;
+                ->setCellValue($letras[42] . $i, $contrato->status ? 'No' : 'Si');
             $i++;
         }
 
@@ -3314,7 +3335,7 @@ class ContratosController extends Controller
             ),
             'alignment' => array('horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,)
         );
-        $objPHPExcel->getActiveSheet()->getStyle('A3:AP' . $i)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:AQ' . $i)->applyFromArray($estilo);
 
         for ($i = 'A'; $i <= $letras[41]; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);

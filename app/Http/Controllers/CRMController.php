@@ -1472,6 +1472,9 @@ class CRMController extends Controller
 
 
 
+    // ======================
+    // CHAT IA (type = 2)
+    // ======================
     public function chatIA(Request $request, WapiService $wapiService)
     {
         $this->getAllPermissions(auth()->user()->id);
@@ -1480,12 +1483,18 @@ class CRMController extends Controller
             ->first();
 
         $contacts = [];
-        $messagesByContact = [];
-        
+        $pagination = null;
+        $allContactsIndex = [];
+
+        $page = (int) $request->input('page', 1);
+        $perPage = 20;
+
         try {
-            $response = $wapiService->getContacts();
-            
-            // Normalizar respuesta
+            // Igual que META: channelId = uuid
+            $channelId = $instance ? $instance->uuid : null;
+
+            // Página principal para la vista
+            $response = $wapiService->getContacts($page, $perPage, $channelId);
             if (is_object($response) && isset($response->scalar)) {
                 $data = json_decode($response->scalar, true);
             } elseif (is_string($response)) {
@@ -1498,66 +1507,277 @@ class CRMController extends Controller
                 isset($data['status']) && $data['status'] === 'success' &&
                 isset($data['data']['data']) && is_array($data['data']['data'])
             ) {
-                $contacts = $data['data']['data'];
-                
+                $contacts   = $data['data']['data'];
+                $pagination = $data['data']['pagination'] ?? null;
+
+                // Filtro extra por uuid (por seguridad)
                 if ($instance) {
                     $contacts = array_filter($contacts, function ($c) use ($instance) {
                         return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
                     });
                 }
-                
                 $contacts = array_values($contacts);
+                // Índice de búsqueda (cargamos varias páginas, igual que META)
+                $allContacts = [];
+                $totalPages  = $pagination['totalPages'] ?? 1;
 
-                // Por cada contacto, traer sus mensajes
-                foreach ($contacts as $contact) {
-                    $contactUuid = $contact['uuid'] ?? null;
-                    
-                    if (!$contactUuid) {
-                        \Log::warning("Contacto sin UUID encontrado: " . json_encode($contact));
-                        continue;
-                    }
-
+                for ($i = 1; $i <= min($totalPages, 10); $i++) {
                     try {
-                        $msgResponse = $wapiService->getContactMessages($contactUuid);
+                        $pageResponse = $wapiService->getContacts($i, 100, $channelId);
 
-                        if (is_object($msgResponse) && isset($msgResponse->scalar)) {
-                            $msgData = json_decode($msgResponse->scalar, true);
-                        } elseif (is_string($msgResponse)) {
-                            $msgData = json_decode($msgResponse, true);
+                        if (is_object($pageResponse) && isset($pageResponse->scalar)) {
+                            $pageData = json_decode($pageResponse->scalar, true);
+                        } elseif (is_string($pageResponse)) {
+                            $pageData = json_decode($pageResponse, true);
                         } else {
-                            $msgData = (array) $msgResponse;
+                            $pageData = (array) $pageResponse;
                         }
 
                         if (
-                            isset($msgData['status']) && $msgData['status'] === 'success' &&
-                            isset($msgData['data']['data']) && is_array($msgData['data']['data'])
+                            isset($pageData['status']) && $pageData['status'] === 'success' &&
+                            isset($pageData['data']['data']) && is_array($pageData['data']['data'])
                         ) {
-                            // IMPORTANTE: Asegurarse de que la clave sea string
-                            $messagesByContact[(string) $contactUuid] = $msgData['data']['data'];
-                            
-                            \Log::info("Mensajes cargados para contacto {$contactUuid}: " . count($msgData['data']['data']));
-                        } else {
-                            $messagesByContact[(string) $contactUuid] = [];
-                            \Log::warning("No se pudieron obtener mensajes para contacto {$contactUuid}");
+                            $pageContacts = $pageData['data']['data'];
+
+                            if ($instance) {
+                                $pageContacts = array_filter($pageContacts, function ($c) use ($instance) {
+                                    return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
+                                });
+                            }
+
+                            $allContacts = array_merge($allContacts, $pageContacts);
                         }
+
+                        usleep(100000); // 100ms
                     } catch (\Throwable $e) {
-                        \Log::error("Error obteniendo mensajes para contacto {$contactUuid}: {$e->getMessage()}");
-                        $messagesByContact[(string) $contactUuid] = [];
+                        \Log::error("Error cargando página IA {$i}: {$e->getMessage()}");
                     }
                 }
+
+                foreach ($allContacts as $contact) {
+                    if (isset($contact['uuid']) && isset($contact['phone'])) {
+                        $allContactsIndex[] = [
+                            'uuid'  => $contact['uuid'],
+                            'phone' => $contact['phone'],
+                            'name'  => $contact['name'] ?? null,
+                        ];
+                    }
+                }
+
+                \Log::info("[IA] Índice de búsqueda creado con " . count($allContactsIndex) . " contactos");
             }
-            
-            // Log para debugging
-            \Log::info("Total de contactos cargados: " . count($contacts));
-            \Log::info("Contactos con mensajes: " . count($messagesByContact));
-            
         } catch (\Throwable $e) {
             \Log::error("Error obteniendo contactos del Chat IA: {$e->getMessage()}");
         }
-
         view()->share(['title' => 'CRM: Chat IA', 'invert' => true]);
-        return view('crm.chatIA', compact('instance', 'contacts', 'messagesByContact'));
+
+        // ✅ Nota: ya NO enviamos messagesByContact (se cargan por AJAX)
+        return view('crm.chatIA', compact('instance', 'contacts', 'pagination', 'page', 'perPage', 'allContactsIndex'));
     }
+
+    // ======================
+    // Mensajes por contacto (AJAX)
+    // ======================
+    public function chatIAMessages(string $uuid, Request $request, WapiService $wapiService)
+    {
+        try {
+            $msgResponse = $wapiService->getContactMessages($uuid);
+
+            if (is_object($msgResponse) && isset($msgResponse->scalar)) {
+                $msgData = json_decode($msgResponse->scalar, true);
+            } elseif (is_string($msgResponse)) {
+                $msgData = json_decode($msgResponse, true);
+            } else {
+                $msgData = (array) $msgResponse;
+            }
+
+            \Log::info("[IA] Mensajes RAW para contacto {$uuid}: " . json_encode($msgData));
+
+            if (
+                isset($msgData['status']) && $msgData['status'] === 'success' &&
+                isset($msgData['data']['data']) && is_array($msgData['data']['data'])
+            ) {
+                return response()->json([
+                    'status'     => 'success',
+                    'messages'   => $msgData['data']['data'],
+                    'pagination' => $msgData['data']['pagination'] ?? null,
+                ]);
+            }
+
+            return response()->json([
+                'status'   => 'error',
+                'messages' => [],
+                'raw'      => $msgData,
+            ], 200);
+
+        } catch (\Throwable $e) {
+            \Log::error("Error obteniendo mensajes IA para contacto {$uuid}: {$e->getMessage()}");
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function chatIALoadMore(Request $request, WapiService $wapiService)
+    {
+        $page    = (int) $request->input('page', 1);
+        $perPage = 20;
+
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 2)
+            ->first();
+
+        try {
+            $channelId = $instance ? $instance->uuid : null;
+
+            $response = $wapiService->getContacts($page, $perPage, $channelId);
+
+            if (is_object($response) && isset($response->scalar)) {
+                $data = json_decode($response->scalar, true);
+            } elseif (is_string($response)) {
+                $data = json_decode($response, true);
+            } else {
+                $data = (array) $response;
+            }
+
+            if (
+                isset($data['status']) && $data['status'] === 'success' &&
+                isset($data['data']['data']) && is_array($data['data']['data'])
+            ) {
+                $contacts   = $data['data']['data'];
+                $pagination = $data['data']['pagination'] ?? null;
+
+                if ($instance) {
+                    $contacts = array_filter($contacts, function ($c) use ($instance) {
+                        return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
+                    });
+                }
+
+                $contacts = array_values($contacts);
+
+                \Log::info("[IA] Contactos cargados en página {$page}: " . count($contacts));
+
+                return response()->json([
+                    'status'     => 'success',
+                    'contacts'   => $contacts,
+                    'pagination' => $pagination
+                ]);
+            }
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No se pudieron cargar los contactos'
+            ], 400);
+
+        } catch (\Throwable $e) {
+            \Log::error("Error cargando más contactos IA: {$e->getMessage()}");
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function chatIASearch(Request $request, WapiService $wapiService)
+    {
+        $query = trim($request->input('q', ''));
+
+        if (strlen($query) < 3) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'La búsqueda debe tener al menos 3 caracteres',
+            ], 400);
+        }
+
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 2)
+            ->first();
+
+        if (!$instance || !$instance->uuid) {
+            \Log::warning("🔎 [IA] Búsqueda '{$query}' sin instancia/uuid válida");
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No se encontró instancia de Chat IA con canal válido.',
+            ], 400);
+        }
+
+        try {
+            $page    = 1;
+            $perPage = 20;
+
+            \Log::info("🔎 [IA] Búsqueda '{$query}' usando q + channelId", [
+                'page'      => $page,
+                'perPage'   => $perPage,
+                'channelId' => $instance->uuid,
+            ]);
+
+            // getContacts(page, perPage, channelId, q)
+            $response = $wapiService->getContacts($page, $perPage, $instance->uuid, $query);
+
+            if (is_object($response) && isset($response->scalar)) {
+                $data = json_decode($response->scalar, true);
+            } elseif (is_string($response)) {
+                $data = json_decode($response, true);
+            } else {
+                $data = (array) $response;
+            }
+
+            \Log::info("🔎 [IA] Respuesta RAW búsqueda '{$query}': " . json_encode($data));
+
+            if (
+                !isset($data['status']) ||
+                $data['status'] !== 'success' ||
+                !isset($data['data']['data']) ||
+                !is_array($data['data']['data'])
+            ) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Respuesta inválida de la API de contactos',
+                ], 400);
+            }
+
+            $contacts   = $data['data']['data'];
+            $pagination = $data['data']['pagination'] ?? null;
+
+            // Filtro por canal (por si la API ignora channelId)
+            $contacts = array_filter($contacts, function ($c) use ($instance) {
+                return isset($c['channel']['uuid']) && $c['channel']['uuid'] === $instance->uuid;
+            });
+
+            // Filtro local por nombre/teléfono
+            $contacts = array_filter($contacts, function ($c) use ($query) {
+                $phone = $c['phone'] ?? '';
+                $name  = $c['name']  ?? '';
+                return (stripos($phone, $query) !== false || stripos($name, $query) !== false);
+            });
+
+            $contacts = array_values($contacts);
+
+            $total = $pagination['total'] ?? count($contacts);
+            $contactsLimited = array_slice($contacts, 0, 50);
+
+            return response()->json([
+                'status'   => 'success',
+                'contacts' => $contactsLimited,
+                'total'    => $total,
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error("❌ [IA] Error en búsqueda de contactos '{$query}': {$e->getMessage()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
 
     public function chatMeta(Request $request, WapiService $wapiService)

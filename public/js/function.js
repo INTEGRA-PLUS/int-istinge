@@ -4337,32 +4337,126 @@ function getPlanes(mikrotik) {
             getInterfaces(mikrotik);
             $("#amarre_mac").val(data.mikrotik.amarre_mac);
             $('#conexion').val('').selectpicker('refresh');
-            // Vaciar el select para evitar duplicados
-            $("#div_profile_select").empty();
 
-            // Asegurarnos de que profile sea un array
-            var profiles = data.profile;
-            if (typeof profiles === "number" || typeof profiles === "string") {
-                profiles = [ { name: profiles } ];
-            } else if (!Array.isArray(profiles)) {
-                profiles = []; // fallback a vacío
+            // Vaciar el select de profiles para evitar duplicados
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            // Normalizar data.profile a un arreglo de objetos { name: 'PROFILE' }
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                // Array: puede ser de strings/números u objetos
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object") {
+                        if (value.name) {
+                            normalizedProfiles.push({ name: value.name });
+                        }
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                // Un solo valor simple
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                // Objeto: iterar sus propiedades
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
             }
 
-            // Iterar sobre los perfiles y agregar cada uno como una opción al select
-            $.each(profiles, function(key, value) {
-                $("#div_profile_select").append($('<option>', {
-                    value: value.name,
-                    text: value.name
+            // Agregar opciones al select
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
                 }));
             });
 
             // Refrescar el selectpicker después de agregar las opciones
-            $('#div_profile_select').selectpicker('refresh');
+            $profileSelect.selectpicker('refresh');
+
+            // Si hay un profile previo guardado, seleccionarlo
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
         },
         error: function(data) {
             cargando(false);
         }
     })
+}
+
+/**
+ * Carga únicamente los profiles del Mikrotik sin tocar planes ni conexión.
+ * Útil para el formulario de edición al cargar por primera vez.
+ */
+function getProfiles(mikrotik) {
+    if (!mikrotik) {
+        return;
+    }
+
+    if (window.location.pathname.split("/")[1] === "software") {
+        var url = '/software/api/getPlanes/' + mikrotik;
+    } else {
+        var url = '/api/getPlanes/' + mikrotik;
+    }
+
+    $.ajax({
+        url: url,
+        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+        method: 'get',
+        success: function(data) {
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            }
+
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
+                }));
+            });
+
+            $profileSelect.selectpicker('refresh');
+
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
+        }
+    });
 }
 
 function interfazChange(){
@@ -4428,6 +4522,9 @@ function interfazChange(){
 
         document.getElementById("div_dhcp").classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
     }else if(document.getElementById("conexion").value == 1){
 
       //  document.getElementById("usuario").value = '';
@@ -4470,6 +4567,12 @@ function interfazChange(){
         document.getElementById("div_local_address").innerHTML = "Local Address";
         document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
 
+        // Asegurar que los campos de segmento e IP se muestren cuando no es DHCP
+        var divSegmentoIp = document.getElementById("div_segmento_ip");
+        var divDireccionIp = document.getElementById("div_direccion_ip");
+        if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
+        if(divDireccionIp) divDireccionIp.classList.remove('d-none');
+
         document.getElementById("div_usuario").classList.remove('d-none');
         document.getElementById("div_password").classList.remove('d-none');
 
@@ -4498,6 +4601,60 @@ function interfazChange(){
     document.getElementById("mac_address").removeAttribute('required');
     $("#conexion").selectpicker('refresh');
     $("#conexion_bd").val(document.getElementById("conexion").value);
+}
+
+function toggleCamposDHCP(){
+    var conexion = document.getElementById("conexion");
+    var simpleQueue = document.getElementById("simple_queue");
+
+    // Verificar si los elementos existen (pueden no existir en todas las páginas)
+    if(!conexion || !simpleQueue) return;
+
+    // Solo aplicar la lógica si el tipo de conexión es DHCP (valor 2)
+    if(conexion.value == 2){
+        var divInterfaz = document.getElementById("div_interfaz");
+        var divSegmentoIp = document.getElementById("div_segmento_ip");
+        var divDireccionIp = document.getElementById("div_direccion_ip");
+        var localAddress = document.getElementById("local_address");
+        var ip = document.getElementById("ip");
+
+        // Si Simple Queue es dinámica, ocultar los campos
+        if(simpleQueue.value == 'dinamica'){
+            if(divInterfaz) {
+                divInterfaz.classList.add('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) interfaz.removeAttribute('required');
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.add('d-none');
+                if(localAddress) localAddress.removeAttribute('required');
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.add('d-none');
+                if(ip) ip.removeAttribute('required');
+            }
+        } else {
+            // Si Simple Queue es estática, mostrar los campos
+            if(divInterfaz) {
+                divInterfaz.classList.remove('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) interfaz.setAttribute('required', true);
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.remove('d-none');
+                if(localAddress) localAddress.setAttribute('required', true);
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.remove('d-none');
+                if(ip) ip.setAttribute('required', true);
+            }
+        }
+
+        // Refrescar selectpicker si está disponible
+        if(typeof $ !== 'undefined' && $.fn.selectpicker) {
+            if(simpleQueue) $("#simple_queue").selectpicker('refresh');
+        }
+    }
 }
 
 function modificarPromesa(id) {

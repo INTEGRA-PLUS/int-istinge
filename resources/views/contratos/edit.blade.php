@@ -300,7 +300,7 @@
                             </div>
                             <div class="col-md-4 form-group {{$contrato->conexion==2?'':'d-none'}}" id="div_dhcp">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
-                                <select class="form-control selectpicker" id="simple_queue" name="simple_queue"  required="" title="Seleccione" data-live-search="true" data-size="5">
+                                <select class="form-control selectpicker" id="simple_queue" name="simple_queue"  required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
                                     <option value="dinamica" {{$contrato->simple_queue == 'dinamica' ? 'selected':''}}>Dinámica</option>
                                     <option value="estatica" {{$contrato->simple_queue == 'estatica' ? 'selected':''}}>Estática</option>
                                 </select>
@@ -319,7 +319,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_segmento_ip">
                                 <label class="control-label" id="div_local_address">Segmento de IP</label>
                                   <div class="input-group">
                                     <input type="hidden" id="segmento_bd" value="{{ $contrato->local_address }}">
@@ -331,7 +331,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address) <span class="text-danger">*</span></label>
                                   <div class="input-group">
                                     <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" required="" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46">
@@ -369,7 +369,12 @@
 
                             <div class="col-md-4 form-group  {{$contrato->conexion==1?'':'d-none'}}" id="div_profile" {{$contrato->profile ? '':'d-none'}}>
                                 <label class="control-label">Profile</label>
-                                <input type="text" class="form-control" name="profile" id="profile" value="{{ $contrato->profile}}">
+                                <div class="input-group">
+                                    <input type="hidden" id="profile_bd" value="{{ $contrato->profile }}">
+                                    <select class="form-control selectpicker" name="profile" id="div_profile_select"
+                                        title="Seleccione" data-live-search="true" data-size="5">
+                                    </select>
+                                </div>
                             </div>
 
 
@@ -461,6 +466,31 @@
                                     <strong>{{ $errors->first('puerto_conexion') }}</strong>
                                 </span>
                             </div>
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_id" id="cajanap_id" title="Seleccione" data-live-search="true" data-size="5" onchange="cargarPuertosNap()">
+                                        <option value="">Ninguna</option>
+                                        @foreach($cajasNaps as $cajaNap)
+                                            <option value="{{$cajaNap->id}}" {{$cajaNap->id == $contrato->cajanap_id? 'selected':''}}>{{$cajaNap->nombre}}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_id') }}</strong>
+                                </span>
+                            </div>
+                            <div class="col-md-4 form-group" id="div_puerto_nap" style="{{$contrato->cajanap_id ? '' : 'display:none;'}}">
+                                <label class="control-label">Puerto Caja NAP</label>
+                                <div class="input-group">
+                                    <select class="form-control selectpicker" name="cajanap_puerto" id="cajanap_puerto" title="Seleccione" data-live-search="true" data-size="5">
+                                        <option value="">Seleccione un puerto</option>
+                                    </select>
+                                </div>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('cajanap_puerto') }}</strong>
+                                </span>
+                            </div>
                             <div class="col-md-3 form-group d-none">
                                 <label class="control-label">Marca Router</label>
                                 <select class="form-control selectpicker" id="marca_router" name="marca_router" required="" value="{{ $contrato->marca_router }}" title="Seleccione">
@@ -526,7 +556,6 @@
                                     </span>
                                 </div>
                             </div>
-
 
                             <div class="form-group col-md-4">
                                 <label class="control-label">¿Agregar iva al servicio de internet?  <a><i
@@ -867,7 +896,9 @@
                             <label class="control-label">Contacto nuevo</label>
                         <select class="form-control selectpicker" name="new_contacto_contrato" id="new_contacto_contrato" required="" title="Seleccione" data-live-search="true" data-size="5">
                             @foreach($contactos as $contacto)
-                                <option value="{{$contacto->id}}" {{$contrato->grupo_corte == $contacto->id ? 'selected' : ''}}>{{$contacto->nombre}}</option>
+                                <option value="{{ $contacto->id }}" {{ $contrato->grupo_corte == $contacto->id ? 'selected' : '' }}>
+                                    {{ collect([$contacto->nombre, $contacto->apellido1, $contacto->apellido2])->filter()->implode(' ') }}
+                                </option>
                             @endforeach
                         </select>
                         </div>
@@ -1075,17 +1106,44 @@
         $(document).ready(function () {
 
             $('input[name="change_cliente"]').on('change', function () {
-            if ($(this).val() == '1') {
-                $('.divnew_contacto').removeClass('d-none');
-            } else {
-                $('.divnew_contacto').addClass('d-none');
-            }
+                if ($(this).val() == '1') {
+                    $('.divnew_contacto').removeClass('d-none');
+                } else {
+                    $('.divnew_contacto').addClass('d-none');
+                }
             });
 
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
             getInterfaces($("#server_configuration_id").val());
+            // Cargar profiles iniciales del Mikrotik seleccionado
+            getProfiles($("#server_configuration_id").val());
+
+            // Seleccionar automáticamente el profile actual del contrato cuando
+            // el select asíncrono haya cargado sus opciones
+            var currentProfile = "{{ $contrato->profile }}";
+            if (currentProfile) {
+                var profileInterval = setInterval(function () {
+                    var $profileSelect = $('#div_profile_select');
+                    if ($profileSelect.length && $profileSelect.children('option').length) {
+                        $profileSelect.val(currentProfile).selectpicker('refresh');
+                        clearInterval(profileInterval);
+                    }
+                }, 500);
+
+                // Dejar de intentar después de un tiempo razonable
+                setTimeout(function () {
+                    clearInterval(profileInterval);
+                }, 10000);
+            }
+
+            // Verificar y ocultar campos si es DHCP con Simple Queue dinámica al cargar la página
+            if(typeof toggleCamposDHCP === 'function') {
+                toggleCamposDHCP();
+            }
+
+
             $('#contrato_permanencia').change(function(){
                 if($('#contrato_permanencia').val() == 1){
                     $("#div_meses").removeClass('d-none');
@@ -1209,6 +1267,91 @@
         $('#puerto_conexion').val(null).trigger('change');
 
     }
+
+    function cargarPuertosNap() {
+        // Obtener el valor del select usando jQuery
+        var cajaNapId = $('#cajanap_id').val();
+
+        if (!cajaNapId || cajaNapId == '') {
+            $('#div_puerto_nap').hide();
+            $('#cajanap_puerto').val('').selectpicker('refresh');
+            return;
+        }
+
+        var contratoId = $('#contrato_id').val() || null;
+
+        if (window.location.pathname.split("/")[1] === "software") {
+				var url='/software/caja-naps/' + cajaNapId + '/puertos-disponibles';
+		}else{
+				var url = '/caja-naps/' + cajaNapId + '/puertos-disponibles';
+		}
+
+        if (contratoId) {
+            url += '/' + contratoId;
+        }
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                $('#cajanap_puerto').empty();
+                $('#cajanap_puerto').append('<option value="">Seleccione un puerto</option>');
+
+                if (data.puertos_disponibles && data.puertos_disponibles.length > 0) {
+                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
+
+                    $.each(data.puertos_disponibles, function(index, puerto) {
+                        var selected = (puertoActual && puerto == puertoActual) ? 'selected' : '';
+                        $('#cajanap_puerto').append('<option value="' + puerto + '" ' + selected + '>Puerto ' + puerto + '</option>');
+                    });
+
+                    // Si el puerto actual no está en disponibles pero existe, agregarlo de todas formas
+                    if (puertoActual && data.puertos_disponibles.indexOf(puertoActual) === -1) {
+                        $('#cajanap_puerto').prepend('<option value="' + puertoActual + '" selected>Puerto ' + puertoActual + ' (Ocupado)</option>');
+                    }
+
+                    $('#div_puerto_nap').show();
+                } else {
+                    // Si hay un puerto actual pero no hay disponibles, mostrarlo de todas formas
+                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
+                    if (puertoActual) {
+                        $('#cajanap_puerto').append('<option value="' + puertoActual + '" selected>Puerto ' + puertoActual + ' (Ocupado)</option>');
+                        $('#div_puerto_nap').show();
+                    } else {
+                        $('#div_puerto_nap').hide();
+                        Swal.fire({
+                            title: 'Sin puertos disponibles',
+                            text: 'Esta caja NAP no tiene puertos disponibles',
+                            type: 'warning',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+                }
+
+                $('#cajanap_puerto').selectpicker('refresh');
+            },
+            error: function() {
+                $('#div_puerto_nap').hide();
+                Swal.fire({
+                    title: 'Error',
+                    text: 'No se pudieron cargar los puertos disponibles',
+                    type: 'error',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            }
+        });
+    }
+
+    // Cargar puertos al iniciar si ya hay una caja NAP seleccionada
+    $(document).ready(function() {
+        @if(isset($contrato) && $contrato->cajanap_id)
+            // El valor ya está seleccionado en el select, solo llamar la función
+            cargarPuertosNap();
+        @endif
+    });
 
     </script>
 @endsection

@@ -2983,9 +2983,21 @@ class FacturasController extends Controller{
 
             $empresa = Empresa::Find($factura->empresa);
             $cliente = $factura->clienteObj;
+
+            // Validación de NIT sin guiones (requerido por DIAN)
+            if($cliente && $cliente->nit && strpos($cliente->nit, '-') !== false){
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'El documento del cliente no puede contener guiones. Por favor corrija el documento del cliente antes de emitir la factura electrónica.'], 400);
+                }else{
+                    return redirect('/empresa/facturas/facturas_electronica')->with('message_denied', 'El documento del cliente no puede contener guiones. Por favor corrija el documento del cliente antes de emitir la factura electrónica.');
+                }
+            }
+
             $operacionCodigo = "10";
             $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
             $resolucion = false;
+
+
 
             //Factura Exportacion.
             if($factura->tipo == 4){
