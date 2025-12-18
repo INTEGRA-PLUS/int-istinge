@@ -6174,7 +6174,20 @@ class FacturasController extends Controller{
                 $idempotencyKey = 'inv_factura_' . $factura->id;
 
                 $onepayResponseRaw = $onepay->createInvoice($body, $idempotencyKey);
-                $onepayResponse    = json_decode($onepayResponseRaw, true);
+                Log::info('Respuesta Onepay', $onepayResponseRaw);
+                
+                // Normalizar respuesta: puede venir array o string JSON
+                if (is_array($onepayResponseRaw)) {
+                    $onepayResponse = $onepayResponseRaw;
+                } else {
+                    $onepayResponse = json_decode((string) $onepayResponseRaw, true);
+                }
+
+                // Si no se pudo decodificar, dejarlo en null/array vacío
+                if (!is_array($onepayResponse)) {
+                    $onepayResponse = [];
+                }
+
 
                 $invoiceId =
                     data_get($onepayResponse, 'id')
