@@ -6083,48 +6083,47 @@ class FacturasController extends Controller{
 
     public function crearOnepayFacturasMesActual(Request $request, OnepayService $onepay)
     {
-        // Mes actual (esto sirve cualquier mes)
         $inicioMes = Carbon::now()->startOfMonth()->format('Y-m-d');
         $finMes    = Carbon::now()->endOfMonth()->format('Y-m-d');
 
         $empresaId = Auth::user()->empresa;
+        $totalEnRango = Factura::where('empresa', $empresaId)
+            ->whereBetween('fecha', [$inicioMes, $finMes])
+            ->count();
 
-        // Traemos facturas del rango, de la empresa, y que no tengan Onepay aún
-        // (si quieres incluir las que sí tienen, quita el whereNull y contabiliza aparte)
+        // ✅ SOLO FACTURAS ABIERTAS (estatus = 1)
         $facturas = Factura::where('empresa', $empresaId)
             ->whereBetween('fecha', [$inicioMes, $finMes])
+            ->where('estatus', 1)
             ->orderBy('id', 'asc')
             ->get();
 
-        $total           = $facturas->count();
+        $totalFiltradas = $facturas->count();
+
         $creadas         = 0;
-        $saltadas        = 0;
+        $saltadas        = 0; // ya tenían onepay_invoice_id
         $fallidas        = 0;
         $fallidasDetalle = [];
 
         foreach ($facturas as $factura) {
             try {
-                // Si ya tiene invoice en Onepay, no la duplicamos
                 if (!empty($factura->onepay_invoice_id)) {
                     $saltadas++;
                     continue;
                 }
 
                 if (!env('ONEPAY_TOKEN')) {
-                    // Si no hay token, no tiene sentido seguir
                     throw new \Exception('ONEPAY_TOKEN no está configurado');
                 }
 
-                $cliente      = $factura->cliente();  // tu método actual
+                $cliente      = $factura->cliente();
                 $totalFactura = $factura->total()->total ?? 0;
 
                 $nombreFactura   = 'Factura ' . $factura->codigo;
                 $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
 
-                // Normalizar teléfono a +57XXXXXXXXXX
                 if ($telefonoCliente) {
                     $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
-                    // Si ya venía con 57 (sin +) igual lo dejamos consistente
                     if (strpos($soloNumeros, '57') === 0) {
                         $telefonoCliente = '+' . $soloNumeros;
                     } else {
@@ -6139,7 +6138,6 @@ class FacturasController extends Controller{
                     'token' => config('app.key'),
                 ]);
 
-                // Nombre empresa (igual que en tu store)
                 $empresaNombre = 'Mi Empresa';
                 if (method_exists($factura, 'empresa') && $factura->empresa) {
                     $empresaNombre = $factura->empresa->nombre ?? 'Mi Empresa';
@@ -6166,36 +6164,36 @@ class FacturasController extends Controller{
                     ],
                 ];
 
-                /**
-                 * TIP CLAVE: idempotencia estable por factura
-                 * Para que si corres este proceso 2 veces, Onepay no duplique.
-                 * (si tu Onepay acepta repetir la misma x-idempotency para el mismo request)
-                 */
                 $idempotencyKey = 'inv_factura_' . $factura->id;
 
                 $onepayResponseRaw = $onepay->createInvoice($body, $idempotencyKey);
-                Log::info('Respuesta Onepay', $onepayResponseRaw);
-                
-                // Normalizar respuesta: puede venir array o string JSON
+
+                // ✅ Evita Log::info('Respuesta Onepay', $onepayResponseRaw) si no es array asociativo
+                Log::info('Respuesta Onepay (masivo)', [
+                    'factura_id' => $factura->id,
+                    'type'       => gettype($onepayResponseRaw),
+                ]);
+
                 if (is_array($onepayResponseRaw)) {
                     $onepayResponse = $onepayResponseRaw;
                 } else {
                     $onepayResponse = json_decode((string) $onepayResponseRaw, true);
                 }
 
-                // Si no se pudo decodificar, dejarlo en null/array vacío
                 if (!is_array($onepayResponse)) {
                     $onepayResponse = [];
                 }
 
-
                 $invoiceId =
                     data_get($onepayResponse, 'id')
-                ?? data_get($onepayResponse, 'invoice_id')
-                ?? data_get($onepayResponse, 'data.id');
+                    ?? data_get($onepayResponse, 'invoice_id')
+                    ?? data_get($onepayResponse, 'data.id');
 
                 if (!$invoiceId) {
-                    throw new \Exception('Onepay no retornó invoice_id/id. Respuesta: ' . $onepayResponseRaw);
+                    throw new \Exception(
+                        'Onepay no retornó invoice_id/id. Respuesta: ' .
+                        (is_string($onepayResponseRaw) ? $onepayResponseRaw : json_encode($onepayResponseRaw))
+                    );
                 }
 
                 $factura->onepay_invoice_id = $invoiceId;
@@ -6225,28 +6223,30 @@ class FacturasController extends Controller{
         }
 
         Log::info('Onepay masivo: resumen final', [
-            'empresa_id'          => $empresaId,
-            'rango_desde'         => $inicioMes,
-            'rango_hasta'         => $finMes,
-            'total_en_rango'      => $total,
-            'creadas_onepay'      => $creadas,
-            'saltadas_existentes' => $saltadas,
-            'fallidas'            => $fallidas,
+            'empresa_id'      => $empresaId,
+            'rango_desde'     => $inicioMes,
+            'rango_hasta'     => $finMes,
+            'total_en_rango'  => $totalEnRango,
+            'total_filtradas' => $totalFiltradas, // ✅ estatus=1
+            'creadas_onepay'  => $creadas,
+            'saltadas'        => $saltadas,
+            'fallidas'        => $fallidas,
         ]);
 
-        // Respuesta (puedes devolver view, json o redirect con flash)
         return response()->json([
             'rango' => [
                 'desde' => $inicioMes,
                 'hasta' => $finMes,
             ],
-            'empresa' => $empresaId,
-            'total_en_rango' => $total,
-            'creadas'  => $creadas,
+            'empresa'          => $empresaId,
+            'total_en_rango'   => $totalEnRango,
+            'total_filtradas'  => $totalFiltradas, // ✅ estatus=1
+            'creadas'          => $creadas,
             'saltadas_por_existir' => $saltadas,
-            'fallidas' => $fallidas,
-            'detalle_fallidas' => $fallidasDetalle, // si no quieres mostrarlo, quítalo
+            'fallidas'         => $fallidas,
+            'detalle_fallidas' => $fallidasDetalle,
         ]);
     }
+
 
 }
