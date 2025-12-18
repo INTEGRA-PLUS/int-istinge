@@ -85,7 +85,7 @@ class OltAdminController extends Controller
     private function getOnusFacility(): ?string
     {
         try {
-            $response = $this->client->get('/api/onu/authorized/');
+            $response = $this->client->get('/api/onu/unauthorized/');
             $responseData = json_decode($response->getBody(), true);
 
             Log::info('AdminOLT ONUs Response:', ['data' => $responseData]);
