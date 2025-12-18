@@ -6211,6 +6211,16 @@ class FacturasController extends Controller{
             }
         }
 
+        Log::info('Onepay masivo: resumen final', [
+            'empresa_id'          => $empresaId,
+            'rango_desde'         => $inicioMes,
+            'rango_hasta'         => $finMes,
+            'total_en_rango'      => $total,
+            'creadas_onepay'      => $creadas,
+            'saltadas_existentes' => $saltadas,
+            'fallidas'            => $fallidas,
+        ]);
+
         // Respuesta (puedes devolver view, json o redirect con flash)
         return response()->json([
             'rango' => [
