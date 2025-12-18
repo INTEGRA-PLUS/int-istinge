@@ -1,8 +1,9 @@
 @extends('layouts.app')
 
 @section('boton')
-    <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar"><i
-            class="fas fa-search"></i>Filtrar</a>
+    <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar">
+        <i class="fas fa-search"></i>Filtrar
+    </a>
 @endsection
 
 @section('content')
@@ -22,7 +23,6 @@
         <div class="alert alert-danger">
             {{ Session::get('error') }}
         </div>
-
         <script type="text/javascript">
             setTimeout(function() {
                 $('.alert').hide();
@@ -73,7 +73,7 @@
     <form id="form-dinamic-action" method="GET">
         <div class="container-fluid mb-3" id="form-filter">
             <fieldset>
-                <legend>Filtro de BÃºsqueda</legend>
+                <legend>Filtro de Búsqueda</legend>
                 <div class="card shadow-sm border-0">
                     <div class="card-body py-3" style="background: #f9f9f9;">
                         <div class="row">
@@ -87,7 +87,6 @@
                                 </select>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </fieldset>
@@ -99,69 +98,50 @@
             <table class="table table-striped table-hover" id="table-general">
                 <thead class="thead-dark">
                     <tr>
-                        <th width='3%'>PON Type</th>
-                        <th width='3%'>Board</th>
-                        <th width='3%'>Port</th>
-                        <th width='1%'>Pon Description</th>
-                        <th width='3%'>SN</th>
-                        <th width='3%'>Type</th>
-                        <th width='3%'>Estatus</th>
-                        <th width='3%'>Action</th>
+                        <th>PON Type</th>
+                        <th>Board</th>
+                        <th>Port</th>
+                        <th>Pon Description</th>
+                        <th>SN</th>
+                        <th>Type</th>
+                        <th>Estatus</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Data populated by JavaScript via WebSocket -->
-                    {{-- <tr>
-                        <td colspan="8" class="text-center text-muted">
-                            No se encontraron ONUs sin autorizar
-                        </td>
-                    </tr> --}}
                 </tbody>
             </table>
         </div>
     </div>
-    {{-- Pasar facility al front --}}
+
     <script>
-        window.ADMINOLT_FACILITY_VLANS = @json($facility_vlans ?? null);
         window.ADMINOLT_FACILITY_UNAUTHORIZED = @json($facility_unauthorized ?? null);
     </script>
-
 @endsection
 
 @section('scripts')
-    {{-- AdminOLT WS base (usa el host real, ej: novalinksp.adminolt.co) --}}
     <input id="WEBSOCKET_URI" type="hidden" value="wss://{{ $ws_host }}/ws/">
 
-    {{-- Librerías AdminOLT (Required) --}}
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    {{-- Librerías AdminOLT --}}
     <script type="text/javascript" src="https://adminolt.com/static/js/ws4redis.js"></script>
     <script type="text/javascript" src="https://adminolt.com/static/js/websocket-adminolt.js"></script>
 
+    {{-- DataTables Responsive (asegúrate de tener estos en tu layout o aquí) --}}
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+
     <script>
-        // =========================
-        // 1) CONFIG / DEBUG
-        // =========================
         (function() {
-            // Facilities que te llegan desde el backend (API AdminOLT)
-            window.ADMINOLT_FACILITY_VLANS = "{{ $vlans_facility }}";
             window.ADMINOLT_FACILITY_UNAUTHORIZED = "{{ $onus_facility }}";
-
-            // OLT actual
             window.ADMINOLT_OLT_DEFAULT = "{{ $olt_default }}";
-
-            // Cola secuencial
             window.ADMINOLT_QUEUE = [];
             window.ADMINOLT_CURRENT = null;
 
+            // Guardamos los datos de ONUs para accederlos desde formAuthorizeOnu
+            window.ONUS_DATA = [];
+
             function adminoltQueueInit() {
                 window.ADMINOLT_QUEUE = [];
-
-                if (window.ADMINOLT_FACILITY_VLANS) {
-                    window.ADMINOLT_QUEUE.push({
-                        label: 'VLANS',
-                        facility: window.ADMINOLT_FACILITY_VLANS
-                    });
-                }
                 if (window.ADMINOLT_FACILITY_UNAUTHORIZED) {
                     window.ADMINOLT_QUEUE.push({
                         label: 'UNAUTHORIZED',
@@ -172,12 +152,11 @@
 
             function adminoltStartNext() {
                 if (typeof task_adminolt_ajax !== 'function') {
-                    console.error('AdminOLT: task_adminolt_ajax no está disponible (websocket-adminolt.js no cargó).');
+                    console.error('AdminOLT: task_adminolt_ajax no está disponible.');
                     return;
                 }
 
                 if (!window.ADMINOLT_QUEUE.length) {
-                    // Fin
                     if (typeof Swal !== 'undefined') {
                         try {
                             Swal.close();
@@ -187,121 +166,147 @@
                 }
 
                 window.ADMINOLT_CURRENT = window.ADMINOLT_QUEUE.shift();
-                // Llama a la librería oficial (NO new WebSocket)
                 task_adminolt_ajax(window.ADMINOLT_CURRENT.facility);
             }
 
-            // =========================
-            // 2) CALLBACKS OFICIALES
-            // =========================
-            // Nota: websocket-adminolt.js invoca task_custom_done(data)
             window.task_custom_done = function(data) {
-            
-
                 try {
-                    // 1) Procesar según label (lo que tengas realmente)
                     if (window.ADMINOLT_CURRENT && window.ADMINOLT_CURRENT.label === 'UNAUTHORIZED') {
-                        var onus = Array.isArray(data) ? data : [];
-                        populateOnusTable(onus);
-                    }
+                        var onus = [];
 
-                    if (window.ADMINOLT_CURRENT && window.ADMINOLT_CURRENT.label === 'VLANS') {
-                        var vlans = Array.isArray(data) ? data : [];
-                        populateVlansSelect(vlans);
+                        if (Array.isArray(data)) {
+                            onus = data;
+                        } else if (data && data.unauthorized_onus && typeof data.unauthorized_onus === 'object') {
+                            var entries = Object.entries(data.unauthorized_onus);
+
+                            onus = entries.map(function([snKey, o]) {
+                                o = o || {};
+                                var board = o.slot;
+                                var port = o.port;
+
+                                if ((board === undefined || board === null || board === '') && typeof o
+                                    .interface === 'string') {
+                                    var parts = o.interface.split('/');
+                                    if (parts.length >= 3) board = parts[1];
+                                }
+                                if ((port === undefined || port === null || port === '') && typeof o
+                                    .interface === 'string') {
+                                    var parts2 = o.interface.split('/');
+                                    if (parts2.length >= 3) port = parts2[2];
+                                }
+
+                                return {
+                                    pon_type: o.pon_type || 'gpon',
+                                    board: board || 'N/A',
+                                    port: port || 'N/A',
+                                    pon_description: o.interface || '',
+                                    sn: o.sn || snKey,
+                                    onu_type_name: o.onu_type || o.onu_type_name || '',
+                                    is_disabled: 0,
+                                    olt_id: o.olt_id
+                                };
+                            });
+                        }
+
+                        console.log('[AdminOLT] Parsed unauthorized onus:', onus);
+                        populateOnusTable(onus);
                     }
                 } catch (e) {
                     console.error('Error procesando data de AdminOLT:', e);
                 }
 
-                // 2) Forzar una ONU de ejemplo si la tabla quedó vacía
-                // try {
-                //     var tbody = document.querySelector('#table-general tbody');
-                //     if (tbody && !tbody.children.length) {
-                //         console.log('⚠️ Tabla vacía, inyectando ONU DEMO');
-
-                //         var demoOnus = [{
-                //             pon_type: 'gpon',
-                //             board: 14,
-                //             port: 7,
-                //             pon_description: 'DEMO (sin ONUs reales)',
-                //             sn: 'DEMO_ONU_SN_001',
-                //             onu_type_name: 'SML-704GWT-DAX',
-                //             is_disabled: 0,
-                //             olt_id: window.ADMINOLT_OLT_DEFAULT
-                //         }];
-
-                //         populateOnusTable(demoOnus);
-                //     }
-                // } catch (e) {
-                //     console.error('Error inyectando demo ONU:', e);
-                // }
-
-                // 3) Continuar con la cola
                 adminoltStartNext();
             };
 
-            // Sin ruido (opcional)
             window.task_custom_message = function() {};
             window.task_custom_error = function() {};
 
-            // =========================
-            // 3) UI HELPERS
-            // =========================
-            window.populateOnusTable = window.populateOnusTable || function(onus) {
-
-                const tableBody = document.querySelector('#table-general tbody');
-                tableBody.innerHTML = '';
-                if (!Array.isArray(onus) || onus.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="8" class="text-center">No ONUs found</td></tr>';
+            // ===== NUEVA FUNCIÓN CON API DATATABLES =====
+            window.populateOnusTable = function(onus) {
+                const dt = window.DT_ONUS;
+                if (!dt) {
+                    console.error('DataTable no inicializado');
                     return;
                 }
 
-                let index = 0;
-                onus.forEach((onu) => {
-                    if (String(onu.olt_id) == String(window.ADMINOLT_OLT_DEFAULT)) {
-                        const row = document.createElement('tr');
-                        row.id = `olt_${index}`;
-                        row.innerHTML = `
-                            <td>${onu.pon_type || 'N/A'}</td>
-                            <td>${onu.board || 'N/A'}</td>
-                            <td>${onu.port || 'N/A'}</td>
-                            <td>${onu.pon_description || ''}</td>
-                            <td>${onu.sn || ''}</td>
-                            <td>${onu.onu_type_name || 'Unknown'}</td>
-                            <td>${onu.is_disabled == 0 ? 'Activo' : 'Inactivo'}</td>
-                            <td>${onu.is_disabled == 0 ? `<a href="#" onclick="formAuthorizeOnu(${index}); return false;">Authorize</a>` : ''}</td>
-                        `;
-                        tableBody.appendChild(row);
-                        index++;
-                    }
-                });
+                const filtered = (Array.isArray(onus) ? onus : [])
+                    .filter(o => String(o.olt_id) === String(window.ADMINOLT_OLT_DEFAULT));
 
-                if (tableBody.children.length === 0) {
-                    tableBody.innerHTML =
-                        '<tr><td colspan="8" class="text-center">No ONUs found for this OLT</td></tr>';
+                // Guardamos los datos filtrados globalmente
+                window.ONUS_DATA = filtered;
+
+                dt.clear();
+
+                if (!filtered.length) {
+                    dt.draw();
+                    return;
                 }
+
+                const rows = filtered.map((onu, index) => ([
+                    onu.pon_type || 'N/A',
+                    onu.board || 'N/A',
+                    onu.port || 'N/A',
+                    onu.pon_description || '',
+                    onu.sn || '',
+                    onu.onu_type_name || 'Unknown',
+                    (onu.is_disabled == 0 ? 'Activo' : 'Inactivo'),
+                    (onu.is_disabled == 0 ?
+                        `<a href="#" data-index="${index}" class="btn-authorize">Authorize</a>` :
+                        '')
+                ]));
+
+                dt.rows.add(rows).draw();
+
+                // Recalcula responsive
+                if (dt.responsive) {
+                    dt.responsive.recalc();
+                }
+                dt.columns.adjust();
             };
 
-            window.populateVlansSelect = window.populateVlansSelect || function(vlans) {
-                const vlanSelect = document.querySelector('#vlan_select');
-                if (!vlanSelect) return;
-
-                vlanSelect.innerHTML = '<option value="">-- Selecciona una VLAN --</option>';
-                if (!Array.isArray(vlans)) return;
-
-                vlans.forEach((vlan) => {
-                    const option = document.createElement('option');
-                    option.value = vlan.id || vlan.vlan;
-                    option.textContent = `VLAN ${vlan.vlan || ''} - ${vlan.name || ''}`;
-                    vlanSelect.appendChild(option);
-                });
-            };
-
-            // =========================
-            // 4) START
-            // =========================
+            // ===== INICIALIZAR DATATABLE UNA SOLA VEZ =====
             $(document).ready(function() {
-                // Loading (SweetAlert “viejo”: usa type/onBeforeOpen)
+                // ===== VERIFICAR SI YA EXISTE ANTES DE INICIALIZAR =====
+                if ($.fn.DataTable.isDataTable('#table-general')) {
+                    // Si ya existe, obtener la instancia existente
+                    window.DT_ONUS = $('#table-general').DataTable();
+                    console.log('DataTable ya estaba inicializado, usando instancia existente');
+                } else {
+                    // Si no existe, inicializar con Responsive
+                    window.DT_ONUS = $('#table-general').DataTable({
+                        responsive: true,
+                        autoWidth: false,
+                        language: {
+                            url: '//cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json'
+                        },
+                        columnDefs: [{
+                                targets: -1, // Action (última columna)
+                                orderable: false,
+                                searchable: false,
+                                responsivePriority: 10001, // Se oculta primero
+                                className: 'text-center'
+                            },
+                            {
+                                targets: 0,
+                                responsivePriority: 1
+                            }, // PON Type siempre visible
+                            {
+                                targets: 4,
+                                responsivePriority: 2
+                            } // SN siempre visible
+                        ]
+                    });
+                    console.log('DataTable inicializado por primera vez');
+                }
+
+                // Event delegation para links Authorize (funciona con responsive)
+                $('#table-general').on('click', '.btn-authorize', function(e) {
+                    e.preventDefault();
+                    const index = $(this).data('index');
+                    formAuthorizeOnu(index);
+                });
+
+                // Loading
                 if (typeof Swal !== 'undefined' && Swal.fire) {
                     try {
                         Swal.fire({
@@ -323,23 +328,27 @@
         })();
     </script>
 
-    {{-- Tus funciones existentes (si ya las tienes arriba, puedes omitir este bloque) --}}
     <script>
+        // ===== FUNCIÓN ACTUALIZADA (usa datos globales) =====
         function formAuthorizeOnu(index) {
-            let row = document.getElementById('olt_' + index);
-            if (!row) return;
+            const onu = window.ONUS_DATA[index];
+            if (!onu) {
+                console.error('ONU no encontrada en índice:', index);
+                return;
+            }
 
-            let ponType = row.cells[0].innerText;
-            let board = row.cells[1].innerText;
-            let port = row.cells[2].innerText;
-            let ponDescription = row.cells[3].innerText;
-            let sn = row.cells[4].innerText; 
-            let onuTypeName = row.cells[5].innerText;
-            let status = row.cells[6].innerText;
-            let olt_id = document.getElementById("olt_id").value;
+            const olt_id = document.getElementById("olt_id").value;
 
-            let url =
-                `{{ route('olt.form-authorized-onuAdminOlt') }}?ponType=${encodeURIComponent(ponType)}&board=${encodeURIComponent(board)}&port=${encodeURIComponent(port)}&ponDescription=${encodeURIComponent(ponDescription)}&sn=${encodeURIComponent(sn)}&onuTypeName=${encodeURIComponent(onuTypeName)}&status=${encodeURIComponent(status)}&olt_id=${olt_id}`;
+            let url = `{{ route('olt.form-authorized-onuAdminOlt') }}?` +
+                `ponType=${encodeURIComponent(onu.pon_type)}` +
+                `&board=${encodeURIComponent(onu.board)}` +
+                `&port=${encodeURIComponent(onu.port)}` +
+                `&ponDescription=${encodeURIComponent(onu.pon_description)}` +
+                `&sn=${encodeURIComponent(onu.sn)}` +
+                `&onuTypeName=${encodeURIComponent(onu.onu_type_name)}` +
+                `&status=${encodeURIComponent(onu.is_disabled == 0 ? 'Activo' : 'Inactivo')}` +
+                `&olt_id=${olt_id}`;
+
             window.location.href = url;
         }
 
