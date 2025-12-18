@@ -196,11 +196,7 @@
             // =========================
             // Nota: websocket-adminolt.js invoca task_custom_done(data)
             window.task_custom_done = function(data) {
-                console.log('✅ AdminOLT DONE:', {
-                    label: window.ADMINOLT_CURRENT ? window.ADMINOLT_CURRENT.label : null,
-                    facility: window.ADMINOLT_CURRENT ? window.ADMINOLT_CURRENT.facility : null,
-                    data: data
-                });
+            
 
                 try {
                     // 1) Procesar según label (lo que tengas realmente)
@@ -218,27 +214,27 @@
                 }
 
                 // 2) Forzar una ONU de ejemplo si la tabla quedó vacía
-                try {
-                    var tbody = document.querySelector('#table-general tbody');
-                    if (tbody && !tbody.children.length) {
-                        console.log('⚠️ Tabla vacía, inyectando ONU DEMO');
+                // try {
+                //     var tbody = document.querySelector('#table-general tbody');
+                //     if (tbody && !tbody.children.length) {
+                //         console.log('⚠️ Tabla vacía, inyectando ONU DEMO');
 
-                        var demoOnus = [{
-                            pon_type: 'gpon',
-                            board: 14,
-                            port: 7,
-                            pon_description: 'DEMO (sin ONUs reales)',
-                            sn: 'DEMO_ONU_SN_001',
-                            onu_type_name: 'SML-704GWT-DAX',
-                            is_disabled: 0,
-                            olt_id: window.ADMINOLT_OLT_DEFAULT
-                        }];
+                //         var demoOnus = [{
+                //             pon_type: 'gpon',
+                //             board: 14,
+                //             port: 7,
+                //             pon_description: 'DEMO (sin ONUs reales)',
+                //             sn: 'DEMO_ONU_SN_001',
+                //             onu_type_name: 'SML-704GWT-DAX',
+                //             is_disabled: 0,
+                //             olt_id: window.ADMINOLT_OLT_DEFAULT
+                //         }];
 
-                        populateOnusTable(demoOnus);
-                    }
-                } catch (e) {
-                    console.error('Error inyectando demo ONU:', e);
-                }
+                //         populateOnusTable(demoOnus);
+                //     }
+                // } catch (e) {
+                //     console.error('Error inyectando demo ONU:', e);
+                // }
 
                 // 3) Continuar con la cola
                 adminoltStartNext();
@@ -253,7 +249,6 @@
             // =========================
             window.populateOnusTable = window.populateOnusTable || function(onus) {
 
-                console.log('AQUI TAMPOCO ESTA ENTRANDO');
                 const tableBody = document.querySelector('#table-general tbody');
                 tableBody.innerHTML = '';
                 if (!Array.isArray(onus) || onus.length === 0) {

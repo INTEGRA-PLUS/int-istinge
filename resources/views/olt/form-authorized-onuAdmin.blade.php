@@ -222,7 +222,6 @@
 
         function populateVlansSelect(vlans) {
             var sel = document.getElementById('user_vlan_id');
-            console.log('user_vlan_id exists:', !!sel, sel);
 
             if (!sel) return;
             // Limpia opciones
@@ -259,7 +258,6 @@
                 $('#user_vlan_id').selectpicker('refresh');
             }
         }
-        console.log('bootstrap-select loaded?', !!(window.jQuery && $.fn && $.fn.selectpicker));
         // websocket-adminolt.js llamará esto cuando llegue data
         window.task_custom_done = function(data) {
             console.log('[AdminOLT] VLAN WS data:', data);
@@ -281,7 +279,7 @@
                 vlans = data.results;
             }
 
-            console.log('[AdminOLT] Parsed vlans:', vlans);
+            // console.log('[AdminOLT] Parsed vlans:', vlans);
             populateVlansSelect(vlans);
         };
 
@@ -292,7 +290,7 @@
         };
 
         $(document).ready(function() {
-            console.log('[AdminOLT] vlans_facility:', window.ADMINOLT_FACILITY_VLANS);
+
 
             if (!window.ADMINOLT_FACILITY_VLANS) {
                 populateVlansSelect([]);
