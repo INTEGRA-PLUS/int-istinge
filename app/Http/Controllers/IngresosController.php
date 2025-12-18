@@ -11,7 +11,7 @@ use App\Numeracion;
 use App\Model\Inventario\Inventario;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\ItemsFactura;
-use Illuminate\Support\Facades\Schema; 
+use Illuminate\Support\Facades\Schema;
 use App\Model\Ingresos\Ingreso;
 use App\Model\Ingresos\IngresosFactura;
 use App\Model\Ingresos\IngresosCategoria;
@@ -401,9 +401,11 @@ class IngresosController extends Controller
                         $montoPago = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
 
-                        if($factura->contratos() !== null && $factura->contratos()->first()->contrato_nro){
-                            $contrato = $factura->contratos()->first()->contrato_nro;
-                            $contrato = Contrato::where('nro',$contrato)->first();
+                        if ($factura->contratos() != false &&
+                            $factura->contratos()->first()->contrato_nro) {
+
+                                $contrato = $factura->contratos()->first()->contrato_nro;
+                                $contrato = Contrato::where('nro',$contrato)->first();
 
                             if($empresa->pago_siigo == 1 || ($contrato && $contrato->pago_siigo_contrato == 1)){
                                 $siigo = new SiigoController();
@@ -2268,7 +2270,7 @@ class IngresosController extends Controller
         return back()->with('error', 'No existe un registro con ese id');
     }
 
-  
+
     public function destroy($id)
     {
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $id)->first();
@@ -2342,7 +2344,7 @@ class IngresosController extends Controller
                 }
             }
             // ========== FIN CAPTURA DE DATOS ==========
-            
+
             if ($ingreso->tipo == 3) {
                 return redirect('empresa/pagos')->with('error', 'No puede editar un pago de nota de débito');
             } else if ($ingreso->tipo == 1) {
@@ -2379,7 +2381,7 @@ class IngresosController extends Controller
             // ========== GUARDAR LOG ANTES DE ELIMINAR EL INGRESO ==========
             if ($logData !== null) {
                 try {
-                    DB::table('logs_ingresos')->insert($logData);   
+                    DB::table('logs_ingresos')->insert($logData);
                 } catch (\Exception $e) {
                     \Log::error('Error guardando log ingreso: ' . $e->getMessage());
                 }
