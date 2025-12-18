@@ -3,181 +3,254 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 use Auth;
 use App\Empresa; // usa el mismo namespace que ya tienes
 
 class OltAdminController extends Controller
 {
+    protected $client;
+    protected $baseUrl;
+    protected $token;
+    protected $subdomain;
+
+    public function __construct()
+    {
+        $this->baseUrl = env('ADMINOLT_BASE_URL');
+        $this->token = env('ADMINOLT_TOKEN');
+
+        // Extract subdomain
+        if (preg_match('/https:\/\/(.+?)\.adminolt\./', $this->baseUrl, $matches)) {
+            $this->subdomain = $matches[1];
+        }
+
+        $this->initializeClient();
+    }
+
+    private function initializeClient(): void
+    {
+        $this->client = new Client([
+            'base_uri' => $this->baseUrl,
+            'headers' => [
+                'Authorization' => 'Token ' . $this->token,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ],
+            'timeout' => 30,
+            'verify' => false,
+        ]);
+    }
+
+    /**
+     * Get all OLTs from API
+     */
+    private function getOlts(): array
+    {
+        try {
+            $response = $this->client->get('/api/olt-list/');
+            $responseData = json_decode($response->getBody(), true);
+
+            Log::info('AdminOLT OLTs Response:', ['data' => $responseData]);
+
+            return $this->parseResponse($responseData);
+        } catch (\Exception $e) {
+            Log::error('Error fetching OLTs: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get VLANs facility for a specific OLT
+     */
+    private function getVlansFacility($oltId): ?string
+    {
+        try {
+            $response = $this->client->get("/api/vlans/{$oltId}");
+            $responseData = json_decode($response->getBody(), true);
+
+            Log::info('AdminOLT VLANs Response:', ['data' => $responseData]);
+
+            // Return facility UUID if it exists
+            return $responseData['facility'] ?? null;
+        } catch (\Exception $e) {
+            Log::error('Error fetching VLANs: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get ONUs facility
+     */
+    private function getOnusFacility(): ?string
+    {
+        try {
+            $response = $this->client->get('/api/onu/authorized/');
+            $responseData = json_decode($response->getBody(), true);
+
+            Log::info('AdminOLT ONUs Response:', ['data' => $responseData]);
+
+            // Return facility UUID if it exists
+            return $responseData['facility'] ?? null;
+        } catch (\Exception $e) {
+            Log::error('Error fetching ONUs: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Parse API response and extract data
+     */
+    private function parseResponse($responseData): array
+    {
+        if (!is_array($responseData)) {
+            return [];
+        }
+
+        return $responseData['results']
+            ?? $responseData['data']
+            ?? $responseData['response']
+            ?? $responseData['onus']
+            ?? $responseData['olts']
+            ?? (isset($responseData[0]) ? $responseData : []);
+    }
+
+    /**
+     * Display unconfigured OLTs and ONUs
+     */
     public function unconfigured(Request $request)
     {
-        $this->getAllPermissions(Auth::user()->id);
-    
-        view()->share([
-            'title'   => 'AdminOLT - Onus no autorizadas',
-            'icon'    => '',
-            'seccion' => ''
-        ]);
-    
-        $onus = []; // para no reventar vista
-    
-        // 1) OLTs
-        $olts = $this->getOltsAdminOLT();
-        if (isset($olts['error']) && $olts['error'] === true) {
-            $olts = [];
+        if (Auth::user()) {
+            $this->getAllPermissions(Auth::user()->id);
+        } else {
+            return redirect()->back()->with('error', 'No hay un usuario autenticado.');
         }
-    
-        // 2) OLT default
-        $olt_default = $request->olt_id ?? null;
-        if ($olt_default === null && !empty($olts) && isset($olts[0]['id'])) {
-            $olt_default = $olts[0]['id'];
-        }
-    
-        // 3) VLANs -> facility
-        $vlansInfo = [];
-        $facility_vlans = null;
-    
-        if ($olt_default !== null) {
-            $vlansInfo = $this->getVlansAdminOLT($olt_default);
-            if (is_array($vlansInfo) && isset($vlansInfo['facility'])) {
-                $facility_vlans = $vlansInfo['facility'];
+
+        view()->share(['title' => 'Olt - Onu Unconfigured', 'icon' => '', 'seccion' => '']);
+
+
+        try {
+            // 1. Get all OLTs
+            $olts = $this->getOlts();
+
+            if (empty($olts)) {
+                return $this->renderView([], [], null, null, null);
             }
+
+            // 2. Determine default OLT
+            $oltDefault = $request->olt ?? $olts[0]['id'] ?? null;
+
+            // 3. Get facilities (WebSocket URLs)
+            $onusFacility = $this->getOnusFacility();
+            $vlansFacility = $oltDefault ? $this->getVlansFacility($oltDefault) : null;
+
+            return $this->renderView($olts, [], $oltDefault, $onusFacility, $vlansFacility);
+        } catch (\Exception $e) {
+            Log::error('Error in unconfigured: ' . $e->getMessage());
+            return $this->renderView([], [], null, null, null, $e->getMessage());
         }
-    
-        // 4) Unauthorized -> facility
-        $unauthorizedInfo = $this->getUnauthorizedOnusAdminOLT();
-        $facility_unauthorized = null;
-    
-        if (is_array($unauthorizedInfo) && isset($unauthorizedInfo['facility'])) {
-            $facility_unauthorized = $unauthorizedInfo['facility'];
-        }
-    
-        return view('olt.unconfiguredAdminOLT', compact(
-            'onus',
+    }
+
+    /**
+     * Render the view with proper data structure
+     */
+    private function renderView(
+        array $olts,
+        array $onus,
+        $oltDefault = null,
+        $onusFacility = null,
+        $vlansFacility = null,
+        $error = null
+    ) {
+        $baseUrl = env('ADMINOLT_BASE_URL'); // ej: https://novalinksp.adminolt.co/api
+        $wsHost  = parse_url($baseUrl, PHP_URL_HOST);
+        return view('olt.unconfiguredAdminOLT', [
+            'olts' => $olts,
+            'onus' => $onus,
+            'ws_host' => $wsHost,
+            'adminolt_token' => env('ADMINOLT_TOKEN'),
+            'olt_default'   => $oltDefault,
+            'subdomain'     => $this->subdomain,
+            'onus_facility' => $onusFacility,
+            'vlans_facility' => $vlansFacility,
+            'error' => $error,
+            'title' => 'ONUs No Configuradas - AdminOLT',
+            'icon' => 'fas fa-network-wired',
+            'seccion' => 'AdminOLT'
+        ]);
+    }
+
+    public function formAuthorizeOnu(Request $request)
+    {
+
+        $this->getAllPermissions(Auth::user()->id);
+        view()->share(['title' => 'Olt - Formulario Authorizacion Onu', 'icon' => '', 'seccion' => '']);
+
+        //  Obtener tipos de ONU
+        $onu_types = $this->onuTypes();
+        // Obtener OLTs
+        $olts = $this->getOlts();
+        $oltDefault = $request->olt ?? $olts[0]['id'] ?? null;
+        // Parametro Vlans facility
+        $vlans_facility = $oltDefault ? $this->getVlansFacility($oltDefault) : null;
+        $vlan = [];
+        // $zones = $this->getZones();
+        // $default_zone = 0;
+
+        // if (isset($zones['response'])) {
+        //     $zones = $zones['response'];
+        //     $default_zone = $zones[0]['id'];
+        // } else {
+        //     $zones = [];
+        // }
+
+        // if ($default_zone != 0) {
+        //     $odbList = $this->ODBlist($default_zone);
+        //     if (isset($odbList['response'])) {
+        //         $odbList = $odbList['response'];
+        //     } else {
+        //         $odbList = [];
+        //     }
+        // } else {
+        //     $odbList = [];
+        // }
+
+        // $speedProfiles = $this->getSpeedProfiles();
+
+        // if (isset($speedProfiles['response'])) {
+        //     $speedProfiles = $speedProfiles['response'];
+        // } else {
+        //     $speedProfiles = [];
+        // }  
+        $baseUrl = env('ADMINOLT_BASE_URL');
+        $ws_host  = parse_url($baseUrl, PHP_URL_HOST);
+
+
+        return view('olt.form-authorized-onuAdmin', compact(
+            'request',
+            'onu_types',
             'olts',
-            'olt_default',
-            'vlansInfo',
-            'facility_vlans',
-            'unauthorizedInfo',
-            'facility_unauthorized'
+            'vlans_facility',
+            'ws_host',
+            // 'zones',
+            'oltDefault',
+            // 'default_zone',
+            // 'odbList',
+            // 'speedProfiles'
         ));
     }
 
-
-    // -------------------------
-    // Consultas a API (solo data)
-    // -------------------------
-
-    private function getOltsAdminOLT()
+    public function onuTypes()
     {
-        $empresa = Empresa::find(Auth::user()->empresa);
+        try {
+            $response = $this->client->get('/api/onu-types/');
+            $data = json_decode($response->getBody(), true);
 
-        if (!$empresa || !$empresa->adminOLT || !$empresa->smartOLT) {
-            return ['error' => true, 'message' => 'Configuracion AdminOLT incompleta'];
+            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
+            return $this->parseResponse($data);
+        } catch (\Exception $e) {
+            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
+            return [];
         }
-
-        return $this->adminoltGet($empresa->adminOLT, $empresa->smartOLT, '/api/olt-list/');
-    }
-
-    private function getUnauthorizedOnusAdminOLT()
-    {
-        $empresa = Empresa::find(Auth::user()->empresa);
-    
-        if (!$empresa || !$empresa->adminOLT || !$empresa->smartOLT) {
-            return [
-                'error' => true,
-                'message' => 'Configuración AdminOLT incompleta (adminOLT o smartOLT)',
-            ];
-        }
-    
-        $curl = curl_init();
-    
-        curl_setopt_array($curl, [
-            CURLOPT_URL => rtrim($empresa->adminOLT, '/') . '/api/onu/unauthorized/',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Token ' . $empresa->smartOLT,
-                'Accept: application/json',
-            ],
-        ]);
-    
-        $response = curl_exec($curl);
-    
-        if ($response === false) {
-            $err = curl_error($curl);
-            curl_close($curl);
-            return ['error' => true, 'message' => $err];
-        }
-    
-        $http = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-    
-        $decoded = json_decode($response, true);
-    
-        if ($http >= 400) {
-            return [
-                'error' => true,
-                'message' => 'AdminOLT respondió HTTP ' . $http,
-                'response' => $decoded ?: $response,
-            ];
-        }
-    
-        return $decoded;
-    }
-
-    private function getVlansAdminOLT($oltId)
-    {
-        $empresa = Empresa::find(Auth::user()->empresa);
-
-        if (!$empresa || !$empresa->adminOLT || !$empresa->smartOLT) {
-            return ['error' => true, 'message' => 'Configuracion AdminOLT incompleta'];
-        }
-
-        // ✅ OJO: el endpoint requiere slash final según docs: /api/vlans/{id}/
-        return $this->adminoltGet($empresa->adminOLT, $empresa->smartOLT, '/api/vlans/' . $oltId . '/');
-    }
-
-    private function adminoltGet($baseUrl, $token, $path)
-    {
-        $curl = curl_init();
-
-        curl_setopt_array($curl, [
-            CURLOPT_URL => rtrim($baseUrl, '/') . $path,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Token ' . $token,
-                'Accept: application/json',
-            ],
-        ]);
-
-        $response = curl_exec($curl);
-
-        if ($response === false) {
-            $error = curl_error($curl);
-            curl_close($curl);
-            return ['error' => true, 'message' => $error];
-        }
-
-        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-
-        $decoded = json_decode($response, true);
-
-        if ($httpCode >= 400) {
-            return [
-                'error' => true,
-                'message' => 'AdminOLT respondió HTTP ' . $httpCode,
-                'response' => $decoded ?: $response,
-            ];
-        }
-
-        return $decoded;
     }
 }
