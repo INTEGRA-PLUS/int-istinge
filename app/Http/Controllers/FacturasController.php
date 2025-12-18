@@ -6081,6 +6081,149 @@ class FacturasController extends Controller{
         return redirect('empresa/factura-index')->with('danger', 'LA FACTURA DE SERVICIOS NO HA ENCONTRADO');
     }
 
+    public function crearOnepayFacturasMesActual(Request $request, OnepayService $onepay)
+    {
+        // Mes actual (esto sirve cualquier mes)
+        $inicioMes = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $finMes    = Carbon::now()->endOfMonth()->format('Y-m-d');
 
+        $empresaId = Auth::user()->empresa;
+
+        // Traemos facturas del rango, de la empresa, y que no tengan Onepay aún
+        // (si quieres incluir las que sí tienen, quita el whereNull y contabiliza aparte)
+        $facturas = Factura::where('empresa', $empresaId)
+            ->whereBetween('fecha', [$inicioMes, $finMes])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $total           = $facturas->count();
+        $creadas         = 0;
+        $saltadas        = 0;
+        $fallidas        = 0;
+        $fallidasDetalle = [];
+
+        foreach ($facturas as $factura) {
+            try {
+                // Si ya tiene invoice en Onepay, no la duplicamos
+                if (!empty($factura->onepay_invoice_id)) {
+                    $saltadas++;
+                    continue;
+                }
+
+                if (!env('ONEPAY_TOKEN')) {
+                    // Si no hay token, no tiene sentido seguir
+                    throw new \Exception('ONEPAY_TOKEN no está configurado');
+                }
+
+                $cliente      = $factura->cliente();  // tu método actual
+                $totalFactura = $factura->total()->total ?? 0;
+
+                $nombreFactura   = 'Factura ' . $factura->codigo;
+                $telefonoCliente = $cliente->celular ?? $cliente->telefono1 ?? $cliente->telefono2 ?? '';
+
+                // Normalizar teléfono a +57XXXXXXXXXX
+                if ($telefonoCliente) {
+                    $soloNumeros = preg_replace('/\D/', '', $telefonoCliente);
+                    // Si ya venía con 57 (sin +) igual lo dejamos consistente
+                    if (strpos($soloNumeros, '57') === 0) {
+                        $telefonoCliente = '+' . $soloNumeros;
+                    } else {
+                        $telefonoCliente = '+57' . $soloNumeros;
+                    }
+                }
+
+                $emailCliente = $cliente->email ?? '';
+
+                $documentUrl = route('facturas.temp', [
+                    'id'    => $factura->id,
+                    'token' => config('app.key'),
+                ]);
+
+                // Nombre empresa (igual que en tu store)
+                $empresaNombre = 'Mi Empresa';
+                if (method_exists($factura, 'empresa') && $factura->empresa) {
+                    $empresaNombre = $factura->empresa->nombre ?? 'Mi Empresa';
+                } elseif (auth()->user() && auth()->user()->empresaObj) {
+                    $empresaNombre = auth()->user()->empresaObj->nombre ?? 'Mi Empresa';
+                }
+
+                $body = [
+                    "reference"    => $factura->codigo,
+                    "provider_id"  => env('ONEPAY_PROVIDER_ID', (string) $factura->empresa),
+                    "provider"     => env('ONEPAY_PROVIDER_NAME', $empresaNombre),
+                    "amount"       => (int) round($totalFactura),
+                    "name"         => $nombreFactura,
+                    "phone"        => $telefonoCliente,
+                    "email"        => $emailCliente,
+                    "document_url" => $documentUrl,
+                    "metadata"     => [
+                        "empresa_id"  => $factura->empresa,
+                        "factura_id"  => $factura->id,
+                        "codigo"      => $factura->codigo,
+                        "tipo"        => "factura",
+                        "cliente_id"  => $factura->cliente,
+                        "contrato_id" => $factura->contrato_id,
+                    ],
+                ];
+
+                /**
+                 * TIP CLAVE: idempotencia estable por factura
+                 * Para que si corres este proceso 2 veces, Onepay no duplique.
+                 * (si tu Onepay acepta repetir la misma x-idempotency para el mismo request)
+                 */
+                $idempotencyKey = 'inv_factura_' . $factura->id;
+
+                $onepayResponseRaw = $onepay->createInvoice($body, $idempotencyKey);
+                $onepayResponse    = json_decode($onepayResponseRaw, true);
+
+                $invoiceId =
+                    data_get($onepayResponse, 'id')
+                ?? data_get($onepayResponse, 'invoice_id')
+                ?? data_get($onepayResponse, 'data.id');
+
+                if (!$invoiceId) {
+                    throw new \Exception('Onepay no retornó invoice_id/id. Respuesta: ' . $onepayResponseRaw);
+                }
+
+                $factura->onepay_invoice_id = $invoiceId;
+                $factura->save();
+
+                $creadas++;
+
+                Log::info('Onepay invoice creada (masivo)', [
+                    'factura_id' => $factura->id,
+                    'invoice_id' => $invoiceId,
+                ]);
+
+            } catch (\Throwable $e) {
+                $fallidas++;
+                $fallidasDetalle[] = [
+                    'factura_id' => $factura->id,
+                    'codigo'     => $factura->codigo,
+                    'error'      => $e->getMessage(),
+                ];
+
+                Log::error('Error creando invoice en Onepay (masivo)', [
+                    'factura_id' => $factura->id,
+                    'codigo'     => $factura->codigo,
+                    'message'    => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Respuesta (puedes devolver view, json o redirect con flash)
+        return response()->json([
+            'rango' => [
+                'desde' => $inicioMes,
+                'hasta' => $finMes,
+            ],
+            'empresa' => $empresaId,
+            'total_en_rango' => $total,
+            'creadas'  => $creadas,
+            'saltadas_por_existir' => $saltadas,
+            'fallidas' => $fallidas,
+            'detalle_fallidas' => $fallidasDetalle, // si no quieres mostrarlo, quítalo
+        ]);
+    }
 
 }

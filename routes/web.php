@@ -105,6 +105,7 @@ Route::get('/validar-factura-doble', 'CronController@validarFacturasDobles');
 Route::get('/validate-codigo-emision', 'CronController@validateCodeEmision');
 Route::get('/ejemploGenerarFacturas', 'CronController@ejemploGenerarFacturas');
 Route::get('/cron/onepay-ingresos', 'CronController@onepayIngresosCron')->name('cron.onepay.ingresos');
+Route::post('onepay/crear-mes-actual', 'FacturaController@crearOnepayFacturasMesActual')->name('onepay.crear.mes.actual');
 
 /*PAYU*/
 Route::get('/respuestapayu', 'Controller@respuestapayu')->name('respuestapayu');

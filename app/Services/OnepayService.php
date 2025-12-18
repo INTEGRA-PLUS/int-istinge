@@ -94,10 +94,12 @@ class OnepayService
         return $this->makeRequest(
             'DELETE',
             $this->baseUri . '/invoices/' . $invoiceId,
-            [],           // query params
-            [],           // sin body
+            [],           
+            [],           
             $headers,
-            true          // la API suele responder JSON con estado o vacío
+            true          
         );
     }
+
+    
 }
