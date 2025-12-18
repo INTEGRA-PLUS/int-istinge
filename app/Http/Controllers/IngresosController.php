@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Empresa;
+use App\Services\OnepayService;
 use App\Banco; use App\Contacto;
 use App\Categoria; use App\Retencion;
 use App\Movimiento; use App\Impuesto;
@@ -319,8 +320,7 @@ class IngresosController extends Controller
     ));
     }
 
-    public function store(Request $request){
-
+    public function store(Request $request, OnepayService $onepay){
         try {
             $user = Auth::user();
             $empresa = Empresa::Find($user->empresa);
@@ -335,17 +335,14 @@ class IngresosController extends Controller
                 ->sum();
             }
 
-            // $contrato = Contrato::where('nro',632)->first();
-            // $morosos = $this->funcionesPagoMK($contrato);
-            // dd($morosos);
             if ($sumaPrecios <= 0) {
-            return back()->with('danger', 'La suma de los precios no puede ser 0.')->withInput();
+                return back()->with('danger', 'La suma de los precios no puede ser 0.')->withInput();
             }
 
             //store: prorrateo Validaciones de opciones radiobutton
             if(isset($request->tipo_electronica) && $request->tipo_electronica == 4 && $request->realizar == 1){
                 $conteo = count(array_filter($request->precio, function ($item) {
-                    return !is_null($item) && is_numeric($item); // opcionalmente, solo números válidos
+                    return !is_null($item) && is_numeric($item);
                 }));
                 if($conteo > 1){
                     return back()->with('danger', 'No puedes realizar prorrateo al seleccionar mas de una factura.')->withInput();
@@ -371,115 +368,115 @@ class IngresosController extends Controller
 
             }else{
 
-            if(isset($request->comprobante_pago)){
-                if(Ingreso::where('comprobante_pago', $request->comprobante_pago)->count() > 0){
-                    return back()->withInput()->with('danger', 'DISCULPE, EL NRO DE COMPROBANTE DE PAGO INGRESADO YA HA SIDO REGISTRADO');
-                }
-            }
-
-            if($user->rol == 8){
-                $monto_pagar = 0;
-                foreach ($request->factura_pendiente as $key => $value) {
-                    if ($request->precio[$key]) {
-                        $monto_pagar += $request->precio[$key];
+                if(isset($request->comprobante_pago)){
+                    if(Ingreso::where('comprobante_pago', $request->comprobante_pago)->count() > 0){
+                        return back()->withInput()->with('danger', 'DISCULPE, EL NRO DE COMPROBANTE DE PAGO INGRESADO YA HA SIDO REGISTRADO');
                     }
                 }
 
-                if($monto_pagar > auth()->user()->saldo){
-                    $mensaje='NO POSEE SALDO DISPONIBLE PARA CANCELAR LA FACTURA, LO INVITAMOS A REALIZAR UNA RECARGA';
-                    return back()->with('danger', $mensaje)->withInput();
+                if($user->rol == 8){
+                    $monto_pagar = 0;
+                    foreach ($request->factura_pendiente as $key => $value) {
+                        if ($request->precio[$key]) {
+                            $monto_pagar += $request->precio[$key];
+                        }
+                    }
+
+                    if($monto_pagar > auth()->user()->saldo){
+                        $mensaje='NO POSEE SALDO DISPONIBLE PARA CANCELAR LA FACTURA, LO INVITAMOS A REALIZAR UNA RECARGA';
+                        return back()->with('danger', $mensaje)->withInput();
+                    }
                 }
-            }
-            //Si es tipo 1 osea pagos a facturas.
-            if ($request->tipo == 1) {
+                //Si es tipo 1 osea pagos a facturas.
+                if ($request->tipo == 1) {
 
-                //Validaciones
-                if(is_array($request->factura_pendiente)){
+                    //Validaciones
+                    if(is_array($request->factura_pendiente)){
 
-                    foreach ($request->factura_pendiente as $key => $factura_id) {
+                        foreach ($request->factura_pendiente as $key => $factura_id) {
 
-                        $montoPago = $this->precision($request->precio[$key]);
-                        $factura = Factura::find($request->factura_pendiente[$key]);
+                            $montoPago = $this->precision($request->precio[$key]);
+                            $factura = Factura::find($request->factura_pendiente[$key]);
 
-                        if ($factura->contratos() != false &&
-                            $factura->contratos()->first()->contrato_nro) {
+                            if ($factura->contratos() != false &&
+                                $factura->contratos()->first()->contrato_nro) {
 
                                 $contrato = $factura->contratos()->first()->contrato_nro;
                                 $contrato = Contrato::where('nro',$contrato)->first();
 
-                            if($empresa->pago_siigo == 1 || ($contrato && $contrato->pago_siigo_contrato == 1)){
-                                $siigo = new SiigoController();
-                                $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
-                                Log::info($response);
-                                if(isset($response['success']) && $response['success'] == false){
-                                    return back()->with('danger', "No se ha podido establecer conexión con siigo y no se ha generado el pago")->withInput();
+                                if($empresa->pago_siigo == 1 || ($contrato && $contrato->pago_siigo_contrato == 1)){
+                                    $siigo = new SiigoController();
+                                    $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
+                                    Log::info($response);
+                                    if(isset($response['success']) && $response['success'] == false){
+                                        return back()->with('danger', "No se ha podido establecer conexión con siigo y no se ha generado el pago")->withInput();
+                                    }
                                 }
                             }
-                        }
 
-                        $pagoRepetido = IngresosFactura::where('factura', $factura_id)
-                            ->where('pagado', $montoPago)
-                            ->whereHas('ingresoRelation', function ($query) {
-                                $query->whereBetween('created_at', [now()->subSeconds(600), now()]);
-                            })
-                            ->exists();
+                            $pagoRepetido = IngresosFactura::where('factura', $factura_id)
+                                ->where('pagado', $montoPago)
+                                ->whereHas('ingresoRelation', function ($query) {
+                                    $query->whereBetween('created_at', [now()->subSeconds(600), now()]);
+                                })
+                                ->exists();
 
 
-                        if ($pagoRepetido) {
-                            $factura = Factura::find($factura_id);
-                            Log::info("No permitio la creacion de un pago duplicado" . $factura_id);
-                            return back()->with('danger', ' Ya has registrado un pago de $' . number_format($montoPago, 0, ',', '.') . ' recientemente para la factura N° ' . $factura->codigo . '. Evita pagos duplicados, intenta en dos minutos de nuevo.')->withInput();
-                        }
-
-                        if($factura->estatus == 0){
-                            $mensaje='DISCULPE ESTÁ INTENTANDO PAGAR UNA FACTURA YA PAGADA. (FACTURA N° '.$factura->codigo.')';
-                            return back()->with('danger', $mensaje)->withInput();
-                        }
-
-                        if(!$pagoRepetido){
-                            $sumaPagos = round(IngresosFactura::join('ingresos as i','i.id','ingresos_factura.ingreso')
-                            ->where('factura',$factura_id)
-                            ->where('i.estatus',1)
-                            ->sum('pago')
-                            );
-                            $totalFact = $factura->total()->total;
-
-                            if($sumaPagos >= $totalFact){
-
-                                $factura->estatus = 0;
-                                $factura->save();
-
+                            if ($pagoRepetido) {
+                                $factura = Factura::find($factura_id);
                                 Log::info("No permitio la creacion de un pago duplicado" . $factura_id);
-                                $mensaje='La factura que estas intentando pagar ya tiene el total de la factura pagado. FACTURA N° '.$factura->codigo;
+                                return back()->with('danger', ' Ya has registrado un pago de $' . number_format($montoPago, 0, ',', '.') . ' recientemente para la factura N° ' . $factura->codigo . '. Evita pagos duplicados, intenta en dos minutos de nuevo.')->withInput();
+                            }
+
+                            if($factura->estatus == 0){
+                                $mensaje='DISCULPE ESTÁ INTENTANDO PAGAR UNA FACTURA YA PAGADA. (FACTURA N° '.$factura->codigo.')';
                                 return back()->with('danger', $mensaje)->withInput();
                             }
-                        }
 
-                        //Conversión de factura estandar a factura electrónica.
-                        if(isset($request->tipo_electronica) && $request->tipo_electronica == 1){
+                            if(!$pagoRepetido){
+                                $sumaPagos = round(IngresosFactura::join('ingresos as i','i.id','ingresos_factura.ingreso')
+                                ->where('factura',$factura_id)
+                                ->where('i.estatus',1)
+                                ->sum('pago')
+                                );
+                                $totalFact = $factura->total()->total;
 
-                            //primero recuperamos
-                            $nro=NumeracionFactura::where('empresa',1)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
-                            $inicio = $nro->inicio;
+                                if($sumaPagos >= $totalFact){
 
-                            if($factura->tipo != 2 && $request->precio[$key] > 0)
-                            {
-                                $factura->tipo = 2;
-                                $factura->codigo = $nro->prefijo.$inicio;
-                                $factura->numeracion = $nro->id;
-                                $factura->fecha =  Carbon::now()->format('Y-m-d');
-                                if($factura->vencimiento < Carbon::now()->format('Y-m-d')){
-                                    $factura->vencimiento = Carbon::now()->format('Y-m-d');
+                                    $factura->estatus = 0;
+                                    $factura->save();
+
+                                    Log::info("No permitio la creacion de un pago duplicado" . $factura_id);
+                                    $mensaje='La factura que estas intentando pagar ya tiene el total de la factura pagado. FACTURA N° '.$factura->codigo;
+                                    return back()->with('danger', $mensaje)->withInput();
                                 }
-                                $factura->save();
-
-                                $nro->inicio += 1;
-                                $nro->save();
                             }
-                        }
 
-                        //tipo_electronica 2
-                        if(isset($request->tipo_electronica) && $request->tipo_electronica == 2){
+                            //Conversión de factura estandar a factura electrónica.
+                            if(isset($request->tipo_electronica) && $request->tipo_electronica == 1){
+
+                                //primero recuperamos
+                                $nro=NumeracionFactura::where('empresa',1)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
+                                $inicio = $nro->inicio;
+
+                                if($factura->tipo != 2 && $request->precio[$key] > 0)
+                                {
+                                    $factura->tipo = 2;
+                                    $factura->codigo = $nro->prefijo.$inicio;
+                                    $factura->numeracion = $nro->id;
+                                    $factura->fecha =  Carbon::now()->format('Y-m-d');
+                                    if($factura->vencimiento < Carbon::now()->format('Y-m-d')){
+                                        $factura->vencimiento = Carbon::now()->format('Y-m-d');
+                                    }
+                                    $factura->save();
+
+                                    $nro->inicio += 1;
+                                    $nro->save();
+                                }
+                            }
+
+                            //tipo_electronica 2
+                            if(isset($request->tipo_electronica) && $request->tipo_electronica == 2){
                                 //si tiene el tipo 2 es por que desean emitir la(s) factura(s).
                                 if($factura->emitida != 1){
 
@@ -494,144 +491,166 @@ class IngresosController extends Controller
                                     }
 
                                 }
-                        }
-                    }
-                }else {
-                        $mensaje='No hay facturas pendientes seleccionadas.';
-                        return back()->with('danger', $mensaje)->withInput();
-                }
-            }
-
-            if (Ingreso::where('empresa', $user->empresa)->count() > 0) {
-                Session::put('posttimer', Ingreso::where('empresa', $user->empresa)->get()->last()->created_at);
-                $sw = 1;
-
-                foreach (Session::get('posttimer') as $key) {
-                    if ($sw == 1) {
-                        $ultimoingreso = $key;
-                        $sw = 0;
-                    }
-                }
-
-                if(isset($ultimoingreso)){
-                    $diasDiferencia = Carbon::now()->diffInseconds($ultimoingreso);
-
-                    if ($diasDiferencia <= 10) {
-                        $mensaje='EL PAGO NO HA SIDO PROCESADO, INTÉNTELO NUEVAMENTE';
-                        return back()->with('danger', $mensaje)->withInput();
-                    }
-                }
-            }
-
-            $request->validate([
-                'cuenta' => 'required|numeric'
-            ]);
-
-            $nro = Numeracion::where('empresa', $user->empresa)->first();
-            $caja = $nro->caja;
-
-            while (true) {
-                $numero = Ingreso::where('empresa', $user->empresa)->where('nro', $caja)->count();
-                if ($numero == 0) {
-                    break;
-                }
-                $caja++;
-            }
-
-            if(isset($request->uso_saldo) && $request->uso_saldo){
-                $banco_favor = Banco::where('empresa',$user->empresa)->where('nombre','like','Saldos a favor')->first();
-                if($banco_favor){
-                    $request->cuenta = $banco_favor->id;
-                }else{
-                    $mensaje='DISCULPE, NO SE ENCUENTRA REGISTRADO UN BANCO CON EL NOMBRE "SALDOS A FAVOR"';
-                    return back()->with('danger', $mensaje)->withInput();
-                }
-            }
-
-            $ingreso = new Ingreso;
-            $ingreso->nro = $caja;
-            $ingreso->empresa = Auth::user()->empresa;
-            $ingreso->cliente = $request->cliente;
-            $ingreso->cuenta = $request->cuenta;
-            $ingreso->metodo_pago = $request->metodo_pago;
-            $ingreso->notas = $request->notas;
-            $ingreso->tipo = $request->tipo;
-            $ingreso->fecha = Carbon::parse($request->fecha)->format('Y-m-d');
-            $ingreso->observaciones = mb_strtolower($request->observaciones);
-            $ingreso->created_by = Auth::user()->id;
-            $ingreso->anticipo = $request->saldofavor > 0 ? '1' : ''; // variables que me indican si se trata de un anticipo
-            $ingreso->valor_anticipo = $request->saldofavor > 0 ? $request->saldofavor : ''; //variables que me indican si se trata de un anticipo
-            $ingreso->comprobante_pago = $request->comprobante_pago;
-            $ingreso->save();
-
-            //Si el tipo de ingreso es de facturas
-            $totalIngreso=0;
-            if ($ingreso->tipo == 1) {
-                $saldoFavorUsado = 0;
-                foreach ($request->factura_pendiente as $key => $value) {
-
-
-                    if ($request->precio[$key]) {
-                        $totalIngreso+=$precio = $this->precision($request->precio[$key]);
-                        $factura = Factura::find($request->factura_pendiente[$key]);
-
-                        $contrato = Contrato::join('facturas_contratos as fc', 'fc.contrato_nro', '=', 'contracts.nro')
-                                ->where('fc.factura_id', $factura->id)
-                                ->select('contracts.*')
-                                ->first();
-
-                        if(!$contrato){
-                           $contrato = Contrato::where('id',$factura->contrato_id)->first();
-                        }
-
-                        if($contrato){
-                            if($empresa->consultas_mk == 1){
-                                $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
                             }
-                        }
 
-                        /*
-                        vamos a sumar el total del anticipo usado sobre una factura
-                        (este se aplica cuando se crea la factura de venta en una forma de pago)
-                        */
-                        $saldoFavorUsado+=$factura->saldoFavorUsado();
-
-                        $retencion = 'fact' . $factura->id . '_retencion';
-                        $precio_reten = 'fact' . $factura->id . '_precio_reten';
-                        if ($request->$retencion) {
-                            foreach ($request->$retencion as $key2 => $value2) {
-                                if ($request->$precio_reten[$key2]) {
-                                    $retencion = Retencion::where('id', $value2)->first();
-                                    $items = new IngresosRetenciones;
-                                    $items->ingreso = $ingreso->id;
-                                    $items->factura = $factura->id;
-                                    $items->valor = $this->precision($request->$precio_reten[$key2]);
-                                    $precio += $this->precision($request->$precio_reten[$key2]);
-                                    $items->retencion = $retencion->porcentaje;
-                                    $items->id_retencion = $retencion->id;
-                                    $items->save();
+                            // NUEVA LÓGICA: Cancelar factura en OnePay si existe
+                            if (!empty($factura->onepay_invoice_id)) {
+                                try {
+                                    $onepayResponse = $onepay->deleteInvoice($factura->onepay_invoice_id);
+                                    Log::info("Factura cancelada en OnePay", [
+                                        'factura_id' => $factura->id,
+                                        'onepay_invoice_id' => $factura->onepay_invoice_id,
+                                        'response' => $onepayResponse
+                                    ]);
+                                    
+                                    // Opcional: Limpiar el campo onepay_invoice_id después de cancelar
+                                    $factura->onepay_invoice_id = null;
+                                    $factura->save();
+                                    
+                                } catch (\Exception $e) {
+                                    Log::error("Error al cancelar factura en OnePay", [
+                                        'factura_id' => $factura->id,
+                                        'onepay_invoice_id' => $factura->onepay_invoice_id,
+                                        'error' => $e->getMessage()
+                                    ]);
+                                    // Decidir si continuar o retornar error
+                                    // return back()->with('danger', 'Error al cancelar la factura en OnePay: ' . $e->getMessage())->withInput();
                                 }
                             }
                         }
+                    }else {
+                        $mensaje='No hay facturas pendientes seleccionadas.';
+                        return back()->with('danger', $mensaje)->withInput();
+                    }
+                }
 
-                        $items = new IngresosFactura;
-                        $items->ingreso = $ingreso->id;
-                        $items->factura = $factura->id;
-                        $items->pagado = $precio; //asi exista mas dinero del  pagado ese se debe usar.
-                        $items->puc_factura = $factura->cuenta_id;
-                        $items->puc_banco = $request->saldofavor > 0 ? $request->forma_pago : $request->forma_pago;
-                        $items->anticipo = $request->saldofavor > 0 ? $request->anticipo_factura : null;
+                if (Ingreso::where('empresa', $user->empresa)->count() > 0) {
+                    Session::put('posttimer', Ingreso::where('empresa', $user->empresa)->get()->last()->created_at);
+                    $sw = 1;
 
-                        /*
-                        Validacion cuando se recibe un valor mayor a la factura. entonces guardamos
-                        sobre el total de la factura por que el resto es saldo a favor.
-                        */
-                        if($factura->total()->total < $request->precio[$key]){
+                    foreach (Session::get('posttimer') as $key) {
+                        if ($sw == 1) {
+                            $ultimoingreso = $key;
+                            $sw = 0;
+                        }
+                    }
 
-                            // $items->pago = $factura->total()->total; ya no se desea asi, ahora quieren que aparezca el total asi sobrepase
-                            $items->pago = $this->precision($request->precio[$key]);
-                            $factura->estatus = 0;
-                            $factura->save();
+                    if(isset($ultimoingreso)){
+                        $diasDiferencia = Carbon::now()->diffInseconds($ultimoingreso);
+
+                        if ($diasDiferencia <= 10) {
+                            $mensaje='EL PAGO NO HA SIDO PROCESADO, INTÉNTELO NUEVAMENTE';
+                            return back()->with('danger', $mensaje)->withInput();
+                        }
+                    }
+                }
+
+                $request->validate([
+                    'cuenta' => 'required|numeric'
+                ]);
+
+                $nro = Numeracion::where('empresa', $user->empresa)->first();
+                $caja = $nro->caja;
+
+                while (true) {
+                    $numero = Ingreso::where('empresa', $user->empresa)->where('nro', $caja)->count();
+                    if ($numero == 0) {
+                        break;
+                    }
+                    $caja++;
+                }
+
+                if(isset($request->uso_saldo) && $request->uso_saldo){
+                    $banco_favor = Banco::where('empresa',$user->empresa)->where('nombre','like','Saldos a favor')->first();
+                    if($banco_favor){
+                        $request->cuenta = $banco_favor->id;
+                    }else{
+                        $mensaje='DISCULPE, NO SE ENCUENTRA REGISTRADO UN BANCO CON EL NOMBRE "SALDOS A FAVOR"';
+                        return back()->with('danger', $mensaje)->withInput();
+                    }
+                }
+
+                $ingreso = new Ingreso;
+                $ingreso->nro = $caja;
+                $ingreso->empresa = Auth::user()->empresa;
+                $ingreso->cliente = $request->cliente;
+                $ingreso->cuenta = $request->cuenta;
+                $ingreso->metodo_pago = $request->metodo_pago;
+                $ingreso->notas = $request->notas;
+                $ingreso->tipo = $request->tipo;
+                $ingreso->fecha = Carbon::parse($request->fecha)->format('Y-m-d');
+                $ingreso->observaciones = mb_strtolower($request->observaciones);
+                $ingreso->created_by = Auth::user()->id;
+                $ingreso->anticipo = $request->saldofavor > 0 ? '1' : '';
+                $ingreso->valor_anticipo = $request->saldofavor > 0 ? $request->saldofavor : '';
+                $ingreso->comprobante_pago = $request->comprobante_pago;
+                $ingreso->save();
+
+                //Si el tipo de ingreso es de facturas
+                $totalIngreso=0;
+                if ($ingreso->tipo == 1) {
+                    $saldoFavorUsado = 0;
+                    foreach ($request->factura_pendiente as $key => $value) {
+
+                        if ($request->precio[$key]) {
+                            $totalIngreso+=$precio = $this->precision($request->precio[$key]);
+                            $factura = Factura::find($request->factura_pendiente[$key]);
+
+                            $contrato = Contrato::join('facturas_contratos as fc', 'fc.contrato_nro', '=', 'contracts.nro')
+                                    ->where('fc.factura_id', $factura->id)
+                                    ->select('contracts.*')
+                                    ->first();
+
+                            if(!$contrato){
+                            $contrato = Contrato::where('id',$factura->contrato_id)->first();
+                            }
+
+                            if($contrato){
+                                if($empresa->consultas_mk == 1){
+                                    $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                                }
+                            }
+
+                            /*
+                            vamos a sumar el total del anticipo usado sobre una factura
+                            (este se aplica cuando se crea la factura de venta en una forma de pago)
+                            */
+                            $saldoFavorUsado+=$factura->saldoFavorUsado();
+
+                            $retencion = 'fact' . $factura->id . '_retencion';
+                            $precio_reten = 'fact' . $factura->id . '_precio_reten';
+                            if ($request->$retencion) {
+                                foreach ($request->$retencion as $key2 => $value2) {
+                                    if ($request->$precio_reten[$key2]) {
+                                        $retencion = Retencion::where('id', $value2)->first();
+                                        $items = new IngresosRetenciones;
+                                        $items->ingreso = $ingreso->id;
+                                        $items->factura = $factura->id;
+                                        $items->valor = $this->precision($request->$precio_reten[$key2]);
+                                        $precio += $this->precision($request->$precio_reten[$key2]);
+                                        $items->retencion = $retencion->porcentaje;
+                                        $items->id_retencion = $retencion->id;
+                                        $items->save();
+                                    }
+                                }
+                            }
+
+                            $items = new IngresosFactura;
+                            $items->ingreso = $ingreso->id;
+                            $items->factura = $factura->id;
+                            $items->pagado = $precio;
+                            $items->puc_factura = $factura->cuenta_id;
+                            $items->puc_banco = $request->saldofavor > 0 ? $request->forma_pago : $request->forma_pago;
+                            $items->anticipo = $request->saldofavor > 0 ? $request->anticipo_factura : null;
+
+                            /*
+                            Validacion cuando se recibe un valor mayor a la factura. entonces guardamos
+                            sobre el total de la factura por que el resto es saldo a favor.
+                            */
+                            if($factura->total()->total < $request->precio[$key]){
+                                $items->pago = $this->precision($request->precio[$key]);
+                                $factura->estatus = 0;
+                                $factura->save();
                             }else{
                                 $items->pago=$this->precision($request->precio[$key]);
                             }
@@ -650,51 +669,48 @@ class IngresosController extends Controller
 
                             $items->save();
                             if(isset($request->tipo_electronica) && $request->tipo_electronica != 6 || !isset($request->tipo_electronica)){
-                            if(!$contrato){
-                                $db_contrato = DB::table('facturas_contratos')->where('factura_id',$factura->id)->first();
-                                if($db_contrato){
-                                    $contrato = Contrato::where('nro',$db_contrato->contrato_nro)->first();
+                                if(!$contrato){
+                                    $db_contrato = DB::table('facturas_contratos')->where('factura_id',$factura->id)->first();
+                                    if($db_contrato){
+                                        $contrato = Contrato::where('nro',$db_contrato->contrato_nro)->first();
+                                    }
                                 }
-                            }
 
-                            $cliente = $factura->cliente();
+                                $cliente = $factura->cliente();
 
-                            if($contrato){
-                                $contrato->state = "enabled";
-                                $contrato->save();
-                            }
-                            if(!$contrato){
-                                $contrato = Contrato::where('client_id', $cliente->id)->first();
                                 if($contrato){
                                     $contrato->state = "enabled";
                                     $contrato->save();
                                 }
-                            }
-
-                            if($contrato){
-
-                                $asignacion = Producto::where('contrato', $contrato->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
-
-                                if ($asignacion) {
-                                    $cuotas_pendientes = $asignacion->cuotas_pendientes -= 1;
-                                    $asignacion->cuotas_pendientes = $cuotas_pendientes;
-                                    if ($cuotas_pendientes == 0) {
-                                        $asignacion->status = 1;
+                                if(!$contrato){
+                                    $contrato = Contrato::where('client_id', $cliente->id)->first();
+                                    if($contrato){
+                                        $contrato->state = "enabled";
+                                        $contrato->save();
                                     }
-                                    $asignacion->save();
                                 }
 
+                                if($contrato){
 
-                            }
+                                    $asignacion = Producto::where('contrato', $contrato->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
 
-                            //store: CREAR FACTURA CON PRORRATEO
-                            if($contrato){
-                                if(isset($request->tipo_electronica) && $request->tipo_electronica == 4){
-                                        $facturaInicio = 1; //Esta opcion me permite crear la factura con prorrateo desde le dia que se creo la factura
+                                    if ($asignacion) {
+                                        $cuotas_pendientes = $asignacion->cuotas_pendientes -= 1;
+                                        $asignacion->cuotas_pendientes = $cuotas_pendientes;
+                                        if ($cuotas_pendientes == 0) {
+                                            $asignacion->status = 1;
+                                        }
+                                        $asignacion->save();
+                                    }
+                                }
+
+                                //store: CREAR FACTURA CON PRORRATEO
+                                if($contrato){
+                                    if(isset($request->tipo_electronica) && $request->tipo_electronica == 4){
+                                        $facturaInicio = 1;
                                         $this->createFacturaProrrateo($contrato, $facturaInicio);
+                                    }
                                 }
-                            }
-
                             }
                         }
                     }
@@ -751,17 +767,16 @@ class IngresosController extends Controller
                     $this->up_transaccion(6, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $saldoFavorUsado, $ingreso->fecha, $ingreso->descripcion);
                 }
 
-
                 //registramos el saldo a favor que se generó al pagar la factura
                 if($request->saldofavor > 0){
                     $contacto = Contacto::find($request->cliente);
                     $contacto->saldo_favor = $contacto->saldo_favor+$request->saldofavor;
                     $contacto->save();
 
-                    $ingreso->puc_banco = $request->forma_pago; //cuenta de forma de pago genérico del ingreso. (en memoria)
-                    $ingreso->anticipo = $request->anticipo_factura; //cuenta de anticipo genérico del ingreso. (en memoria)
+                    $ingreso->puc_banco = $request->forma_pago;
+                    $ingreso->anticipo = $request->anticipo_factura;
 
-                    $ingreso->saldoFavorIngreso = $request->saldofavor; //Variable en memoria, no creada.
+                    $ingreso->saldoFavorIngreso = $request->saldofavor;
                     PucMovimiento::ingreso($ingreso,1,1,$request);
 
                     //Nuevo desarrollo: reigtsramos en un banco llamado saldos a Favor el ingreso de dinero extra.
@@ -769,7 +784,7 @@ class IngresosController extends Controller
                     $this->up_transaccion(7, $ingreso->id, $bancoId, $ingreso->cliente, 1, $request->saldofavor, $ingreso->fecha, "Ingreso de saldo a favor",$request->saldofavor);
 
                 }else{
-                    $ingreso->puc_banco = $request->forma_pago; //cuenta de forma de pago genérico del ingreso. (en memoria)
+                    $ingreso->puc_banco = $request->forma_pago;
                     PucMovimiento::ingreso($ingreso,1,2,$request);
 
                     if(isset($request->uso_saldo) && $request->uso_saldo){
@@ -911,7 +926,7 @@ class IngresosController extends Controller
                     $ingreso = Ingreso::find($ingreso->id);
                     //ingresos
                     if(!isset($request->uso_saldo) || $request->uso_saldo){
-                    $this->up_transaccion(1, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 1, $ingreso->pago(), $ingreso->fecha, 'Ingreso por concepto de reconexión');
+                        $this->up_transaccion(1, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 1, $ingreso->pago(), $ingreso->fecha, 'Ingreso por concepto de reconexión');
                     }
 
                     $facturas = Factura::where('cliente', $ingreso->cliente)->where('estatus', 1)->get();
@@ -960,7 +975,6 @@ class IngresosController extends Controller
                             $mensaje = Auth::user()->empresa()->nombre.", le informa que su soporte de pago ha sido generado bajo el Nro. ".$ingreso->nro;
                         }
 
-
                         $retenciones = IngresosRetenciones::where('ingreso',$ingreso->id)->get();
                         $resolucion = NumeracionFactura::where('empresa', $empresa->id)
                         ->where('num_equivalente', 0)->where('nomina',0)->where('tipo',2)->where('preferida', 1)->first();
@@ -972,7 +986,7 @@ class IngresosController extends Controller
                         $fields = [
                             "action"=>"sendFile",
                             "id"=>$numero."@c.us",
-                            "file"=>public_path() . "/convertidor/" . $ingreso->nro . ".pdf", // debe existir el archivo en la ubicacion que se indica aqui
+                            "file"=>public_path() . "/convertidor/" . $ingreso->nro . ".pdf",
                             "mime"=>"application/pdf",
                             "namefile"=>"Recibo ".$ingreso->nro,
                             "mensaje"=>$mensaje,
@@ -1050,10 +1064,9 @@ class IngresosController extends Controller
                     $ingreso->save();
                 }
 
-                // // DB::commit();
                 if (isset($empresa->envio_wpp_ingreso) && $empresa->envio_wpp_ingreso == 1) {
                     return redirect()->route('ingresos.tirillawpp', [
-                        'id'   => $ingreso->nro, // igual que en tu blade
+                        'id'   => $ingreso->nro,
                         'name' => $factura->id
                     ]);
                 }
@@ -1063,7 +1076,6 @@ class IngresosController extends Controller
             }
 
         } catch (\Throwable $th) {
-            // DB::rollBack();
             Log::error($th->getMessage());
             return back()->with('danger', $th->getMessage());
         }
