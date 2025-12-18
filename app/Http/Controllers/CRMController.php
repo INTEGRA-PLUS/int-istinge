@@ -1778,7 +1778,86 @@ class CRMController extends Controller
         }
     }
 
+    // ======================
+    // Enviar mensaje (AJAX) - Chat IA (type = 2)
+    // ======================
+    public function chatIASendMessage(Request $request, WapiService $wapiService)
+    {
+        $this->getAllPermissions(auth()->user()->id);
 
+        $request->validate([
+            'contact_uuid' => 'required|string',
+            'phone'        => 'required|string',
+            'name'         => 'nullable|string',
+            'message'      => 'required|string|min:1',
+        ]);
+
+        $instance = Instance::where('company_id', auth()->user()->empresa)
+            ->where('type', 2) // Chat IA
+            ->first();
+
+        if (!$instance) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No se encontró instancia configurada para Chat IA (type = 2).',
+            ], 400);
+        }
+
+        // (Opcional) si manejas status tipo WhatsApp "PAIRED"
+        if (isset($instance->status) && $instance->status !== "PAIRED") {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'La instancia de Chat IA no está conectada (PAIRED).',
+            ], 400);
+        }
+
+        // Normalizar teléfono: asegurar "57" sin "+" (como tu ejemplo)
+        $rawPhone = preg_replace('/\D/', '', $request->phone);
+        if (strpos($rawPhone, '57') !== 0) {
+            $rawPhone = '57' . $rawPhone;
+        }
+
+        $contact = [
+            "phone" => $rawPhone,
+            "name"  => $request->name ?: 'Cliente',
+        ];
+
+        $body = [
+            "contact" => $contact,
+            "message" => $request->message,
+            "media"   => '' // sin adjunto por ahora
+        ];
+
+        try {
+            $resp = $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+
+            \Log::info('[IA] Mensaje enviado', [
+                'instance_uuid' => $instance->uuid,
+                'contact_uuid'  => $request->contact_uuid,
+                'phone'         => $rawPhone,
+                'resp_type'     => gettype($resp),
+                'resp'          => is_array($resp) ? $resp : (string) $resp,
+            ]);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Mensaje enviado',
+                'resp'    => $resp,
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('[IA] Error enviando mensaje', [
+                'contact_uuid' => $request->contact_uuid,
+                'phone'        => $rawPhone,
+                'error'        => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 
     public function chatMeta(Request $request, WapiService $wapiService)
     {

@@ -179,24 +179,33 @@
 
                 {{-- Input --}}
                 <div class="card-footer">
-                    {{-- <form action="javascript:void(0);">
+                    <form id="ia-send-form" action="javascript:void(0);">
+                        @csrf
+
+                        <input type="hidden" id="ia_contact_uuid" value="">
+                        <input type="hidden" id="ia_contact_name" value="">
+                        <input type="hidden" id="ia_contact_phone" value="">
+
                         <div class="input-group">
                             <div class="input-group-prepend d-none d-md-flex">
                                 <button class="btn btn-outline-secondary" type="button">
                                     <i class="far fa-smile"></i>
                                 </button>
                             </div>
-                            <input type="text" class="form-control" placeholder="Escribe un mensaje...">
+
+                            <input type="text" class="form-control" id="ia_message_input" placeholder="Escribe un mensaje..." autocomplete="off">
+
                             <div class="input-group-append">
-                                <button class="btn btn-primary" type="submit">
+                                <button class="btn btn-primary" id="ia_send_btn" type="submit">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </div>
                         </div>
+
                         <div class="small text-muted mt-1">
-                            (Luego conectamos envío real. Por ahora solo lectura.)
+                            Envío real por WapiService (Chat IA).
                         </div>
-                    </form> --}}
+                    </form>
                 </div>
             </div>
         </div>
@@ -228,6 +237,7 @@
     var baseMessagesUrl = @json(route('crm.chatIA.messages', ['uuid' => 'UUID_PLACEHOLDER']));
     var loadMoreUrl     = @json(route('crm.chatIA.loadMore'));
     var searchUrl       = @json(route('crm.chatIA.search'));
+    var sendUrl         = @json(route('crm.chatIA.send')); // ✅ NUEVO
 
     // Cache local
     var messagesByContact = {};
@@ -253,6 +263,30 @@
     var $btnClearSearch = $('#btn-clear-search-ia');
     var searchTimeout = null;
     var isSearching = false;
+
+    // ✅ Inputs del envío
+    var $sendForm  = $('#ia-send-form');
+    var $msgInput  = $('#ia_message_input');
+    var $sendBtn   = $('#ia_send_btn');
+
+    var $hUuid  = $('#ia_contact_uuid');
+    var $hName  = $('#ia_contact_name');
+    var $hPhone = $('#ia_contact_phone');
+
+    // ✅ Guardar contacto activo (lo usa el envío)
+    function setActiveContact(uuid, name, phone) {
+        if ($hUuid.length)  $hUuid.val(uuid || '');
+        if ($hName.length)  $hName.val(name || '');
+        if ($hPhone.length) $hPhone.val(phone || '');
+    }
+
+    function getActiveContact() {
+        return {
+            uuid:  ($hUuid.length  ? $hUuid.val()  : '') || '',
+            name:  ($hName.length  ? $hName.val()  : '') || '',
+            phone: ($hPhone.length ? $hPhone.val() : '') || ''
+        };
+    }
 
     function createContactHTML(contact, isActive) {
         var name       = contact.name || null;
@@ -420,6 +454,9 @@
     }
 
     function loadMessages(uuid, name, phone) {
+        // ✅ setea contacto activo para el envío
+        setActiveContact(uuid, name, phone);
+
         if (!uuid) {
             $chatMessages.html('<div class="text-muted text-center mt-4">⚠️ Este contacto no tiene UUID válido</div>');
             return;
@@ -468,6 +505,65 @@
 
         loadMessages(uuid, name, phone);
     });
+
+    // ✅ ENVÍO MENSAJE
+    if ($sendForm.length) {
+        $sendForm.on('submit', function(e){
+            e.preventDefault();
+
+            var active = getActiveContact();
+            var uuid  = active.uuid;
+            var name  = active.name;
+            var phone = active.phone;
+
+            var msg = ($msgInput.val() || '').trim();
+            if (!uuid) { alert('Selecciona un contacto primero.'); return; }
+            if (!phone) { alert('Este contacto no tiene teléfono.'); return; }
+            if (!msg) return;
+
+            $sendBtn.prop('disabled', true);
+
+            $.ajax({
+                url: sendUrl,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    contact_uuid: uuid,
+                    name: name,
+                    phone: phone,
+                    message: msg
+                },
+                success: function(res){
+                    if (res.status === 'success') {
+                        $msgInput.val('');
+
+                        // ✅ limpiar cache para forzar recarga del server
+                        delete messagesByContact[uuid];
+
+                        // ✅ recargar mensajes (a veces conviene esperar un poquito)
+                        setTimeout(function(){
+                            loadMessages(uuid, name, phone);
+                        }, 600);
+
+                    } else {
+                        alert(res.message || 'No se pudo enviar el mensaje.');
+                    }
+                },
+                error: function(xhr){
+                    var emsg = 'Error al enviar mensaje.';
+                    try {
+                        var r = xhr.responseJSON;
+                        if (r && r.message) emsg = r.message;
+                    } catch (e) {}
+                    alert(emsg);
+                },
+                complete: function(){
+                    $sendBtn.prop('disabled', false);
+                }
+            });
+        });
+    }
 
     // =============== BUSCADOR ===============
     function performSearch(query) {
@@ -556,10 +652,18 @@
             var uuid  = $firstActive.data('uuid');
             if (uuid) {
                 loadMessages(uuid, $firstActive.data('name'), $firstActive.data('phone'));
+                return;
             }
+        }
+
+        // si no hay active, toma el primero
+        var $first = $('.chat-ia-contact').first();
+        if ($first.length) {
+            loadMessages($first.data('uuid'), $first.data('name'), $first.data('phone'));
         }
     });
 
 })();
 </script>
 @endsection
+
