@@ -237,10 +237,15 @@
     var baseMessagesUrl = @json(route('crm.chatIA.messages', ['uuid' => 'UUID_PLACEHOLDER']));
     var loadMoreUrl     = @json(route('crm.chatIA.loadMore'));
     var searchUrl       = @json(route('crm.chatIA.search'));
-    var sendUrl         = @json(route('crm.chatIA.send')); // ✅ NUEVO
+    var sendUrl         = @json(route('crm.chatIA.send'));
 
     // Cache local
     var messagesByContact = {};
+
+    // Variables para recarga automática
+    var currentContactUuid = null;
+    var autoReloadInterval = null;
+    var RELOAD_INTERVAL_MS = 7000; // 7 segundos
 
     // Elementos
     var $chatMessages    = $('#chat-messages-ia');
@@ -264,7 +269,7 @@
     var searchTimeout = null;
     var isSearching = false;
 
-    // ✅ Inputs del envío
+    // Inputs del envío
     var $sendForm  = $('#ia-send-form');
     var $msgInput  = $('#ia_message_input');
     var $sendBtn   = $('#ia_send_btn');
@@ -273,11 +278,68 @@
     var $hName  = $('#ia_contact_name');
     var $hPhone = $('#ia_contact_phone');
 
-    // ✅ Guardar contacto activo (lo usa el envío)
+    // ✅ Función para formatear fechas
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        
+        var date = new Date(dateString);
+        var today = new Date();
+        var yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        // Resetear horas para comparación
+        today.setHours(0, 0, 0, 0);
+        yesterday.setHours(0, 0, 0, 0);
+        date.setHours(0, 0, 0, 0);
+        
+        if (date.getTime() === today.getTime()) {
+            return 'Hoy';
+        } else if (date.getTime() === yesterday.getTime()) {
+            return 'Ayer';
+        } else {
+            var day = String(date.getDate()).padStart(2, '0');
+            var month = String(date.getMonth() + 1).padStart(2, '0');
+            var year = date.getFullYear();
+            return day + '/' + month + '/' + year;
+        }
+    }
+
+    // ✅ Función para obtener solo la fecha (sin hora)
+    function getDateOnly(dateString) {
+        if (!dateString) return '';
+        var date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+    }
+
+    // Función para detener la recarga automática
+    function stopAutoReload() {
+        if (autoReloadInterval) {
+            clearInterval(autoReloadInterval);
+            autoReloadInterval = null;
+        }
+    }
+
+    // Función para iniciar la recarga automática
+    function startAutoReload(uuid, name, phone) {
+        stopAutoReload();
+        
+        if (!uuid) return;
+
+        autoReloadInterval = setInterval(function() {
+            if (currentContactUuid === uuid) {
+                loadMessagesFromServer(uuid, name, phone, true);
+            } else {
+                stopAutoReload();
+            }
+        }, RELOAD_INTERVAL_MS);
+    }
+
     function setActiveContact(uuid, name, phone) {
         if ($hUuid.length)  $hUuid.val(uuid || '');
         if ($hName.length)  $hName.val(name || '');
         if ($hPhone.length) $hPhone.val(phone || '');
+        
+        currentContactUuid = uuid;
     }
 
     function getActiveContact() {
@@ -398,11 +460,21 @@
         });
     }
 
-    function renderMessages(uuid, name, phone) {
+    // ✅ Función mejorada para renderizar mensajes con separadores de fecha
+    function renderMessages(uuid, name, phone, isAutoReload) {
         var mensajes = messagesByContact[uuid] || [];
 
         $nameEl.text(name || 'Sin nombre');
         $subtitleEl.text(phone ? (phone + ' · Conversación con IA') : 'Conversación con IA');
+
+        // Guardar posición del scroll antes de renderizar
+        var wasAtBottom = false;
+        if ($chatBody.length && $chatBody[0].scrollHeight > 0) {
+            var scrollTop = $chatBody.scrollTop();
+            var scrollHeight = $chatBody[0].scrollHeight;
+            var clientHeight = $chatBody.innerHeight();
+            wasAtBottom = (scrollTop + clientHeight >= scrollHeight - 50);
+        }
 
         $chatMessages.empty();
 
@@ -411,7 +483,34 @@
             return;
         }
 
+        // ✅ Agrupar mensajes por fecha
+        var currentDate = null;
+
         $.each(mensajes, function (i, m) {
+            var messageDate = getDateOnly(m.createdAt);
+            
+            // ✅ Agregar separador de fecha si cambió el día
+            if (messageDate !== currentDate) {
+                currentDate = messageDate;
+                var $dateSeparator = $('<div>').addClass('text-center my-3');
+                var $dateBadge = $('<span>')
+                    .addClass('badge')
+                    .css({
+                        'background-color': '#e1f3fb',
+                        'color': '#54656f',
+                        'padding': '6px 12px',
+                        'font-size': '12px',
+                        'font-weight': '500',
+                        'border-radius': '7.5px',
+                        'box-shadow': '0 1px 2px rgba(0,0,0,0.1)'
+                    })
+                    .text(formatDate(m.createdAt));
+                
+                $dateSeparator.append($dateBadge);
+                $chatMessages.append($dateSeparator);
+            }
+
+            // ✅ Renderizar mensaje
             var fromMe = m.sentByMe === true;
 
             var texto  = m.body || '';
@@ -446,30 +545,28 @@
             $chatMessages.append($wrapper);
         });
 
+        // Scroll inteligente
         if ($chatBody.length) {
             setTimeout(function() {
-                $chatBody.scrollTop($chatBody[0].scrollHeight);
+                if (!isAutoReload || wasAtBottom) {
+                    $chatBody.scrollTop($chatBody[0].scrollHeight);
+                }
             }, 100);
         }
     }
 
-    function loadMessages(uuid, name, phone) {
-        // ✅ setea contacto activo para el envío
-        setActiveContact(uuid, name, phone);
-
+    // Nueva función para cargar mensajes desde el servidor
+    function loadMessagesFromServer(uuid, name, phone, isAutoReload) {
         if (!uuid) {
             $chatMessages.html('<div class="text-muted text-center mt-4">⚠️ Este contacto no tiene UUID válido</div>');
             return;
         }
 
-        if (messagesByContact[uuid]) {
-            renderMessages(uuid, name, phone);
-            return;
-        }
-
         var url = baseMessagesUrl.replace('UUID_PLACEHOLDER', uuid);
 
-        $chatMessages.html('<div class="text-muted text-center mt-4"><i class="fas fa-spinner fa-spin"></i> Cargando mensajes...</div>');
+        if (!isAutoReload) {
+            $chatMessages.html('<div class="text-muted text-center mt-4"><i class="fas fa-spinner fa-spin"></i> Cargando mensajes...</div>');
+        }
 
         $.ajax({
             url: url,
@@ -477,17 +574,37 @@
             dataType: 'json',
             success: function(res) {
                 if (res.status === 'success') {
-                    messagesByContact[uuid] = res.messages || [];
-                    renderMessages(uuid, name, phone);
+                    // ✅ Manejar ambas estructuras de respuesta
+                    var messages = [];
+                    if (res.messages) {
+                        messages = res.messages;
+                    } else if (res.data && res.data.data) {
+                        messages = res.data.data;
+                    }
+                    
+                    messagesByContact[uuid] = messages;
+                    renderMessages(uuid, name, phone, isAutoReload);
                 } else {
                     messagesByContact[uuid] = [];
-                    $chatMessages.html('<div class="text-muted text-center mt-4">No se pudieron obtener mensajes.</div>');
+                    if (!isAutoReload) {
+                        $chatMessages.html('<div class="text-muted text-center mt-4">No se pudieron obtener mensajes.</div>');
+                    }
                 }
             },
             error: function() {
-                $chatMessages.html('<div class="text-muted text-center mt-4">Error al cargar mensajes.</div>');
+                if (!isAutoReload) {
+                    $chatMessages.html('<div class="text-muted text-center mt-4">Error al cargar mensajes.</div>');
+                }
             }
         });
+    }
+
+    // Función principal para cargar mensajes
+    function loadMessages(uuid, name, phone) {
+        setActiveContact(uuid, name, phone);
+        delete messagesByContact[uuid];
+        loadMessagesFromServer(uuid, name, phone, false);
+        startAutoReload(uuid, name, phone);
     }
 
     // Click contacto (delegado)
@@ -506,7 +623,7 @@
         loadMessages(uuid, name, phone);
     });
 
-    // ✅ ENVÍO MENSAJE
+    // ENVÍO MENSAJE
     if ($sendForm.length) {
         $sendForm.on('submit', function(e){
             e.preventDefault();
@@ -537,13 +654,10 @@
                 success: function(res){
                     if (res.status === 'success') {
                         $msgInput.val('');
-
-                        // ✅ limpiar cache para forzar recarga del server
                         delete messagesByContact[uuid];
 
-                        // ✅ recargar mensajes (a veces conviene esperar un poquito)
                         setTimeout(function(){
-                            loadMessages(uuid, name, phone);
+                            loadMessagesFromServer(uuid, name, phone, false);
                         }, 600);
 
                     } else {
@@ -565,7 +679,7 @@
         });
     }
 
-    // =============== BUSCADOR ===============
+    // BUSCADOR
     function performSearch(query) {
         query = (query || '').trim();
 
@@ -645,7 +759,7 @@
         performSearch('');
     });
 
-    // =============== Primer contacto ===============
+    // Primer contacto
     $(document).ready(function() {
         var $firstActive = $('.chat-ia-contact.active').first();
         if ($firstActive.length) {
@@ -656,11 +770,15 @@
             }
         }
 
-        // si no hay active, toma el primero
         var $first = $('.chat-ia-contact').first();
         if ($first.length) {
             loadMessages($first.data('uuid'), $first.data('name'), $first.data('phone'));
         }
+    });
+
+    // Limpiar intervalo al salir de la página
+    $(window).on('beforeunload', function() {
+        stopAutoReload();
     });
 
 })();
