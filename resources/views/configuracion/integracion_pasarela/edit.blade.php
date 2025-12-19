@@ -212,6 +212,14 @@
 	            </span>
 	        </div>
 
+            <div class="col-md-6 form-group {{ $servicio->nombre !== 'WOMPI' ? 'd-none' : ''}}">
+	            <label class="control-label">Secreto Integridad<span class="text-danger">*</span></label>
+	            <input type="text" class="form-control" id="integrity" name="integrity"  required="" value="{{$servicio->integrity}}" maxlength="200">
+	            <span class="help-block error">
+	                <strong>{{ $errors->first('integrity') }}</strong>
+	            </span>
+	        </div>
+
 	        <div class="col-md-4 form-group {{ $servicio->nombre == 'WOMPI' ? 'd-none' : ''}} {{ $servicio->nombre == 'ePayco' ? 'd-none' : ''}}">
 	            <label class="control-label">{{ $servicio->nombre == 'ComboPay' ? 'ID de cliente':'accountId'}} <span class="text-danger">*</span></label>
 	            <input type="text" class="form-control" id="accountId" name="accountId"  required="" value="{{$servicio->accountId}}" maxlength="200">

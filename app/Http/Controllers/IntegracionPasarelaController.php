@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
-use Carbon\Carbon;  
-use Mail; 
+use Carbon\Carbon;
+use Mail;
 use Validator;
-use Illuminate\Validation\Rule;  
-use Auth; 
+use Illuminate\Validation\Rule;
+use Auth;
 use DB;
 use Session;
 
@@ -59,6 +59,7 @@ class IntegracionPasarelaController extends Controller
             $servicio->api_event  = $request->api_event;
             $servicio->accountId  = $request->accountId;
             $servicio->merchantId = $request->merchantId;
+            $servicio->integrity  = isset($request->integrity) ? $request->integrity : null;
 
             if($servicio->nombre=='ePayco'){
                 $servicio->p_cust_id_cliente = $request->p_cust_id_cliente;
