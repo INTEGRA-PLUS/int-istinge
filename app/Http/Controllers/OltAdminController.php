@@ -78,6 +78,70 @@ class OltAdminController extends Controller
             return null;
         }
     }
+    /**
+     * Get ONU types from API
+     **/
+    public function onuTypes()
+    {
+        try {
+            $response = $this->client->get('/api/onu-types/');
+            $data = json_decode($response->getBody(), true);
+
+            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
+            return $this->parseResponse($data);
+        } catch (\Exception $e) {
+            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
+            return [];
+        }
+    }
+    /**
+     * Get  zones from API
+     **/
+    public function zones()
+    {
+        try {
+            $response = $this->client->get('/api/zones/');
+            $data = json_decode($response->getBody(), true);
+
+            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
+            return $this->parseResponse($data);
+        } catch (\Exception $e) {
+            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
+            return [];
+        }
+    }
+    /**
+     * Get  speed profiles from API
+     **/
+    public function getPrUP()
+    {
+        try {
+            $response = $this->client->get('/api/speedprofiles/upload');
+            $data = json_decode($response->getBody(), true);
+
+            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
+            return $this->parseResponse($data);
+        } catch (\Exception $e) {
+            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
+            return [];
+        }
+    }
+    /**
+     * Get  speed profiles from API
+     **/
+    public function getPrDown()
+    {
+        try {
+            $response = $this->client->get('/api/speedprofiles/download');
+            $data = json_decode($response->getBody(), true);
+
+            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
+            return $this->parseResponse($data);
+        } catch (\Exception $e) {
+            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
+            return [];
+        }
+    }
 
     /**
      * Get ONUs facility
@@ -188,40 +252,18 @@ class OltAdminController extends Controller
 
         //  Obtener tipos de ONU
         $onu_types = $this->onuTypes();
+        // Obtener zonas
+        $zones = $this->zones();
+        // Obtener zonas
+        $speedProfilesUp = $this->getPrUP();
+        // Obtener zonas
+        $speedProfilesDown = $this->getPrDown();
         // Obtener OLTs
         $olts = $this->getOlts();
         $oltDefault = $request->olt ?? $olts[0]['id'] ?? null;
         // Parametro Vlans facility
         $vlans_facility = $oltDefault ? $this->getVlansFacility($oltDefault) : null;
         $vlan = [];
-        // $zones = $this->getZones();
-        // $default_zone = 0;
-
-        // if (isset($zones['response'])) {
-        //     $zones = $zones['response'];
-        //     $default_zone = $zones[0]['id'];
-        // } else {
-        //     $zones = [];
-        // }
-
-        // if ($default_zone != 0) {
-        //     $odbList = $this->ODBlist($default_zone);
-        //     if (isset($odbList['response'])) {
-        //         $odbList = $odbList['response'];
-        //     } else {
-        //         $odbList = [];
-        //     }
-        // } else {
-        //     $odbList = [];
-        // }
-
-        // $speedProfiles = $this->getSpeedProfiles();
-
-        // if (isset($speedProfiles['response'])) {
-        //     $speedProfiles = $speedProfiles['response'];
-        // } else {
-        //     $speedProfiles = [];
-        // }  
         $baseUrl = env('ADMINOLT_BASE_URL');
         $ws_host  = parse_url($baseUrl, PHP_URL_HOST);
 
@@ -229,28 +271,84 @@ class OltAdminController extends Controller
         return view('olt.form-authorized-onuAdmin', compact(
             'request',
             'onu_types',
+            'zones',
             'olts',
             'vlans_facility',
             'ws_host',
-            // 'zones',
             'oltDefault',
-            // 'default_zone',
+            // 'default_zone',F
             // 'odbList',
-            // 'speedProfiles'
+            'speedProfilesUp',
+            'speedProfilesDown'
         ));
     }
 
-    public function onuTypes()
+
+    public function authorizeOnu(Request $request)
     {
         try {
-            $response = $this->client->get('/api/onu-types/');
-            $data = json_decode($response->getBody(), true);
+            // 1) Validación mínima (ajusta después)
+            $request->validate([
+                'olt_id' => 'required',
+                'board' => 'required',
+                'port' => 'required',
+                'sn' => 'required',
+                'onu_type' => 'required',
+                'onu_mode' => 'required',
+                'user_vlan_id' => 'required',
+                'name' => 'required',
+                'interface' => 'required',
+            ]);
 
-            // Puede venir como lista directa o paginada, por eso usamos parseResponse()
-            return $this->parseResponse($data);
+
+            // $onuTypeId = (int) $request->onu_type; 
+
+            $payload = [
+                'chasis' => (int) ($request->chasis ?? 0),
+                'board' => (string) $request->board,
+                'port' => (int) $request->port,
+                'sn' => (string) $request->sn,
+                'onu_type' => $request->onu_type,
+                'onu_mode' => $request->onu_mode,
+                'cvlan' => (string) $request->user_vlan_id,
+                'svlan' => (string) $request->user_vlan_id,
+                'zone' => $request->zone ?? 'None',
+                'odb_splitter' => (string) ($request->odb_splitter ?? 'None'), // string
+                'upload_speed' => (int) ($request->upload_speed ?? 0),   // int
+                'download_speed' => (int) ($request->download_speed ?? 0), // int
+                'name' => (string) $request->name,                    // string
+                'comment' => (string) ($request->address_comment ?? ''), // string
+                'address' => (string) ($request->address_comment ?? ''), // string (reutiliza el mismo campo)
+                'phone' => '',                                         // string (no está en form)
+                'longitude' => '',                                     // string (no está en form)
+                'latitude' => '',                                      // string (no está en form)
+                'interface' => (string) $request->interface,          // string ✅
+                'olt_id' => (int) $request->olt_id,                   // int
+            ];
+
+
+            $response = $this->client->post('/api/onu/authorize/', [
+                'json' => $payload,
+            ]);
+
+            $status = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            Log::info('Authorize Response:', ['status' => $status, 'data' => $responseData]);
+
+            if ($status >= 200 && $status < 300) {
+                return redirect('Olt/unconfigured-adminolt')->with('success', 'ONU autorizada con éxito');
+            }
+
+            return redirect('Olt/unconfigured-adminolt')->with('error', 'ONU no autorizada: ' . ($responseData['message'] ?? 'Error desconocido'));
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // Si es error 4xx (validación/bad request)
+            $errorBody = $e->getResponse()->getBody()->getContents();
+            Log::error('Error autorizando ONU (4xx):', ['body' => $errorBody]);
+            return redirect('Olt/unconfigured-adminolt')->with('error', 'Error de validación: ' . $errorBody);
         } catch (\Exception $e) {
-            // \Log::error('Error fetching ONU types: ' . $e->getMessage());
-            return [];
+            Log::error('Error autorizando ONU:', ['msg' => $e->getMessage()]);
+            return redirect('Olt/unconfigured-adminolt')->with('error', 'Error autorizando ONU: ' . $e->getMessage());
         }
     }
 }

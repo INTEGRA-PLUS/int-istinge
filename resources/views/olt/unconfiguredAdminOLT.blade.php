@@ -203,12 +203,14 @@
                                     sn: o.sn || snKey,
                                     onu_type_name: o.onu_type || o.onu_type_name || '',
                                     is_disabled: 0,
-                                    olt_id: o.olt_id
+                                    olt_id: o.olt_id,
+                                    chasis: o.chasis || '0',
+                                    interface_id: o.interface_id || ''
                                 };
                             });
                         }
 
-                        console.log('[AdminOLT] Parsed unauthorized onus:', onus);
+                        // console.log('[AdminOLT] Parsed unauthorized onus:', onus);
                         populateOnusTable(onus);
                     }
                 } catch (e) {
@@ -270,7 +272,7 @@
                 if ($.fn.DataTable.isDataTable('#table-general')) {
                     // Si ya existe, obtener la instancia existente
                     window.DT_ONUS = $('#table-general').DataTable();
-                    console.log('DataTable ya estaba inicializado, usando instancia existente');
+                    // console.log('DataTable ya estaba inicializado, usando instancia existente');
                 } else {
                     // Si no existe, inicializar con Responsive
                     window.DT_ONUS = $('#table-general').DataTable({
@@ -296,7 +298,7 @@
                             } // SN siempre visible
                         ]
                     });
-                    console.log('DataTable inicializado por primera vez');
+                    // console.log('DataTable inicializado por primera vez');
                 }
 
                 // Event delegation para links Authorize (funciona con responsive)
@@ -347,7 +349,9 @@
                 `&sn=${encodeURIComponent(onu.sn)}` +
                 `&onuTypeName=${encodeURIComponent(onu.onu_type_name)}` +
                 `&status=${encodeURIComponent(onu.is_disabled == 0 ? 'Activo' : 'Inactivo')}` +
-                `&olt_id=${olt_id}`;
+                `&olt_id=${olt_id}` +
+                `&chasis=${encodeURIComponent(onu.chasis || '0')}` + 
+                `&interface_id=${encodeURIComponent(onu.interface_id || '')}`;
 
             window.location.href = url;
         }
