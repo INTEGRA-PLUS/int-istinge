@@ -119,7 +119,7 @@
                         <td>{{date('d-m-Y', strtotime($factura->vencimiento))}}</td> --}}
                         <td>{{date('d-m-Y', strtotime($factura->pagada))}}</td>
                         <td>{{$factura->banco()->nombre}}</td>
-                        <td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total - $factura->devoluciones())}}</td>
+                        <td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->pagadoTotal - $factura->devoluciones())}}</td>
 					</tr>
 				@endforeach
 			</tbody>

@@ -1,9 +1,11 @@
 @extends('layouts.app')
 @section('content')
-    <form method="POST" action="{{ route('olt.authorized-onus') }}" style="padding: 2% 3%;" role="form" class="forms-sample"
-        novalidate id="form-retencion">
+    <form method="POST" action="{{ route('olt.authorized-onuAdmin') }}" style="padding: 2% 3%;" role="form"
+        class="forms-sample" novalidate id="form-retencion">
         {{ csrf_field() }}
         <div class="row">
+            <input type="hidden" name="interface" value="{{ $request->interface_id ?? '' }}">
+            <input type="hidden" name="chasis" value="{{ $request->chasis ?? 0 }}">
             <div class="col-md-3 form-group">
                 <label class="control-label">OLT <span class="text-danger">*</span></label>
                 <select class="form-control selectpicker" data-live-search="true" data-size="5" name="olt_id_disabled"
@@ -101,12 +103,11 @@
                 <label class="control-label">Zone<span class="text-danger">*</span></label>
                 <select class="form-control selectpicker" data-live-search="true" data-size="5" name="zone"
                     id="zone">
-                    {{-- if (isset($zones) && is_array($zones)){
+
                     @foreach ($zones as $zone)
-                        <option value="{{ $zone['name'] }}" {{ $default_zone == $zone['id'] ? 'selected' : '' }}>
-                            {{ $zone['name'] }}</option>
+                        <option value="{{ $zone['name'] }}"> {{ $zone['name'] }}</option>
                     @endforeach
-                    } --}}
+
 
                 </select>
                 <span class="help-block error">
@@ -148,12 +149,10 @@
                 <label class="control-label">Download speed<span class="text-danger">*</span></label>
                 <select class="form-control selectpicker" data-live-search="true" data-size="5" name="download_speed"
                     id="download_speed">
-                    {{-- @foreach ($speedProfiles as $speedDownload)
-                        @if ($speedDownload['direction'] == 'download')
-                            <option value="{{ $speedDownload['name'] }}">{{ $speedDownload['name'] }} -
-                                {{ $speedDownload['speed'] }}</option>
-                        @endif
-                    @endforeach --}}
+                    @foreach ($speedProfilesDown as $download_speed)
+                        <option value="{{ $download_speed['id'] }}">{{ $download_speed['name'] }}</option>
+                    @endforeach
+
                 </select>
                 <span class="help-block error">
                     <strong>{{ $errors->first('download_speed') }}</strong>
@@ -163,12 +162,9 @@
                 <label class="control-label">Upload speed<span class="text-danger">*</span></label>
                 <select class="form-control selectpicker" data-live-search="true" data-size="5" name="upload_speed"
                     id="upload_speed">
-                    {{-- @foreach ($speedProfiles as $speedUpload)
-                        @if ($speedUpload['direction'] == 'upload')
-                            <option value="{{ $speedUpload['name'] }}">{{ $speedUpload['name'] }} -
-                                {{ $speedUpload['speed'] }}</option>
-                        @endif
-                    @endforeach --}}
+                    @foreach ($speedProfilesUp as $upload_speed)
+                        <option value="{{ $upload_speed['id'] }}">{{ $upload_speed['name'] }}</option>
+                    @endforeach
                 </select>
                 <span class="help-block error">
                     <strong>{{ $errors->first('upload_speed') }}</strong>
@@ -178,7 +174,7 @@
                 <label class="control-label">Name<span class="text-danger">*</span></label>
                 <input type="text" class="form-control" name="name" id="name">
                 <span class="help-block error">
-                    <strong>{{ $errors->first('upload_speed') }}</strong>
+                    <strong>{{ $errors->first('name') }}</strong>
                 </span>
             </div>
             <div class="col-md-6 form-group">
@@ -188,14 +184,14 @@
                     <strong>{{ $errors->first('address_comment') }}</strong>
                 </span>
             </div>
-            <div class="col-md-3 form-group">
+            {{-- <div class="col-md-3 form-group">
                 <label class="control-label">ONU external ID <span class="text-danger">*</span></label>
                 <input type="text" name="onu_external_id" id="onu_external_id" class="form-control"
                     value="{{ $request->sn }}">
                 <span class="help-block error">
                     <strong>{{ $errors->first('onu_external_id') }}</strong>
                 </span>
-            </div>
+            </div> --}}
         </div>
 
         <small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
@@ -251,7 +247,7 @@
                 sel.add(new Option(desc ? (vlanId + ' - ' + desc) : vlanId, vlanId));
             }
 
-            console.log('[VLAN] options count:', sel.options.length);
+            // console.log('[VLAN] options count:', sel.options.length);
 
             // Refresca SOLO este select (si bootstrap-select está cargado)
             if (window.jQuery && $('#user_vlan_id').selectpicker) {
@@ -260,7 +256,7 @@
         }
         // websocket-adminolt.js llamará esto cuando llegue data
         window.task_custom_done = function(data) {
-            console.log('[AdminOLT] VLAN WS data:', data);
+            // console.log('[AdminOLT] VLAN WS data:', data);
 
             var vlans = [];
 
