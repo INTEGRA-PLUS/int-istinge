@@ -14,4 +14,10 @@
     @if (isset($session['847']))
         <a href="{{route('crm.log', $id)}}" title="Ve Log del CRM" class="btn btn-outline-warning btn-icons"><i class="fas fa-clipboard-list"></i></a>
     @endif
+
+    <form action="{{ route('crm.destroy', $id) }}" method="post" class="delete_form" style="margin: 0; display: inline-block;" id="eliminar-crm-{{$id}}">
+        @csrf
+        <input name="_method" type="hidden" value="DELETE">
+    </form>
+    <button class="btn btn-outline-danger btn-icons" type="submit" title="Eliminar" onclick="confirmar('eliminar-crm-{{$id}}', '¿Está seguro que desea eliminar este registro CRM?', 'Se borrará de forma permanente');"><i class="fas fa-times"></i></button>
 </center>
