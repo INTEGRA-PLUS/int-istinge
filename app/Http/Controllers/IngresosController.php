@@ -1445,11 +1445,19 @@ class IngresosController extends Controller
             // ============================================================
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
+            $languageCode = 'en';
 
+            if (trim($nameEmpresa) === 'FiberNet Colombia') {
+                $languageCode = 'es';
+            }
+
+            // ==================================================
+            // BODY WHATSAPP
+            // ==================================================
             $body = [
                 "phone" => $telefonoCompleto,
                 "templateName" => "tirillas",
-                "languageCode" => "en",
+                "languageCode" => $languageCode,
                 "components" => [
                     [
                         "type" => "header",

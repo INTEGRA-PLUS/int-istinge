@@ -715,7 +715,7 @@ class AvisosController extends Controller
                                 $body = [
                                     "phone" => $telefonoCompleto,
                                     "templateName" => "dao_de_fibra_principal",
-                                    "languageCode" => "es",
+                                    "languageCode" => "en",
                                 ];
 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
@@ -767,7 +767,7 @@ class AvisosController extends Controller
                                 $body = [
                                     "phone" => $telefonoCompleto,
                                     "templateName" => "falla_servicio_",
-                                    "languageCode" => "es",
+                                    "languageCode" => "en",
                                 ];
 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
