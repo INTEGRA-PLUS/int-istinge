@@ -1724,6 +1724,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
 		Route::get('/cartera2', 'CRMController@whatsapp2')->name('crm.cartera2');
+		Route::post('/chat-ia/chatIaWebhook', 'chatboxIntegraController@chatIaWebhook')->name('chatia.chatIaWebhook');
 		Route::match(['get', 'post'], '/chatboxIA', 'CRMController@chatbox')->name('crm.chatboxIA');		//Route::get('/cartera', 'CRMController@whatsapp')->name('crm.whatsapp.post');
 		//Route::post('/cartera/{action?}', 'CRMController@whatsappActions')->name('crm.whatsapp.api');
 		Route::get('/cartera/whatsapp/action', 'CRMController@whatsappActions')->name('crm.whatsapp');

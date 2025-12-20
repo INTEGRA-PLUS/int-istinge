@@ -37,8 +37,8 @@
 
     <style>
         .ai-icon-bubble {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             background: #022454;
             border-radius: 50%;
             display: inline-flex;
@@ -245,12 +245,14 @@
 
         .whatsapp {
             position: fixed;
-            right: 25px;
+            right: 5px;
             /*Margen derecho*/
-            bottom: 20px;
+            bottom: 5px;
             /*Margen abajo*/
             z-index: 999;
+            cursor: pointer;
         }
+
 
         .whatsapp img {
             width: 60px;
@@ -858,7 +860,35 @@
                 </footer>
                 <!-- partial -->
             </div>
-            <div class="whatsapp ">
+            <!-- Modal de bienvenida -->
+            <div id="chat-ia-welcome-modal" class="chat-ia-modal">
+                <div class="chat-ia-modal-content">
+                    <span class="chat-ia-modal-close">&times;</span>
+                    <div class="chat-ia-welcome-emoji">👋</div>
+                    <h3 class="chat-ia-welcome-title">Hola. soy el asistente de IA,<br>puedes preguntarme 
+                        cualquier duda sobre <br>Integra.</h3>
+                    <button class="chat-ia-btn-primary" id="chat-ia-start-btn">Chatear ahora</button>
+                    <button class="chat-ia-btn-secondary" id="chat-ia-dismiss-btn">No requiero asesoría</button>
+                </div>
+            </div>
+
+            <!-- Widget de chat -->
+            <div id="chat-ia-widget" class="chat-ia-widget hidden">
+                <div class="chat-ia-header">
+                    <span>Soporte IA</span>
+                    <button id="chat-ia-close-widget">&times;</button>
+                </div>
+                <div class="chat-ia-messages" id="chat-ia-messages">
+                    <div class="chat-ia-bubble bot">¡Hola! ¿En qué puedo ayudarte hoy?</div>
+                </div>
+                <div class="chat-ia-input-container">
+                    <input type="text" id="chat-ia-input" placeholder="Escribe tu mensaje..." />
+                    <button id="chat-ia-send-btn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+
+            <!-- Botón flotante (tu actual) -->
+            <div class="whatsapp" id="chat-ia-float-btn">
                 <div class="ai-icon-bubble">
                     <i class="fas fa-robot"></i>
                 </div>
@@ -1162,6 +1192,131 @@
         </script>
     @endif
     @yield('scripts')
+    <!-- Test Chat-IA webhook -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const floatBtn = document.getElementById('chat-ia-float-btn');
+            const welcomeModal = document.getElementById('chat-ia-welcome-modal');
+            const chatWidget = document.getElementById('chat-ia-widget');
+            const startBtn = document.getElementById('chat-ia-start-btn');
+            const dismissBtn = document.getElementById('chat-ia-dismiss-btn');
+            const closeModal = document.querySelector('.chat-ia-modal-close');
+            const closeWidget = document.getElementById('chat-ia-close-widget');
+            const sendBtn = document.getElementById('chat-ia-send-btn');
+            const input = document.getElementById('chat-ia-input');
+            const messages = document.getElementById('chat-ia-messages');
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            const chatId = '{{ auth()->check() ? 'user-' . auth()->id() : 'guest-' . session()->getId() }}';
+
+            // Abrir modal de bienvenida al hacer clic en el botón flotante
+            floatBtn.addEventListener('click', function() {
+                // Si el widget ya está abierto, solo lo cerramos
+                if (!chatWidget.classList.contains('hidden')) {
+                    chatWidget.classList.add('hidden');
+                    return;
+                }
+
+                // Si el widget está cerrado y el usuario aún no aceptó, mostramos modal
+                // Puedes guardar un flag en memoria para no mostrar el modal siempre
+                const alreadyAccepted = window.localStorage.getItem('chatIaAccepted') === '1';
+
+                if (alreadyAccepted) {
+                    chatWidget.classList.remove('hidden');
+                    input.focus();
+                } else {
+                    welcomeModal.style.display = 'block';
+                }
+            });
+
+            // Cerrar modal
+            closeModal.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+            });
+
+            dismissBtn.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+            });
+
+            // Iniciar chat
+            startBtn.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+                chatWidget.classList.remove('hidden');
+                window.localStorage.setItem('chatIaAccepted', '1');
+                input.focus();
+            });
+
+
+            // Cerrar widget
+            closeWidget.addEventListener('click', function() {
+                chatWidget.classList.add('hidden');
+            });
+
+            // Agregar mensaje a la UI
+            function addMessage(text, type) {
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-ia-bubble ' + type;
+                bubble.textContent = text;
+                messages.appendChild(bubble);
+                messages.scrollTop = messages.scrollHeight;
+                return bubble;
+            }
+
+            // Enviar mensaje
+            async function sendMessage() {
+                const text = input.value.trim();
+                if (!text) return;
+
+                addMessage(text, 'user');
+                input.value = '';
+
+                const thinkingBubble = addMessage('Escribiendo...', 'bot');
+
+                try {
+                    const response = await fetch('{{ route('chatia.chatIaWebhook') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token
+                        },
+                        body: JSON.stringify({
+                            content: text,
+                            chat_id: chatId
+                        })
+                    });
+
+                    const data = await response.json();
+                    messages.removeChild(thinkingBubble);
+
+                    if (data.ok) {
+                        // Ajusta esto según el formato real de Vibio cuando respondan
+                        const reply = data.response || data.body || 'Respuesta recibida';
+                        addMessage(reply, 'bot');
+                    } else {
+                        addMessage('❌ ' + (data.error || 'Error al procesar la solicitud'), 'bot');
+                    }
+                } catch (error) {
+                    messages.removeChild(thinkingBubble);
+                    addMessage('❌ Error de conexión', 'bot');
+                    console.error('Error:', error);
+                }
+            }
+
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            // Cerrar modal al hacer clic fuera
+            window.addEventListener('click', function(e) {
+                if (e.target === welcomeModal) {
+                    welcomeModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+
+
     <script>
         // Check subscription status
         function checkSubscriptionStatus() {
