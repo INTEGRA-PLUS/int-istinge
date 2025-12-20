@@ -1216,7 +1216,23 @@ class CRMController extends Controller
 
     public function update(Request $request, $id) {}
 
-    public function destroy($id) {}
+    public function destroy($id)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        $crm = CRM::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+        
+        if ($crm) {
+            // Eliminar los logs relacionados
+            CRMLOG::where('id_crm', $crm->id)->delete();
+            
+            // Eliminar el registro CRM
+            $crm->delete();
+            
+            return back()->with('success', 'Se ha eliminado satisfactoriamente el registro CRM');
+        }
+        
+        return back()->with('danger', 'No existe un registro con ese id');
+    }
 
     public function contacto($id, $crm)
     {
