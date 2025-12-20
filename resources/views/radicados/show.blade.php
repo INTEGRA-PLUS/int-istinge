@@ -172,7 +172,15 @@
     					</tr>
                         <tr>
                             <th>Fecha</th>
-                            <td>{{date('d-m-Y g:i:s A', strtotime($radicado->created_at))}}</td>
+                            <td>{{date('d-m-Y', strtotime($radicado->created_at))}}</td>
+                        </tr>
+                        <tr>
+                            <th>Hora</th>
+                            @if($radicado->hora)
+                                <td>{{date('H:i', strtotime($radicado->hora))}}</td>
+                            @else
+                                <td>No seleccionada</td>
+                            @endif
                         </tr>
     					<tr>
     						<th>Cliente</th>
