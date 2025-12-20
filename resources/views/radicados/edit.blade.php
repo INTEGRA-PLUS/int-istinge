@@ -79,6 +79,14 @@
     </div>
 
     <div class="col-md-3 form-group">
+        <label class="control-label">Hora</label>
+        <input type="time" class="form-control"  id="hora" name="hora" value="{{ date('H:i', strtotime($radicado->hora ?? '00:00')) }}" >
+        <span class="help-block error">
+            <strong>{{ $errors->first('hora') }}</strong>
+        </span>
+    </div>
+
+    <div class="col-md-3 form-group">
       <label class="control-label">Tipo de Servicio <span class="text-danger">*</span></label>
       <select class="form-control selectpicker" name="servicio" id="servicio" required="" title="Seleccione" required="" onchange="serviceDV(this.value)">
         @foreach($servicios as $servicio)
