@@ -204,22 +204,32 @@
 
 @section('scripts')
 <script type="text/javascript">
-
+	const isFiberNet = @json($isFiberNet ?? false);
 	// ============================================================
 	// PLANTILLAS META (Opciones estáticas)
 	// ============================================================
-	const plantillasMeta = [
+	const plantillasMetaDefault = [
 		{ value: 'suspension', text: 'Suspensión de Servicio' },
 		{ value: 'corte', text: 'Corte' },
 		{ value: 'recordatorio', text: 'Recordatorio' },
 		{ value: 'factura', text: 'Factura' }
 	];
 
+	const plantillasMetaFiberNet = [
+		{ value: 'factura', text: 'Factura' },
+		{ value: 'falla_servicio_', text: 'Falla de servicio' },
+		{ value: 'dao_de_fibra_principal', text: 'Daño de fibra principal' }
+	];
+
+	const plantillasMeta = isFiberNet ? plantillasMetaFiberNet : plantillasMetaDefault;
+
 	const mensajesPlantillasMeta = {
 		suspension: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de hoy, Para evitar la suspensión del servicio efectúe el pago",
 		corte: "Buenos Dias, INTEGRA te informa que estas programado para corte de tu servicio de internet y tv el día de mañana, Para evitar la suspensión del servicio efectúe el pago",
 		recordatorio: "Buenos Dias, INTEGRA le recuerda que para restablecer el servicio, recuerda efectuar el pago en nuestra oficina o consignando a la cuenta, si lo haces por este ultimo medio recuerda enviar el comprobante. Muchas Gracias.",
 		factura: "Estimado cliente Juan Perez. INTEGRA le informa que se ha generado su factura por valor de 40.000 $ puedes realizar el pago a través del siguiente link."
+		falla_servicio: "Se presenta una falla general en el servicio. Nuestro equipo técnico se encuentra trabajando para restablecerlo lo antes posible. Agradecemos su comprensión.",
+    	dano_fibra_principal: "Cordial Saludo, Informamos a nuestros usuarios del sector de Tocogua que se está presentado un daño en la fibra principal, parte técnica ya está en el sector realizando los arreglos pertinentes, en el trascurso de la tarde se reestablece el servicio, Agradecemos su comprensión."
 	};
 
 	// ============================================================
