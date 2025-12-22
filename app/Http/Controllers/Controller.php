@@ -202,10 +202,7 @@ class Controller extends BaseController
                     $contacto->saldo_favor = $contacto->saldo_favor - $MovimientoSaldoFavor->saldo;
                     $ingreso->valor_anticipo = $ingreso->valor_anticipo - $MovimientoSaldoFavor->saldo;
                 }
-                //Tambien debe sumar sobre el recibo de caja que tenia el saldo a favor.
-                // PucMovimiento::where('consecutivo_comprobante',$ingreso->nro)->update([
-                //     ''
-                // ]);
+
 
             }else{
                 if($MovimientoSaldoFavor->tipo == 2){

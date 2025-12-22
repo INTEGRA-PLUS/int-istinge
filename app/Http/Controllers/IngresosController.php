@@ -37,6 +37,7 @@ use App\FormaPago;
 use App\NumeracionFactura;
 use App\Funcion;
 use App\Instance;
+use App\MovimientoLOG;
 use App\Plantilla;
 use App\Services\WapiService;
 
@@ -2096,6 +2097,7 @@ class IngresosController extends Controller
     }
 
     public function anular($id){
+
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
         if ($ingreso) {
             $ingreso->updated_by = Auth::user()->id;
@@ -2106,13 +2108,39 @@ class IngresosController extends Controller
                 return redirect('empresa/pagos')->with('error', 'No puede editar una transferencia');
             }
             if ($ingreso->estatus==1) {
+
                 $ingreso->estatus=2;
                 $mensaje='Se ha anulado satisfactoriamente el pago';
+
+                $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
+                foreach ($items as $item) {
+                    $factura= $item->factura();
+                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de abierto a anulado el pago nro '.$ingreso->nro.'<br>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = $factura->empresa;
+                    $movimiento->save();
+                }
+
             }else{
+
                 if ($ingreso->tipo==1) {
                     $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
                     foreach ($items as $item) {
                         $factura= $item->factura();
+
+                        $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de anulado a abierto el pago nro '.$ingreso->nro.'<br>';
+                        $movimiento = new MovimientoLOG();
+                        $movimiento->contrato    = $factura->id;
+                        $movimiento->modulo      = 8;
+                        $movimiento->descripcion = $descripcion;
+                        $movimiento->created_by  = Auth::user()->id;
+                        $movimiento->empresa     = $factura->empresa;
+                        $movimiento->save();
+
                         if ($factura->porpagar()<$item->pago) {
                             return back()->with('error', 'El monto es mayor que lo que falta por pagar en la venta')->with('ingreso_id', $ingreso->id);
                         }
@@ -2145,81 +2173,13 @@ class IngresosController extends Controller
 
     public function destroy($id)
     {
-        $ingreso = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $id)->first();
+        $ingreso = Ingreso::Find($id);
         if ($ingreso) {
-            // ========== CAPTURAR DATOS PARA LOG (ANTES DE ELIMINAR NADA) ==========
-            $logData = null;
-            if (Schema::hasTable('logs_ingresos')) {
-                try {
-                    $logData = [
-                        'ingreso_id' => $ingreso->id,
-                        'ingreso_nro' => $ingreso->nro,
-                        'ingreso_tipo' => $ingreso->tipo,
-                        'ingreso_valor' => $ingreso->pago(), // Llamar al método pago() ANTES de borrar
-                        'ingreso_fecha' => $ingreso->fecha,
-                        'ingreso_estatus' => $ingreso->estatus,
-                        'usuario_id' => Auth::user()->id,
-                        'usuario_nombre' => Auth::user()->nombres ?? Auth::user()->name,
-                        'empresa_id' => Auth::user()->empresa,
-                        'accion' => 'eliminado',
-                        'ip' => request()->ip(),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-
-                    // Capturar según el tipo (ANTES de borrar)
-                    if ($ingreso->tipo == 1) {
-                        // Facturas asociadas
-                        $facturas = DB::table('ingresos_factura')
-                            ->join('factura', 'ingresos_factura.factura', '=', 'factura.id')
-                            ->where('ingresos_factura.ingreso', $ingreso->id)
-                            ->select('factura.id', 'factura.codigo', 'ingresos_factura.pago')
-                            ->get();
-                        $logData['facturas_asociadas'] = json_encode($facturas);
-                    } elseif ($ingreso->tipo == 2) {
-                        // Categorías asociadas
-                        $categorias = IngresosCategoria::where('ingreso', $ingreso->id)->get();
-                        $logData['categorias_asociadas'] = json_encode($categorias);
-                    } elseif ($ingreso->tipo == 4) {
-                        // Gasto asociado
-                        $categorias = IngresosCategoria::where('ingreso', $ingreso->id)->get();
-                        $logData['categorias_asociadas'] = json_encode($categorias);
-
-                        $mov1 = Movimiento::where('modulo', 1)->where('id_modulo', $ingreso->id)->first();
-                        if ($mov1) {
-                            $gasto = Gastos::where('id', $mov1->id_modulo)->first();
-                            if ($gasto) {
-                                $gastoCategorias = GastosCategoria::where('gasto', $gasto->id)->get();
-                                $logData['gasto_asociado'] = json_encode([
-                                    'gasto_id' => $gasto->id,
-                                    'gasto_nro' => $gasto->nro ?? null,
-                                    'gasto_valor' => $gasto->pago ?? $gasto->total ?? null,
-                                    'categorias' => $gastoCategorias,
-                                ]);
-                            }
-                        }
-                    }
-
-                    // Retenciones (para todos los tipos)
-                    $retenciones = DB::table('ingresos_retenciones')
-                        ->where('ingreso', $ingreso->id)
-                        ->get();
-                    if ($retenciones->count() > 0) {
-                        $logData['retenciones_asociadas'] = json_encode($retenciones);
-                    }
-
-                    // Datos completos del ingreso (relaciones cargadas)
-                    $logData['datos_completos'] = json_encode($ingreso->toArray());
-                } catch (\Exception $e) {
-                    \Log::error('Error preparando log de eliminación ingreso: ' . $e->getMessage());
-                    $logData = null; // Si falla, no bloquear la eliminación
-                }
-            }
-            // ========== FIN CAPTURA DE DATOS ==========
 
             if ($ingreso->tipo == 3) {
                 return redirect('empresa/pagos')->with('error', 'No puede editar un pago de nota de débito');
             } else if ($ingreso->tipo == 1) {
+
                 if ($ingreso->estatus != 2) {
                     $ids = DB::table('ingresos_factura')->where('ingreso', $ingreso->id)->select('factura', 'pago')->get();
                     $factura = array();
@@ -2228,13 +2188,29 @@ class IngresosController extends Controller
                     }
                     DB::table('factura')->where('empresa', Auth::user()->empresa)->whereIn('id', $factura)->update(['estatus' => 1]);
                 }
-                IngresosFactura::where('ingreso', $ingreso->id)->delete();
-                //ingresos
-                $this->destroy_transaccion(1, $ingreso->id);
+
+                $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
+                foreach ($items as $item) {
+                    $factura= $item->factura();
+                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Eliminación de pago</b> nro '.$ingreso->nro.'<br>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = $factura->empresa;
+                    $movimiento->save();
+                }
+
+                    IngresosFactura::where('ingreso', $ingreso->id)->delete();
+                    $this->destroy_transaccion(1, $ingreso->id);
+
             } else if ($ingreso->tipo == 2) {
+
                 IngresosCategoria::where('ingreso', $ingreso->id)->delete();
                 //ingresos
                 $this->destroy_transaccion(1, $ingreso->id);
+
             } else if ($ingreso->tipo == 4) {
                 IngresosCategoria::where('ingreso', $ingreso->id)->delete();
                 $mov1 = Movimiento::where('modulo', 1)->where('id_modulo', $ingreso->id)->first();
@@ -2250,20 +2226,11 @@ class IngresosController extends Controller
             }
 
             DB::table('ingresos_retenciones')->where('ingreso', $ingreso->id)->delete();
-            // ========== GUARDAR LOG ANTES DE ELIMINAR EL INGRESO ==========
-            if ($logData !== null) {
-                try {
-                    DB::table('logs_ingresos')->insert($logData);
-                } catch (\Exception $e) {
-                    \Log::error('Error guardando log ingreso: ' . $e->getMessage());
-                }
-            }
-            // ========== FIN GUARDADO LOG ==========
             $ingreso->delete();
 
             $mensaje = 'Se ha eliminado satisfactoriamente el ingreso';
-            //return redirect('empresa/ingresos')->with('success', $mensaje);
-            return back()->with('success', $mensaje);
+            return redirect('empresa/ingresos')->with('success', $mensaje);
+            // return back()->with('success', $mensaje);
         }
 
         return redirect('empresa/ingresos')->with('error', 'No existe un registro con ese id');
