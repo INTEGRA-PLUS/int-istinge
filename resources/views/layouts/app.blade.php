@@ -1485,6 +1485,8 @@
             // Enviar mensaje
             async function sendMessage() {
                 const text = input.value.trim();
+                const sessionId =
+                    '{{ auth()->check() ? 'user-' . auth()->id() : 'guest-' . session()->getId() }}';
                 if (!text) return;
 
                 addMessage(text, 'user');
@@ -1501,7 +1503,7 @@
                         },
                         body: JSON.stringify({
                             content: text,
-                            chat_id: chatId
+                            session_id: sessionId
                         })
                     });
 
@@ -1509,11 +1511,10 @@
                     messages.removeChild(thinkingBubble);
 
                     if (data.ok) {
-                        // Ajusta esto según el formato real de Vibio cuando respondan
-                        const reply = data.response || data.body || 'Respuesta recibida';
+                        const reply = data.reply || 'Respuesta recibida';
                         addMessage(reply, 'bot');
                     } else {
-                        addMessage('❌ ' + (data.error || 'Error al procesar la solicitud'), 'bot');
+                        addMessage('❌' + (data.error || 'Error al procesar la solicitud'), 'bot');
                     }
                 } catch (error) {
                     messages.removeChild(thinkingBubble);
