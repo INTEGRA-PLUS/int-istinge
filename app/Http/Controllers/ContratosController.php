@@ -4936,11 +4936,12 @@ class ContratosController extends Controller
                 $error->servicio = "El campo Servicio es obligatorio";
             }
             if ($request->mikrotik != "") {
-                if (Mikrotik::where('nombre', $request->mikrotik)->count() == 0) {
-                    $error->mikrotik = "El mikrotik ingresado no se encuentra en nuestra base de datos";
-                }
                 $miko = Mikrotik::where('nombre', $request->mikrotik)->first();
-                $mikoId = $miko->id;
+                if (!$miko) {
+                    $error->mikrotik = "El mikrotik ingresado no se encuentra en nuestra base de datos";
+                } else {
+                    $mikoId = $miko->id;
+                }
             }
 
             if ($request->plan != "") {
@@ -5062,7 +5063,12 @@ class ContratosController extends Controller
             }
 
             if ($request->mikrotik != "") {
-                $request->mikrotik = Mikrotik::where('nombre', $request->mikrotik)->first()->id;
+                $mikro = Mikrotik::where('nombre', $request->mikrotik)->first();
+                if ($mikro) {
+                    $request->mikrotik = $mikro->id;
+                } else {
+                    return back()->withErrors(['mikrotik' => 'El mikrotik ingresado no se encuentra en nuestra base de datos'])->withInput();
+                }
             }
             if ($request->plan != "") {
                 $planesVelocidad = PlanesVelocidad::where('name', $request->plan)->first();
