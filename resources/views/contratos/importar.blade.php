@@ -11,6 +11,7 @@
                 <select name="conexion" id="conexion" style="padding-left:10px;">
                     <option value="1">PPPoE</option>
                     <option value="0">IP Estática</option>
+                    <option value="2">DHCP</option>
                 </select>
                 <br><br>
                 <input type="submit" value="Click Aqui!" style="border:1px solid #305498;background-color: #305498 !important; color: #fff;">

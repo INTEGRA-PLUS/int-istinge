@@ -4660,17 +4660,70 @@ class ContratosController extends Controller
         $conexion = $request->input('conexion');
 
         // Ahora puedes hacer lo que necesites con el valor de $conexion
+        $comentarios = array();
         if ($conexion == 1) {
             // Lógica para PPPoE
             $titulosColumnas = array('Identificacion', 'Servicio', 'Serial ONU', 'Plan', 'Mikrotik', 'Estado', 'IP', 'MAC', 'Conexion', 'Interfaz', 'Segmento', 'Nodo', 'Access Point', 'Grupo de Corte', 'Facturacion', 'Descuento', 'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato', 'Profile', 'IP Local Address', 'Usuario', 'Contrasena');
+            $comentarios = array(
+                'A' => 'Identificacion del Cliente ya registrado en el sistema',
+                'D' => 'Nombre del plan ya registrado en el sistema',
+                'E' => 'Nombre de la mikrotik ya registrado en el sistema',
+                'F' => 'Habilitado o Deshabilitado',
+                'I' => 'PPPOE, DHCP, IP Estatica o VLAN',
+                'L' => 'Nombre del nodo ya registrado en el sistema',
+                'M' => 'Nombre del access point ya registrado en el sistema',
+                'N' => 'Nombre del grupo de corte ya registrado en el sistema',
+                'O' => 'Estandar o Electronica',
+                'Q' => 'Nombre del canal ya registrado en el sistema',
+                'R' => 'Nombre de la oficina ya registrado en el sistema',
+                'S' => 'Fibra o Inalambrica',
+                'T' => 'Fecha en formato yyyy-mm-dd hh:mm:ss',
+                'U' => 'Indique son Si o No'
+            );
+        } elseif ($conexion == 2) {
+
+            // Lógica para DHCP
+            $titulosColumnas = array('Identificacion', 'Servicio', 'Serial ONU', 'Plan', 'Mikrotik', 'Estado', 'MAC', 'Conexion', 'Simple Queue', 'Tipo de Tecnologia', 'Puerto Caja NAP', 'Grupo de Corte', 'Facturacion', 'Descuento', 'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato');
+            $comentarios = array(
+                'A' => 'Identificacion del Cliente ya registrado en el sistema',
+                'D' => 'Nombre del plan ya registrado en el sistema',
+                'E' => 'Nombre de la mikrotik ya registrado en el sistema',
+                'F' => 'Habilitado o Deshabilitado',
+                'K' => 'Numero del puerto de la caja NAP',
+                'H' => 'Seleccione DHCP como tipo de conexión',
+                'I' => 'Nombre de la cola simple configurada en Mikrotik',
+                'L' => 'Nombre del grupo de corte ya registrado en el sistema',
+                'M' => 'Estandar o Electronica',
+                'O' => 'Nombre del canal ya registrado en el sistema',
+                'P' => 'Nombre de la oficina ya registrado en el sistema',
+                'Q' => 'Fibra o Inalambrica',
+                'R' => 'Fecha en formato yyyy-mm-dd hh:mm:ss',
+                'S' => 'Indique si el cliente existe en Mikrotik (Si/No)'
+            );
         } else {
             // Lógica para IP Estática
             $titulosColumnas = array('Identificacion', 'Servicio', 'Serial ONU', 'Plan', 'Mikrotik', 'Estado', 'IP', 'MAC', 'Conexion', 'Interfaz', 'Segmento', 'Nodo', 'Access Point', 'Grupo de Corte', 'Facturacion', 'Descuento', 'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik');
+            $comentarios = array(
+                'A' => 'Identificacion del Cliente ya registrado en el sistema',
+                'D' => 'Nombre del plan ya registrado en el sistema',
+                'E' => 'Nombre de la mikrotik ya registrado en el sistema',
+                'F' => 'Habilitado o Deshabilitado',
+                'I' => 'PPPOE, DHCP, IP Estatica o VLAN',
+                'L' => 'Nombre del nodo ya registrado en el sistema',
+                'M' => 'Nombre del access point ya registrado en el sistema',
+                'N' => 'Nombre del grupo de corte ya registrado en el sistema',
+                'O' => 'Estandar o Electronica',
+                'Q' => 'Nombre del canal ya registrado en el sistema',
+                'R' => 'Nombre de la oficina ya registrado en el sistema',
+                'S' => 'Fibra o Inalambrica',
+                'T' => 'Fecha en formato yyyy-mm-dd hh:mm:ss'
+            );
         }
         $objPHPExcel = new PHPExcel();
         $tituloReporte = "Archivo de Importación de Contratos Internet " . Auth::user()->empresa()->nombre;
 
         $letras = array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z');
+        $ultimaColumna = $letras[count($titulosColumnas) - 1];
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
             ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific171717
@@ -4680,11 +4733,11 @@ class ContratosController extends Controller
             ->setKeywords("Archivo Importacion Contratos") //Etiquetas
             ->setCategory("Archivo Importacion"); //Categorias
         // Se combinan las celdas A1 hasta D1, para colocar ah171717 el titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:N1');
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:' . $ultimaColumna . '1');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A1', $tituloReporte);
         // Titulo del reporte
-        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A2:N2');
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A2:' . $ultimaColumna . '2');
         // Se agregan los titulos del reporte
         $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A2', 'Fecha ' . date('d-m-Y')); // Titulo del reporte
 
@@ -4699,7 +4752,7 @@ class ContratosController extends Controller
             )
         );
 
-        $objPHPExcel->getActiveSheet()->getStyle('A1:Z3')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A1:' . $ultimaColumna . '3')->applyFromArray($estilo);
 
         $estilo = array(
             'fill' => array(
@@ -4719,7 +4772,7 @@ class ContratosController extends Controller
             )
         );
 
-        $objPHPExcel->getActiveSheet()->getStyle('A3:Z3')->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:' . $ultimaColumna . '3')->applyFromArray($estilo);
 
         for ($i = 0; $i < count($titulosColumnas); $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i] . '3', utf8_decode($titulosColumnas[$i]));
@@ -4728,44 +4781,9 @@ class ContratosController extends Controller
         $contratos = Contrato::all();
         $j = 4;
 
-        /*foreach($contratos as $contrato){
-            $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[0].$j, $contrato->nombre)
-            ->setCellValue($letras[1].$j, $contrato->apellido1)
-            ->setCellValue($letras[2].$j, $contrato->apellido2)
-            ->setCellValue($letras[3].$j, $contrato->tip_iden())
-            ->setCellValue($letras[4].$j, $contrato->nit)
-            ->setCellValue($letras[5].$j, $contrato->dv)
-            ->setCellValue($letras[6].$j, $contrato->pais()->nombre)
-            ->setCellValue($letras[7].$j, $contrato->departamento()->nombre)
-            ->setCellValue($letras[8].$j, $contrato->municipio()->nombre)
-            ->setCellValue($letras[9].$j, $contrato->cod_postal)
-            ->setCellValue($letras[10].$j, $contrato->telefono1)
-            ->setCellValue($letras[11].$j, $contrato->celular)
-            ->setCellValue($letras[12].$j, $contrato->direccion)
-            ->setCellValue($letras[13].$j, $contrato->vereda)
-            ->setCellValue($letras[14].$j, $contrato->barrio)
-            ->setCellValue($letras[15].$j, $contrato->ciudad)
-            ->setCellValue($letras[16].$j, $contrato->email)
-            ->setCellValue($letras[17].$j, $contrato->observaciones)
-            ->setCellValue($letras[18].$j, $contrato->tipo_contacto());
-            $j++;
-        }*/
-
-        $objPHPExcel->getActiveSheet()->getComment('A3')->setAuthor('Integra Colombia')->getText()->createTextRun('Identificacion del Cliente ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('D3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre del plan ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('E3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre de la mikrotik ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('F3')->setAuthor('Integra Colombia')->getText()->createTextRun('Habilitado o Deshabilitado');
-        $objPHPExcel->getActiveSheet()->getComment('I3')->setAuthor('Integra Colombia')->getText()->createTextRun('PPPOE, DHCP, IP Estatica o VLAN');
-        $objPHPExcel->getActiveSheet()->getComment('L3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre del nodo ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('M3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre del access point ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('N3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre del grupo de corte ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('O3')->setAuthor('Integra Colombia')->getText()->createTextRun('Estandar o Electronica');
-        $objPHPExcel->getActiveSheet()->getComment('Q3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre del canal ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('R3')->setAuthor('Integra Colombia')->getText()->createTextRun('Nombre de la oficina ya registrado en el sistema');
-        $objPHPExcel->getActiveSheet()->getComment('S3')->setAuthor('Integra Colombia')->getText()->createTextRun('Fibra o Inalambrica');
-        $objPHPExcel->getActiveSheet()->getComment('T3')->setAuthor('Integra Colombia')->getText()->createTextRun('Fecha en formato yyyy-mm-dd hh:mm:ss');
-        $objPHPExcel->getActiveSheet()->getComment('U3')->setAuthor('Integra Colombia')->getText()->createTextRun('Indique son Si o No');
+        foreach ($comentarios as $columna => $texto) {
+            $objPHPExcel->getActiveSheet()->getComment($columna . '3')->setAuthor('Integra Colombia')->getText()->createTextRun($texto);
+        }
 
         $estilo = array(
             'font'  => array('size'  => 12, 'name'  => 'Times New Roman'),
@@ -4779,9 +4797,9 @@ class ContratosController extends Controller
             )
         );
 
-        $objPHPExcel->getActiveSheet()->getStyle('A3:Z' . $j)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:' . $ultimaColumna . $j)->applyFromArray($estilo);
 
-        for ($i = 'A'; $i <= $letras[20]; $i++) {
+        for ($i = 'A'; $i <= $ultimaColumna; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
         }
 
@@ -4842,30 +4860,69 @@ class ContratosController extends Controller
                 break;
             }
 
-            $request->servicio      = $sheet->getCell("B" . $row)->getValue();
-            $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();
-            $request->plan          = $sheet->getCell("D" . $row)->getValue();
-            $request->mikrotik      = $sheet->getCell("E" . $row)->getValue();
-            $request->state         = $sheet->getCell("F" . $row)->getValue();
-            $request->ip            = $sheet->getCell("G" . $row)->getValue();
-            $request->mac           = $sheet->getCell("H" . $row)->getValue();
-            $request->conexion      = $sheet->getCell("I" . $row)->getValue();
-            $request->interfaz      = $sheet->getCell("J" . $row)->getValue();
-            $request->local_address = $sheet->getCell("K" . $row)->getValue();
-            $request->nodo          = $sheet->getCell("L" . $row)->getValue();
-            $request->ap            = $sheet->getCell("M" . $row)->getValue();
-            $request->grupo_corte   = $sheet->getCell("N" . $row)->getValue();
-            $request->facturacion   = $sheet->getCell("O" . $row)->getValue();
-            $request->descuento     = $sheet->getCell("P" . $row)->getValue();
-            $request->canal         = $sheet->getCell("Q" . $row)->getValue();
-            $request->oficina       = $sheet->getCell("R" . $row)->getValue();
-            $request->tecnologia    = $sheet->getCell("S" . $row)->getValue();
-            $request->created_at    = $sheet->getCell("T" . $row)->getValue();
-            $request->mk            = $sheet->getCell("U" . $row)->getValue();
-            $request->profle        = $sheet->getCell("W" . $row)->getValue();
-            $request->local_address = $sheet->getCell("X" . $row)->getValue();
-            $request->usuario       = $sheet->getCell("Y" . $row)->getValue();
-            $request->clave         = $sheet->getCell("Z" . $row)->getValue();
+            // Datos comunes
+            $request->servicio   = $sheet->getCell("B" . $row)->getValue();
+            $request->serial_onu = $sheet->getCell("C" . $row)->getValue();
+            $request->plan       = $sheet->getCell("D" . $row)->getValue();
+            $request->mikrotik   = $sheet->getCell("E" . $row)->getValue();
+            $request->state      = $sheet->getCell("F" . $row)->getValue();
+
+            // Determinar conexión (DHCP viene en H, otros en I)
+            $conexionCelda = $sheet->getCell("H" . $row)->getValue();
+            if (empty($conexionCelda)) {
+                $conexionCelda = $sheet->getCell("I" . $row)->getValue();
+            }
+            $conexionTexto = strtoupper(trim((string) $conexionCelda));
+            if ($conexionTexto == 'PPPOE' || $conexionCelda == 1) {
+                $request->conexion = 1;
+            } elseif ($conexionTexto == 'DHCP' || $conexionCelda == 2) {
+                $request->conexion = 2;
+            } elseif ($conexionTexto == 'IP ESTATICA' || $conexionTexto == 'IP ESTÁTICA' || $conexionCelda == 3) {
+                $request->conexion = 3;
+            } elseif ($conexionTexto == 'VLAN' || $conexionCelda == 4) {
+                $request->conexion = 4;
+            } else {
+                $request->conexion = $conexionCelda;
+            }
+
+            if ($request->conexion == 2) {
+                // Plantilla DHCP
+                $request->ip              = null;
+                $request->mac             = $sheet->getCell("G" . $row)->getValue();
+                $request->simple_queue    = $sheet->getCell("I" . $row)->getValue();
+                $request->tipo_tecnologia = $sheet->getCell("J" . $row)->getValue();
+                $request->puerto_caja_nap = $sheet->getCell("K" . $row)->getValue();
+                $request->grupo_corte     = $sheet->getCell("L" . $row)->getValue();
+                $request->facturacion     = $sheet->getCell("M" . $row)->getValue();
+                $request->descuento       = $sheet->getCell("N" . $row)->getValue();
+                $request->canal           = $sheet->getCell("O" . $row)->getValue();
+                $request->oficina         = $sheet->getCell("P" . $row)->getValue();
+                $request->tecnologia      = $sheet->getCell("Q" . $row)->getValue();
+                $request->created_at      = $sheet->getCell("R" . $row)->getValue();
+                $request->mk              = $sheet->getCell("S" . $row)->getValue();
+                $request->tipo_contrato   = $sheet->getCell("T" . $row)->getValue();
+            } else {
+                // Plantillas PPPOE, IP Estática y VLAN
+                $request->ip                   = $sheet->getCell("G" . $row)->getValue();
+                $request->mac                  = $sheet->getCell("H" . $row)->getValue();
+                $request->interfaz             = $sheet->getCell("J" . $row)->getValue();
+                $request->local_address        = $sheet->getCell("K" . $row)->getValue();
+                $request->nodo                 = $sheet->getCell("L" . $row)->getValue();
+                $request->ap                   = $sheet->getCell("M" . $row)->getValue();
+                $request->grupo_corte          = $sheet->getCell("N" . $row)->getValue();
+                $request->facturacion          = $sheet->getCell("O" . $row)->getValue();
+                $request->descuento            = $sheet->getCell("P" . $row)->getValue();
+                $request->canal                = $sheet->getCell("Q" . $row)->getValue();
+                $request->oficina              = $sheet->getCell("R" . $row)->getValue();
+                $request->tecnologia           = $sheet->getCell("S" . $row)->getValue();
+                $request->created_at           = $sheet->getCell("T" . $row)->getValue();
+                $request->mk                   = $sheet->getCell("U" . $row)->getValue();
+                $request->tipo_contrato        = $sheet->getCell("V" . $row)->getValue();
+                $request->profile              = $sheet->getCell("W" . $row)->getValue();
+                $request->local_address_pppoe  = $sheet->getCell("X" . $row)->getValue();
+                $request->usuario              = $sheet->getCell("Y" . $row)->getValue();
+                $request->clave                = $sheet->getCell("Z" . $row)->getValue();
+            }
 
 
             $error = (object) array();
@@ -4900,18 +4957,15 @@ class ContratosController extends Controller
             if (!$request->state) {
                 $error->state = "El campo estado es obligatorio";
             }
-            if (!$request->ip) {
+            if ($request->conexion != 2 && !$request->ip) {
                 $error->ip = "El campo IP es obligatorio";
             }
             if (!$request->conexion) {
                 $error->conexion = "El campo conexión es obligatorio";
             }
-            // if (!$request->interfaz) {
-            //     $error->interfaz = "El campo interfaz es obligatorio";
-            // }
-            /*if (!$request->local_address) {
-                $error->local_address = "El campo segmento es obligatorio";
-            }*/
+            if ($request->conexion == 2 && !$request->simple_queue) {
+                $error->simple_queue = "El campo Simple Queue es obligatorio para DHCP";
+            }
 
             if ($request->grupo_corte != "") {
                 if (GrupoCorte::where('nombre', $request->grupo_corte)->where('status', 1)->count() == 0) {
@@ -4952,34 +5006,59 @@ class ContratosController extends Controller
             $request->plan          = $sheet->getCell("D" . $row)->getValue();
             $request->mikrotik      = $sheet->getCell("E" . $row)->getValue();
             $request->state         = $sheet->getCell("F" . $row)->getValue();
-            $request->ip            = $sheet->getCell("G" . $row)->getValue();
-            $request->mac           = $sheet->getCell("H" . $row)->getValue();
-            $request->conexion      = $sheet->getCell("I" . $row)->getValue();
-            $request->interfaz      = $sheet->getCell("J" . $row)->getValue();
-            $request->local_address = $sheet->getCell("K" . $row)->getValue();
-            $request->nodo          = $sheet->getCell("L" . $row)->getValue();
-            $request->ap            = $sheet->getCell("M" . $row)->getValue();
-            $request->grupo_corte   = $sheet->getCell("N" . $row)->getValue();
-            $request->facturacion   = $sheet->getCell("O" . $row)->getValue();
-            $request->descuento     = $sheet->getCell("P" . $row)->getValue();
-            $request->canal         = $sheet->getCell("Q" . $row)->getValue();
-            $request->oficina       = $sheet->getCell("R" . $row)->getValue();
-            $request->tecnologia    = $sheet->getCell("S" . $row)->getValue();
-            $request->created_at    = $sheet->getCell("T" . $row)->getValue();
-            $request->mk            = $sheet->getCell("U" . $row)->getValue();
-            $request->profile        = $sheet->getCell("W" . $row)->getValue();
-            $request->local_address_pppoe = $sheet->getCell("X" . $row)->getValue();
-            $request->usuario       = $sheet->getCell("Y" . $row)->getValue();
-            $request->clave         = $sheet->getCell("Z" . $row)->getValue();
 
-            if ($request->conexion ==  'PPPOE') {
+            $conexionCelda = $sheet->getCell("H" . $row)->getValue();
+            if (empty($conexionCelda)) {
+                $conexionCelda = $sheet->getCell("I" . $row)->getValue();
+            }
+            $conexionTexto = strtoupper(trim((string) $conexionCelda));
+            if ($conexionTexto == 'PPPOE' || $conexionCelda == 1) {
                 $request->conexion = 1;
-            } elseif ($request->conexion ==  'DHCP') {
+            } elseif ($conexionTexto == 'DHCP' || $conexionCelda == 2) {
                 $request->conexion = 2;
-            } elseif ($request->conexion ==  'IP Estatica') {
+            } elseif ($conexionTexto == 'IP ESTATICA' || $conexionTexto == 'IP ESTÁTICA' || $conexionCelda == 3) {
                 $request->conexion = 3;
-            } elseif ($request->conexion ==  'VLAN') {
+            } elseif ($conexionTexto == 'VLAN' || $conexionCelda == 4) {
                 $request->conexion = 4;
+            } else {
+                $request->conexion = $conexionCelda;
+            }
+
+            if ($request->conexion == 2) {
+                $request->ip              = null;
+                $request->mac             = $sheet->getCell("G" . $row)->getValue();
+                $request->simple_queue    = $sheet->getCell("I" . $row)->getValue();
+                $request->tipo_tecnologia = $sheet->getCell("J" . $row)->getValue();
+                $request->puerto_caja_nap = $sheet->getCell("K" . $row)->getValue();
+                $request->grupo_corte     = $sheet->getCell("L" . $row)->getValue();
+                $request->facturacion     = $sheet->getCell("M" . $row)->getValue();
+                $request->descuento       = $sheet->getCell("N" . $row)->getValue();
+                $request->canal           = $sheet->getCell("O" . $row)->getValue();
+                $request->oficina         = $sheet->getCell("P" . $row)->getValue();
+                $request->tecnologia      = $sheet->getCell("Q" . $row)->getValue();
+                $request->created_at      = $sheet->getCell("R" . $row)->getValue();
+                $request->mk              = $sheet->getCell("S" . $row)->getValue();
+                $request->tipo_contrato   = $sheet->getCell("T" . $row)->getValue();
+            } else {
+                $request->ip                   = $sheet->getCell("G" . $row)->getValue();
+                $request->mac                  = $sheet->getCell("H" . $row)->getValue();
+                $request->interfaz             = $sheet->getCell("J" . $row)->getValue();
+                $request->local_address        = $sheet->getCell("K" . $row)->getValue();
+                $request->nodo                 = $sheet->getCell("L" . $row)->getValue();
+                $request->ap                   = $sheet->getCell("M" . $row)->getValue();
+                $request->grupo_corte          = $sheet->getCell("N" . $row)->getValue();
+                $request->facturacion          = $sheet->getCell("O" . $row)->getValue();
+                $request->descuento            = $sheet->getCell("P" . $row)->getValue();
+                $request->canal                = $sheet->getCell("Q" . $row)->getValue();
+                $request->oficina              = $sheet->getCell("R" . $row)->getValue();
+                $request->tecnologia           = $sheet->getCell("S" . $row)->getValue();
+                $request->created_at           = $sheet->getCell("T" . $row)->getValue();
+                $request->mk                   = $sheet->getCell("U" . $row)->getValue();
+                $request->tipo_contrato        = $sheet->getCell("V" . $row)->getValue();
+                $request->profile              = $sheet->getCell("W" . $row)->getValue();
+                $request->local_address_pppoe  = $sheet->getCell("X" . $row)->getValue();
+                $request->usuario              = $sheet->getCell("Y" . $row)->getValue();
+                $request->clave                = $sheet->getCell("Z" . $row)->getValue();
             }
 
             if ($request->mikrotik != "") {
@@ -5047,11 +5126,13 @@ class ContratosController extends Controller
             $contrato->state                   = $request->state;
             $contrato->ip                      = $request->ip;
             $contrato->conexion                = $request->conexion;
+            $contrato->simple_queue            = $request->simple_queue ?? null;
             $contrato->interfaz                = $request->interfaz;
             $contrato->local_address           = $request->local_address;
             $contrato->grupo_corte             = $request->grupo_corte;
             $contrato->facturacion             = $request->facturacion;
             $contrato->tecnologia              = $request->tecnologia;
+            $contrato->tipo_contrato           = $request->tipo_contrato;
             $contrato->profile                 = $request->profile;
 
             $contrato->descuento               = $request->descuento;
@@ -5066,6 +5147,7 @@ class ContratosController extends Controller
             $contrato->usuario                 = $request->usuario;
             $contrato->password                = $request->clave;
             $contrato->local_adress_pppoe      = $request->local_address_pppoe;
+            $contrato->cajanap_puerto          = $request->puerto_caja_nap ?? null;
             $contrato->created_at              = Carbon::now();
 
             $contrato->save();

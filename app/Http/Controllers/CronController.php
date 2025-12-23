@@ -5267,7 +5267,6 @@ class CronController extends Controller
             return "Cambio completado";
     }
 
-
     public function validacionFacturasContratos(){
         $facturasContratos = DB::table('facturas_contratos')->get();
 
@@ -5282,11 +5281,15 @@ class CronController extends Controller
                 ]);
             }else{
                 $factura = Factura::Find($fc->factura_id);
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'client_id' => $factura->cliente
-                ]);
+
+                if($factura && isset($factura->cliente)){
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'client_id' => $factura->cliente
+                    ]);
+                }
+
             }
 
         }
@@ -5297,30 +5300,33 @@ class CronController extends Controller
         foreach($facturasContratos as $fc){
 
             $factura = Factura::Find($fc->factura_id);
-            if($factura->cliente != $fc->client_id){
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'client_id' => $factura->cliente
-                ]);
-            }
+            if($factura){
 
-            $contratos = Contrato::where('client_id',$factura->cliente)->get();
-
-            $siPertenece = 0;
-            foreach($contratos as $c){
-                if($c->nro == $fc->contrato_nro && $siPertenece == 0){
-                    $siPertenece = 1;
+                if($factura->cliente != $fc->client_id){
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'client_id' => $factura->cliente
+                    ]);
                 }
-            }
 
-            if($siPertenece == 0){
-                $fc->contrato_nro = $c->nro;
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'contrato_nro' => $c->nro
-                ]);
+                $contratos = Contrato::where('client_id',$factura->cliente)->get();
+
+                $siPertenece = 0;
+                foreach($contratos as $c){
+                    if($c->nro == $fc->contrato_nro && $siPertenece == 0){
+                        $siPertenece = 1;
+                    }
+                }
+
+                if($siPertenece == 0){
+                    $fc->contrato_nro = $c->nro;
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'contrato_nro' => $c->nro
+                    ]);
+                }
             }
 
         }
