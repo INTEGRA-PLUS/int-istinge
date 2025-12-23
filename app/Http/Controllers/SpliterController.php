@@ -172,7 +172,7 @@ class SpliterController extends Controller
 
         if($spliter){
             // Solo permitir eliminación si todas las cajas están disponibles
-            if ($spliter->cajas_disponible == $spliter->num_cajas_naps) {
+            if ($spliter->uso == 0) {
                 $spliter->delete();
                 $mensaje = 'SE HA ELIMINADO EL SPLITER CORRECTAMENTE';
                 return redirect()->route('spliter.index')->with('success', $mensaje);
