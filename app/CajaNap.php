@@ -104,4 +104,27 @@ class CajaNap extends Model
         // Retornar el primer puerto disponible o null si no hay
         return !empty($puertosDisponibles) ? min($puertosDisponibles) : null;
     }
+
+    /**
+     * Cuenta cuántos puertos están disponibles en la caja NAP
+     *
+     * @return int Número de puertos disponibles
+     */
+    public function contarPuertosDisponibles()
+    {
+        // Obtener todos los puertos ocupados para esta caja NAP
+        $puertosOcupados = Contrato::where('cajanap_id', $this->id)
+            ->whereNotNull('cajanap_puerto')
+            ->pluck('cajanap_puerto')
+            ->toArray();
+
+        // Generar lista de todos los puertos posibles (1 hasta cant_puertos)
+        $todosLosPuertos = range(1, $this->cant_puertos);
+
+        // Encontrar los puertos disponibles
+        $puertosDisponibles = array_diff($todosLosPuertos, $puertosOcupados);
+
+        // Retornar la cantidad de puertos disponibles
+        return count($puertosDisponibles);
+    }
 }

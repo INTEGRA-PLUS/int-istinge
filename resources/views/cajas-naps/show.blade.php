@@ -51,7 +51,7 @@
                             <td class="text-center">{{$caja_nap->nombre}}</td>
                             <td class="text-center">{{$spliter ? $spliter->nombre : 'N/A'}}</td>
                             <td class="text-center">{{$caja_nap->cant_puertos}}</td>
-                            <td class="text-center">{{$caja_nap->caja_naps_disponible}}</td>
+                            <td class="text-center">{{$caja_nap->contarPuertosDisponibles()}}</td>
                             <td class="text-center">{{$caja_nap->ubicacion}}</td>
                             <td class="text-center">{{$caja_nap->coordenadas}}</td>
                             <td class="text-center"><span class="text-{{$caja_nap->status('true')}}"><b>{{$caja_nap->status()}}</b></span></td>
