@@ -5144,9 +5144,9 @@ class ContratosController extends Controller
             $contrato->descuento               = $request->descuento;
             $contrato->canal                   = $request->canal;
             $contrato->oficina                 = $request->oficina;
-            $contrato->nodo                    = $request->nodo;
-            $contrato->ap                      = $request->ap;
-            $contrato->mac_address             = $request->mac;
+            $contrato->nodo                    = $request->nodo ?? null;
+            $contrato->ap                      = $request->ap ?? null;
+            $contrato->mac_address             = $request->mac ?? null;
             $contrato->serial_onu              = $request->serial_onu;
             $contrato->created_at              = $request->created_at;
             $contrato->mk                      = $request->mk;
