@@ -5133,8 +5133,8 @@ class ContratosController extends Controller
             $contrato->ip                      = $request->ip;
             $contrato->conexion                = $request->conexion;
             $contrato->simple_queue            = $request->simple_queue ?? null;
-            $contrato->interfaz                = $request->interfaz;
-            $contrato->local_address           = $request->local_address;
+            $contrato->interfaz                = $request->interfaz ?? null;
+            $contrato->local_address           = $request->local_address ?? null;
             $contrato->grupo_corte             = $request->grupo_corte;
             $contrato->facturacion             = $request->facturacion;
             $contrato->tecnologia              = $request->tecnologia;
