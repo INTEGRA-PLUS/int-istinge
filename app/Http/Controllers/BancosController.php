@@ -81,7 +81,7 @@ class BancosController extends Controller
 
         return datatables()->eloquent($bancos)
         ->editColumn('nombre', function (banco $banco) {
-            return "<a href=" . route('bancos.show', $banco->id) . ">{$banco->nombre}</a>";
+            return "<a href=" . route('bancos.show', $banco->nro) . ">{$banco->nombre}</a>";
         })
         ->editColumn('nro_cta', function (banco $banco) {
             return $banco->nro_cta;
