@@ -5083,23 +5083,23 @@ class ContratosController extends Controller
                 $request->grupo_corte = GrupoCorte::where('nombre', $request->grupo_corte)->first()->id;
             }
 
-            if ($request->facturacion == 'Estandar') {
+            if (strtolower($request->facturacion) == 'estandar') {
                 $request->facturacion = 1;
-            } elseif ($request->facturacion == 'Electronica') {
+            } elseif (strtolower($request->facturacion) == 'electronica') {
                 $request->facturacion = 3;
             }
 
-            if ($request->tecnologia == 'Fibra') {
+            if (strtolower($request->tecnologia) == 'fibra') {
                 $request->tecnologia = 1;
-            } elseif ($request->tecnologia == 'Inalambrica') {
+            } elseif (strtolower($request->tecnologia) == 'inalambrica') {
                 $request->tecnologia = 2;
-            } elseif ($request->tecnologia == 'Cableado UTP') {
+            } elseif (strtolower($request->tecnologia) == 'cableado utp') {
                 $request->tecnologia = 3;
             }
 
-            if ($request->state == 'Habilitado') {
+            if (strtolower($request->state) == 'habilitado') {
                 $request->state = 'enabled';
-            } elseif ($request->state == 'Deshabilitado') {
+            } elseif (strtolower($request->state) == 'deshabilitado') {
                 $request->state = 'disabled';
             }
 
