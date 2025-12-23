@@ -5150,9 +5150,9 @@ class ContratosController extends Controller
             $contrato->serial_onu              = $request->serial_onu;
             $contrato->created_at              = $request->created_at;
             $contrato->mk                      = $request->mk;
-            $contrato->usuario                 = $request->usuario;
-            $contrato->password                = $request->clave;
-            $contrato->local_adress_pppoe      = $request->local_address_pppoe;
+            $contrato->usuario                 = $request->usuario ?? null;
+            $contrato->password                = $request->clave ?? null;
+            $contrato->local_adress_pppoe      = $request->local_address_pppoe ?? null;
             $contrato->cajanap_puerto          = $request->puerto_caja_nap ?? null;
             $contrato->created_at              = Carbon::now();
 
