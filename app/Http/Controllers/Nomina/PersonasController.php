@@ -975,8 +975,8 @@ class PersonasController extends Controller
                 $retenPension->valor = 0;
             }
 
-            //pensionado con aporte a salud
-            if ($persona->fk_tipo_contrato == 17){
+            //pensionado con aporte a salud o fondo de pensiones "no cotizante"
+            if ($persona->fk_tipo_contrato == 17 || $persona->fk_fondo_pension == 10){
                 $retenPension->valor = 0;
             }
 
@@ -1008,7 +1008,12 @@ class PersonasController extends Controller
 
                 $subsidio = ($persona->subsidio == 1) ? (($subsidioTransporte->valor * 15) / 30) : 0;
                 $salud = (($persona->valor / 2) * $retenSalud->porcDecimal());
-                $pension = (($persona->valor / 2) * $retenPension->porcDecimal());
+
+                if ($persona->fk_fondo_pension == 10){
+                    $pension = 0;
+                }else{
+                    $pension = (($persona->valor / 2) * $retenPension->porcDecimal());
+                }
 
                 $diasMes = $start->diffInDays($end) + 1;
 
@@ -1101,7 +1106,12 @@ class PersonasController extends Controller
             } else {
                 $subsidio = ($persona->subsidio == 1) ? (($subsidioTransporte->valor * 30) / 30) : 0;
                 $salud = (($persona->valor) * $retenSalud->porcDecimal());
-                $pension = (($persona->valor) * $retenPension->porcDecimal());
+
+                if ($persona->fk_fondo_pension == 10){
+                    $pension = 0;
+                }else{
+                    $pension = (($persona->valor) * $retenPension->porcDecimal());
+                }
 
                 $nominaPeriodos = new NominaPeriodos;
                 $nominaPeriodos->nro = $nroPeriodo;

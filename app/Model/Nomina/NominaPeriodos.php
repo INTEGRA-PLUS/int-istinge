@@ -384,8 +384,8 @@ class NominaPeriodos extends Model
             }
         }
 
-        //pensionado con aporte a salud
-        if ($persona->fk_tipo_contrato == 17){
+        //pensionado con aporte a salud o no cotizante de pension
+        if ($persona->fk_tipo_contrato == 17 || $persona->fk_fondo_pension == 10){
             $calculosFijos['reten_pension'] = (object)['valor' => (0), 'simbolo' => '-'];
         }
 
