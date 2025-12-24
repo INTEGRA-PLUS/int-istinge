@@ -36,6 +36,7 @@ use App\FormaPago;
 use App\NumeracionFactura;
 use App\Funcion;
 use App\Instance;
+use App\MovimientoLOG;
 use App\Plantilla;
 use App\Services\WapiService;
 
@@ -2036,6 +2037,7 @@ class IngresosController extends Controller
     }
 
     public function anular($id){
+
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
         if ($ingreso) {
             $ingreso->updated_by = Auth::user()->id;
@@ -2046,13 +2048,39 @@ class IngresosController extends Controller
                 return redirect('empresa/pagos')->with('error', 'No puede editar una transferencia');
             }
             if ($ingreso->estatus==1) {
+
                 $ingreso->estatus=2;
                 $mensaje='Se ha anulado satisfactoriamente el pago';
+
+                $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
+                foreach ($items as $item) {
+                    $factura= $item->factura();
+                    $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de abierto a anulado el pago nro '.$ingreso->nro.'<br>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = $factura->empresa;
+                    $movimiento->save();
+                }
+
             }else{
+
                 if ($ingreso->tipo==1) {
                     $items = IngresosFactura::where('ingreso',$ingreso->id)->get();
                     foreach ($items as $item) {
                         $factura= $item->factura();
+
+                        $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de anulado a abierto el pago nro '.$ingreso->nro.'<br>';
+                        $movimiento = new MovimientoLOG();
+                        $movimiento->contrato    = $factura->id;
+                        $movimiento->modulo      = 8;
+                        $movimiento->descripcion = $descripcion;
+                        $movimiento->created_by  = Auth::user()->id;
+                        $movimiento->empresa     = $factura->empresa;
+                        $movimiento->save();
+
                         if ($factura->porpagar()<$item->pago) {
                             return back()->with('error', 'El monto es mayor que lo que falta por pagar en la venta')->with('ingreso_id', $ingreso->id);
                         }
@@ -2084,7 +2112,7 @@ class IngresosController extends Controller
 
     public function destroy($id)
     {
-        $ingreso = Ingreso::Find($id);
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
         if ($ingreso) {
 
             if ($ingreso->tipo == 3) {
