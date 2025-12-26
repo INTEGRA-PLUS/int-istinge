@@ -94,6 +94,7 @@ class ContratosController extends Controller
         $tabla = Campos::join('campos_usuarios', 'campos_usuarios.id_campo', '=', 'campos.id')->where('campos_usuarios.id_modulo', 2)->where('campos_usuarios.id_usuario', $user->id)->where('campos_usuarios.estado', 1)->orderBy('campos_usuarios.orden', 'ASC')->get();
         $nodos = Nodo::where('status', 1)->where('empresa', $user->empresa)->get();
         $aps = AP::where('status', 1)->where('empresa', $user->empresa)->get();
+        $cajaNaps = CajaNap::where('status', 1)->orderBy('nombre', 'ASC')->get();
 
         $vendedores = Vendedor::where('empresa', $user->empresa)
             ->where('estado', 1)
@@ -102,7 +103,7 @@ class ContratosController extends Controller
         $canales = Canal::where('empresa', $user->empresa)->where('status', 1)->get();
         $etiquetas = Etiqueta::where('empresa_id', $user->empresa)->get();
         $barrios = Barrios::where('status', '1')->get();
-        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'planestv', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'etiquetas', 'barrios'));
+        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'planestv', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'etiquetas', 'barrios', 'cajaNaps'));
     }
 
     public function disabled(Request $request)
@@ -167,12 +168,14 @@ class ContratosController extends Controller
                 'contactos.firma_isp',
                 'contactos.estrato as c_estrato',
                 'barrio.nombre as barrio_nombre',
+                'cn.nombre as cajanap_nombre',
                 DB::raw('(select fecha from ingresos where ingresos.cliente = contracts.client_id and ingresos.tipo = 1 LIMIT 1) AS pago')
             )
             ->selectRaw('INET_ATON(contracts.ip) as ipformat')
             ->join('contactos', 'contracts.client_id', '=', 'contactos.id')
             ->leftJoin('municipios', 'contactos.fk_idmunicipio', '=', 'municipios.id')
             ->leftJoin('barrios as barrio', 'barrio.id', 'contactos.barrio_id')
+            ->leftJoin('caja_naps as cn', 'cn.id', '=', 'contracts.cajanap_id')
             ->where('contracts.empresa', Auth::user()->empresa)
             ->where('contracts.status', '!=', 0);
 
@@ -304,7 +307,9 @@ class ContratosController extends Controller
                     $query->orWhere('contracts.ap', $request->ap);
                 });
             }
-
+            if ($request->cajanap_id) {
+                $contratos->where('contracts.cajanap_id', $request->cajanap_id);
+            }
             if ($request->c_direccion) {
 
                 $direccion = $request->c_direccion;

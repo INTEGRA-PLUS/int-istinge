@@ -181,6 +181,14 @@
                             </select>
                         </div>
                         <div class="col-md-3 pl-1 pt-1">
+                            <select title="Caja NAP" class="form-control selectpicker" id="cajanap_id" name="cajanap_id"data-size="5" data-live-search="true">
+                                <option value="">Todas</option>
+                                @foreach ($cajaNaps as $nap)
+                                    <option value="{{ $nap->id }}">{{ $nap->nombre }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 pl-1 pt-1">
                             <select title="Vendedor" class="form-control selectpicker" id="vendedor" name="vendedor">
                                 @foreach ($vendedores as $v)
                                     <option value="{{ $v->id }}">{{ $v->nombre }}</option>
@@ -521,6 +529,7 @@
                 data.otra_opcion = $("#otra_opcion").val();
                 data.fecha_corte = $("#fecha-corte").val();
                 data.fecha_sin_facturas = $('#fecha_sin_facturas').val();
+                data.cajanap_id = $('#cajanap_id').val();
                 data.filtro = true;
             });
             isDataTableInitialized = true;
@@ -552,7 +561,7 @@
             }
         });
 
-        $('#client_id, #etiqueta, #plan, #barrio, #plan_tv, #catv, #state, #state_olt_catv, #grupo_cort, #conexion_s, #server_configuration_id_s, #nodo_s, #ap_s, #vendedor, #canal, #tecnologia_s, #facturacion_s, #desde, #hasta, #tipo_contrato, #otra_opcion').on('change',function() {
+        $('#client_id, #etiqueta, #plan, #barrio, #plan_tv, #catv, #state, #state_olt_catv, #grupo_cort, #conexion_s, #server_configuration_id_s, #nodo_s, #ap_s, #vendedor, #canal, #tecnologia_s, #facturacion_s, #desde, #hasta, #tipo_contrato, #otra_opcion, #cajanap_id').on('change',function() {
             getDataTable();
             return false;
         });
@@ -636,6 +645,7 @@
         $("#fecha-corte").val('');
         $("#tipo_contrato").val('').selectpicker('refresh');
         $("#otra_opcion").val('').selectpicker('refresh');
+        $("#cajanap_id").val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
@@ -1031,6 +1041,7 @@
                 data.otra_opcion = $("#otra_opcion").val();
                 data.fecha_corte = $("#fecha-corte").val();
                 data.fecha_sin_facturas = $('#fecha_sin_facturas').val();
+                data.cajanap_id = $('#cajanap_id').val();
                 data.filtro = true;
             });
         isDataTableInitialized = true;  // Marca como inicializado
