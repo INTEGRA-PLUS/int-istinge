@@ -743,12 +743,18 @@ class ContratosController extends Controller
         }
 
         if ($request->server_configuration_id) {
-            $request->validate([
+            $rules = [
                 'plan_id' => 'required',
                 'server_configuration_id' => 'required',
-                'ip' => 'required',
                 'conexion' => 'required',
-            ]);
+            ];
+            
+            // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
+            if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
+                $rules['ip'] = 'required';
+            }
+            
+            $request->validate($rules);
         } elseif ($request->servicio_tv) {
             $request->validate([
                 'servicio_tv' => 'required'
@@ -1585,12 +1591,18 @@ class ContratosController extends Controller
         }
 
         if ($request->server_configuration_id) {
-            $request->validate([
+            $rules = [
                 'plan_id' => 'required',
                 'server_configuration_id' => 'required',
-                'ip' => 'required',
                 'conexion' => 'required',
-            ]);
+            ];
+            
+            // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
+            if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
+                $rules['ip'] = 'required';
+            }
+            
+            $request->validate($rules);
         } elseif ($request->servicio_tv) {
             $request->validate([
                 'servicio_tv' => 'required'

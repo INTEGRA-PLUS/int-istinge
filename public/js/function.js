@@ -4565,13 +4565,17 @@ function interfazChange(){
         document.getElementById("id_vlan").removeAttribute('required');
         document.getElementById("local_address").removeAttribute('required');
         document.getElementById("div_local_address").innerHTML = "Local Address";
-        document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
+        document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address) <span class='text-danger'>*</span>";
 
         // Asegurar que los campos de segmento e IP se muestren cuando no es DHCP
         var divSegmentoIp = document.getElementById("div_segmento_ip");
         var divDireccionIp = document.getElementById("div_direccion_ip");
         if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
         if(divDireccionIp) divDireccionIp.classList.remove('d-none');
+        
+        // Restaurar el atributo required en el campo IP cuando no es DHCP
+        var ip = document.getElementById("ip");
+        if(ip) ip.setAttribute('required', true);
 
         document.getElementById("div_usuario").classList.remove('d-none');
         document.getElementById("div_password").classList.remove('d-none');
@@ -4632,6 +4636,12 @@ function toggleCamposDHCP(){
             if(divDireccionIp) {
                 divDireccionIp.classList.add('d-none');
                 if(ip) ip.removeAttribute('required');
+                // Remover el asterisco del label cuando es DHCP con simple_queue dinámico
+                var labelIp = document.getElementById("div_ip");
+                if(labelIp) {
+                    // Remover cualquier asterisco que pueda existir
+                    labelIp.innerHTML = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
+                }
             }
         } else {
             // Si Simple Queue es estática, mostrar los campos
@@ -4647,6 +4657,16 @@ function toggleCamposDHCP(){
             if(divDireccionIp) {
                 divDireccionIp.classList.remove('d-none');
                 if(ip) ip.setAttribute('required', true);
+                // Agregar el asterisco del label cuando es DHCP con simple_queue estático
+                var labelIp = document.getElementById("div_ip");
+                if(labelIp) {
+                    // Remover asteriscos existentes primero para evitar duplicados
+                    var labelText = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
+                    // Agregar el asterisco si no existe
+                    if(!labelText.includes('<span class="text-danger">*</span>')) {
+                        labelIp.innerHTML = labelText.replace(/(Dirección IP \(Remote Address\))/, '$1 <span class="text-danger">*</span>');
+                    }
+                }
             }
         }
 
