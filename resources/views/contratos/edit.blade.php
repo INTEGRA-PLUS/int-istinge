@@ -334,7 +334,8 @@
                             <div class="col-md-4 form-group" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address) <span class="text-danger">*</span></label>
                                   <div class="input-group">
-                                    <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" required="" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46">
+                                    <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46"
+                                    >
                                     <div class="input-group-append">
                                         <button class="btn btn-outline-success btn-sm" type="button" id="searchIP" style="border-radius: 0 5px 5px 0;"><i class="fa fa-search" style="margin: 2px;"></i></button>
                                     </div>

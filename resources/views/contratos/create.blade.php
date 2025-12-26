@@ -471,7 +471,6 @@
                                         class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" name="ip" id="ip"
-                                        required=""
                                         onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46 || event.charCode==47"
                                         value="{{ old('ip') }}">
                                     <div class="input-group-append">
