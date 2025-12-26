@@ -904,7 +904,7 @@
                         </div>
 
                         <div class="form-group col-md-4">
-                            <label class="control-label">¿Agregar fechas de No suspensión?  <a><i data-tippy-content="Decida si este cnotrato tendrá un rango de fechas donde si tiene facturas abiertas no lo suspenderá (esto solo pasará en el rango escogido)" class="icono far fa-question-circle"></i></a></label>
+                            <label class="control-label">¿Agregar fechas de No suspensión?  <a><i data-tippy-content="Decida si este contrato tendrá un rango de fechas donde si tiene facturas abiertas no lo suspenderá (esto solo pasará en el rango escogido)" class="icono far fa-question-circle"></i></a></label>
                           <div class="row">
                               <div class="col-sm-6">
                               <div class="form-radio">
@@ -942,7 +942,7 @@
 
                         @if($empresa->api_key_siigo != null || $empresa->api_key_siigo != "")
                         <div class="form-group col-md-4">
-                            <label class="control-label">¿Enviar a siigo cuando se haga un pago sobre la factura?  <a><i data-tippy-content="Decida si este cnotrato tendrá un rango de fechas donde si tiene facturas abiertas no lo suspenderá (esto solo pasará en el rango escogido)" class="icono far fa-question-circle"></i></a></label>
+                            <label class="control-label">¿Enviar a siigo cuando se haga un pago sobre la factura? </label>
                             <div class="row">
                                 <div class="col-sm-6">
                                 <div class="form-radio">

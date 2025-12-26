@@ -1238,7 +1238,7 @@ class ContratosController extends Controller
 
             $contrato->creador = Auth::user()->nombres;
             if(isset($contrato->pago_siigo_contrato) && $contrato->pago_siigo_contrato == 1){
-                $contrato->pago_siigo_contrato = $request->pago_siigo_contrato;
+                $contrato->pago_siigo_contrato = 1;
             } else {
                 $contrato->pago_siigo_contrato = 0;
             }
@@ -2155,7 +2155,7 @@ class ContratosController extends Controller
                     ### DOCUMENTOS ADJUNTOS ###
 
                     if(isset($contrato->pago_siigo_contrato) && $contrato->pago_siigo_contrato == 1){
-                        $contrato->pago_siigo_contrato = $request->pago_siigo_contrato;
+                        $contrato->pago_siigo_contrato = 1;
                     } else {
                         $contrato->pago_siigo_contrato = 0;
                     }
