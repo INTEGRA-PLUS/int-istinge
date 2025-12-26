@@ -63,7 +63,8 @@ class CajaNapController extends Controller
                 return $cajaNap->coordenadas;
             })
             ->editColumn('puertos_disponibles', function (CajaNap $cajaNap) {
-                return "{$cajaNap->caja_naps_disponible} / {$cajaNap->cant_puertos}";
+                $disponibles = $cajaNap->contarPuertosDisponibles();
+                return "{$disponibles} / {$cajaNap->cant_puertos}";
             })
             ->editColumn('status', function (CajaNap $cajaNap) {
                 return "<span class='text-{$cajaNap->status("true")}'><strong>{$cajaNap->status()}</strong></span>";
@@ -71,7 +72,7 @@ class CajaNapController extends Controller
             ->addColumn('acciones', function (CajaNap $cajaNap) use ($modoLectura) {
                 return view('cajas-naps.acciones', [
                     'id' => $cajaNap->id,
-                    'caja_naps_disponible' => $cajaNap->caja_naps_disponible,
+                    'caja_naps_disponible' => $cajaNap->contarPuertosDisponibles(),
                     'cant_puertos' => $cajaNap->cant_puertos
                 ])->render();
             })

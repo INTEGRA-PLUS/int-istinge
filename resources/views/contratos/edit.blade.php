@@ -1279,6 +1279,7 @@
         }
 
         var contratoId = $('#contrato_id').val() || null;
+        var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
 
         if (window.location.pathname.split("/")[1] === "software") {
 				var url='/software/caja-naps/' + cajaNapId + '/puertos-disponibles';
@@ -1295,12 +1296,14 @@
             method: 'GET',
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             success: function(data) {
+                // Destruir el selectpicker antes de modificar las opciones
+                $('#cajanap_puerto').selectpicker('destroy');
+
+                // Limpiar y agregar opciones
                 $('#cajanap_puerto').empty();
                 $('#cajanap_puerto').append('<option value="">Seleccione un puerto</option>');
 
                 if (data.puertos_disponibles && data.puertos_disponibles.length > 0) {
-                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
-
                     $.each(data.puertos_disponibles, function(index, puerto) {
                         var selected = (puertoActual && puerto == puertoActual) ? 'selected' : '';
                         $('#cajanap_puerto').append('<option value="' + puerto + '" ' + selected + '>Puerto ' + puerto + '</option>');
@@ -1314,7 +1317,6 @@
                     $('#div_puerto_nap').show();
                 } else {
                     // Si hay un puerto actual pero no hay disponibles, mostrarlo de todas formas
-                    var puertoActual = @if(isset($contrato) && $contrato->cajanap_puerto) {{$contrato->cajanap_puerto}} @else null @endif;
                     if (puertoActual) {
                         $('#cajanap_puerto').append('<option value="' + puertoActual + '" selected>Puerto ' + puertoActual + ' (Ocupado)</option>');
                         $('#div_puerto_nap').show();
@@ -1330,7 +1332,18 @@
                     }
                 }
 
-                $('#cajanap_puerto').selectpicker('refresh');
+                // Reinicializar el selectpicker
+                $('#cajanap_puerto').selectpicker();
+
+                // Establecer el valor después de reinicializar
+                if (puertoActual) {
+                    $('#cajanap_puerto').selectpicker('val', puertoActual);
+                } else {
+                    $('#cajanap_puerto').selectpicker('val', '');
+                }
+
+                // Forzar actualización visual
+                $('#cajanap_puerto').selectpicker('render');
             },
             error: function() {
                 $('#div_puerto_nap').hide();

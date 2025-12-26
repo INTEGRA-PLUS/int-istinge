@@ -75,4 +75,56 @@ class CajaNap extends Model
     public function nodos(){
         return DB::table('nodos')->where('status', 1)->get();
     }
+
+    /**
+     * Obtiene el primer puerto disponible de la caja NAP
+     *
+     * @param int|null $excluirContratoId ID del contrato a excluir de la búsqueda (útil al editar)
+     * @return int|null Retorna el número del puerto disponible o null si no hay puertos disponibles
+     */
+    public function obtenerPuertoDisponible($excluirContratoId = null)
+    {
+        // Obtener todos los puertos ocupados para esta caja NAP
+        $query = Contrato::where('cajanap_id', $this->id)
+            ->whereNotNull('cajanap_puerto');
+
+        // Excluir un contrato específico si se está editando
+        if ($excluirContratoId) {
+            $query->where('id', '!=', $excluirContratoId);
+        }
+
+        $puertosOcupados = $query->pluck('cajanap_puerto')->toArray();
+
+        // Generar lista de todos los puertos posibles (1 hasta cant_puertos)
+        $todosLosPuertos = range(1, $this->cant_puertos);
+
+        // Encontrar los puertos disponibles
+        $puertosDisponibles = array_diff($todosLosPuertos, $puertosOcupados);
+
+        // Retornar el primer puerto disponible o null si no hay
+        return !empty($puertosDisponibles) ? min($puertosDisponibles) : null;
+    }
+
+    /**
+     * Cuenta cuántos puertos están disponibles en la caja NAP
+     *
+     * @return int Número de puertos disponibles
+     */
+    public function contarPuertosDisponibles()
+    {
+        // Obtener todos los puertos ocupados para esta caja NAP
+        $puertosOcupados = Contrato::where('cajanap_id', $this->id)
+            ->whereNotNull('cajanap_puerto')
+            ->pluck('cajanap_puerto')
+            ->toArray();
+
+        // Generar lista de todos los puertos posibles (1 hasta cant_puertos)
+        $todosLosPuertos = range(1, $this->cant_puertos);
+
+        // Encontrar los puertos disponibles
+        $puertosDisponibles = array_diff($todosLosPuertos, $puertosOcupados);
+
+        // Retornar la cantidad de puertos disponibles
+        return count($puertosDisponibles);
+    }
 }

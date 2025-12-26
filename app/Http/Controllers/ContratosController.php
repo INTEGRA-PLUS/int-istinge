@@ -4683,13 +4683,13 @@ class ContratosController extends Controller
         } elseif ($conexion == 2) {
 
             // Lógica para DHCP
-            $titulosColumnas = array('Identificacion', 'Servicio', 'Serial ONU', 'Plan', 'Mikrotik', 'Estado', 'MAC', 'Conexion', 'Simple Queue', 'Tipo de Tecnologia', 'Puerto Caja NAP', 'Grupo de Corte', 'Facturacion', 'Descuento', 'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato');
+            $titulosColumnas = array('Identificacion', 'Servicio', 'Serial ONU', 'Plan', 'Mikrotik', 'Estado', 'MAC', 'Conexion', 'Simple Queue', 'Tipo de Tecnologia', 'Nombre de la Caja NAP', 'Grupo de Corte', 'Facturacion', 'Descuento', 'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato');
             $comentarios = array(
                 'A' => 'Identificacion del Cliente ya registrado en el sistema',
                 'D' => 'Nombre del plan ya registrado en el sistema',
                 'E' => 'Nombre de la mikrotik ya registrado en el sistema',
                 'F' => 'Habilitado o Deshabilitado',
-                'K' => 'Numero del puerto de la caja NAP',
+                'K' => 'Nombre de la caja NAP',
                 'H' => 'Seleccione DHCP como tipo de conexión',
                 'I' => 'Nombre de la cola simple configurada en Mikrotik',
                 'L' => 'Nombre del grupo de corte ya registrado en el sistema',
@@ -5103,6 +5103,16 @@ class ContratosController extends Controller
                 $request->state = 'disabled';
             }
 
+            $cajaNap = null;
+            if ($request->puerto_caja_nap != "") {
+                $cajaNap = CajaNap::where('nombre', $request->puerto_caja_nap)->first();
+                if ($cajaNap) {
+                    $request->puerto_caja_nap = $cajaNap->id;
+                } else {
+                    return back()->withErrors(['puerto_caja_nap' => 'La caja NAP ingresada no se encuentra en nuestra base de datos'])->withInput();
+                }
+            }
+
             $request->mk = (strtoupper($request->mk) == 'NO') ? 0 : 1;
 
             // Siempre crear un nuevo contrato, nunca actualizar uno existente
@@ -5153,7 +5163,20 @@ class ContratosController extends Controller
             $contrato->usuario                 = $request->usuario ?? null;
             $contrato->password                = $request->clave ?? null;
             $contrato->local_adress_pppoe      = $request->local_address_pppoe ?? null;
-            $contrato->cajanap_puerto          = $request->puerto_caja_nap ?? null;
+
+            // Asignar puerto disponible de la caja NAP
+            $puertoDisponible = null;
+            if ($cajaNap != null) {
+                $puertoDisponible = $cajaNap->obtenerPuertoDisponible();
+
+                if ($puertoDisponible === null) {
+                    // No hay puertos disponibles, retornar error
+                    return back()->withErrors(['puerto_caja_nap' => 'La caja NAP ' . $cajaNap->nombre . ' no tiene puertos disponibles'])->withInput();
+                }
+            }
+
+            $contrato->cajanap_puerto          = $puertoDisponible;
+            $contrato->cajanap_id              = $cajaNap != null ? $cajaNap->id : null;
             $contrato->created_at              = Carbon::now();
 
             $contrato->save();
