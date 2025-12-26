@@ -130,7 +130,7 @@ class ReportesController extends Controller
                 )
                 ->whereIn('factura.tipo', [1,2])
                 ->where('factura.estatus','<>',2)
-            ->groupBy('i.id');  // <- Aquí ya no agrupas por contrato
+            ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
 
             // Obtener ejemplo con manejo de reconexión
             // Guardar una copia del query builder antes de ejecutarlo

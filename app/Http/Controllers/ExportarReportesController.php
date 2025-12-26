@@ -762,7 +762,7 @@ class ExportarReportesController extends Controller
                 )
                 ->whereIn('factura.tipo', [1,2])
                 ->where('factura.estatus','<>',2)
-            ->groupBy('i.id');  // <- Aquí ya no agrupas por contrato
+            ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
 
             $dates = $this->setDateRequest($request);
 
