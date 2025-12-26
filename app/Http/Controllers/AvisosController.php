@@ -332,23 +332,56 @@ class AvisosController extends Controller
                         try {
                             // Lógica según el tipo de plantilla
                             if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
-                                // ========================================
-                                // CASO: SUSPENSIÓN DE SERVICIO
-                                // ========================================
+                                $esFiberNet = trim(mb_strtolower($nameEmpresa)) === trim(mb_strtolower('FiberNet Colombia'));
+
+                                if ($esFiberNet) {
+                                    // Buscar factura más reciente asociada al contrato
+                                    $factura = Factura::where('contrato_id', $contrato->id)
+                                        ->latest()
+                                        ->first();
                                 
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "suspensionservicios",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
+                                    if (!$factura) {
+                                        $enviadosFallidos++;
+                                        \Log::warning('Contrato ' . $contrato->id . ': Sin factura para suspensión FiberNet');
+                                        continue;
+                                    }
+                                
+                                    // var2 -> Fecha de suspensión (formateada)
+                                    $var2 = $factura->suspension
+                                        ? \Carbon\Carbon::parse($factura->suspension)->translatedFormat('j \\d\\e F \\d\\e Y')
+                                        : 'Fecha no disponible';
+                                
+                                    // Body especial: 2 variables
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "suspensionservicios", // OJO: si tu plantilla FiberNet es otra, cámbiala aquí
+                                        "languageCode" => "en",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $nameEmpresa], // 1er parametro
+                                                    ["type" => "text", "text" => $var2],        // 2do parametro (fecha suspensión)
+                                                ]
                                             ]
                                         ]
-                                    ]
-                                ];
+                                    ];
+                                } else {
+                                    // Body normal: 1 variable
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "suspensionservicios",
+                                        "languageCode" => "en",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $nameEmpresa]
+                                                ]
+                                            ]
+                                        ]
+                                    ];
+                                }
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 

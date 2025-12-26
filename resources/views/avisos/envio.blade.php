@@ -218,6 +218,7 @@
 	const plantillasMetaFiberNet = [
 		{ value: 'factura', text: 'Factura' },
 		{ value: 'falla_servicio_', text: 'Falla de servicio' },
+		{ value: 'suspension', text: 'Suspensión de Servicio' },
 		{ value: 'dao_de_fibra_principal', text: 'Daño de fibra principal' }
 	];
 
