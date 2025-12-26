@@ -130,7 +130,7 @@ class ReportesController extends Controller
                 )
                 ->whereIn('factura.tipo', [1,2])
                 ->where('factura.estatus','<>',2)
-            ->groupBy('factura.id');  // <- Aquí ya no agrupas por contrato
+            ->groupBy('i.id');  // <- Aquí ya no agrupas por contrato
 
             // Obtener ejemplo con manejo de reconexión
             // Guardar una copia del query builder antes de ejecutarlo
@@ -3120,10 +3120,10 @@ class ReportesController extends Controller
     {
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['seccion' => 'reportes', 'title' => 'Reporte de Terceros', 'icon' => '']);
-    
+
         // Fechas
         $dates = $this->setDateRequest($request);
-    
+
         // Campos para ordenar
         $campos = [
             'contactos.tip_iden',
@@ -3134,16 +3134,16 @@ class ReportesController extends Controller
             'contactos.direccion',   // dirección
             'ingresosBrutos'         // suma de pagos
         ];
-    
+
         // Ordenamiento por defecto
         if (!$request->orderby) {
             $request->orderby = 2; // por nombre
             $request->order = 0;   // ascendente
         }
-    
+
         $orderby = $campos[$request->orderby] ?? 'contactos.nombre';
         $order   = $request->order == 1 ? 'DESC' : 'ASC';
-    
+
         // Consulta
         $contactos = Contacto::join('factura as f', 'f.cliente', '=', 'contactos.id')
             // 👇 CAMBIO CLAVE: leftJoin en vez de join
@@ -3197,20 +3197,20 @@ class ReportesController extends Controller
                 'd.nombre',
                 'contactos.status'
             );
-    
+
         // Filtro por fechas (sobre la fecha de la factura)
         if ($request->input('fechas') != 8 || (!$request->has('fechas'))) {
             $contactos = $contactos->whereBetween('f.fecha', [$dates['inicio'], $dates['fin']]);
         }
-    
+
         // Ordenar
         $contactos = $contactos->orderBy($orderby, $order)->get();
-    
+
         // Paginar igual que en balance
         $contactos = $this->paginate($contactos, 15, $request->page, $request);
-    
+
         $empresa = Empresa::find(Auth::user()->empresa);
-    
+
         return view('reportes.terceros.index')
             ->with(compact('contactos', 'request', 'empresa'));
     }
