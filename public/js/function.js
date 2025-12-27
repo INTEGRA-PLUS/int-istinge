@@ -4317,6 +4317,12 @@ function getPlanes(mikrotik) {
         success: function(data) {
             cargando(false);
 
+            // Verificar si hay error de conexión a la Mikrotik
+            if (data.connection_error === true) {
+                alert('Esta fallando la conexión a la mikrotik, revisa porfavor su conexión');
+                return;
+            }
+
             $("#plan_id").empty();
 
             var $select = $('#plan_id');
@@ -4572,7 +4578,7 @@ function interfazChange(){
         var divDireccionIp = document.getElementById("div_direccion_ip");
         if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
         if(divDireccionIp) divDireccionIp.classList.remove('d-none');
-        
+
         // Restaurar el atributo required en el campo IP cuando no es DHCP
         var ip = document.getElementById("ip");
         if(ip) ip.setAttribute('required', true);
