@@ -194,16 +194,17 @@
     						<th>Correo</th>
     						<td>{{$radicado->correo}}</td>
     					</tr>
-                        @if($radicado->barrio)
+                        @if($radicado->barrio != null)
     					<tr>
                             <th>Barrio</th>
                             <td>{{$radicado->barrio}}</td>
                         </tr>
-                        @endif
+                        @elseif($radicado->cliente() != null)
                         <tr>
-                            <th>Dirección</th>
-                            <td>{{$radicado->direccion}}</td>
+                            <th>Barrio</th>
+                            <td>{{$radicado->cliente()->barrio()->nombre}}</td>
                         </tr>
+                        @endif
     					@if($radicado->creado)
     					<tr>
     						<th>Creado desde</th>
