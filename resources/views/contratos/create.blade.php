@@ -1101,7 +1101,7 @@
                                             <label class="form-check-label">
                                                 <input type="radio" class="form-check-input"
                                                     name="contrato_factura_pro" id="tipo_suspension_no1" value="1"
-                                                    {{ old('contrato_factura_pro') == 1 ? 'checked' : '' }}> Si
+                                                    {{ old('contrato_factura_pro') == 1 ? 'checked' : 'checked' }}> Si
                                                 <i class="input-helper"></i><i class="input-helper"></i></label>
                                         </div>
                                     </div>
@@ -1110,7 +1110,7 @@
                                             <label class="form-check-label">
                                                 <input type="radio" class="form-check-input"
                                                     name="contrato_factura_pro" id="tipo_suspension_no2" value="0"
-                                                    {{ old('contrato_factura_pro') == 1 ? '' : 'checked' }}> No
+                                                    {{ old('contrato_factura_pro') == 1 ? '' : '' }}> No
                                                 <i class="input-helper"></i><i class="input-helper"></i></label>
                                         </div>
                                     </div>
