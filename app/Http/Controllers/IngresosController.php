@@ -571,10 +571,21 @@ class IngresosController extends Controller
                 $saldoFavorUsado = 0;
                 foreach ($request->factura_pendiente as $key => $value) {
 
-
                     if ($request->precio[$key]) {
                         $totalIngreso+=$precio = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
+
+                        //Registro el Movimiento de ingreso de saldo a favor
+                        if($request->saldofavor > 0){
+                            $descripcion = '<i class="fas fa-check text-success"></i> <b>Ingreso de saldo a favor en el recibo de caja nro ' . $ingreso->nro . '</b> por un total de $' . number_format($request->saldofavor, 0, ',', '.') . '<br>';
+                            $movimiento = new MovimientoLOG();
+                            $movimiento->contrato    = $factura->id;
+                            $movimiento->modulo      = 8;
+                            $movimiento->descripcion = $descripcion;
+                            $movimiento->created_by  = Auth::user()->id;
+                            $movimiento->empresa     = $factura->empresa;
+                            $movimiento->save();
+                        }
 
                         $contrato = Contrato::join('facturas_contratos as fc', 'fc.contrato_nro', '=', 'contracts.nro')
                                 ->where('fc.factura_id', $factura->id)

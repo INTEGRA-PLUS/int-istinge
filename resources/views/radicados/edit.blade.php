@@ -62,12 +62,20 @@
       </span>
     </div>
 
-    <div class="col-md-12 form-group">
+    <div class="col-md-9 form-group">
       <label class="control-label">Dirección <span class="text-danger">*</span></label>
       <input type="text" class="form-control"  id="direccion" name="direccion"  value="{{$radicado->direccion}}" maxlength="200" required="">
       <span class="help-block error">
         <strong>{{ $errors->first('direccion') }}</strong>
       </span>
+    </div>
+
+    <div class="col-md-3 form-group">
+        <label class="control-label">Barrio</label>
+        <input type="text" class="form-control" id="barrio" name="barrio" value="{{ $radicado->barrio }}" maxlength="200">
+        <span class="help-block error">
+            <strong>{{ $errors->first('barrio') }}</strong>
+        </span>
     </div>
 
     <div class="col-md-3 form-group">
