@@ -213,10 +213,12 @@ class CronController extends Controller
 
     public static function CrearFactura(){
 
+        $fecha = Carbon::now()->format('Y-m-d');
+
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
         self::limpiarDuplicadosFacturaContratos();
-
+        self::validateFacturasDuplicadas($fecha);
 
         $empresa = Empresa::find(1);
 
@@ -232,7 +234,6 @@ class CronController extends Controller
             ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
             ->where('status', 1)->get();
 
-            $fecha = Carbon::now()->format('Y-m-d');
 
             $state = ['enabled'];
             if ($empresa->factura_contrato_off == 1) {
