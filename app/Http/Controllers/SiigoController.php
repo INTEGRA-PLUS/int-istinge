@@ -776,7 +776,8 @@ class SiigoController extends Controller
                         $credito = $tiposPago->firstWhere('name', 'Crédito')['id'];
                     }
                     $servidor = $factura->servidor();
-                    $usuario = collect($this->getSeller())->last()[1]['id'];
+                    $sellerData = $this->getSeller();
+                    $usuario = collect($sellerData['results'] ?? [])->first()['id'] ?? null;
 
                     $request->merge(['tipos_pago' => $credito]);
                     $request->merge(['factura_id' => $facturas[$i]]);
