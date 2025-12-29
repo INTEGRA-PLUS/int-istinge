@@ -5039,6 +5039,63 @@ class CronController extends Controller
         return "correccion finalizada";
     }
 
+    //Este metodo me permite validar y eliminar facturas duplicadas con los mismos criterios.
+    public function validateFacturasDuplicadas($fecha){
+
+        // Buscar facturas duplicadas con los mismos criterios
+        $facturasDuplicadas = DB::table('factura')
+            ->select('cliente', 'codigo', 'fecha', DB::raw('COUNT(*) as total'))
+            ->where('fecha', $fecha)
+            ->where('facturacion_automatica', 1)
+            ->groupBy('cliente', 'codigo', 'fecha')
+            ->having('total', '>', 1)
+            ->get();
+
+        $eliminadas = 0;
+        $mensaje = [];
+
+        foreach ($facturasDuplicadas as $grupo) {
+            // Obtener todas las facturas del grupo duplicado
+            $facturas = Factura::where('fecha', $grupo->fecha)
+                ->where('cliente', $grupo->cliente)
+                ->where('codigo', $grupo->codigo)
+                ->where('facturacion_automatica', 1)
+                ->orderBy('id', 'asc') // Ordenar por ID para conservar la primera
+                ->get();
+
+            if ($facturas->count() > 1) {
+                // Conservar la primera factura (la más antigua por ID)
+                $facturaConservar = $facturas->first();
+
+                // Eliminar las duplicadas (todas excepto la primera)
+                $facturasEliminar = $facturas->skip(1);
+
+                foreach ($facturasEliminar as $facturaEliminar) {
+                    // Eliminar de ingresos_factura
+                    DB::table('ingresos_factura')
+                        ->where('factura', $facturaEliminar->id)
+                        ->delete();
+
+                    // Eliminar de facturas_contratos
+                    DB::table('facturas_contratos')
+                        ->where('factura_id', $facturaEliminar->id)
+                        ->delete();
+
+                    $eliminadas++;
+                    $mensaje[] = "Factura duplicada eliminada: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}). Se conservó la factura ID {$facturaConservar->id}";
+                }
+            }
+        }
+
+        $resultado = [
+            'eliminadas' => $eliminadas,
+            'mensaje' => $mensaje,
+            'resumen' => "Se eliminaron {$eliminadas} factura(s) duplicada(s) de la fecha {$fecha}"
+        ];
+
+        return $resultado;
+    }
+
     public function refreshCorteIntertTV(){
 
         $fecha = Carbon::now()->format('Y-m-d');
