@@ -1442,6 +1442,16 @@ class FacturaspController extends Controller
 
             $empresa = Empresa::Find($documentoSoporte->empresa);
             $cliente = $documentoSoporte->clienteObj;
+
+            // Validar que el cliente tenga NIT y no cédula
+            if ($cliente->tip_iden != 6) {
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit'], 400);
+                }else{
+                    return redirect('/empresa/facturasp')->with('message_denied', 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit');
+                }
+            }
+
             $operacionCodigo = "10"; //10=residente, 11=no residente
             $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
 
