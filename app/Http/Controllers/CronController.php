@@ -5043,7 +5043,10 @@ class CronController extends Controller
     //Este metodo me permite validar y eliminar facturas duplicadas con los mismos criterios.
     public function validateFacturasDuplicadas($fecha){
 
-        // Buscar facturas duplicadas con los mismos criterios
+        $eliminadas = 0;
+        $mensaje = [];
+
+        // VALIDACIÓN 1: Facturas duplicadas con mismo cliente, código y fecha
         $facturasDuplicadas = DB::table('factura')
             ->select('cliente', 'codigo', 'fecha', DB::raw('COUNT(*) as total'))
             ->where('fecha', $fecha)
@@ -5051,9 +5054,6 @@ class CronController extends Controller
             ->groupBy('cliente', 'codigo', 'fecha')
             ->having('total', '>', 1)
             ->get();
-
-        $eliminadas = 0;
-        $mensaje = [];
 
         foreach ($facturasDuplicadas as $grupo) {
             // Obtener todas las facturas del grupo duplicado
@@ -5072,24 +5072,42 @@ class CronController extends Controller
                 $facturasEliminar = $facturas->skip(1);
 
                 foreach ($facturasEliminar as $facturaEliminar) {
-                    // Eliminar items_factura
-                    ItemsFactura::where('factura', $facturaEliminar->id)->delete();
-
-                    // Eliminar de ingresos_factura
-                    DB::table('ingresos_factura')
-                        ->where('factura', $facturaEliminar->id)
-                        ->delete();
-
-                    // Eliminar de facturas_contratos
-                    DB::table('facturas_contratos')
-                        ->where('factura_id', $facturaEliminar->id)
-                        ->delete();
-
-                    // Eliminar la factura misma
-                    $facturaEliminar->delete();
-
+                    $this->eliminarFacturaCompleta($facturaEliminar);
                     $eliminadas++;
                     $mensaje[] = "Factura duplicada eliminada: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}). Se conservó la factura ID {$facturaConservar->id}";
+                }
+            }
+        }
+
+        // VALIDACIÓN 2: Facturas con mismo cliente, fecha y created_at (mismo año, mes, día, hora y minuto) pero diferente código
+        $facturasDuplicadasPorTiempo = DB::table('factura')
+            ->select('cliente', 'fecha', DB::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") as created_at_formatted'), DB::raw('COUNT(*) as total'))
+            ->where('fecha', $fecha)
+            ->where('facturacion_automatica', 1)
+            ->groupBy('cliente', 'fecha', DB::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i")'))
+            ->having('total', '>', 1)
+            ->get();
+
+        foreach ($facturasDuplicadasPorTiempo as $grupo) {
+            // Obtener todas las facturas del grupo duplicado por tiempo
+            $facturas = Factura::where('fecha', $grupo->fecha)
+                ->where('cliente', $grupo->cliente)
+                ->where('facturacion_automatica', 1)
+                ->whereRaw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") = ?', [$grupo->created_at_formatted])
+                ->orderBy('id', 'asc') // Ordenar por ID para conservar la primera
+                ->get();
+
+            if ($facturas->count() > 1) {
+                // Conservar la primera factura (la más antigua por ID)
+                $facturaConservar = $facturas->first();
+
+                // Eliminar las duplicadas (todas excepto la primera)
+                $facturasEliminar = $facturas->skip(1);
+
+                foreach ($facturasEliminar as $facturaEliminar) {
+                    $this->eliminarFacturaCompleta($facturaEliminar);
+                    $eliminadas++;
+                    $mensaje[] = "Factura duplicada eliminada por tiempo de creación: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}, Creada: {$grupo->created_at_formatted}). Se conservó la factura ID {$facturaConservar->id}";
                 }
             }
         }
@@ -5101,6 +5119,30 @@ class CronController extends Controller
         ];
 
         return $resultado;
+    }
+
+    /**
+     * Elimina completamente una factura y todos sus registros relacionados
+     * @param Factura $factura
+     * @return void
+     */
+    private function eliminarFacturaCompleta($factura)
+    {
+        // Eliminar items_factura
+        ItemsFactura::where('factura', $factura->id)->delete();
+
+        // Eliminar de ingresos_factura
+        DB::table('ingresos_factura')
+            ->where('factura', $factura->id)
+            ->delete();
+
+        // Eliminar de facturas_contratos
+        DB::table('facturas_contratos')
+            ->where('factura_id', $factura->id)
+            ->delete();
+
+        // Eliminar la factura misma
+        $factura->delete();
     }
 
     public function refreshCorteIntertTV(){
