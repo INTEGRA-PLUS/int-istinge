@@ -733,33 +733,33 @@ class FacturasController extends Controller{
             }
         }
 
-        // Consulta optimizada - Reemplazando subconsultas correlacionadas con LEFT JOINs
+        // Consulta optimizada - Estrategia: Consulta base más simple con agregaciones optimizadas
         $facturas = Factura::query()
         ->join('contactos as c', 'factura.cliente', '=', 'c.id')
         ->join('empresas as em', 'em.id', '=', 'factura.empresa')
         ->join('items_factura as if', 'factura.id', '=', 'if.factura')
         ->leftJoin('vendedores as v', 'factura.vendedor', '=', 'v.id')
         ->leftJoin('barrios as barrio','barrio.id','c.barrio_id')
-        // Optimización: Subconsulta de contratos como vista materializada
+        // Optimización: Subconsulta de contratos simplificada
         ->leftJoin(
-            DB::raw('
-                (SELECT factura_id, contrato_nro
-                 FROM (
-                     SELECT fc.factura_id, fc.contrato_nro, ROW_NUMBER() OVER (PARTITION BY fc.factura_id ORDER BY fc.id ASC) AS rn
-                     FROM facturas_contratos fc
-                 ) ranked
-                 WHERE ranked.rn = 1
-                ) as fc
-            '),
+            DB::raw('(
+                SELECT fc1.factura_id, fc1.contrato_nro
+                FROM facturas_contratos fc1
+                INNER JOIN (
+                    SELECT factura_id, MIN(id) as min_id
+                    FROM facturas_contratos
+                    GROUP BY factura_id
+                ) fc2 ON fc1.factura_id = fc2.factura_id AND fc1.id = fc2.min_id
+            ) as fc'),
             'factura.id', '=', 'fc.factura_id'
         )
         ->leftJoin('contracts as cs1', 'cs1.nro', '=', 'fc.contrato_nro')
         ->leftJoin('contracts as cs2', 'cs2.id', '=', 'factura.contrato_id')
         ->leftJoin('mikrotik as mk', 'mk.id', '=', 'cs1.server_configuration_id')
-        // Optimización: Reemplazar subconsultas correlacionadas con LEFT JOINs
-        ->leftJoin(DB::raw('(SELECT factura, SUM(pago) as total_pago FROM ingresos_factura GROUP BY factura) as ing_fact'), 'ing_fact.factura', '=', 'factura.id')
-        ->leftJoin(DB::raw('(SELECT factura, IF(SUM(valor), SUM(valor), 0) as total_retencion FROM ingresos_retenciones GROUP BY factura) as ing_ret'), 'ing_ret.factura', '=', 'factura.id')
-        ->leftJoin(DB::raw('(SELECT factura, IF(SUM(pago), SUM(pago), 0) as total_nota FROM notas_factura GROUP BY factura) as notas_fact'), 'notas_fact.factura', '=', 'factura.id')
+        // Optimización: Agregaciones más eficientes usando COALESCE directamente
+        ->leftJoin(DB::raw('(SELECT factura, COALESCE(SUM(pago), 0) as total_pago FROM ingresos_factura GROUP BY factura) as ing_fact'), 'ing_fact.factura', '=', 'factura.id')
+        ->leftJoin(DB::raw('(SELECT factura, COALESCE(SUM(valor), 0) as total_retencion FROM ingresos_retenciones GROUP BY factura) as ing_ret'), 'ing_ret.factura', '=', 'factura.id')
+        ->leftJoin(DB::raw('(SELECT factura, COALESCE(SUM(pago), 0) as total_nota FROM notas_factura GROUP BY factura) as notas_fact'), 'notas_fact.factura', '=', 'factura.id')
         ->select(
             'barrio.nombre as barrio',
             'mk.nombre as servidor',
@@ -920,7 +920,34 @@ class FacturasController extends Controller{
             $facturas->orderby($orderByDefault, $orderDefault);
         }
 
+        // Optimización crítica: Usar una estrategia de consulta más eficiente
+        // Limitar la complejidad de la consulta usando DISTINCT en lugar de GROUP BY cuando sea posible
+        // y optimizar el conteo usando una subconsulta simple
+
+        // Para el conteo, usar una consulta más simple que solo cuente IDs únicos
+        $baseCountQuery = Factura::where('factura.empresa', $identificadorEmpresa)
+            ->where('factura.tipo', '!=', 2)
+            ->where('factura.tipo', '!=', 3)
+            ->where('factura.tipo', '!=', 5)
+            ->where('factura.tipo', '!=', 6)
+            ->where('factura.lectura', 1);
+
+        // Aplicar filtros básicos al conteo
+        if ($request->filtro == true && $request->estado) {
+            $status = ($request->estado == 'A') ? 0 : $request->estado;
+            $baseCountQuery->where('factura.estatus', $status);
+        } elseif (!$request->filtro || !isset($request->estado)) {
+            $baseCountQuery->where('factura.estatus', 1);
+        }
+
+        if ($request->filtro == true && $request->cliente) {
+            $baseCountQuery->where('factura.cliente', $request->cliente);
+        }
+
+        $totalRecords = $baseCountQuery->distinct()->count('factura.id');
+
         return datatables()->eloquent($facturas)
+        ->setTotalRecords($totalRecords)
         ->editColumn('codigo', function ($factura) {
             // Optimización: Usar el valor calculado porpagar en lugar de llamar al método
             $porpagar = $factura->porpagar ?? 0;
