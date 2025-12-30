@@ -575,6 +575,16 @@ class IngresosController extends Controller
                         $totalIngreso+=$precio = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
 
+
+                        //registro de que se creo un ingreso de factura
+                        $movimiento = new MovimientoLOG();
+                        $movimiento->contrato    = $factura->id;
+                        $movimiento->modulo      = 8;
+                        $movimiento->descripcion = 'Se creo un ingreso de factura en el recibo de caja nro ' . $ingreso->nro . ' por un total de $' . number_format($request->precio[$key], 0, ',', '.');
+                        $movimiento->created_by  = Auth::user()->id;
+                        $movimiento->empresa     = $factura->empresa;
+                        $movimiento->save();
+
                         //Registro el Movimiento de ingreso de saldo a favor
                         if($request->saldofavor > 0){
                             $descripcion = '<i class="fas fa-check text-success"></i> <b>Ingreso de saldo a favor en el recibo de caja nro ' . $ingreso->nro . '</b> por un total de $' . number_format($request->saldofavor, 0, ',', '.') . '<br>';
