@@ -1448,7 +1448,7 @@ class FacturaspController extends Controller
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit'], 400);
                 }else{
-                    return redirect('/empresa/facturasp')->with('message_denied', 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit');
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit');
                 }
             }
 
@@ -1459,7 +1459,7 @@ class FacturaspController extends Controller
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturasp')->with('message_denied', 'Factura o empresa no encontrada');
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'Factura o empresa no encontrada');
                 }
             }
 
@@ -1470,7 +1470,7 @@ class FacturaspController extends Controller
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'No hay resolucion de documento soporte activa, por favor verifique'], 404);
                 }else{
-                    return redirect('/empresa/facturasp')->with('message_denied', 'No hay resolucion de documento soporte activa, por favor verifique');
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'No hay resolucion de documento soporte activa, por favor verifique');
                 }
             }
 
