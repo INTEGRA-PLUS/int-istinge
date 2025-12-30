@@ -2561,10 +2561,10 @@ class ConfiguracionController extends Controller
         $numeracion->inicioverdadero = $request->inicio;
         $numeracion->final = $request->final;
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
@@ -2621,10 +2621,10 @@ class ConfiguracionController extends Controller
         $numeracion->final = $request->final;
 
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
