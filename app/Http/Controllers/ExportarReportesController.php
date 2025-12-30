@@ -393,19 +393,30 @@ class ExportarReportesController extends Controller
 
     public function facturasEstandar(Request $request){
         //Acá se obtiene la información a impimir
+        // Aumentar tiempo de ejecución para exportaciones grandes
+        set_time_limit(300); // 5 minutos
+        ini_set('max_execution_time', 300);
+
         DB::enableQueryLog();
 
+        $dates = $this->setDateRequest($request);
+
+        // Validar cantidad de registros antes de procesar
         $comprobacionFacturas = Factura::join('contactos as c', 'factura.cliente', '=', 'c.id')
-        ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-            'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus', 'factura.empresa', 'factura.emitida')
         ->where('factura.tipo',1)
         ->where('factura.empresa',Auth::user()->empresa)
-        ->groupBy('factura.id');
+        ->where('factura.fecha','>=', $dates['inicio'])
+        ->where('factura.fecha','<=', $dates['fin']);
 
-        $dates = $this->setDateRequest($request);
-        $comprobacionFacturas->where('fecha','>=', $dates['inicio'])->where('fecha','<=', $dates['fin']);
-        if($comprobacionFacturas->count() >2100){
-            // return $this->bigVentas($request);
+        if($request->input('barrio')){
+            $comprobacionFacturas->where('c.barrio_id',$request->barrio);
+        }
+
+        $totalRegistros = $comprobacionFacturas->count();
+
+        // Límite máximo de 5000 registros para evitar timeout
+        if($totalRegistros > 5000){
+            return back()->with('error', "La consulta contiene {$totalRegistros} facturas, lo cual es demasiada información para exportar. Por favor, reduzca el rango de fechas o agregue más filtros. El límite máximo es de 5000 facturas.");
         }
 
         $objPHPExcel = new PHPExcel();
@@ -440,19 +451,38 @@ class ExportarReportesController extends Controller
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
         }
 
-        $facturas = Factura::
-        join('contactos as c', 'factura.cliente', '=', 'c.id')
-        ->leftJoin('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
-        ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
-            'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus', 'factura.empresa', 'factura.emitida','fc.contrato_nro')
+        // Optimizar consulta con eager loading y joins necesarios
+        $facturas = Factura::join('contactos as c', 'factura.cliente', '=', 'c.id')
+        ->leftJoin('facturas_contratos as fc', function($join) {
+            $join->on('factura.id', '=', 'fc.factura_id')
+                 ->whereRaw('fc.id = (SELECT MIN(id) FROM facturas_contratos WHERE factura_id = factura.id)');
+        })
+        ->leftJoin('barrios as b', 'c.barrio_id', '=', 'b.id')
+        ->leftJoin('municipios as m', 'c.fk_idmunicipio', '=', 'm.id')
+        ->select(
+            'factura.id',
+            'factura.codigo',
+            'factura.nro',
+            'factura.cot_nro',
+            'factura.cliente',
+            'factura.fecha',
+            'factura.vencimiento',
+            'factura.estatus',
+            'factura.empresa',
+            'factura.emitida',
+            'fc.contrato_nro',
+            'c.nombre as cliente_nombre',
+            DB::raw("CONCAT(c.apellido1, ' ', c.apellido2) as cliente_apellidos"),
+            'c.nit as cliente_nit',
+            'c.estrato as cliente_estrato',
+            'c.celular as cliente_celular',
+            'c.direccion as cliente_direccion',
+            'b.nombre as barrio_nombre',
+            'm.nombre as municipio_nombre'
+        )
         ->where('factura.tipo',1)
-        ->where('factura.empresa',Auth::user()->empresa)
-        ->groupBy('factura.id');
-        $dates = $this->setDateRequest($request);
+        ->where('factura.empresa',Auth::user()->empresa);
 
-        /*if ($request->nro>0) {
-            $facturas=$facturas->where('numeracion', $request->nro);
-        }*/
         if($request->input('fechas') != 8 || (!$request->has('fechas'))){
             $facturas=$facturas->where('factura.fecha','>=', $dates['inicio'])->where('factura.fecha','<=', $dates['fin']);
         }
@@ -461,21 +491,44 @@ class ExportarReportesController extends Controller
             $facturas=$facturas->where('c.barrio_id',$request->barrio);
         }
 
-        $ides=array();
-        $factures=$facturas->get();
-        $facturas=$facturas->OrderBy('factura.id', 'DESC')->paginate(1000000)->appends(['fechas'=>$request->fechas, 'nro'=>$request->nro, 'fecha'=>$request->fecha, 'hasta'=>$request->hasta]);
-
-        foreach ($factures as $factura) {
-            $ides[]=$factura->id;
-        }
+        // Obtener facturas ordenadas (sin paginación absurda)
+        $facturas = $facturas->orderBy('factura.id', 'DESC')->get();
 
         Log::debug(DB::getQueryLog());
 
+        // Obtener IDs para cálculo de totales
+        $facturasIds = $facturas->pluck('id')->toArray();
+
         $subtotal=$total=0;
-        if ($ides) {
-            $result=DB::table('items_factura')->whereIn('factura', $ides)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
+        if ($facturasIds) {
+            $result=DB::table('items_factura')->whereIn('factura', $facturasIds)->select(DB::raw("SUM((`cant`*`precio`)) as 'total', SUM((precio*(`desc`/100)*`cant`)+0)  as 'descuento', SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as 'impuesto'  "))->first();
             $subtotal=$this->precision($result->total-$result->descuento);
             $total=$this->precision((float)$subtotal+$result->impuesto);
+        }
+
+        // Pre-cargar datos necesarios para evitar N+1
+
+        // Cargar todos los totales de una vez
+        $totalesFacturas = [];
+        if (!empty($facturasIds)) {
+            $itemsFactura = DB::table('items_factura')
+                ->whereIn('factura', $facturasIds)
+                ->select('factura', DB::raw("SUM((`cant`*`precio`)) as total"),
+                    DB::raw("SUM((precio*(`desc`/100)*`cant`)+0) as descuento"),
+                    DB::raw("SUM((precio-(precio*(if(`desc`,`desc`,0)/100)))*(`impuesto`/100)*cant) as impuesto"))
+                ->groupBy('factura')
+                ->get()
+                ->keyBy('factura');
+
+            // Cargar pagos de una vez
+            $pagosFacturas = DB::table('ingresos_factura as if')
+                ->join('ingresos as i', 'if.ingreso', '=', 'i.id')
+                ->whereIn('if.factura', $facturasIds)
+                ->where('i.estatus', '<>', 2)
+                ->select('if.factura', DB::raw('SUM(if.pago) as pagado'))
+                ->groupBy('if.factura')
+                ->get()
+                ->keyBy('factura');
         }
 
         // Aquí se escribe en el archivo
@@ -483,39 +536,69 @@ class ExportarReportesController extends Controller
         $moneda = Auth::user()->empresa()->moneda;
         $porPagarTotal = 0;
         $pagadoTotal = 0;
-        foreach ($facturas as $factura) {
+        $facturasParaActualizar = [];
 
-            $porPagar = $factura->porpagar();
-            if($porPagar == 0 && $factura->estatus == 1){
-                $factura->estatus = 0;
-                $factura->save();
+        // Cargar modelos de Factura para métodos que los necesiten
+        $facturasModelos = Factura::whereIn('id', $facturasIds)->get()->keyBy('id');
+
+        foreach ($facturas as $facturaRow) {
+            $facturaId = $facturaRow->id;
+            $facturaModelo = $facturasModelos[$facturaId] ?? null;
+
+            // Calcular totales usando datos precargados
+            $totalFactura = null;
+            if (isset($itemsFactura[$facturaId])) {
+                $item = $itemsFactura[$facturaId];
+                $subtotalCalc = $this->precision($item->total - $item->descuento);
+                $totalFactura = (object)[
+                    'subtotal' => $subtotalCalc,
+                    'total' => $this->precision((float)$subtotalCalc + $item->impuesto),
+                    'valImpuesto' => $item->impuesto
+                ];
+            } else if ($facturaModelo) {
+                // Si no hay items, usar método del modelo (puede tener retenciones, etc)
+                $totalFactura = $facturaModelo->total();
+            } else {
+                $totalFactura = (object)['subtotal' => 0, 'total' => 0, 'valImpuesto' => 0];
             }
 
-            $formaPago = $factura->cuentaPagoListIngreso();
-            $cliente = $factura->cliente();
-            $totalFactura = $factura->total();
-            $pagado = $factura->pagado();
-            $porPagarTotal+= $porPagar;
-            $pagadoTotal+= $pagado;
+            $pagado = isset($pagosFacturas[$facturaId]) ? $pagosFacturas[$facturaId]->pagado : 0;
+            $porPagar = $totalFactura->total - $pagado;
 
-            array('Nro. Factura', 'Cliente', 'Cedula', 'Estrato', 'Municipio','Direccion','Celular','Creacion','Vencimiento','Dian','Estatus','Forma Pago','Items','Iva','Antes de Impuesto','Despues de Impuesto');
+            // Acumular para actualización masiva después
+            if($porPagar == 0 && $facturaRow->estatus == 1){
+                $facturasParaActualizar[] = $facturaId;
+            }
+
+            $porPagarTotal += $porPagar;
+            $pagadoTotal += $pagado;
+
+            // Usar datos del join en lugar de métodos cuando sea posible
+            $clienteNombre = trim(($facturaRow->cliente_nombre ?? '') . ' ' . ($facturaRow->cliente_apellidos ?? ''));
+
+            // Usar métodos del modelo solo cuando sea necesario
+            $estatusTexto = $facturaModelo ? $facturaModelo->estatus() : ($facturaRow->estatus == 1 ? 'Abierta' : 'Cerrada');
+            $formaPago = $facturaModelo ? $facturaModelo->cuentaPagoListIngreso() : "No tiene forma de pago.";
+            $periodoCobrado = $facturaModelo ? $facturaModelo->periodoCobradoTexto() : '';
+            $listItems = $facturaModelo ? $facturaModelo->listItems() : '';
+
             $objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue($letras[0].$i, $factura->codigo)
-            ->setCellValue($letras[1].$i, $cliente->nombre.' '.$cliente->apellidos())
-            ->setCellValue($letras[2].$i, $cliente->nit)
-            ->setCellValue($letras[3].$i, $factura->contrato_nro)
-            ->setCellValue($letras[4].$i, $cliente->estrato)
-            ->setCellValue($letras[5].$i, $cliente->municipio()->nombre)
-            ->setCellValue($letras[6].$i, $cliente->celular)
-            ->setCellValue($letras[7].$i, $cliente->direccion)
-            ->setCellValue($letras[8].$i, $cliente->barrio()->nombre)
-            ->setCellValue($letras[9].$i, date('d-m-Y', strtotime($factura->fecha)))
-            ->setCellValue($letras[10].$i, date('d-m-Y', strtotime($factura->vencimiento)))
-            ->setCellValue($letras[11].$i, $factura->emitida == 1 ? 'Emitida' : 'No Emitida')
-            ->setCellValue($letras[12].$i, $factura->estatus())
-            ->setCellValue($letras[13].$i, $formaPago != "" ? $formaPago : "No tiene forma de pago.")
-            ->setCellValue($letras[14].$i, $factura->periodoCobradoTexto())
-            ->setCellValue($letras[15].$i, $factura->listItems())
+            ->setCellValue($letras[0].$i, $facturaRow->codigo)
+            ->setCellValue($letras[1].$i, $clienteNombre)
+            ->setCellValue($letras[2].$i, $facturaRow->cliente_nit ?? '')
+            ->setCellValue($letras[3].$i, $facturaRow->contrato_nro ?? '')
+            ->setCellValue($letras[4].$i, $facturaRow->cliente_estrato ?? '')
+            ->setCellValue($letras[5].$i, $facturaRow->municipio_nombre ?? '')
+            ->setCellValue($letras[6].$i, $facturaRow->cliente_celular ?? '')
+            ->setCellValue($letras[7].$i, $facturaRow->cliente_direccion ?? '')
+            ->setCellValue($letras[8].$i, $facturaRow->barrio_nombre ?? '')
+            ->setCellValue($letras[9].$i, date('d-m-Y', strtotime($facturaRow->fecha)))
+            ->setCellValue($letras[10].$i, $facturaRow->vencimiento ? date('d-m-Y', strtotime($facturaRow->vencimiento)) : '')
+            ->setCellValue($letras[11].$i, $facturaRow->emitida == 1 ? 'Emitida' : 'No Emitida')
+            ->setCellValue($letras[12].$i, $estatusTexto)
+            ->setCellValue($letras[13].$i, $formaPago ?: "No tiene forma de pago.")
+            ->setCellValue($letras[14].$i, $periodoCobrado)
+            ->setCellValue($letras[15].$i, $listItems)
             ->setCellValue($letras[16].$i, $totalFactura->valImpuesto)
             ->setCellValue($letras[17].$i, $totalFactura->subtotal)
             ->setCellValue($letras[18].$i, $totalFactura->total)
@@ -523,6 +606,11 @@ class ExportarReportesController extends Controller
             ->setCellValue($letras[20].$i, $pagado)
             ;
             $i++;
+        }
+
+        // Actualización masiva de estatus en lugar de uno por uno
+        if (!empty($facturasParaActualizar)) {
+            DB::table('factura')->whereIn('id', $facturasParaActualizar)->update(['estatus' => 0]);
         }
 
         $objPHPExcel->setActiveSheetIndex(0)

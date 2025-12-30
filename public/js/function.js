@@ -1449,7 +1449,7 @@ function rellenar(id, selected, producto = false) {
 
             if (pathname.split("/")[3] === "facturasp" || pathname.split("/")[3] === "notasdebito") {
                 if (data.costo_unidad <= 0) {
-                    $('#precio' + id).val('1');
+                    $('#precio' + id).val(data.precio);
                 } else {
                     $('#precio' + id).val(data.costo_unidad);
                 }

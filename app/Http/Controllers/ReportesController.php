@@ -2708,6 +2708,28 @@ class ReportesController extends Controller
         $orderby=$campos[$request->orderby];
         $order=$request->order==1?'DESC':'ASC';
 
+        $dates = $this->setDateRequest($request);
+
+        // Validar cantidad de registros antes de procesar
+        $comprobacionFacturas = Factura::join('contactos as c', 'factura.cliente', '=', 'c.id')
+            ->where('factura.tipo',1)
+            ->where('factura.empresa',Auth::user()->empresa);
+
+        if($request->input('fechas') != 8 || (!$request->has('fechas'))){
+            $comprobacionFacturas->where('factura.fecha','>=', $dates['inicio'])->where('factura.fecha','<=', $dates['fin']);
+        }
+
+        if($request->input('barrio')){
+            $comprobacionFacturas->where('c.barrio_id',$request->barrio);
+        }
+
+        $totalRegistros = $comprobacionFacturas->count();
+
+        // Límite máximo de 5000 registros para evitar timeout
+        if($totalRegistros > 5000){
+            return back()->with('error', "La consulta contiene {$totalRegistros} facturas, lo cual es demasiada información para mostrar. Por favor, reduzca el rango de fechas o agregue más filtros. El límite máximo es de 5000 facturas.");
+        }
+
         $facturas = Factura::join('contactos as c', 'factura.cliente', '=', 'c.id')
             ->select('factura.id', 'factura.codigo', 'factura.nro','factura.cot_nro', DB::raw('c.nombre as nombrecliente'),
                 'factura.cliente', 'factura.fecha', 'factura.vencimiento', 'factura.estatus', 'factura.empresa', 'factura.emitida'
@@ -2715,10 +2737,6 @@ class ReportesController extends Controller
             ->where('factura.tipo',1)
             ->where('factura.empresa',Auth::user()->empresa)
             ->groupBy('factura.id');
-
-        $example = $facturas->get()->last();
-
-        $dates = $this->setDateRequest($request);
 
         if($request->input('fechas') != 8 || (!$request->has('fechas'))){
             $facturas=$facturas->where('factura.fecha','>=', $dates['inicio'])->where('factura.fecha','<=', $dates['fin']);
@@ -2728,18 +2746,102 @@ class ReportesController extends Controller
             $facturas=$facturas->where('c.barrio_id',$request->barrio);
         }
 
-        $ides=array();
         $facturas=$facturas->OrderBy($orderby, $order)->get();
 
-        foreach ($facturas as $factura) {
-            $ides[]=$factura->id;
+        // Obtener IDs para cálculos optimizados
+        $ides = $facturas->pluck('id')->toArray();
+
+        // Pre-cargar datos para evitar N+1
+        $totalesFacturas = [];
+        $impuestosFacturas = [];
+        $retencionesFacturas = [];
+        $devolucionesFacturas = [];
+
+        if (!empty($ides)) {
+            // Cargar items y calcular totales base
+            $itemsFactura = DB::table('items_factura as if')
+                ->join('impuestos as imp', 'if.id_impuesto', '=', 'imp.id')
+                ->whereIn('if.factura', $ides)
+                ->select(
+                    'if.factura',
+                    DB::raw("SUM((if.cant * if.precio)) as subtotal"),
+                    DB::raw("SUM((if.precio * (if.desc / 100) * if.cant) + 0) as descuento"),
+                    DB::raw("SUM((if.precio - (if.precio * (IF(if.desc, if.desc, 0) / 100))) * (if.impuesto / 100) * if.cant) as impuesto"),
+                    DB::raw("SUM(CASE WHEN imp.tipo = 1 THEN (if.precio - (if.precio * (IF(if.desc, if.desc, 0) / 100))) * (if.impuesto / 100) * if.cant ELSE 0 END) as iva")
+                )
+                ->groupBy('if.factura')
+                ->get()
+                ->keyBy('factura');
+
+            // Cargar retenciones de factura
+            $retencionesFactura = DB::table('factura_retenciones')
+                ->whereIn('factura', $ides)
+                ->select('factura', DB::raw('SUM(valor) as retenido'))
+                ->groupBy('factura')
+                ->get()
+                ->keyBy('factura');
+
+            // Cargar retenciones de ingresos
+            $retencionesIngresos = DB::table('ingresos_factura as if')
+                ->join('ingresos_retenciones as ir', function($join) {
+                    $join->on('ir.ingreso', '=', 'if.ingreso')
+                         ->on('ir.factura', '=', 'if.factura');
+                })
+                ->join('ingresos as i', 'if.ingreso', '=', 'i.id')
+                ->whereIn('if.factura', $ides)
+                ->where('i.estatus', '<>', 2)
+                ->select('if.factura', DB::raw('SUM(ir.valor) as retenido'))
+                ->groupBy('if.factura')
+                ->get()
+                ->keyBy('factura');
+
+            // Cargar devoluciones (notas de crédito)
+            $devolucionesFacturas = DB::table('nota_credito_factura')
+                ->whereIn('factura', $ides)
+                ->select('factura', DB::raw('SUM(pago) as devolucion'))
+                ->groupBy('factura')
+                ->get()
+                ->keyBy('factura');
+
+            // Procesar y calcular totales para cada factura
+            foreach ($ides as $facturaId) {
+                $item = $itemsFactura[$facturaId] ?? null;
+                if ($item) {
+                    $subsub = $this->precision($item->subtotal - $item->descuento);
+                    $retenidoFactura = isset($retencionesFactura[$facturaId]) ? $retencionesFactura[$facturaId]->retenido : 0;
+                    $retenidoIngreso = isset($retencionesIngresos[$facturaId]) ? $retencionesIngresos[$facturaId]->retenido : 0;
+                    $retenidoTotal = $retenidoFactura + $retenidoIngreso;
+                    $subsubConRetencion = $subsub - $retenidoTotal;
+                    $total = $this->precision((float)$subsubConRetencion + $item->impuesto);
+                    $devolucion = isset($devolucionesFacturas[$facturaId]) ? $devolucionesFacturas[$facturaId]->devolucion : 0;
+
+                    $totalesFacturas[$facturaId] = (object)[
+                        'subsub' => $subsub,
+                        'total' => $total - $devolucion,
+                        'impuesto' => $item->impuesto
+                    ];
+                    $impuestosFacturas[$facturaId] = $item->iva ?? 0;
+                    $retencionesFacturas[$facturaId] = $retenidoTotal;
+                    $devolucionesFacturas[$facturaId] = $devolucion;
+                } else {
+                    $totalesFacturas[$facturaId] = (object)['subsub' => 0, 'total' => 0, 'impuesto' => 0];
+                    $impuestosFacturas[$facturaId] = 0;
+                    $retencionesFacturas[$facturaId] = 0;
+                    $devolucionesFacturas[$facturaId] = 0;
+                }
+            }
         }
 
+        // Obtener ejemplo (última factura) de forma eficiente
+        $example = $facturas->last();
+
+        // Asignar valores calculados a cada factura
         foreach ($facturas as $invoice) {
-            $invoice->subtotal = $invoice->total()->subsub;
-            $invoice->iva = $invoice->impuestos_totales();
-            $invoice->retenido = $factura->retenido(true);
-            $invoice->total = $invoice->total()->total - $invoice->devoluciones();
+            $facturaId = $invoice->id;
+            $invoice->subtotal = $totalesFacturas[$facturaId]->subsub ?? 0;
+            $invoice->iva = $impuestosFacturas[$facturaId] ?? 0;
+            $invoice->retenido = $retencionesFacturas[$facturaId] ?? 0;
+            $invoice->total = $totalesFacturas[$facturaId]->total ?? 0;
         }
         if($request->orderby == 4 || $request->orderby == 5  || $request->orderby == 6 || $request->orderby == 7 ){
             switch ($request->orderby){
