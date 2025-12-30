@@ -121,7 +121,8 @@ class ContratosController extends Controller
         $vendedores = Vendedor::where('empresa', Auth::user()->empresa)->where('estado', 1)->get();
         $canales = Canal::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $barrios = Barrios::where('status', '1')->get();
-        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'barrios'));
+        $cajaNaps = CajaNap::where('status', 1)->orderBy('nombre', 'ASC')->get();
+        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'barrios', 'cajaNaps'));
     }
 
     public function enabled(Request $request)
@@ -139,7 +140,8 @@ class ContratosController extends Controller
         $vendedores = Vendedor::where('empresa', Auth::user()->empresa)->where('estado', 1)->get();
         $canales = Canal::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
         $barrios = Barrios::where('status', '1')->get();
-        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'barrios'));
+        $cajaNaps = CajaNap::where('status', 1)->orderBy('nombre', 'ASC')->get();
+        return view('contratos.indexnew', compact('clientes', 'planes', 'servidores', 'grupos', 'tipo', 'tabla', 'nodos', 'aps', 'vendedores', 'canales', 'barrios', 'cajaNaps'));
     }
 
     public function contratos(Request $request, $nodo)
@@ -753,12 +755,12 @@ class ContratosController extends Controller
                 'server_configuration_id' => 'required',
                 'conexion' => 'required',
             ];
-            
+
             // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
             if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
                 $rules['ip'] = 'required';
             }
-            
+
             $request->validate($rules);
         } elseif ($request->servicio_tv) {
             $request->validate([
@@ -1601,12 +1603,12 @@ class ContratosController extends Controller
                 'server_configuration_id' => 'required',
                 'conexion' => 'required',
             ];
-            
+
             // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
             if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
                 $rules['ip'] = 'required';
             }
-            
+
             $request->validate($rules);
         } elseif ($request->servicio_tv) {
             $request->validate([
