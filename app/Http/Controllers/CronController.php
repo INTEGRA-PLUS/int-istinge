@@ -5041,7 +5041,7 @@ class CronController extends Controller
     }
 
     //Este metodo me permite validar y eliminar facturas duplicadas con los mismos criterios.
-    public function validateFacturasDuplicadas($fecha){
+    public static function validateFacturasDuplicadas($fecha){
 
         $eliminadas = 0;
         $mensaje = [];
