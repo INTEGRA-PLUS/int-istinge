@@ -205,6 +205,10 @@
                             <td>{{$radicado->cliente()->barrio()->nombre}}</td>
                         </tr>
                         @endif
+                        <tr>
+                            <th>Dirección</th>
+                            <td>{{$radicado->direccion}}</td>
+                        </tr>
     					@if($radicado->creado)
     					<tr>
     						<th>Creado desde</th>
