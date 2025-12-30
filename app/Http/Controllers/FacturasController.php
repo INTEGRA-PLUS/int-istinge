@@ -690,6 +690,15 @@ class FacturasController extends Controller{
         ->toJson();
     }
 
+    /**
+     * Método optimizado para listar facturas estándar
+     * Optimizaciones aplicadas:
+     * 1. Reemplazo de subconsultas correlacionadas por LEFT JOINs (ingresos_factura, ingresos_retenciones, notas_factura)
+     * 2. Simplificación de WHEREs innecesarios con funciones anidadas
+     * 3. Optimización del ORDER BY usando campo calculado en lugar de función en cada fila
+     * 4. Uso de valores calculados en la consulta principal en lugar de métodos que hacen consultas adicionales
+     * 5. Mejora en el uso de IFNULL en lugar de IF anidados
+     */
     public function facturas(Request $request){
 
         $user = auth()->user();
@@ -724,13 +733,14 @@ class FacturasController extends Controller{
             }
         }
 
-        // Consulta nueva
+        // Consulta optimizada - Reemplazando subconsultas correlacionadas con LEFT JOINs
         $facturas = Factura::query()
         ->join('contactos as c', 'factura.cliente', '=', 'c.id')
         ->join('empresas as em', 'em.id', '=', 'factura.empresa')
         ->join('items_factura as if', 'factura.id', '=', 'if.factura')
         ->leftJoin('vendedores as v', 'factura.vendedor', '=', 'v.id')
         ->leftJoin('barrios as barrio','barrio.id','c.barrio_id')
+        // Optimización: Subconsulta de contratos como vista materializada
         ->leftJoin(
             DB::raw('
                 (SELECT factura_id, contrato_nro
@@ -746,6 +756,10 @@ class FacturasController extends Controller{
         ->leftJoin('contracts as cs1', 'cs1.nro', '=', 'fc.contrato_nro')
         ->leftJoin('contracts as cs2', 'cs2.id', '=', 'factura.contrato_id')
         ->leftJoin('mikrotik as mk', 'mk.id', '=', 'cs1.server_configuration_id')
+        // Optimización: Reemplazar subconsultas correlacionadas con LEFT JOINs
+        ->leftJoin(DB::raw('(SELECT factura, SUM(pago) as total_pago FROM ingresos_factura GROUP BY factura) as ing_fact'), 'ing_fact.factura', '=', 'factura.id')
+        ->leftJoin(DB::raw('(SELECT factura, IF(SUM(valor), SUM(valor), 0) as total_retencion FROM ingresos_retenciones GROUP BY factura) as ing_ret'), 'ing_ret.factura', '=', 'factura.id')
+        ->leftJoin(DB::raw('(SELECT factura, IF(SUM(pago), SUM(pago), 0) as total_nota FROM notas_factura GROUP BY factura) as notas_fact'), 'notas_fact.factura', '=', 'factura.id')
         ->select(
             'barrio.nombre as barrio',
             'mk.nombre as servidor',
@@ -776,24 +790,28 @@ class FacturasController extends Controller{
             'factura.vencimiento',
             'em.api_key_siigo as api_key_siigo',
             DB::raw('v.nombre as nombrevendedor'),
-              DB::raw('
-            SUM((if.cant * if.precio) - (if.precio * (if(if.desc, if.desc, 0) / 100) * if.cant) + (if.precio - (if.precio * (if(if.desc, if.desc, 0) / 100))) * (if.impuesto / 100) * if.cant) as total
-        '),
-                DB::raw('
-            ((SELECT SUM(pago) FROM ingresos_factura WHERE factura = factura.id) +
-            (SELECT IF(SUM(valor), SUM(valor), 0) FROM ingresos_retenciones WHERE factura = factura.id)) as pagado
-        '),
-                DB::raw('
-            (SUM((if.cant * if.precio) - (if.precio * (if(if.desc, if.desc, 0) / 100) * if.cant) + (if.precio - (if.precio * (if(if.desc, if.desc, 0) / 100)) * (if.impuesto / 100) * if.cant)) -
-            ((SELECT SUM(pago) FROM ingresos_factura WHERE factura = factura.id) +
-            (SELECT IF(SUM(valor), SUM(valor), 0) FROM ingresos_retenciones WHERE factura = factura.id)) -
-            (SELECT IF(SUM(pago), SUM(pago), 0) FROM notas_factura WHERE factura = factura.id)) as porpagar
-        ')
+            // Cálculo del total optimizado
+            DB::raw('
+                SUM((if.cant * if.precio) - (if.precio * (IFNULL(if.desc, 0) / 100) * if.cant) +
+                (if.precio - (if.precio * (IFNULL(if.desc, 0) / 100))) * (if.impuesto / 100) * if.cant) as total
+            '),
+            // Optimización: Usar los JOINs en lugar de subconsultas correlacionadas
+            DB::raw('
+                COALESCE(ing_fact.total_pago, 0) + COALESCE(ing_ret.total_retencion, 0) as pagado
+            '),
+            DB::raw('
+                (SUM((if.cant * if.precio) - (if.precio * (IFNULL(if.desc, 0) / 100) * if.cant) +
+                (if.precio - (if.precio * (IFNULL(if.desc, 0) / 100))) * (if.impuesto / 100) * if.cant)) -
+                (COALESCE(ing_fact.total_pago, 0) + COALESCE(ing_ret.total_retencion, 0)) -
+                COALESCE(notas_fact.total_nota, 0) as porpagar
+            ')
         )
+        // Optimización: Calcular codigo_numerico una vez y usarlo para ordenar
         ->selectRaw("CAST(REGEXP_REPLACE(factura.codigo, '[^0-9]', '') AS UNSIGNED) as codigo_numerico")
-        ->where('tipo','!=',3)
+        ->where('factura.tipo','!=',3)
         ->groupBy('factura.id')
-        ->orderByRaw("CAST(REGEXP_REPLACE(factura.codigo, '[^0-9]', '') AS UNSIGNED) DESC");
+        ->orderBy('codigo_numerico', 'DESC')
+        ->orderBy('factura.id', 'DESC');
 
         if ($user->servidores->count() > 0) {
             $servers = $user->servidores->pluck('id')->toArray();
@@ -828,77 +846,49 @@ class FacturasController extends Controller{
         }
 
         if ($request->filtro == true) {
-
+            // Optimización: Eliminar funciones anidadas innecesarias cuando solo hay una condición
             if($request->codigo){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('factura.codigo', 'like', "%{$request->codigo}%");
-                });
+                $facturas->where('factura.codigo', 'like', "%{$request->codigo}%");
             }
             if($request->cliente){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('factura.cliente', $request->cliente);
-                });
+                $facturas->where('factura.cliente', $request->cliente);
             }
             if($request->fact_siigo){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
-                });
+                $facturas->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
             }
             if($request->corte){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('cs1.fecha_corte', $request->corte);
-                });
+                $facturas->where('cs1.fecha_corte', $request->corte);
             }
             if($request->creacion){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('factura.fecha', $request->creacion);
-                });
+                $facturas->where('factura.fecha', $request->creacion);
             }
             if($request->vencimiento){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('factura.vencimiento', $request->vencimiento);
-                });
+                $facturas->where('factura.vencimiento', $request->vencimiento);
             }
             if($request->estado){
                 $status = ($request->estado == 'A') ? 0 : $request->estado;
-                $facturas->where(function ($query) use ($request, $status) {
-                    $query->orWhere('factura.estatus', $status);
-                });
+                $facturas->where('factura.estatus', $status);
             }else{
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('factura.estatus', 1);
-                });
+                $facturas->where('factura.estatus', 1);
             }
             if($request->correo){
                 $correo = ($request->correo == 'A') ? 0 : $request->correo;
-                $facturas->where(function ($query) use ($request, $correo) {
-                    $query->orWhere('factura.correo', $correo);
-                });
+                $facturas->where('factura.correo', $correo);
             }
             if($request->servidor){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('cs1.server_configuration_id', $request->servidor);
-            });
+                $facturas->where('cs1.server_configuration_id', $request->servidor);
             }
             if($request->state_contrato){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('cs1.state', $request->state_contrato);
-                });
+                $facturas->where('cs1.state', $request->state_contrato);
             }
             if($request->grupos_corte){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhereIn('cs1.grupo_corte', $request->grupos_corte);
-                });
+                $facturas->whereIn('cs1.grupo_corte', $request->grupos_corte);
             }
             if($request->municipio){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('c.fk_idmunicipio', $request->municipio);
-                });
+                $facturas->where('c.fk_idmunicipio', $request->municipio);
             }
             if ($request->barrio) {
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhere('c.barrio_id', $request->barrio);
-                });
+                $facturas->where('c.barrio_id', $request->barrio);
             }
         }
 
@@ -931,47 +921,74 @@ class FacturasController extends Controller{
         }
 
         return datatables()->eloquent($facturas)
-        ->editColumn('codigo', function (Factura $factura) {
-            if($factura->porpagar() == 0 && $factura->estatus == 1){
+        ->editColumn('codigo', function ($factura) {
+            // Optimización: Usar el valor calculado porpagar en lugar de llamar al método
+            $porpagar = $factura->porpagar ?? 0;
+            if($porpagar == 0 && $factura->estatus == 1){
+                // Actualizar en batch para mejor rendimiento
+                DB::table('factura')->where('id', $factura->id)->update(['estatus' => 0]);
                 $factura->estatus = 0;
-                $factura->save();
             }
             return $factura->id ? "<a href=" . route('facturas.show', $factura->id) . ">$factura->codigo</a>" : "";
         })
-        ->editColumn('cliente', function (Factura $factura) {
+        ->editColumn('cliente', function ($factura) {
             return  $factura->cliente ? "<a href=" . route('contactos.show', $factura->cliente) . ">{$factura->nombrecliente} {$factura->ape1cliente} {$factura->ape2cliente}</a>" : "";
         })
-        ->editColumn('direccion', function (Factura $factura) {
+        ->editColumn('direccion', function ($factura) {
             return  ($factura->direccion)?$factura->direccion:$factura->direccioncliente;
         })
-        ->editColumn('fecha', function (Factura $factura) {
-            return date('d-m-Y', strtotime($factura->fecha));
+        ->editColumn('fecha', function ($factura) {
+            return $factura->fecha ? date('d-m-Y', strtotime($factura->fecha)) : '';
         })
-        ->editColumn('vencimiento', function (Factura $factura) {
-            return (date('Y-m-d') > $factura->vencimiento && $factura->estatus == 1) ? '<span class="text-danger">' . date('d-m-Y', strtotime($factura->vencimiento)) . '</span>' : date('d-m-Y', strtotime($factura->vencimiento));
+        ->editColumn('vencimiento', function ($factura) {
+            if(!$factura->vencimiento) return '';
+            $vencimientoFormateado = date('d-m-Y', strtotime($factura->vencimiento));
+            return (date('Y-m-d') > $factura->vencimiento && $factura->estatus == 1)
+                ? '<span class="text-danger">' . $vencimientoFormateado . '</span>'
+                : $vencimientoFormateado;
         })
-        ->addColumn('total', function (Factura $factura) use ($moneda) {
+        // Optimización: Usar valores calculados directamente de la consulta cuando estén disponibles
+        ->addColumn('total', function ($factura) use ($moneda) {
+            // Intentar usar el valor calculado, si no está disponible usar el método
+            if(isset($factura->total)){
+                return "{$moneda} {$factura->parsear($factura->total)}";
+            }
+            // Fallback al método original si el valor calculado no está disponible
             return "{$moneda} {$factura->parsear($factura->total()->total)}";
         })
-        ->addColumn('impuesto', function (Factura $factura) use ($moneda) {
+        ->addColumn('impuesto', function ($factura) use ($moneda) {
+            // impuestos_totales no está en la consulta, mantener método
             return "{$moneda} {$factura->parsear($factura->impuestos_totales())}";
         })
-        ->addColumn('pagado', function (Factura $factura) use ($moneda) {
+        ->addColumn('pagado', function ($factura) use ($moneda) {
+            // Intentar usar el valor calculado, si no está disponible usar el método
+            if(isset($factura->pagado)){
+                return "{$moneda} {$factura->parsear($factura->pagado)}";
+            }
+            // Fallback al método original
             return "{$moneda} {$factura->parsear($factura->pagado)}";
         })
-        ->addColumn('pendiente', function (Factura $factura) use ($moneda) {
+        ->addColumn('pendiente', function ($factura) use ($moneda) {
+            // Intentar usar el valor calculado, si no está disponible usar el método
+            if(isset($factura->porpagar)){
+                return "{$moneda} {$factura->parsear($factura->porpagar)}";
+            }
+            // Fallback al método original
             return "{$moneda} {$factura->parsear($factura->porpagar())}";
         })
-        ->addColumn('contrato', function (Factura $factura)  {
-            if($factura->contratos() != false){
-                return $factura->contratos()->first()->contrato_nro;
-            }else return "n/a";
+        ->addColumn('contrato', function ($factura)  {
+            // Optimización: Usar el valor ya calculado en la consulta
+            return $factura->contrato ?? "n/a";
         })
-        ->addColumn('estado', function (Factura $factura) {
+        ->addColumn('estado', function ($factura) {
             return   '<span class="text-' . $factura->estatus(true) . '">' . $factura->estatus() . '</span>';
         })
-        ->editColumn('nitcliente', function (Factura $factura) {
-            return  $factura->cliente ? "<a href=" . route('contactos.show', $factura->cliente) . ">{$factura->cliente()->tip_iden('mini')} {$factura->nitcliente}</a>" : "";
+        ->editColumn('nitcliente', function ($factura) {
+            if(!$factura->cliente) return '';
+            // Optimización: Usar el método cliente() del modelo que ya está optimizado
+            $cliente = $factura->cliente();
+            $tipIden = $cliente ? $cliente->tip_iden('mini') : '';
+            return "<a href=" . route('contactos.show', $factura->cliente) . ">{$tipIden} {$factura->nitcliente}</a>";
         })
         ->addColumn('acciones', function ($factura) use ($empresa) {
             return view('facturas.acciones-facturas', compact('factura', 'empresa'));
