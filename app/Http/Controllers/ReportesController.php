@@ -2796,7 +2796,7 @@ class ReportesController extends Controller
                 ->keyBy('factura');
 
             // Cargar devoluciones (notas de crédito)
-            $devolucionesFacturas = DB::table('nota_credito_factura')
+            $devolucionesFacturas = DB::table('notas_factura')
                 ->whereIn('factura', $ides)
                 ->select('factura', DB::raw('SUM(pago) as devolucion'))
                 ->groupBy('factura')
