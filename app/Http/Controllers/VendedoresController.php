@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Empresa; use App\Vendedor; use Carbon\Carbon; 
-use Validator; use Illuminate\Validation\Rule;  use Auth; 
+use App\Empresa; use App\Vendedor; use Carbon\Carbon;
+use Validator; use Illuminate\Validation\Rule;  use Auth;
 use Session;
 
 class VendedoresController extends Controller
@@ -24,7 +24,7 @@ class VendedoresController extends Controller
       $this->getAllPermissions(Auth::user()->id);
  		$vendedores = Vendedor::where('empresa',Auth::user()->empresa)->get();
 
- 		return view('configuracion.vendedores.index')->with(compact('vendedores'));   		
+ 		return view('configuracion.vendedores.index')->with(compact('vendedores'));
  	}
 
   /**
@@ -34,7 +34,7 @@ class VendedoresController extends Controller
   public function create(){
       $this->getAllPermissions(Auth::user()->id);
     view()->share(['title' => 'Nuevo Vendedor']);
-    return view('configuracion.vendedores.create'); 
+    return view('configuracion.vendedores.create');
   }
 
   /**
@@ -46,7 +46,7 @@ class VendedoresController extends Controller
     $request->validate([
           'nombre' => 'required|max:250',
           'identificacion' => 'required|numeric'
-    ]); 
+    ]);
     $vendedor = new Vendedor;
     $vendedor->empresa=Auth::user()->empresa;
     $vendedor->nombre=ucwords(mb_strtolower($request->nombre));
@@ -66,7 +66,7 @@ class VendedoresController extends Controller
   public function edit($id){
       $this->getAllPermissions(Auth::user()->id);
     $vendedor = Vendedor::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-    if ($vendedor) {        
+    if ($vendedor) {
       view()->share(['title' => 'Modificar vendedor']);
       return view('configuracion.vendedores.edit')->with(compact('vendedor'));
     }
@@ -83,7 +83,7 @@ class VendedoresController extends Controller
     if ($vendedor) {
       $request->validate([
             'nombre' => 'required|max:250'
-      ]); 
+      ]);
       $vendedor->nombre=$request->nombre;
       $vendedor->identificacion=$request->identificacion;
       $vendedor->observaciones=$request->observaciones;
@@ -100,12 +100,27 @@ class VendedoresController extends Controller
   * @param int $id
   * @return redirect
   */
-  public function destroy($id){      
-    $vendedor=Vendedor::where('empresa',Auth::user()->empresa)->where('id', $id)->first(); 
-    if ($vendedor->usado()==0) {
+  public function destroy($id){
+    $vendedor=Vendedor::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+
+    if (!$vendedor) {
+      return redirect('empresa/configuracion/vendedores')->with('error', 'No existe un registro con ese id');
+    }
+
+    if ($vendedor->usado() == 0) {
       $vendedor->delete();
-    }  
-    return redirect('empresa/configuracion/vendedores')->with('success', 'Se ha eliminado el vendedor');
+      return redirect('empresa/configuracion/vendedores')->with('success', 'Se ha eliminado el vendedor');
+    } else {
+      // Obtener información detallada de dónde está siendo usado
+      $usadoEn = $vendedor->usadoEn();
+      $mensajes = array_map(function($item) {
+        return $item['mensaje'];
+      }, $usadoEn);
+
+      $mensaje = "No se puede eliminar el vendedor porque está asociado a documentos: " . implode(', ', $mensajes) . ". Por favor, elimine o modifique los documentos asociados antes de eliminar el vendedor.";
+
+      return redirect('empresa/configuracion/vendedores')->with('error', $mensaje);
+    }
   }
 
   /**
@@ -115,7 +130,7 @@ class VendedoresController extends Controller
   */
   public function act_desc($id){
     $vendedor = Vendedor::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-    if ($vendedor) {        
+    if ($vendedor) {
         if ($vendedor->estado==1) {
           $mensaje='Se ha desactivado el vendedor';
           $vendedor->estado=0;
@@ -133,6 +148,6 @@ class VendedoresController extends Controller
 
 
 
- 
+
 
 }
