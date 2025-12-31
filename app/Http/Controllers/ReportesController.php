@@ -163,8 +163,8 @@ class ReportesController extends Controller
                 $facturas = $facturas->where('ctr.grupo_corte', $request->grupo);
             }
 
-            if($request->formapago){
-                $facturas=$facturas->where('ig.puc_banco', $request->formapago);
+            if($request->metodo_pago){
+                $facturas=$facturas->where('i.metodo_pago', $request->metodo_pago);
             }
 
             $ides=array();
@@ -281,10 +281,10 @@ class ReportesController extends Controller
 
             $gruposCorte = GrupoCorte::where('empresa', Auth::user()->empresa)->get();
 
-            //tomamos las formas de pago cuando no es un recibo de caja por anticipo
-            $formasPago = FormaPago::where('relacion',1)->orWhere('relacion',3)->get();
+            // Obtener métodos de pago para el filtro
+            $metodosPago = DB::table('metodos_pago')->get();
 
-            return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','formasPago'));
+            return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','metodosPago'));
 
         }
     }
