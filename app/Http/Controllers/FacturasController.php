@@ -944,31 +944,142 @@ class FacturasController extends Controller{
             $facturas->orderby($orderByDefault, $orderDefault);
         }
 
-        // Optimización crítica: Usar una estrategia de consulta más eficiente
-        // Limitar la complejidad de la consulta usando DISTINCT en lugar de GROUP BY cuando sea posible
-        // y optimizar el conteo usando una subconsulta simple
-
-        // Para el conteo, usar una consulta más simple que solo cuente IDs únicos
-        $baseCountQuery = Factura::where('factura.empresa', $identificadorEmpresa)
+        // Optimización crítica: Construir una consulta de conteo que replique todas las condiciones
+        // pero de manera más eficiente, contando solo los IDs únicos después del GROUP BY
+        $countQuery = Factura::query()
+            ->join('items_factura as if', 'factura.id', '=', 'if.factura')
+            ->leftJoin('contactos as c', 'factura.cliente', '=', 'c.id')
+            ->leftJoin(
+                DB::raw('(
+                    SELECT fc1.factura_id, fc1.contrato_nro
+                    FROM facturas_contratos fc1
+                    INNER JOIN (
+                        SELECT factura_id, MIN(id) as min_id
+                        FROM facturas_contratos
+                        GROUP BY factura_id
+                    ) fc2 ON fc1.factura_id = fc2.factura_id AND fc1.id = fc2.min_id
+                ) as fc'),
+                'factura.id', '=', 'fc.factura_id'
+            )
+            ->leftJoin('contracts as cs1', 'cs1.nro', '=', 'fc.contrato_nro')
+            ->leftJoin('contracts as cs2', 'cs2.id', '=', 'factura.contrato_id')
+            ->where('factura.empresa', $identificadorEmpresa)
             ->where('factura.tipo', '!=', 2)
             ->where('factura.tipo', '!=', 3)
             ->where('factura.tipo', '!=', 5)
             ->where('factura.tipo', '!=', 6)
-            ->where('factura.lectura', 1);
+            ->where('factura.lectura', 1)
+            ->groupBy('factura.id');
 
-        // Aplicar filtros básicos al conteo
-        if ($request->filtro == true && $request->estado) {
-            $status = ($request->estado == 'A') ? 0 : $request->estado;
-            $baseCountQuery->where('factura.estatus', $status);
-        } elseif (!$request->filtro || !isset($request->estado)) {
-            $baseCountQuery->where('factura.estatus', 1);
+        // Aplicar los mismos filtros de servidores
+        if ($user->servidores->count() > 0) {
+            $servers = $user->servidores->pluck('id')->toArray();
+            $countQuery->where(function ($query) use ($servers) {
+                $query
+                    ->where(function ($q) use ($servers) {
+                        $q->whereIn('cs1.server_configuration_id', $servers)
+                          ->orWhereIn('cs2.server_configuration_id', $servers);
+                    })
+                    ->orWhere(function ($q) use ($servers) {
+                        $q->where(function ($notInServers) use ($servers) {
+                            $notInServers->where(function ($sub) use ($servers) {
+                                $sub->whereNotIn('cs1.server_configuration_id', $servers)
+                                    ->orWhereNull('cs1.server_configuration_id');
+                            })->where(function ($sub2) use ($servers) {
+                                $sub2->whereNotIn('cs2.server_configuration_id', $servers)
+                                     ->orWhereNull('cs2.server_configuration_id');
+                            });
+                        })->where(function ($hasTv) {
+                            $hasTv->whereNotNull('cs1.servicio_tv')
+                                  ->orWhereNotNull('cs2.servicio_tv');
+                        });
+                    })
+                    ->orWhere(function ($q) {
+                        $q->whereNull('cs1.id')->whereNull('cs2.id');
+                    });
+            });
         }
 
-        if ($request->filtro == true && $request->cliente) {
-            $baseCountQuery->where('factura.cliente', $request->cliente);
+        // Aplicar los mismos filtros de la consulta principal
+        if ($request->filtro == true) {
+            if($request->codigo){
+                $countQuery->where('factura.codigo', 'like', "%{$request->codigo}%");
+            }
+            if($request->cliente){
+                $countQuery->where('factura.cliente', $request->cliente);
+            }
+            if($request->fact_siigo){
+                $countQuery->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
+            }
+            if($request->corte){
+                $countQuery->where('cs1.fecha_corte', $request->corte);
+            }
+            if($request->creacion){
+                $countQuery->where('factura.fecha', $request->creacion);
+            }
+            if($request->vencimiento){
+                $countQuery->where('factura.vencimiento', $request->vencimiento);
+            }
+            if($request->estado){
+                $status = ($request->estado == 'A') ? 0 : $request->estado;
+                $countQuery->where('factura.estatus', $status);
+            }else{
+                $countQuery->where('factura.estatus', 1);
+            }
+            if($request->correo){
+                $correo = ($request->correo == 'A') ? 0 : $request->correo;
+                $countQuery->where('factura.correo', $correo);
+            }
+            if($request->servidor){
+                $countQuery->where('cs1.server_configuration_id', $request->servidor);
+            }
+            if($request->state_contrato){
+                $countQuery->where('cs1.state', $request->state_contrato);
+            }
+            if($request->grupos_corte){
+                $countQuery->whereIn('cs1.grupo_corte', $request->grupos_corte);
+            }
+            if($request->municipio){
+                $countQuery->where('c.fk_idmunicipio', $request->municipio);
+            }
+            if ($request->barrio) {
+                $countQuery->where('c.barrio_id', $request->barrio);
+            }
+            if ($request->desde) {
+                $countQuery->where('factura.fecha', '>=', $request->desde);
+            }
+            if ($request->hasta) {
+                $countQuery->where('factura.fecha', '<=', $request->hasta);
+            }
+        } else {
+            // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
+            $countQuery->where(function ($query) {
+                $query->whereBetween('factura.fecha', ['2025-01-01', '2026-12-31']);
+            });
         }
 
-        $totalRecords = $baseCountQuery->distinct()->count('factura.id');
+        // Aplicar filtro de rol 8
+        if(auth()->user()->rol == 8){
+            $tienePermiso862 = DB::table('permisos_usuarios')
+                ->where('id_usuario', auth()->user()->id)
+                ->where('id_permiso', 862)
+                ->exists();
+            if (!$tienePermiso862 && !$request->filtros_aplicados) {
+                $countQuery->where('factura.id', '=', 0);
+            }
+        }
+
+        // Aplicar filtro de oficina
+        if($empresa->oficina){
+            if(auth()->user()->oficina){
+                $countQuery->where('cs1.oficina', auth()->user()->oficina);
+            }
+        }
+
+        // Contar los IDs únicos después del GROUP BY
+        $totalRecords = DB::table(DB::raw("({$countQuery->select('factura.id')->toSql()}) as facturas_count"))
+            ->mergeBindings($countQuery->getQuery())
+            ->count();
 
         return datatables()->eloquent($facturas)
         ->setTotalRecords($totalRecords)
