@@ -5072,7 +5072,7 @@ class CronController extends Controller
                 $facturasEliminar = $facturas->skip(1);
 
                 foreach ($facturasEliminar as $facturaEliminar) {
-                    $this->eliminarFacturaCompleta($facturaEliminar);
+                    self::eliminarFacturaCompleta($facturaEliminar);
                     $eliminadas++;
                     $mensaje[] = "Factura duplicada eliminada: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}). Se conservó la factura ID {$facturaConservar->id}";
                 }
@@ -5105,7 +5105,7 @@ class CronController extends Controller
                 $facturasEliminar = $facturas->skip(1);
 
                 foreach ($facturasEliminar as $facturaEliminar) {
-                    $this->eliminarFacturaCompleta($facturaEliminar);
+                    self::eliminarFacturaCompleta($facturaEliminar);
                     $eliminadas++;
                     $mensaje[] = "Factura duplicada eliminada por tiempo de creación: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}, Creada: {$grupo->created_at_formatted}). Se conservó la factura ID {$facturaConservar->id}";
                 }
@@ -5126,7 +5126,7 @@ class CronController extends Controller
      * @param Factura $factura
      * @return void
      */
-    private function eliminarFacturaCompleta($factura)
+    private static function eliminarFacturaCompleta($factura)
     {
         // Eliminar items_factura
         ItemsFactura::where('factura', $factura->id)->delete();
