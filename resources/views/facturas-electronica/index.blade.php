@@ -143,14 +143,14 @@
 								@endforeach
 							</select>
                         </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
                             <label for="creacion" class="placeholder">Creación</label>
                         </div>
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
                             <label for="vencimiento" class="placeholder">Vencimiento</label>
-                        </div>
+                        </div> --}}
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
                             <label for="desde" class="placeholder">Desde</label>
