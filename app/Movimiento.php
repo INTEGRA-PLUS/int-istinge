@@ -83,29 +83,36 @@ class Movimiento extends Model
 
     public function categoria(){
         if ($this->modulo==1) {
-            if(Ingreso::find($this->id_modulo)){
-                return Ingreso::find($this->id_modulo)->detalle();
+            $ingreso = Ingreso::find($this->id_modulo);
+            if($ingreso){
+                return $ingreso->detalle();
             }
         }
         else if ($this->modulo==2) {
-            return IngresoR::find($this->id_modulo)->detalle();
+            $ingresoR = IngresoR::find($this->id_modulo);
+            if($ingresoR){
+                return $ingresoR->detalle();
+            }
         }
         else if ($this->modulo==3) {
             $gasto = Gastos::find($this->id_modulo);
             if($gasto){
-            return Gastos::find($this->id_modulo)->detalle();
+                return $gasto->detalle();
             }else{
                 return "Pago a documento";
             }
         }
         else if($this->modulo==6){
-            if(Ingreso::find($this->id_modulo)){
-                return "saldo a favor en " . Ingreso::find($this->id_modulo)->detalle();
+            $ingreso = Ingreso::find($this->id_modulo);
+            if($ingreso){
+                return "saldo a favor en " . $ingreso->detalle();
             }
         }
-        if (GastosRecurrentes::find($this->id_modulo)) {
-                return GastosRecurrentes::find($this->id_modulo)->detalle();
-            }
+        $gastoRecurrente = GastosRecurrentes::find($this->id_modulo);
+        if ($gastoRecurrente) {
+            return $gastoRecurrente->detalle();
+        }
+        return '';
     }
 
     public function cliente(){

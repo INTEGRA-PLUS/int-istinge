@@ -3700,6 +3700,10 @@ class ExportarReportesController extends Controller
     }
 
     public function cajas(Request $request) {
+        // Aumentar tiempo de ejecución y memoria para reportes grandes
+        ini_set('max_execution_time', 300); // 5 minutos
+        ini_set('memory_limit', '512M');
+        
         $objPHPExcel = new PHPExcel();
 
         if($request->caja){
@@ -3813,60 +3817,88 @@ class ExportarReportesController extends Controller
         $objPHPExcel->getActiveSheet()->getStyle('A3:O3')->applyFromArray($estilo);
 
         $sumaTotalFactura = 0;
+        
+        // Cachear empresa para evitar consultas repetidas
+        $empresa = Auth::user()->empresa();
+        $moneda = $empresa->moneda;
+        
         foreach ($movimientos as $movimiento) {
-            $identificacion = '';
-
-            if(isset($movimiento->contacto)){
-                $identificacion .= $movimiento->cliente()->tip_iden('corta').' '.$movimiento->cliente()->nit;
-            }
-
-            $nombres ="";
-            if($movimiento->cliente()){
-                $nombres.=$movimiento->cliente()->nombre . " " . $movimiento->cliente()->apellidos() ;
-            }
-
-            $movNombre = "";
-            if($movimiento->padre()){
-                if($movimiento->padre()->created_by()){
-                    $movNombre = $movimiento->padre()->created_by()->nombres;
+            try {
+                $identificacion = '';
+                $cliente = null;
+                
+                if(isset($movimiento->contacto)){
+                    $cliente = $movimiento->cliente();
+                    if($cliente){
+                        $identificacion .= $cliente->tip_iden('corta').' '.$cliente->nit;
+                    }
                 }
-            }
 
-
-            $totalFactura = 0;
-            $nroContrato = "";
-            if($movimiento->facturaId != null){
-                $factura = Factura::Find($movimiento->facturaId);
-                $totalFactura = $factura->total()->total;
-                $sumaTotalFactura+=$totalFactura;
-                if($factura->contratos()){
-                    $nroContrato = $factura->contratos()->first()->contrato_nro;
+                $nombres = "";
+                if($cliente){
+                    $nombres .= $cliente->nombre . " " . $cliente->apellidos();
                 }
+
+                $movNombre = "";
+                $padre = $movimiento->padre();
+                if($padre){
+                    $createdBy = $padre->created_by();
+                    if($createdBy){
+                        $movNombre = $createdBy->nombres;
+                    }
+                }
+
+                $totalFactura = 0;
+                $nroContrato = "";
+                if($movimiento->facturaId != null){
+                    $factura = Factura::Find($movimiento->facturaId);
+                    if($factura){
+                        $totalFactura = $factura->total()->total;
+                        $sumaTotalFactura+=$totalFactura;
+                        $contratos = $factura->contratos();
+                        if($contratos && $contratos->count() > 0){
+                            $nroContrato = $contratos->first()->contrato_nro;
+                        }
+                    }
+                }
+
+                $barrio = "";
+                if ($cliente) {
+                    $barrioObj = $cliente->barrio();
+                    if($barrioObj){
+                        $barrio = $barrioObj->nombre;
+                    }
+                }
+
+                $showModulo = $movimiento->show_modulo();
+                $banco = $movimiento->banco();
+                $categoria = $movimiento->categoria();
+                $estatus = $movimiento->estatus();
+                $observaciones = $movimiento->observaciones();
+                $notas = $movimiento->notas();
+
+                $objPHPExcel->setActiveSheetIndex(0)
+                    ->setCellValue($letras[0].$i, date('d-m-Y', strtotime($movimiento->fecha)))
+                    ->setCellValue($letras[1].$i, $showModulo != null ? $showModulo->nro : $movimiento->id_modulo)
+                    ->setCellValue($letras[2].$i, $barrio)
+                    ->setCellValue($letras[3].$i, $nombres)
+                    ->setCellValue($letras[4].$i, $identificacion)
+                    ->setCellValue($letras[5].$i, $nroContrato)
+                    ->setCellValue($letras[6].$i, $movNombre)
+                    ->setCellValue($letras[7].$i, $banco ? $banco->nombre : '')
+                    ->setCellValue($letras[8].$i, $categoria ? $categoria : '')
+                    ->setCellValue($letras[9].$i, $estatus ? $estatus : '')
+                    ->setCellValue($letras[10].$i, $observaciones ? $observaciones : '')
+                    ->setCellValue($letras[11].$i, $notas ? $notas : '')
+                    ->setCellValue($letras[12].$i, $totalFactura)
+                    ->setCellValue($letras[13].$i, $moneda.' '.Funcion::Parsear($movimiento->tipo==2?$movimiento->saldo:0))
+                    ->setCellValue($letras[14].$i, $moneda.' '.Funcion::Parsear($movimiento->tipo==1?$movimiento->saldo:0));
+                $i++;
+            } catch (\Exception $e) {
+                // Continuar con el siguiente registro si hay un error
+                Log::error("Error procesando movimiento ID {$movimiento->id}: " . $e->getMessage());
+                continue;
             }
-
-            $barrio = "";
-            if ($movimiento->cliente() && $movimiento->cliente()->barrio()) {
-                $barrio = $movimiento->cliente()->barrio()->nombre;
-            }
-
-
-            $objPHPExcel->setActiveSheetIndex(0)
-                ->setCellValue($letras[0].$i, date('d-m-Y', strtotime($movimiento->fecha)))
-                ->setCellValue($letras[1].$i, $movimiento->show_modulo()!=null?$movimiento->show_modulo()->nro:$movimiento->id_modulo)
-                ->setCellValue($letras[2].$i, $barrio)
-                ->setCellValue($letras[3].$i, $nombres)
-                ->setCellValue($letras[4].$i, $identificacion)
-                ->setCellValue($letras[5].$i, $nroContrato)
-                ->setCellValue($letras[6].$i, $movNombre)
-                ->setCellValue($letras[7].$i, $movimiento->banco()->nombre)
-                ->setCellValue($letras[8].$i, $movimiento->categoria())
-                ->setCellValue($letras[9].$i, $movimiento->estatus())
-                ->setCellValue($letras[10].$i, $movimiento->observaciones())
-                ->setCellValue($letras[11].$i, $movimiento->notas())
-                ->setCellValue($letras[12].$i, $totalFactura)
-                ->setCellValue($letras[13].$i, Auth::user()->empresa()->moneda.' '.Funcion::Parsear($movimiento->tipo==2?$movimiento->saldo:0))
-                ->setCellValue($letras[14].$i, Auth::user()->empresa()->moneda.' '.Funcion::Parsear($movimiento->tipo==1?$movimiento->saldo:0));
-            $i++;
         }
 
         $objPHPExcel->setActiveSheetIndex(0)
