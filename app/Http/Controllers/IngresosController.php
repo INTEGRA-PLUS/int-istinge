@@ -1611,6 +1611,22 @@ class IngresosController extends Controller
         //sumo a las numeraciones el recibo
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
 
+        // Validar el número si viene en el request
+        if ($request->has('nro') && $request->nro != $ingreso->nro) {
+            // Verificar si existe otro ingreso con el mismo número (excluyendo el actual)
+            $existeIngreso = Ingreso::where('empresa', Auth::user()->empresa)
+                ->where('nro', $request->nro)
+                ->where('id', '!=', $ingreso->id)
+                ->first();
+
+            if ($existeIngreso) {
+                return back()->with('error', 'Ya existe un registro con el número ' . $request->nro . '. Por favor, use otro número.')->withInput();
+            }
+
+            // Actualizar el número solo si ha cambiado y no existe duplicado
+            $ingreso->nro = $request->nro;
+        }
+
         $ingreso->empresa = Auth::user()->empresa;
         $ingreso->cliente = $request->cliente;
         $ingreso->cuenta = $request->cuenta;
@@ -1756,7 +1772,13 @@ class IngresosController extends Controller
         if($request->realizar == 2){
 
             //Cuando se realiza el ingreso por categoría.
-            $this->updateIngresoPucCategoria($request,$id);
+            $resultado = $this->updateIngresoPucCategoria($request,$id);
+
+            // Si updateIngresoPucCategoria retorna un redirect (error de validación), retornarlo
+            if ($resultado instanceof \Illuminate\Http\RedirectResponse) {
+                return $resultado;
+            }
+
             $mensaje='SE HA ACTUALIZADO SATISFACTORIAMENTE EL ANTICIPO';
             return redirect('empresa/ingresos')->with('success', $mensaje);
 
@@ -1771,7 +1793,22 @@ class IngresosController extends Controller
                 return redirect('empresa/ingresos')->with('error', 'No puede editar un pago de nota de débito');
             }
             $request->validate([
-                'cuenta' => 'required|numeric'
+                'cuenta' => 'required|numeric',
+                'nro' => [
+                    'required',
+                    'numeric',
+                    function ($attribute, $value, $fail) use ($ingreso) {
+                        // Verificar si existe otro ingreso con el mismo número (excluyendo el actual)
+                        $existeIngreso = Ingreso::where('empresa', Auth::user()->empresa)
+                            ->where('nro', $value)
+                            ->where('id', '!=', $ingreso->id)
+                            ->first();
+
+                        if ($existeIngreso) {
+                            $fail('Ya existe un registro con el número ' . $value . '. Por favor, use otro número.');
+                        }
+                    },
+                ]
             ]);
 
             //Si se cambia de tipo se elimina todos
@@ -1783,6 +1820,11 @@ class IngresosController extends Controller
                     IngresosCategoria::where('ingreso',$ingreso->id)->delete();
                 }
                 IngresosRetenciones::where('ingreso',$ingreso->id)->delete();
+            }
+
+            // Actualizar el número solo si ha cambiado
+            if ($ingreso->nro != $request->nro) {
+                $ingreso->nro = $request->nro;
             }
 
 
