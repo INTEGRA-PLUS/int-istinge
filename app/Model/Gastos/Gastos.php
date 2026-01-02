@@ -7,12 +7,12 @@ use App\Contacto; use App\Banco;
 use App\Impuesto; use App\Retencion;
 use App\Funcion;
 use App\Movimiento;
-use App\Model\Gastos\GastosFactura; 
-use App\Model\Gastos\GastosCategoria; 
-use App\Model\Gastos\GastosRetenciones; 
+use App\Model\Gastos\GastosFactura;
+use App\Model\Gastos\GastosCategoria;
+use App\Model\Gastos\GastosRetenciones;
 use App\Model\Gastos\FacturaProveedoresRetenciones;
 use App\Model\Gastos\GastosRecurrentesCategoria;
-use App\Model\Ingresos\NotaCredito; 
+use App\Model\Ingresos\NotaCredito;
 use App\Model\Ingresos\Devoluciones;
 use Auth; use DB;
 use App\User;
@@ -78,11 +78,14 @@ class Gastos extends Model
             $Factura='';
             $i = 0;
             foreach ($gastos as $gasto) {
-                $Factura.=" ".($gasto->factura()->nro).",";
-                $i++;
-                if($i > 2){
-                    $Factura.=". . .";
-                    break;
+                $factura = $gasto->factura();
+                if($factura && isset($factura->nro)){
+                    $Factura.=" ".$factura->nro.",";
+                    $i++;
+                    if($i > 2){
+                        $Factura.=". . .";
+                        break;
+                    }
                 }
             }
             return 'Facturas de Proveedor:'.substr($Factura, 0, -1);
@@ -106,10 +109,18 @@ class Gastos extends Model
         }
         else{
             if ($pdf) {
-                return 'Devolución en nota crédito '.NotaCredito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_credito)->first()->nro; die;
+                $notaCredito = NotaCredito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_credito)->first();
+                if($notaCredito){
+                    return 'Devolución en nota crédito '.$notaCredito->nro;
+                }
+                return 'Devolución en nota crédito';
             }
-            return 'Nota de Crédito: '.NotaCredito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_credito)->first()->nro; 
-        }        
+            $notaCredito = NotaCredito::where('empresa',Auth::user()->empresa)->where('id', $this->nota_credito)->first();
+            if($notaCredito){
+                return 'Nota de Crédito: '.$notaCredito->nro;
+            }
+            return 'Nota de Crédito: N/A';
+        }
     }
 
     public function cuenta(){
@@ -124,7 +135,7 @@ class Gastos extends Model
                 if($this->estatus == 2){
                     $tmp =  Movimiento::where('modulo', 3)->where('id_modulo', $this->id)->first();
                     if($tmp){
-                        $total = Movimiento::where('modulo', 3)->where('id_modulo', $this->id)->first()->saldo;  
+                        $total = Movimiento::where('modulo', 3)->where('id_modulo', $this->id)->first()->saldo;
                         break;
                     }
                 }
@@ -158,8 +169,8 @@ class Gastos extends Model
                             if ($reten->id==$retencion->id_retencion) {
                                 if (!isset($totales["reten"][$key]->total)) {
                                     $totales["reten"][$key]->total=0;
-                                }  
-                                $totales["totalreten"]+=$retencion->valor;             
+                                }
+                                $totales["totalreten"]+=$retencion->valor;
                                 $totales["reten"][$key]->total+=$retencion->valor;
                             }
                         }
@@ -170,8 +181,8 @@ class Gastos extends Model
             foreach ($totales["reten"] as $key => $reten) {
                 if ($totales["reten"][$key]->total>0) {
                     $totales['subtotal']+=$totales["reten"][$key]->total;
-                }  
-            }            
+                }
+            }
         }
         else{
             $items=GastosCategoria::where('gasto',$this->id)->get();
@@ -199,7 +210,7 @@ class Gastos extends Model
             $totales['total']=$totales['subtotal'];
             foreach ($totales["imp"] as $key => $imp) {
                 $totales['total']+=$imp->total;
-            }           
+            }
 
             if (GastosRetenciones::where('gasto',$this->id)->count()>0) {
                 $items=GastosRetenciones::where('gasto',$this->id)->get();
@@ -208,14 +219,14 @@ class Gastos extends Model
                         if ($reten->id==$item->id_retencion) {
                             if (!isset($totales["reten"][$key]->total)) {
                                 $totales["reten"][$key]->total=0;
-                            }                        
+                            }
                             $totales["reten"][$key]->total+=$item->valor;
                             $totales['total']-=$item->valor;
                         }
                     }
                 }
             }
-        }        
+        }
         return (object) $totales;
     }
 
@@ -267,7 +278,7 @@ class Gastos extends Model
             return $anticipo;
         }
     }
-    
+
     public function gastoPuc(){
         $puc = GastosCategoria::join('puc as p','p.id','=','gastos_categoria.categoria')
         ->where('gastos_categoria.gasto',$this->id)->select('p.*')->first();
@@ -286,7 +297,7 @@ class Gastos extends Model
             return $anticipo;
         }
     }
-    
+
     public function gastoPucBanco(){
         $puc = GastosFactura::
         join('forma_pago as fp','fp.id','=','gastos_factura.puc_banco')
