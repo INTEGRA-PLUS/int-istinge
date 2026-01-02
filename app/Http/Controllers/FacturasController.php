@@ -612,6 +612,18 @@ class FacturasController extends Controller{
                     }
                 });
             }
+            // Filtro por rango de fechas (desde - hasta)
+            if ($request->desde) {
+                $facturas->where('factura.fecha', '>=', $request->desde);
+            }
+            if ($request->hasta) {
+                $facturas->where('factura.fecha', '<=', $request->hasta);
+            }
+        } else {
+            // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
+            $facturas->where(function ($query) {
+                $query->whereBetween('factura.fecha', ['2025-01-01', '2026-12-31']);
+            });
         }
 
         $facturas->where('factura.empresa', $identificadorEmpresa);
@@ -890,6 +902,18 @@ class FacturasController extends Controller{
             if ($request->barrio) {
                 $facturas->where('c.barrio_id', $request->barrio);
             }
+            // Filtro por rango de fechas (desde - hasta)
+            if ($request->desde) {
+                $facturas->where('factura.fecha', '>=', $request->desde);
+            }
+            if ($request->hasta) {
+                $facturas->where('factura.fecha', '<=', $request->hasta);
+            }
+        } else {
+            // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
+            $facturas->where(function ($query) {
+                $query->whereBetween('factura.fecha', ['2025-01-01', '2026-12-31']);
+            });
         }
 
 
