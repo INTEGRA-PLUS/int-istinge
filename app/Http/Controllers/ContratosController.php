@@ -615,10 +615,12 @@ class ContratosController extends Controller
                 return ($contrato->servicio_tv) ? '<a href=' . route('inventario.show', $contrato->servicio_tv) . ' target="_blank">' . $contrato->plan('true')->producto . '</a>' : 'N/A';
             })
             ->editColumn('vendedor', function (Contrato $contrato) {
-                return ($contrato->vendedor) ? $contrato->vendedor()->nombre : 'N/A';
+                $vendedor = $contrato->vendedor();
+                return ($vendedor) ? $vendedor->nombre : 'N/A';
             })
             ->editColumn('canal', function (Contrato $contrato) {
-                return ($contrato->canal) ? $contrato->canal()->nombre : 'N/A';
+                $canal = $contrato->canal();
+                return ($canal) ? $canal->nombre : 'N/A';
             })
             ->editColumn('tecnologia', function (Contrato $contrato) {
                 return ($contrato->tecnologia) ? $contrato->tecnologia() : 'N/A';
@@ -1920,6 +1922,9 @@ class ContratosController extends Controller
 
                     /*$descripcion .= ($contrato->fecha_corte == $request->fecha_corte) ? '' : '<i class="fas fa-check text-success"></i> <b>Cambio Fecha de Corte</b> de '.$contrato->fecha_corte.' a '.$request->fecha_corte.'<br>';
                     $contrato->fecha_corte = $request->fecha_corte;*/
+                    if($request->fecha_suspension == ""){
+                        $request->fecha_suspension = 'Ninguna';
+                    }
 
                     $descripcion .= ($contrato->fecha_suspension == $request->fecha_suspension) ? '' : '<i class="fas fa-check text-success"></i> <b>Cambio Fecha de Suspensión Personalizada</b> a ' . $request->fecha_suspension . '<br>';
                     $contrato->fecha_suspension = $request->fecha_suspension;
