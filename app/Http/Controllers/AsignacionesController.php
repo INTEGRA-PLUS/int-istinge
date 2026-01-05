@@ -51,7 +51,6 @@ class AsignacionesController extends Controller
 
     public function create()
     {
-        return "ok";
         $this->getAllPermissions(Auth::user()->id);
         // $planes = PlanesVelocidad::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         // $servidores = Mikrotik::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
