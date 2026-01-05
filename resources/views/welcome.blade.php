@@ -920,31 +920,31 @@
         @php
             $hoy = \Carbon\Carbon::now('America/Bogota');
         @endphp
-        
-        @if ($hoy->day >= 4 && $hoy->day <= 10)
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "bottom-end",
-                showConfirmButton: false,
-                timer: 10000,
-                timerProgressBar: true,
-        
-                background: "#fff3cd",   // Amarillo tipo alerta (similar a Bootstrap warning)
-                color: "#856404",        // Texto café oscuro
-                iconColor: "#856404",    // Color del ícono de warning
-        
-                didOpen: (toast) => {
-                    toast.onmouseenter = Swal.stopTimer;
-                    toast.onmouseleave = Swal.resumeTimer;
-                }
-            });
-        
-            Toast.fire({
-                icon: "warning",
-                html: "⚠️Estimada empresa, te recordamos que la fecha límite es el <b>10 de diciembre</b> para realizar el pago, evita cortes ⚠️<br>" +
-                      "Reporta tu pago al <b>3206909290</b>. Si ya pagaste, haz caso omiso."
-            });
-        @endif
+
+        // @if ($hoy->day >= 4 && $hoy->day <= 10)
+        //     const Toast = Swal.mixin({
+        //         toast: true,
+        //         position: "bottom-end",
+        //         showConfirmButton: false,
+        //         timer: 10000,
+        //         timerProgressBar: true,
+
+        //         background: "#fff3cd",   // Amarillo tipo alerta (similar a Bootstrap warning)
+        //         color: "#856404",        // Texto café oscuro
+        //         iconColor: "#856404",    // Color del ícono de warning
+
+        //         didOpen: (toast) => {
+        //             toast.onmouseenter = Swal.stopTimer;
+        //             toast.onmouseleave = Swal.resumeTimer;
+        //         }
+        //     });
+
+        //     Toast.fire({
+        //         icon: "warning",
+        //         html: "⚠️Estimada empresa, te recordamos que la fecha límite es el <b>10 de diciembre</b> para realizar el pago, evita cortes ⚠️<br>" +
+        //               "Reporta tu pago al <b>3206909290</b>. Si ya pagaste, haz caso omiso."
+        //     });
+        // @endif
 
         // Estado de Contratos
         new Morris.Donut({
