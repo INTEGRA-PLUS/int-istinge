@@ -1092,35 +1092,6 @@
                             </div>
 
                             <div class="form-group col-md-4">
-                                <label class="control-label">¿Crear factura con prorrateo? <a><i
-                                            data-tippy-content="Decida si crear una factura una vez el contrato se cree dependiendo del grupo de corte sobre los dias faltantes."
-                                            class="icono far fa-question-circle"></i></a></label>
-                                <div class="row">
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input"
-                                                    name="contrato_factura_pro" id="tipo_suspension_no1" value="1"
-                                                    {{ old('contrato_factura_pro') == 1 ? 'checked' : 'checked' }}> Si
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input"
-                                                    name="contrato_factura_pro" id="tipo_suspension_no2" value="0"
-                                                    {{ old('contrato_factura_pro') == 1 ? '' : '' }}> No
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
-                                </div>
-                                <span class="help-block error">
-                                    <strong></strong>
-                                </span>
-                            </div>
-
-                            <div class="form-group col-md-4">
                                 <label class="control-label">¿Crear factura el primer mes del contrato? <a><i
                                             data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato"
                                             class="icono far fa-question-circle"></i></a></label>

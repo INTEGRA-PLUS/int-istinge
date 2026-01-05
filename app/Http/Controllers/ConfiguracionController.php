@@ -1918,6 +1918,21 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function facturaProrrateo(Request $request)
+  {
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->contrato_factura_pro == 0) {
+      $empresa->contrato_factura_pro = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->contrato_factura_pro = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
   public function reconexionGenerica(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 
