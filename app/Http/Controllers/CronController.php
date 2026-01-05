@@ -1198,7 +1198,7 @@ class CronController extends Controller
 
         $grupos_corte = DB::table('grupos_corte')
         ->where('status', 1)
-        ->where('hora_suspension','<=',$horaActual)
+        ->whereTime('hora_suspension', '<=', $horaActual)
         ->where('fecha_suspension','!=',0)
         ->orderby('nro_factura_vencida','asc')
         ->get();
