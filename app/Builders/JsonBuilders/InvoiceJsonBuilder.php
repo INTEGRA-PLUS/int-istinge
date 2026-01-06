@@ -233,7 +233,7 @@ class InvoiceJsonBuilder
                 //Fact. Exportacion.
                 $precioExtranjero = "0.00";
                 $precioExntranjeroCompleto = "0.00";
-                if($factura->tipo == 4){
+                if($factura->tipo == 4 && isset($factura->trmActual) && is_object($factura->trmActual)){
                     $precioExtranjero = self::convertirPrecioUSD($item->precio, $factura->trmActual);
                     $precioExntranjeroCompleto = self::convertirPrecioUSD($item->precio * $item->cant - $discount, $factura->trmActual);
                 }
