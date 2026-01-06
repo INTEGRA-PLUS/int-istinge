@@ -259,6 +259,20 @@
                                     </span>
                                 </div>
                             </div>
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">Estrato</label>
+                                <select class="form-control selectpicker" id="estrato" name="estrato" title="Seleccione" data-live-search="true" data-size="5">
+                                    <option value="1" {{ $contrato->estrato == 1 ? 'selected' : '' }}>1</option>
+                                    <option value="2" {{ $contrato->estrato == 2 ? 'selected' : '' }}>2</option>
+                                    <option value="3" {{ $contrato->estrato == 3 ? 'selected' : '' }}>3</option>
+                                    <option value="4" {{ $contrato->estrato == 4 ? 'selected' : '' }}>4</option>
+                                    <option value="5" {{ $contrato->estrato == 5 ? 'selected' : '' }}>5</option>
+                                    <option value="6" {{ $contrato->estrato == 6 ? 'selected' : '' }}>6</option>
+                                </select>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('estrato') }}</strong>
+                                </span>
+                            </div>
 
                         </div>
                     </div>

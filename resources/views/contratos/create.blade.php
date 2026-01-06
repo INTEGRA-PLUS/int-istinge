@@ -344,6 +344,20 @@
                                     </span>
                                 </div>
                             </div>
+                            <div class="col-md-4 form-group">
+                                <label class="control-label">Estrato</label>
+                                <select class="form-control selectpicker" id="estrato" name="estrato" title="Seleccione" data-live-search="true" data-size="5">
+                                    <option value="1" {{ old('estrato') == 1 ? 'selected' : '' }}>1</option>
+                                    <option value="2" {{ old('estrato') == 2 ? 'selected' : '' }}>2</option>
+                                    <option value="3" {{ old('estrato') == 3 ? 'selected' : '' }}>3</option>
+                                    <option value="4" {{ old('estrato') == 4 ? 'selected' : '' }}>4</option>
+                                    <option value="5" {{ old('estrato') == 5 ? 'selected' : '' }}>5</option>
+                                    <option value="6" {{ old('estrato') == 6 ? 'selected' : '' }}>6</option>
+                                </select>
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('estrato') }}</strong>
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <div class="tab-pane fade" id="internet" role="tabpanel" aria-labelledby="internet-tab">

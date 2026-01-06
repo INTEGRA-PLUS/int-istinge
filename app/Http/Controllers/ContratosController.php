@@ -168,7 +168,7 @@ class ContratosController extends Controller
                 'contactos.celular as c_celular',
                 'contactos.fk_idmunicipio',
                 'contactos.firma_isp',
-                'contactos.estrato as c_estrato',
+                'contracts.estrato',
                 'barrio.nombre as barrio_nombre',
                 'cn.nombre as cajanap_nombre',
                 DB::raw('(select fecha from ingresos where ingresos.cliente = contracts.client_id and ingresos.tipo = 1 LIMIT 1) AS pago')
@@ -422,7 +422,7 @@ class ContratosController extends Controller
             }
             if ($request->c_estrato) {
                 $contratos->where(function ($query) use ($request) {
-                    $query->orWhere('contactos.estrato', 'like', "%{$request->c_estrato}%");
+                    $query->orWhere('contracts.estrato', 'like', "%{$request->c_estrato}%");
                 });
             }
 
@@ -500,7 +500,7 @@ class ContratosController extends Controller
                 'contactos.email as c_email',
                 'contactos.id as c_id',
                 'contactos.firma_isp',
-                'contactos.estrato as c_estrato',
+                'contracts.estrato',
                 'barrio.nombre as barrio_nombre',
                 DB::raw('(select fecha from ingresos where ingresos.cliente = contracts.client_id and ingresos.tipo = 1 LIMIT 1) AS pago')
             )
@@ -635,7 +635,7 @@ class ContratosController extends Controller
                 return ($contrato->created_at) ? date('d-m-Y', strtotime($contrato->created_at)) : 'N/A';
             })
             ->editColumn('estrato', function (Contrato $contrato) {
-                return ($contrato->c_estrato) ? $contrato->c_estrato : 'N/A';
+                return ($contrato->estrato) ? $contrato->estrato : 'N/A';
             })
             ->editColumn('observaciones', function (Contrato $contrato) {
                 return ($contrato->observaciones) ? $contrato->observaciones : 'N/A';
@@ -1298,6 +1298,7 @@ class ContratosController extends Controller
             $contrato->longitude            = $request->longitude;
             $contrato->contrato_permanencia = $request->contrato_permanencia;
             $contrato->linea                   = $request->linea;
+            $contrato->estrato                  = $request->estrato;
             $contrato->servicio_tv          = $request->servicio_tv;
             $contrato->descuento            = $request->descuento;
             $contrato->vendedor             = $request->vendedor;
@@ -2010,6 +2011,7 @@ class ContratosController extends Controller
                     $contrato->contrato_permanencia    = $request->contrato_permanencia;
                     $contrato->serial_onu              = $request->serial_onu;
                     $contrato->linea                   = $request->linea;
+                    $contrato->estrato                  = $request->estrato;
                     $contrato->servicio                = $this->normaliza($servicio) . '-' . $request->nro;
                     $contrato->server_configuration_id = $mikrotik->id;
                     $contrato->descuento               = $request->descuento;
@@ -3046,7 +3048,7 @@ class ContratosController extends Controller
                 'contactos.barrio as c_barrio',
                 'contactos.vereda as c_vereda',
                 'contactos.direccion as c_direccion',
-                'contactos.estrato as c_estrato',
+                'contracts.estrato',
                 'contactos.fk_idmunicipio as c_municipio',
                 'contracts.latitude as c_latitude',
                 'contracts.longitude as c_longitude',
@@ -3261,7 +3263,7 @@ class ContratosController extends Controller
                 'contactos.email as c_email',
                 'contactos.id as c_id',
                 'contactos.firma_isp',
-                'contactos.estrato as c_estrato',
+                'contracts.estrato',
                 'contracts.latitude as c_latitude',
                 'contracts.longitude as c_longitude',
                 'barrio.nombre as barrio_nombre',
@@ -3308,7 +3310,7 @@ class ContratosController extends Controller
                 ->setCellValue($letras[7] . $i, $contrato->c_direccion)
                 ->setCellValue($letras[8] . $i, $contrato->nombre_barrio)
                 ->setCellValue($letras[9] . $i, $contrato->c_vereda)
-                ->setCellValue($letras[10] . $i, $contrato->c_estrato)
+                ->setCellValue($letras[10] . $i, $contrato->estrato)
                 ->setCellValue($letras[11] . $i, ($contrato->servicio_tv) ? $contrato->plan(true)->producto : '')
                 ->setCellValue($letras[12] . $i, ($contrato->plan_id) ? $contrato->plan()->name : '')
                 ->setCellValue($letras[13] . $i, ($contrato->server_configuration_id) ? $contrato->servidor()->nombre : '')

@@ -134,11 +134,6 @@ class ContactosController extends Controller
                     $query->orWhere('serial_onu', 'like', "%{$request->serial_onu}%");
                 });
             }
-            if ($request->estrato) {
-                $contactos->where(function ($query) use ($request) {
-                    $query->orWhere('estrato', 'like', "%{$request->estrato}%");
-                });
-            }
             if ($request->otra_opcion && $request->otra_opcion == "opcion_1") {
                 $contactos->where(function ($query) use ($request) {
                     $query->orWhere('saldo_favor', '>', 0);
@@ -214,9 +209,6 @@ class ContactosController extends Controller
                 }
 
                 return ($contacto->contract('true') == 'N/A') ? 'N/A' : '<a href="http://'.$contacto->contract('true').''.$puerto.'" target="_blank">'.$contacto->contract('true').''.$puerto.' <i class="fas fa-external-link-alt"></i></a>';
-            })
-            ->editColumn('estrato', function (Contacto $contacto) {
-                return ($contacto->estrato) ? $contacto->estrato : 'N/A';
             })
 
             ->addColumn('acciones', $modoLectura ? '' : 'contactos.acciones-contactos')
@@ -462,7 +454,6 @@ class ContactosController extends Controller
         $contacto->telefono2 = $request->telefono2;
         $contacto->fax = $request->fax;
         $contacto->celular = $request->celular;
-        $contacto->estrato = $request->estrato;
         $contacto->observaciones = $request->observaciones;
         $contacto->tipo_contacto = count($request->tipo_contacto) == 2 ? 2 : $request->tipo_contacto[0];
         $contacto->plan_velocidad    = 0;
@@ -550,7 +541,6 @@ class ContactosController extends Controller
         $contacto->telefono2 = $request->telefono2;
         $contacto->fax = $request->fax;
         $contacto->celular = $request->celular;
-        $contacto->estrato = $request->estrato;
         $contacto->tipo_contacto = count($request->tipo_contacto) == 2 ? 2 : $request->tipo_contacto[0];
         $contacto->observaciones = $request->observaciones;
 
@@ -655,7 +645,6 @@ class ContactosController extends Controller
             $contacto->telefono2 = $request->telefono2;
             $contacto->fax = $request->fax;
             $contacto->celular = $request->celular;
-            $contacto->estrato = $request->estrato;
             $contacto->observaciones = $request->observaciones;
             $contacto->serial_onu = $request->serial_onu;
             $contacto->tipo_contacto = count($request->tipo_contacto) == 2 ? 2 : $request->tipo_contacto[0];
@@ -809,7 +798,7 @@ class ContactosController extends Controller
     {
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Estrato', 'Observaciones', 'Tipo de Contacto', 'Contrato', 'Saldo a favor', 'Etiqueta'];
+        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Observaciones', 'Tipo de Contacto', 'Contrato', 'Saldo a favor', 'Etiqueta'];
         $letras = range('A', 'Z');
 
         $objPHPExcel->getProperties()->setCreator('Sistema')
@@ -883,12 +872,11 @@ class ContactosController extends Controller
                 ->setCellValue($letras[14].$i, $contacto->barrio)
                 ->setCellValue($letras[15].$i, $contacto->ciudad)
                 ->setCellValue($letras[16].$i, $contacto->email)
-                ->setCellValue($letras[17].$i, $contacto->estrato)
-                ->setCellValue($letras[18].$i, $contacto->observaciones)
-                ->setCellValue($letras[19].$i, $contacto->tipo_contacto())
-                ->setCellValue($letras[20].$i, strip_tags($contacto->contract() ?? 'N/A'))
-                ->setCellValue($letras[21].$i, $contacto->saldo_favor)
-                ->setCellValue($letras[22].$i, $contacto->etiqueta_nombre ?? 'Sin etiqueta'); // 🔹 aquí el cambio
+                ->setCellValue($letras[17].$i, $contacto->observaciones)
+                ->setCellValue($letras[18].$i, $contacto->tipo_contacto())
+                ->setCellValue($letras[19].$i, strip_tags($contacto->contract() ?? 'N/A'))
+                ->setCellValue($letras[20].$i, $contacto->saldo_favor)
+                ->setCellValue($letras[21].$i, $contacto->etiqueta_nombre ?? 'Sin etiqueta'); // 🔹 aquí el cambio
 
             $i++;
         }
