@@ -2565,7 +2565,7 @@ class ContratosController extends Controller
                     $mensaje = 'SE HA ELIMINADO EL CONTRATO DE SERVICIOS SATISFACTORIAMENTE';
                     return redirect('empresa/contratos')->with('success', $mensaje);
                 } else {
-                    $mensaje = 'NO SE HA PODIDO ELIMINAR EL CONTRATO DE SERVICIOS';
+                    $mensaje = 'NO SE HA PODIDO ELIMINAR EL CONTRATO DE SERVICIOS POR QUE NO SE LOGRO CONECTAR A LA MIKROTIK CON LA IP: ' . $mikrotik->ip . ' EL USUARIO: ' . $mikrotik->usuario . ' Y LA CLAVE: ' . $mikrotik->clave;
                     return redirect('empresa/contratos')->with('danger', $mensaje);
                 }
             }else{
