@@ -3762,8 +3762,9 @@ class ContratosController extends Controller
             abort(404);
         }
 
-        // Construir la URL del Mikrotik
-        $servicio = str_replace(' ', '%20', $contrato->servicio);
+        // Codificar el servicio correctamente para URL
+        // Usar urlencode para manejar todos los caracteres especiales
+        $servicio = urlencode($contrato->servicio);
         $mikrotikUrl = "http://{$mikrotik->ip}:{$mikrotik->puerto_web}/graphs/queue/{$servicio}/{$tipo}.gif";
 
         // Hacer la petición al Mikrotik
@@ -3786,8 +3787,31 @@ class ContratosController extends Controller
 
             curl_close($ch);
 
-            if ($httpCode !== 200 || !$imageData) {
-                Log::error("Error al obtener gráfica de Mikrotik. HTTP Code: {$httpCode}, Error: {$error}, URL: {$mikrotikUrl}");
+            // Verificar si hay error de cURL
+            if ($error) {
+                Log::error("Error cURL al obtener gráfica de Mikrotik. Error: {$error}, URL: {$mikrotikUrl}");
+                abort(404);
+            }
+
+            // Verificar código HTTP
+            if ($httpCode !== 200) {
+                Log::error("Error HTTP al obtener gráfica de Mikrotik. HTTP Code: {$httpCode}, URL: {$mikrotikUrl}");
+                abort(404);
+            }
+
+            // Verificar que realmente sea una imagen
+            // Si el Mikrotik devuelve un error, normalmente devuelve HTML o texto
+            if (!$imageData || strlen($imageData) < 100) {
+                Log::error("Respuesta vacía o muy pequeña de Mikrotik. Tamaño: " . strlen($imageData) . " bytes, URL: {$mikrotikUrl}");
+                abort(404);
+            }
+
+            // Verificar si la respuesta es HTML (error del Mikrotik)
+            // Las imágenes GIF empiezan con "GIF89a" o "GIF87a"
+            if (substr($imageData, 0, 6) !== 'GIF89a' && substr($imageData, 0, 6) !== 'GIF87a') {
+                // Si no es un GIF válido, probablemente es un error del Mikrotik
+                $errorMessage = substr($imageData, 0, 500); // Primeros 500 caracteres para el log
+                Log::error("Mikrotik devolvió error en lugar de imagen. Respuesta: {$errorMessage}, URL: {$mikrotikUrl}");
                 abort(404);
             }
 
@@ -3798,7 +3822,7 @@ class ContratosController extends Controller
                 ->header('Access-Control-Allow-Origin', '*');
 
         } catch (\Exception $e) {
-            Log::error("Error al obtener gráfica de Mikrotik: " . $e->getMessage());
+            Log::error("Excepción al obtener gráfica de Mikrotik: " . $e->getMessage() . ", URL: {$mikrotikUrl}");
             abort(500);
         }
     }
