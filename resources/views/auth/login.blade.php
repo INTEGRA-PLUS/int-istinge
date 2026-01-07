@@ -175,26 +175,42 @@
         border: 1.5px solid rgba(255, 255, 255, 0.2);
         border-radius: 12px;
         font-size: 15px;
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff !important;
+        background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(10px);
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         font-weight: 400;
     }
 
+    .input-field:-webkit-autofill,
+    .input-field:-webkit-autofill:hover,
+    .input-field:-webkit-autofill:focus,
+    .input-field:-webkit-autofill:active {
+        -webkit-text-fill-color: #ffffff !important;
+        -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.1) inset !important;
+        box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.1) inset !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        transition: background-color 5000s ease-in-out 0s;
+    }
+
     .input-field:hover {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.15) !important;
         border-color: rgba(255, 255, 255, 0.3);
     }
 
     .input-field:focus {
         outline: none;
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.15) !important;
         border-color: #60a5fa;
         box-shadow:
             0 0 0 4px rgba(96, 165, 250, 0.2),
             0 4px 12px rgba(0, 0, 0, 0.3);
         transform: translateY(-1px);
+    }
+
+    .input-field:not(:placeholder-shown) {
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: #ffffff !important;
     }
 
     .input-field::placeholder {
