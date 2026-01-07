@@ -1666,7 +1666,7 @@ class IngresosController extends Controller
 
     public function edit($id){
         $this->getAllPermissions(Auth::user()->id);
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
 
         //tomamos las formas de pago cuando no es un recibo de caja por anticipo
         $formas = FormaPago::where('relacion',1)->orWhere('relacion',3)->get();

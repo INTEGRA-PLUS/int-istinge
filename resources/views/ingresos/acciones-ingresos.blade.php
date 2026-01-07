@@ -1,7 +1,7 @@
 <a href="{{route('ingresos.show',$id)}}"   class="btn btn-outline-info @if(Auth::user()->rol==47) btn-xl @else btn-icons @endif" title="Ver"><i class="far fa-eye"></i></i></a>
 @if($tipo!=3 && $tipo!=4)
     @if(isset($_SESSION['permisos']['48']))
-        <a href="{{route('ingresos.edit',$nro)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
+        <a href="{{route('ingresos.edit',$id)}}"  class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
     @endif
 @endif
 
