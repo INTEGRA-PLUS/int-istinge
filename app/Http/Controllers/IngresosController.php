@@ -2154,7 +2154,7 @@ class IngresosController extends Controller
 
     public function destroy($id)
     {
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
         if ($ingreso) {
 
             if ($ingreso->tipo == 3) {
