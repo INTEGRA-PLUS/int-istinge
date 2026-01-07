@@ -301,7 +301,7 @@
     }
 
     .header-overlay {
-        background: linear-gradient(135deg, rgba(17, 24, 39, 0.92) 0%, rgba(31, 41, 55, 0.88) 100%);
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 20, 40, 0.85) 100%);
         opacity: 1;
     }
 
