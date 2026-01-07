@@ -3740,6 +3740,69 @@ class ContratosController extends Controller
         return back()->with('danger', 'EL CONTRATO DE SERVICIOS NO HA ENCONTRADO');
     }
 
+    public function grafica_proxy($id, $tipo)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        $contrato = Contrato::find($id);
+
+        if (!$contrato) {
+            abort(404);
+        }
+
+        $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+
+        if (!$mikrotik) {
+            abort(404);
+        }
+
+        // Tipos permitidos de gráficas
+        $tiposPermitidos = ['daily', 'weekly', 'monthly', 'yearly'];
+
+        if (!in_array($tipo, $tiposPermitidos)) {
+            abort(404);
+        }
+
+        // Construir la URL del Mikrotik
+        $servicio = str_replace(' ', '%20', $contrato->servicio);
+        $mikrotikUrl = "http://{$mikrotik->ip}:{$mikrotik->puerto_web}/graphs/queue/{$servicio}/{$tipo}.gif";
+
+        // Hacer la petición al Mikrotik
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $mikrotikUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+            // Si el Mikrotik requiere autenticación HTTP, descomenta y configura:
+            // curl_setopt($ch, CURLOPT_USERPWD, "{$mikrotik->usuario}:{$mikrotik->clave}");
+            // curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+
+            $imageData = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            $error = curl_error($ch);
+
+            curl_close($ch);
+
+            if ($httpCode !== 200 || !$imageData) {
+                Log::error("Error al obtener gráfica de Mikrotik. HTTP Code: {$httpCode}, Error: {$error}, URL: {$mikrotikUrl}");
+                abort(404);
+            }
+
+            // Devolver la imagen con los headers correctos
+            return response($imageData, 200)
+                ->header('Content-Type', $contentType ?: 'image/gif')
+                ->header('Cache-Control', 'public, max-age=300') // Cache de 5 minutos
+                ->header('Access-Control-Allow-Origin', '*');
+
+        } catch (\Exception $e) {
+            Log::error("Error al obtener gráfica de Mikrotik: " . $e->getMessage());
+            abort(500);
+        }
+    }
+
     public function eliminarAdjunto($id, $archivo)
     {
         $contrato = Contrato::where('id', $id)->where('empresa', Auth::user()->empresa)->first();

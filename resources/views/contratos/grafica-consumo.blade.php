@@ -45,35 +45,23 @@
     	</div>
 
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/daily.gif" target="_blank" class="btn btn-system mb-4">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'daily']) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO DIARIO</h5><p class="mb-0">(promedio de 5 minutos)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/daily.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/weekly.gif" target="_blank" class="btn btn-system mb-4">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'weekly']) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO SEMANAL</h5><p class="mb-0">(promedio de 30 minutos)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/weekly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/monthly.gif" target="_blank" class="btn btn-system">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'monthly']) }}" target="_blank" class="btn btn-system">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO MENSUAL</h5><p class="mb-0">(promedio de 2 horas)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/monthly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/yearly.gif" target="_blank" class="btn btn-system">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'yearly']) }}" target="_blank" class="btn btn-system">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO ANUAL</h5><p class="mb-0">(promedio de 1 día)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/yearly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
     </div>
@@ -82,9 +70,6 @@
         <div class="col-md-3 text-center">
             <a href="{{ route('contratos.grafica', $contrato->id) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO TIEMPO REAL</h5><p class="mb-0">(descarga y carga)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/daily.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
     </div>
