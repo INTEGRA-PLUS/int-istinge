@@ -43,7 +43,7 @@
     			</table>
     		</div>
     	</div>
-    	
+
         <div class="col-md-3 text-center">
             <a href="http://{{$url}}/daily.gif" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO DIARIO</h5><p class="mb-0">(promedio de 5 minutos)</p>
@@ -92,7 +92,61 @@
 @endsection
 
 @section('scripts')
-<script> 
-	
+<script>
+	// Filtro para ocultar errores de extensiones del navegador y recursos de terceros
+	(function() {
+		const originalError = console.error;
+		const originalWarn = console.warn;
+
+		// Errores que debemos ignorar (provenientes de extensiones o recursos de terceros)
+		const ignoredErrors = [
+			'whatsapp',
+			'wa-mms',
+			'media.feoh',
+			'media-bog',
+			'media.cdn.wha',
+			'dit.whatsapp.net',
+			'multiple-uim-roots',
+			'installHook.js'
+		];
+
+		function shouldIgnoreError(message) {
+			if (!message) return false;
+			const msgStr = typeof message === 'string' ? message : (message.toString ? message.toString() : '');
+			return ignoredErrors.some(pattern =>
+				msgStr.toLowerCase().includes(pattern.toLowerCase())
+			);
+		}
+
+		console.error = function(...args) {
+			const message = args[0];
+			if (!shouldIgnoreError(message)) {
+				originalError.apply(console, args);
+			}
+		};
+
+		console.warn = function(...args) {
+			const message = args[0];
+			if (!shouldIgnoreError(message)) {
+				originalWarn.apply(console, args);
+			}
+		};
+
+		// También filtrar errores de red en la consola de recursos fallidos
+		window.addEventListener('error', function(e) {
+			const src = e.target?.src || e.filename || '';
+			if (src && (
+				src.includes('whatsapp') ||
+				src.includes('wa-mms') ||
+				src.includes('media.feoh') ||
+				src.includes('media-bog') ||
+				src.includes('installHook.js')
+			)) {
+				e.preventDefault();
+				e.stopPropagation();
+				return false;
+			}
+		}, true);
+	})();
 </script>
 @endsection
