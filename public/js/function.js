@@ -4702,7 +4702,8 @@ function modificarPromesa(id) {
         success: function(response) {
             cargando(false);
             if (response) {
-                promesa_pago = response.promesa_pago;
+                var data = typeof response === 'string' ? JSON.parse(response) : response;
+                promesa_pago = data.promesa_pago;
                 id = parseInt(id);
 
                 let date = new Date();
@@ -4715,26 +4716,42 @@ function modificarPromesa(id) {
                     var fecha = `${day}-${month}-${year}`;
                 }
 
+                // Obtener valores existentes si hay una promesa
+                var fechaPromesa = '';
+                var horaPromesa = '';
+                var esEdicion = false;
+                if (data.promesa_existente) {
+                    fechaPromesa = data.promesa_existente.vencimiento || '';
+                    horaPromesa = data.promesa_existente.hora_pago || '';
+                    esEdicion = true;
+                } else if (data.promesa_pago) {
+                    fechaPromesa = data.promesa_pago;
+                }
+
+                // Cambiar el título del modal según si es edición o creación
+                var tituloModal = esEdicion ? 'EDITAR PROMESA DE PAGO' : 'GENERAR PROMESA DE PAGO';
+                $('#exampleModalLabel').text(tituloModal);
+
                 $('#div_promesa').html('');
                 $('#div_promesa').append(`
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6 form-group">
                                 <label class="control-label">Día máximo de Pago <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control datepickeronly" id="promesa_pago-${id}" name="promesa_pago" required="">
+                                <input type="text" class="form-control datepickeronly" id="promesa_pago-${id}" name="promesa_pago" value="${fechaPromesa}" required="">
                             </div>
                             <div class="col-md-6 form-group">
                                 <label class="control-label">Hora máxima de Pago <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" title="Seleccione" name="hora_pago" id="hora_pago-${id}" required="">
-                                    <option value="00:00">12:00 AM</option>
-                                    <option value="03:00">3:00 AM</option>
-                                    <option value="06:00">6:00 AM</option>
-                                    <option value="09:00">9:00 AM</option>
-                                    <option value="12:00">12:00 PM</option>
-                                    <option value="15:00">3:00 PM</option>
-                                    <option value="18:00">6:00 PM</option>
-                                    <option value="21:00">9:00 PM</option>
-                                    <option value="23:00">11:00 PM</option>
+                                    <option value="00:00" ${horaPromesa === '00:00' ? 'selected' : ''}>12:00 AM</option>
+                                    <option value="03:00" ${horaPromesa === '03:00' ? 'selected' : ''}>3:00 AM</option>
+                                    <option value="06:00" ${horaPromesa === '06:00' ? 'selected' : ''}>6:00 AM</option>
+                                    <option value="09:00" ${horaPromesa === '09:00' ? 'selected' : ''}>9:00 AM</option>
+                                    <option value="12:00" ${horaPromesa === '12:00' ? 'selected' : ''}>12:00 PM</option>
+                                    <option value="15:00" ${horaPromesa === '15:00' ? 'selected' : ''}>3:00 PM</option>
+                                    <option value="18:00" ${horaPromesa === '18:00' ? 'selected' : ''}>6:00 PM</option>
+                                    <option value="21:00" ${horaPromesa === '21:00' ? 'selected' : ''}>9:00 PM</option>
+                                    <option value="23:00" ${horaPromesa === '23:00' ? 'selected' : ''}>11:00 PM</option>
                                 </select>
                             </div>
                         </div>

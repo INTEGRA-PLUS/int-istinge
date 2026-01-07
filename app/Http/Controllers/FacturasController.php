@@ -4290,7 +4290,21 @@ class FacturasController extends Controller{
 
     public function promesa_pago($id){
         $factura = Factura::where('id', $id)->first();
-        return json_encode($factura);
+
+        // Buscar la promesa de pago existente para esta factura
+        $promesaExistente = PromesaPago::where('factura', $id)->first();
+
+        $response = [
+            'id' => $factura->id,
+            'promesa_pago' => $factura->promesa_pago ? date('d-m-Y', strtotime($factura->promesa_pago)) : null,
+            'promesa_existente' => $promesaExistente ? [
+                'id' => $promesaExistente->id,
+                'vencimiento' => $promesaExistente->vencimiento ? date('d-m-Y', strtotime($promesaExistente->vencimiento)) : null,
+                'hora_pago' => $promesaExistente->hora_pago
+            ] : null
+        ];
+
+        return json_encode($response);
     }
 
 
@@ -4306,24 +4320,57 @@ class FacturasController extends Controller{
         $factura = Factura::where('id', $request->id)->first();
         $empresa = Empresa::find($factura->empresa);
 
-        $numero = 0;
-        $numero = PromesaPago::all()->count();
-        $numero++;
+        // Buscar si ya existe una promesa de pago para esta factura
+        $promesa_pago = PromesaPago::where('factura', $factura->id)->first();
 
-        $promesa_pago = New PromesaPago;
-        $promesa_pago->nro = $numero;
-        $promesa_pago->factura = $factura->id;
-        $promesa_pago->cliente = $factura->cliente;
-        $promesa_pago->fecha = date('Y-m-d');
-        $promesa_pago->vencimiento = date('Y-m-d', strtotime($request->promesa_pago));
-        $promesa_pago->hora_pago = $request->hora_pago;
-        $promesa_pago->created_by = Auth::user()->id;
-        $promesa_pago->save();
+        if ($promesa_pago) {
+            // Actualizar la promesa existente
+            $promesa_pago->vencimiento = date('Y-m-d', strtotime($request->promesa_pago));
+            $promesa_pago->hora_pago = $request->hora_pago;
+            $promesa_pago->updated_by = Auth::user()->id;
+            $promesa_pago->save();
+
+            $mensajeObservaciones = ' | Factura Editada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A'). ' para editar Promesa de Pago Nro. '.$promesa_pago->nro;
+
+            // Registro de log para edición de promesa de pago
+            $movimiento = new MovimientoLOG();
+            $movimiento->contrato    = $factura->id;
+            $movimiento->modulo      = 8;
+            $movimiento->descripcion = '<i class="fas fa-check text-success"></i> <b>Se editó la promesa de pago</b> Nro. ' . $promesa_pago->nro . ' para la factura ' . $factura->codigo . ' con fecha de vencimiento ' . date('d-m-Y', strtotime($request->promesa_pago)) . ' y hora ' . $request->hora_pago;
+            $movimiento->created_by  = Auth::user()->id;
+            $movimiento->empresa     = $factura->empresa;
+            $movimiento->save();
+        } else {
+            // Crear una nueva promesa de pago
+            $numero = 0;
+            $numero = PromesaPago::all()->count();
+            $numero++;
+
+            $promesa_pago = New PromesaPago;
+            $promesa_pago->nro = $numero;
+            $promesa_pago->factura = $factura->id;
+            $promesa_pago->cliente = $factura->cliente;
+            $promesa_pago->fecha = date('Y-m-d');
+            $promesa_pago->vencimiento = date('Y-m-d', strtotime($request->promesa_pago));
+            $promesa_pago->hora_pago = $request->hora_pago;
+            $promesa_pago->created_by = Auth::user()->id;
+            $promesa_pago->save();
+
+            $mensajeObservaciones = 'Añadiendo Promesa de Pago | Factura Editada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A'). ' para añadir Promesa de Pago Nro. '.$promesa_pago->nro;
+
+            // Registro de log para creación de promesa de pago
+            $movimiento = new MovimientoLOG();
+            $movimiento->contrato    = $factura->id;
+            $movimiento->modulo      = 8;
+            $movimiento->descripcion = '<i class="fas fa-check text-success"></i> <b>Se creó la promesa de pago</b> Nro. ' . $promesa_pago->nro . ' para la factura ' . $factura->codigo . ' con fecha de vencimiento ' . date('d-m-Y', strtotime($request->promesa_pago)) . ' y hora ' . $request->hora_pago;
+            $movimiento->created_by  = Auth::user()->id;
+            $movimiento->empresa     = $factura->empresa;
+            $movimiento->save();
+        }
 
         $factura->promesa_pago  = date('Y-m-d', strtotime($request->promesa_pago));
         $factura->vencimiento   = date('Y-m-d', strtotime($request->promesa_pago));
-        $factura->observaciones = 'Añadiendo Promesa de Pago';
-        $factura->observaciones = $factura->observaciones.' | Factura Editada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A'). ' para añadir Promesa de Pago Nro. '.$promesa_pago->nro;
+        $factura->observaciones = ($factura->observaciones ?? '') . $mensajeObservaciones;
         $factura->save();
 
         /* VERIFICAR SI EL CONTRATO ESTÁ DESHABILITADO PARA HABILITARLO */
