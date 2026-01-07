@@ -5252,11 +5252,6 @@ class FacturasController extends Controller{
                 return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
 
-            // Verificar si hay un error en la respuesta (aunque el status sea "success")
-            if (isset($response->error) && $response->error === "Template message sent successfully") {
-                return back()->with('danger', 'No se pudo enviar el mensaje porque falta asociar un método de pago.');
-            }
-
             // ============================================================
             // 🟢 ACTUALIZAR FACTURA
             // ============================================================
