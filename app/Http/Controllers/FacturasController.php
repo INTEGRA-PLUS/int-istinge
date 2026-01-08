@@ -1570,32 +1570,32 @@ class FacturasController extends Controller{
             'vendedor' => 'required',
         ]);
 
+        // return $request->all();
+
         $user = Auth::user();
         $nro = false;
         $contrato = false;
         $num = Factura::where('empresa',1)->orderby('nro','asc')->get()->last();
 
+        //Nota: En conclusion si no es electrónica, se debe seleccionar un contrato. De lo contrario si se puede crear sin contrato.
         if(!isset($request->electronica)){
             $nro=NumeracionFactura::where('empresa',$user->empresa)->where('preferida',1)->where('estado',1)->where('tipo',1)->first();
-            $contrato =    Contrato::where('client_id',$request->cliente)->first();
 
-            //Obtenemos el número depende del contrato que tenga asignado (con fact electrónica o estandar).
-            $nro = $nro->tipoNumeracion($contrato);
-        }
-
-        //Por acá entra cuando quiero crear una factura electrónica sin que esté asociadaa un contrato
-        if (!$nro) {
-            if(isset($request->electronica)){
-                //No se llama el metodo de tipoNumeracion por que las facturas electrónicas no necesitan de un contrato para ser generadas.
-                $nro=NumeracionFactura::where('empresa',$user->empresa)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
-                if(!$nro){
-                    $mensaje='Debes crear una numeración para facturas de venta preferida';
-                    return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
-                }
+            if($request->contratos_json != ''){
+                $contrato = Contrato::where('id', $request->contratos_json)->first();
             }else{
+                $mensaje='Debes seleccionar un contrato para el tipo de facturacion estandar.';
+                return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
+            }
+
+        }else{
+
+            $nro=NumeracionFactura::where('empresa',$user->empresa)->where('preferida',1)->where('estado',1)->where('tipo',2)->first();
+            if(!$nro){
                 $mensaje='Debes crear una numeración para facturas de venta preferida';
                 return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
             }
+
         }
 
         //Actualiza el nro de inicio para la numeracion seleccionada
@@ -1616,7 +1616,6 @@ class FacturasController extends Controller{
         $key = Hash::make(date("H:i:s"));
         $toReplace = array('/', '$','.');
         $key = str_replace($toReplace, "", $key);
-        //
 
         if($num){
             $numero = $num->nro + 1;
@@ -1675,18 +1674,10 @@ class FacturasController extends Controller{
 
         if($contrato){
             $factura->contrato_id = $contrato->id;
-        }else{
-            /*
-            Validamos aca de nuevo si tiene contrato o no, para que las facturas electronicas que tienen contrato
-             tengan la posibilidad de que se les guarde el id del contrato en la factura.
-             */
-            $contrato = Contrato::where('client_id',$request->cliente)->first();
-            if($contrato){
-                $factura->contrato_id = $contrato->id;
-            }
         }
 
         $factura->save();
+
         // Relacionar contrato con la factura una vez exista el ID de la factura
         if($contrato){
             DB::table('facturas_contratos')->insert([
@@ -1705,14 +1696,18 @@ class FacturasController extends Controller{
 
             $contratosArray = explode(',',$request->contratos_asociados);
             for($i = 0 ; $i < count($contratosArray); $i++){
-                DB::table('facturas_contratos')->insert([
-                    'factura_id' => $factura->id,
-                    'contrato_nro' => $contratosArray[$i],
-                    'created_by' => $user->id,
-                    'client_id' => $factura->cliente,
-                    'is_cron' => 0,
-                    'created_at' => Carbon::now()
-                ]);
+
+                //Validamos que no ingrese dos veces el mismo contrato.
+                if($contrato && $contratosArray[$i] != $contrato->nro){
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $contratosArray[$i],
+                        'created_by' => $user->id,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 0,
+                        'created_at' => Carbon::now()
+                    ]);
+                }
             }
         }
 
@@ -1777,26 +1772,6 @@ class FacturasController extends Controller{
                 }
             }
         }
-
-        //>>>>Posible aplicación de Prorrateo al total<<<<//
-        // if(Auth::user()->empresaObj->prorrateo == 1){
-        //     $dias = $factura->diasCobradosProrrateo();
-        //     //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
-        //     if($dias != 30){
-        //         if(isset($factura->prorrateo_aplicado)){
-        //             $factura->prorrateo_aplicado = 1;
-        //             $factura->save();
-        //         }
-
-        //         foreach($factura->itemsFactura as $item){
-        //             //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
-        //             $precioItemProrrateo = $this->precision($item->precio * $dias / 30);
-        //             $item->precio = $precioItemProrrateo;
-        //             $item->save();
-        //         }
-        //     }
-        // }
-        //>>>>Fin posible aplicación prorrateo al total<<<<//
 
         //Actualiza el nro de inicio para la numeracion seleccionada
         $cant=Factura::where('empresa',Auth::user()->empresa)->where('codigo','=',($nro->prefijo.$inicio))->count();
