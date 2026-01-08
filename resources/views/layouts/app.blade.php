@@ -36,9 +36,229 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css">
 
     <style>
+        /* Modal de bienvenida */
+        .chat-ia-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .chat-ia-modal-content {
+            position: fixed;
+            bottom: 90px;
+            right: 25px;
+            background-color: white;
+            padding: 30px 25px;
+            border-radius: 16px;
+            width: 340px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .chat-ia-modal-close {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .chat-ia-modal-close:hover {
+            color: #000;
+        }
+
+        .chat-ia-welcome-emoji {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .chat-ia-welcome-title {
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .chat-ia-btn-primary,
+        .chat-ia-btn-secondary {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chat-ia-btn-primary {
+            background-color: #0066a1;
+            color: white;
+        }
+
+        .chat-ia-btn-primary:hover {
+            background-color: #004f7f;
+        }
+
+        .chat-ia-btn-secondary {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        .chat-ia-btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Widget de chat */
+        .chat-ia-widget {
+            position: fixed;
+            bottom: 90px;
+            right: 25px;
+            width: 380px;
+            height: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16);
+            display: flex;
+            flex-direction: column;
+            z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        .chat-ia-widget.hidden {
+            display: none;
+        }
+
+        .chat-ia-header {
+            background: linear-gradient(135deg, #003f7f 100%, #003f7f 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px 12px 0 0;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-ia-header button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .chat-ia-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .chat-ia-bubble {
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 18px;
+            max-width: 75%;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-ia-bubble.user {
+            background: #0066a1;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-ia-bubble.bot {
+            background: white;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-ia-input-container {
+            display: flex;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .chat-ia-input-container input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-ia-input-container input:focus {
+            border-color: #0066a1;
+        }
+
+        .chat-ia-input-container button {
+            background: #0066a1;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .chat-ia-input-container button:hover {
+            background: #004f7f;
+            transform: scale(1.05);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+
+            .chat-ia-widget,
+            .chat-ia-modal-content {
+                right: 15px;
+                width: calc(100% - 30px);
+                max-width: 380px;
+            }
+        }
+
         .ai-icon-bubble {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             background: #022454;
             border-radius: 50%;
             display: inline-flex;
@@ -245,12 +465,14 @@
 
         .whatsapp {
             position: fixed;
-            right: 25px;
+            right: 5px;
             /*Margen derecho*/
-            bottom: 20px;
+            bottom: 5px;
             /*Margen abajo*/
             z-index: 999;
+            cursor: pointer;
         }
+
 
         .whatsapp img {
             width: 60px;
@@ -858,7 +1080,35 @@
                 </footer>
                 <!-- partial -->
             </div>
-            <div class="whatsapp ">
+            <!-- Modal de bienvenida -->
+            <div id="chat-ia-welcome-modal" class="chat-ia-modal">
+                <div class="chat-ia-modal-content">
+                    <span class="chat-ia-modal-close">&times;</span>
+                    <div class="chat-ia-welcome-emoji">👋</div>
+                    <h3 class="chat-ia-welcome-title">Hola. soy el asistente de IA,<br>puedes preguntarme
+                        cualquier duda sobre <br>Integra.</h3>
+                    <button class="chat-ia-btn-primary" id="chat-ia-start-btn">Chatear ahora</button>
+                    <button class="chat-ia-btn-secondary" id="chat-ia-dismiss-btn">No requiero asesoría</button>
+                </div>
+            </div>
+
+            <!-- Widget de chat -->
+            <div id="chat-ia-widget" class="chat-ia-widget hidden">
+                <div class="chat-ia-header">
+                    <span>Soporte IA</span>
+                    <button id="chat-ia-close-widget">&times;</button>
+                </div>
+                <div class="chat-ia-messages" id="chat-ia-messages">
+                    <div class="chat-ia-bubble bot">¡Hola! ¿En qué puedo ayudarte hoy?</div>
+                </div>
+                <div class="chat-ia-input-container">
+                    <input type="text" id="chat-ia-input" placeholder="Escribe tu mensaje..." />
+                    <button id="chat-ia-send-btn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+
+            <!-- Botón flotante (tu actual) -->
+            <div class="whatsapp" id="chat-ia-float-btn">
                 <div class="ai-icon-bubble">
                     <i class="fas fa-robot"></i>
                 </div>
@@ -1162,6 +1412,132 @@
         </script>
     @endif
     @yield('scripts')
+    <!-- Test Chat-IA webhook -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const floatBtn = document.getElementById('chat-ia-float-btn');
+            const welcomeModal = document.getElementById('chat-ia-welcome-modal');
+            const chatWidget = document.getElementById('chat-ia-widget');
+            const startBtn = document.getElementById('chat-ia-start-btn');
+            const dismissBtn = document.getElementById('chat-ia-dismiss-btn');
+            const closeModal = document.querySelector('.chat-ia-modal-close');
+            const closeWidget = document.getElementById('chat-ia-close-widget');
+            const sendBtn = document.getElementById('chat-ia-send-btn');
+            const input = document.getElementById('chat-ia-input');
+            const messages = document.getElementById('chat-ia-messages');
+            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            const chatId = '{{ auth()->check() ? 'user-' . auth()->id() : 'guest-' . session()->getId() }}';
+
+            // Abrir modal de bienvenida al hacer clic en el botón flotante
+            floatBtn.addEventListener('click', function() {
+                // Si el widget ya está abierto, solo lo cerramos
+                if (!chatWidget.classList.contains('hidden')) {
+                    chatWidget.classList.add('hidden');
+                    return;
+                }
+
+                // Si el widget está cerrado y el usuario aún no aceptó, mostramos modal
+                // Puedes guardar un flag en memoria para no mostrar el modal siempre
+                const alreadyAccepted = window.localStorage.getItem('chatIaAccepted') === '1';
+
+                if (alreadyAccepted) {
+                    chatWidget.classList.remove('hidden');
+                    input.focus();
+                } else {
+                    welcomeModal.style.display = 'block';
+                }
+            });
+
+            // Cerrar modal
+            closeModal.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+            });
+
+            dismissBtn.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+            });
+
+            // Iniciar chat
+            startBtn.addEventListener('click', function() {
+                welcomeModal.style.display = 'none';
+                chatWidget.classList.remove('hidden');
+                window.localStorage.setItem('chatIaAccepted', '1');
+                input.focus();
+            });
+
+
+            // Cerrar widget
+            closeWidget.addEventListener('click', function() {
+                chatWidget.classList.add('hidden');
+            });
+
+            // Agregar mensaje a la UI
+            function addMessage(text, type) {
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-ia-bubble ' + type;
+                bubble.textContent = text;
+                messages.appendChild(bubble);
+                messages.scrollTop = messages.scrollHeight;
+                return bubble;
+            }
+
+            // Enviar mensaje
+            async function sendMessage() {
+                const text = input.value.trim();
+                const sessionId =
+                    '{{ auth()->check() ? 'user-' . auth()->id() : 'guest-' . session()->getId() }}';
+                if (!text) return;
+
+                addMessage(text, 'user');
+                input.value = '';
+
+                const thinkingBubble = addMessage('Escribiendo...', 'bot');
+
+                try {
+                    const response = await fetch('{{ route('chatia.chatIaWebhook') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token
+                        },
+                        body: JSON.stringify({
+                            content: text,
+                            session_id: sessionId
+                        })
+                    });
+
+                    const data = await response.json();
+                    messages.removeChild(thinkingBubble);
+
+                    if (data.ok) {
+                        const reply = data.reply || 'Respuesta recibida';
+                        addMessage(reply, 'bot');
+                    } else {
+                        addMessage('❌' + (data.error || 'Error al procesar la solicitud'), 'bot');
+                    }
+                } catch (error) {
+                    messages.removeChild(thinkingBubble);
+                    addMessage('❌ Error de conexión', 'bot');
+                    console.error('Error:', error);
+                }
+            }
+
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            // Cerrar modal al hacer clic fuera
+            window.addEventListener('click', function(e) {
+                if (e.target === welcomeModal) {
+                    welcomeModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+
+
     <script>
         // Check subscription status
         function checkSubscriptionStatus() {

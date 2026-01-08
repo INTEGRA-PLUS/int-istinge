@@ -35,6 +35,24 @@
     </div>
     @endif
 
+
+    @if (session()->has('message_success'))
+        <div class="alert alert-success" role="alert">
+            {{ session()->get('message_success') }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    @endif
+
+
+    @if (session('message_denied_btw'))
+        <div class="alert alert-danger">
+            {!! session('message_denied_btw') !!}
+        </div>
+    @endif
+
+
 	@if(auth()->user()->empresaObj->estado_dian == 1 && auth()->user()->empresaObj->validateResp() == 0)
         <div class="alert alert-warning" role="alert">
         	<strong>Atención, segun la resolución 042 del 2020</strong> las empresas se deben clasificar en alguno de estos grupos de responsabilidades: O-13,O-15,O-23,O-47 y R-99-PN, revisa el <strong>RUT</strong> de tu empresa para saber a que grupo perteneces y actualiza tus responsabilidades haciendo <a href="{{route('configuracion.create')}}">click aquí</a>

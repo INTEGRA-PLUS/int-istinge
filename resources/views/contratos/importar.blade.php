@@ -11,6 +11,7 @@
                 <select name="conexion" id="conexion" style="padding-left:10px;">
                     <option value="1">PPPoE</option>
                     <option value="0">IP Estática</option>
+                    <option value="2">DHCP</option>
                 </select>
                 <br><br>
                 <input type="submit" value="Click Aqui!" style="border:1px solid #305498;background-color: #305498 !important; color: #fff;">
@@ -109,7 +110,7 @@
                     <div class="table-responsive">
                         <table class="table table-striped importar text-center" style="border: solid 2px {{Auth::user()->empresa()->color}} !important;">
                             <thead><tr style="background-color: {{Auth::user()->empresa()->color}} !important; color: #fff;"><th>Tecnología</th></tr></thead>
-                            <tbody><tr><td>Fibra</td></tr><tr><td>Inalambrico</td></tr></tbody>
+                            <tbody><tr><td>Fibra</td></tr><tr><td>Inalambrico</td></tr><tr><td>Cableado UTP</td></tr></tbody>
                         </table>
                     </div>
                 </div>

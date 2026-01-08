@@ -118,13 +118,21 @@
 								@endforeach
 							</select>
                         </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
                             <label for="creacion" class="placeholder">Creación</label>
-                        </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                        </div> --}}
+                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
                             <label for="vencimiento" class="placeholder">Vencimiento</label>
+                        </div> --}}
+                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                            <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
+                            <label for="desde" class="placeholder">Desde</label>
+                        </div>
+                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                            <input type="date" id="hasta" name="hasta" class="form-control rounded" autocomplete="off">
+                            <label for="hasta" class="placeholder">Hasta</label>
                         </div>
 						<div class="col-md-2 pl-1 pt-1">
 							<select title="Servidor" class="form-control rounded selectpicker" id="servidor">
@@ -709,6 +717,10 @@
 		// Variable global para controlar si se ha hecho clic en filtrar
 		var filtroClickeado = false;
 
+		// Establecer valores por defecto para desde y hasta (2025-2026)
+		$('#desde').val('2025-01-01');
+		$('#hasta').val('2026-12-31');
+
 		tabla.on('preXhr.dt', function(e, settings, data) {
 			data.codigo = $('#codigo').val();
 			data.corte = $('#corte').val();
@@ -718,6 +730,8 @@
 			data.barrio = $('#barrio').val();
 			data.creacion = $('#creacion').val();
 			data.vencimiento = $('#vencimiento').val();
+			data.desde = $('#desde').val();
+			data.hasta = $('#hasta').val();
 			data.comparador = $('#comparador').val();
 			data.total = $('#total').val();
 			data.servidor = $('#servidor').val();
@@ -756,7 +770,7 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #barrio, #state_contrato, #grupos_corte, #fact_siigo').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo').on('change',function() {
             filtroClickeado = true; // Marcar que se aplicó un filtro por cambio de dropdown
             getDataTable();
             return false;
@@ -1036,6 +1050,8 @@
 		$('#vendedor').val('').selectpicker('refresh');
 		$('#creacion').val('');
 		$('#vencimiento').val('');
+		$('#desde').val('2025-01-01');
+		$('#hasta').val('2026-12-31');
 		$('#comparador').val('').selectpicker('refresh');
 		$('#total').val('');
 		$('#estado').val('').selectpicker('refresh');
@@ -1060,6 +1076,8 @@
             'barrio=' + encodeURIComponent($('#barrio').val() || ''),
             'creacion=' + encodeURIComponent($('#creacion').val() || ''),
             'vencimiento=' + encodeURIComponent($('#vencimiento').val() || ''),
+            'desde=' + encodeURIComponent($('#desde').val() || ''),
+            'hasta=' + encodeURIComponent($('#hasta').val() || ''),
             'estado=' + encodeURIComponent($('#estado').val() || ''),
             'grupos_corte=' + encodeURIComponent($('#grupos_corte').val() || ''),
             'fact_siigo=' + encodeURIComponent($('#fact_siigo').val() || ''),

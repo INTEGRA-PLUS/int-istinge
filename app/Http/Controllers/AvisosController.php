@@ -209,10 +209,17 @@ class AvisosController extends Controller
             }
         }
 
+        $isFiberNet = false;
+
+        $empresa = Auth::user()->empresa(); // si en tu proyecto empresa() retorna el modelo (no la relación)
+        if ($empresa && isset($empresa->nombre)) {
+            $isFiberNet = trim($empresa->nombre) === 'FiberNet Colombia';
+        }
+
         $servidores = Mikrotik::where('empresa', auth()->user()->empresa)->get();
         $gruposCorte = GrupoCorte::where('empresa', Auth::user()->empresa)->get();
 
-        return view('avisos.envio')->with(compact('plantillas','contratos','opcion','id', 'servidores', 'gruposCorte'));
+        return view('avisos.envio')->with(compact('plantillas','contratos','opcion','id', 'servidores', 'gruposCorte', 'isFiberNet'));
     }
 
 
@@ -325,23 +332,56 @@ class AvisosController extends Controller
                         try {
                             // Lógica según el tipo de plantilla
                             if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
-                                // ========================================
-                                // CASO: SUSPENSIÓN DE SERVICIO
-                                // ========================================
+                                $esFiberNet = trim(mb_strtolower($nameEmpresa)) === trim(mb_strtolower('FiberNet Colombia'));
+
+                                if ($esFiberNet) {
+                                    // Buscar factura más reciente asociada al contrato
+                                    $factura = Factura::where('contrato_id', $contrato->id)
+                                        ->latest()
+                                        ->first();
                                 
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "suspensionservicios",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
+                                    if (!$factura) {
+                                        $enviadosFallidos++;
+                                        \Log::warning('Contrato ' . $contrato->id . ': Sin factura para suspensión FiberNet');
+                                        continue;
+                                    }
+                                
+                                    // var2 -> Fecha de suspensión (formateada)
+                                    $var2 = $factura->suspension
+                                        ? \Carbon\Carbon::parse($factura->suspension)->translatedFormat('j \\d\\e F \\d\\e Y')
+                                        : 'Fecha no disponible';
+                                
+                                    // Body especial: 2 variables
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "suspensionservicios", // OJO: si tu plantilla FiberNet es otra, cámbiala aquí
+                                        "languageCode" => "en",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $nameEmpresa], // 1er parametro
+                                                    ["type" => "text", "text" => $var2],        // 2do parametro (fecha suspensión)
+                                                ]
                                             ]
                                         ]
-                                    ]
-                                ];
+                                    ];
+                                } else {
+                                    // Body normal: 1 variable
+                                    $body = [
+                                        "phone" => $telefonoCompleto,
+                                        "templateName" => "suspensionservicios",
+                                        "languageCode" => "en",
+                                        "components" => [
+                                            [
+                                                "type" => "body",
+                                                "parameters" => [
+                                                    ["type" => "text", "text" => $nameEmpresa]
+                                                ]
+                                            ]
+                                        ]
+                                    ];
+                                }
                                 
                                 $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
                                 
@@ -701,7 +741,109 @@ class AvisosController extends Controller
                                 } else {
                                     $enviadosFallidos++;
                                 }
-                                
+                            } elseif ($tipoPlantilla == 'dao_de_fibra_principal' || str_contains($tipoPlantilla, 'dao_de_fibra_principal')) {
+                                // ========================================
+                                // CASO: DAÑO/DAO DE FIBRA PRINCIPAL (FiberNet)
+                                // ========================================
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "dao_de_fibra_principal",
+                                    "languageCode" => "en",
+                                ];
+
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
+                                    $esExitoso = false;
+
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) ||
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+
+                                    if (isset($responseData['messages'][0]['id']) ||
+                                        isset($responseData['message_id']) ||
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+
+                                    if (isset($responseData['error']) && is_array($responseData['error']) &&
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') ||
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
+
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Dao de fibra principal');
+                                    } else {
+                                        $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                    \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto . ' | dao_de_fibra_principal');
+                                }
+
+                            } elseif ($tipoPlantilla == 'falla_servicio_' || str_contains($tipoPlantilla, 'falla_servicio_') || str_contains($tipoPlantilla, 'falla_servicio')) {
+                                // ========================================
+                                // CASO: FALLA DE SERVICIO (FiberNet)
+                                // ========================================
+                                $body = [
+                                    "phone" => $telefonoCompleto,
+                                    "templateName" => "falla_servicio_",
+                                    "languageCode" => "en",
+                                ];
+
+                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+
+                                if (isset($response->scalar)) {
+                                    $responseData = json_decode($response->scalar ?? '{}', true);
+                                    $esExitoso = false;
+
+                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                        if (isset($responseData['data']['messages'][0]['id']) ||
+                                            isset($responseData['data']['messages'][0]['message_status'])) {
+                                            $esExitoso = true;
+                                        }
+                                    }
+
+                                    if (isset($responseData['messages'][0]['id']) ||
+                                        isset($responseData['message_id']) ||
+                                        isset($responseData['messageId'])) {
+                                        $esExitoso = true;
+                                    }
+
+                                    if (isset($responseData['error']) && is_array($responseData['error']) &&
+                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                        $esExitoso = false;
+                                    }
+
+                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                        (str_contains(strtolower($responseData['error']), 'success') ||
+                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                        $esExitoso = true;
+                                    }
+
+                                    if ($esExitoso) {
+                                        $enviadosExito++;
+                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Falla de servicio');
+                                    } else {
+                                        $enviadosFallidos++;
+                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                    }
+                                } else {
+                                    $enviadosFallidos++;
+                                    \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto . ' | falla_servicio_');
+                                }    
                             } else {
                                 $enviadosFallidos++;
                                 \Log::warning('Plantilla no reconocida: ' . $tipoPlantilla);

@@ -81,11 +81,12 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('contratos.index')}}">Lista contratos</a>
             </li>
             @endif
-            @if(isset($_SESSION['permisos']['858']))
             <li class="nav-item" id="proveedores">
-                <a class="nav-link" href="{{ route('olt.unconfigured') }}">Onus desconfiguradas</a>
+                <a class="nav-link" href="{{ route('olt.unconfigured') }}">Onus SmartOLT</a>
             </li>
-            @endif
+            <li class="nav-item" id="proveedores">
+                <a class="nav-link" href="{{ route('olt.unconfiguredAdminOLT') }}">Onus AdminOLT</a>
+            </li>
         </ul>
     </div>
 </li>
@@ -322,11 +323,11 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('crm.etiquetas')}}">Etiquetas</a>
             </li>
             @endif
-            @if(isset($_SESSION['permisos']['744']))
+            {{-- @if(isset($_SESSION['permisos']['744']))
             <li class="nav-item" id="crm_whatsapp">
                 <a class="nav-link" href="{{route('crm.cartera')}}">Clientes Whatsapp</a>
             </li>
-            @endif
+            @endif --}}
             @if(Auth::user()->empresa()->chat_ia == 1)
             <li class="nav-item" id="crm_whatsapp">
                 <a class="nav-link" href="{{route('crm.cartera2')}}">Clientes IA</a>
@@ -345,7 +346,7 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('crm.chatboxIA')}}">Chatbox</a>
             </li>
             {{-- @endif --}}
-            
+
         </ul>
     </div>
 </li>

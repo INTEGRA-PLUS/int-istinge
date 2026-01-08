@@ -43,37 +43,25 @@
     			</table>
     		</div>
     	</div>
-    	
+
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/daily.gif" target="_blank" class="btn btn-system mb-4">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'daily']) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO DIARIO</h5><p class="mb-0">(promedio de 5 minutos)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/daily.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/weekly.gif" target="_blank" class="btn btn-system mb-4">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'weekly']) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO SEMANAL</h5><p class="mb-0">(promedio de 30 minutos)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/weekly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/monthly.gif" target="_blank" class="btn btn-system">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'monthly']) }}" target="_blank" class="btn btn-system">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO MENSUAL</h5><p class="mb-0">(promedio de 2 horas)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/monthly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
         <div class="col-md-3 text-center">
-            <a href="http://{{$url}}/yearly.gif" target="_blank" class="btn btn-system">
+            <a href="{{ route('contratos.grafica_proxy', [$contrato->id, 'yearly']) }}" target="_blank" class="btn btn-system">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO ANUAL</h5><p class="mb-0">(promedio de 1 día)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/yearly.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
     </div>
@@ -82,9 +70,6 @@
         <div class="col-md-3 text-center">
             <a href="{{ route('contratos.grafica', $contrato->id) }}" target="_blank" class="btn btn-system mb-4">
                 <h5 class="pb-0 mb-0 font-weight-bold">GRÁFIO TIEMPO REAL</h5><p class="mb-0">(descarga y carga)</p>
-                <div class="mb-4 d-none">
-                    <img src="http://{{$url}}/daily.gif" class="d-none img-gafica">
-                </div>
             </a>
         </div>
     </div>
@@ -92,7 +77,61 @@
 @endsection
 
 @section('scripts')
-<script> 
-	
+<script>
+	// Filtro para ocultar errores de extensiones del navegador y recursos de terceros
+	(function() {
+		const originalError = console.error;
+		const originalWarn = console.warn;
+
+		// Errores que debemos ignorar (provenientes de extensiones o recursos de terceros)
+		const ignoredErrors = [
+			'whatsapp',
+			'wa-mms',
+			'media.feoh',
+			'media-bog',
+			'media.cdn.wha',
+			'dit.whatsapp.net',
+			'multiple-uim-roots',
+			'installHook.js'
+		];
+
+		function shouldIgnoreError(message) {
+			if (!message) return false;
+			const msgStr = typeof message === 'string' ? message : (message.toString ? message.toString() : '');
+			return ignoredErrors.some(pattern =>
+				msgStr.toLowerCase().includes(pattern.toLowerCase())
+			);
+		}
+
+		console.error = function(...args) {
+			const message = args[0];
+			if (!shouldIgnoreError(message)) {
+				originalError.apply(console, args);
+			}
+		};
+
+		console.warn = function(...args) {
+			const message = args[0];
+			if (!shouldIgnoreError(message)) {
+				originalWarn.apply(console, args);
+			}
+		};
+
+		// También filtrar errores de red en la consola de recursos fallidos
+		window.addEventListener('error', function(e) {
+			const src = e.target?.src || e.filename || '';
+			if (src && (
+				src.includes('whatsapp') ||
+				src.includes('wa-mms') ||
+				src.includes('media.feoh') ||
+				src.includes('media-bog') ||
+				src.includes('installHook.js')
+			)) {
+				e.preventDefault();
+				e.stopPropagation();
+				return false;
+			}
+		}, true);
+	})();
 </script>
 @endsection

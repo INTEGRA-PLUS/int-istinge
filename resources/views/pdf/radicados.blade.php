@@ -159,6 +159,10 @@
                             <td style="padding-left: 9px;">{{date('d-m-Y', strtotime($radicado->fecha))}}</td>
                         </tr>
                         <tr>
+                            <th style="text-align: left; padding-left: 9px;">Hora</th>
+                            <td style="padding-left: 9px;">{{date('H:i', strtotime($radicado->hora))}}</td>
+                        </tr>
+                        <tr>
                             <th style="text-align: left; padding-left: 9px;">Contrato</th>
                             <td style="padding-left: 9px;">{{$radicado->contrato}}</td>
                         </tr>

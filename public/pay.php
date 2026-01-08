@@ -196,6 +196,7 @@
                             <input type="hidden" name="amount-in-cents" id="amount-in-cents" />
                             <input type="hidden" name="reference" id="reference"/>
                             <input type="hidden" name="redirect-url" id="redirect_url_wompi" />
+                            <input type="hidden" name="signature:integrity" id="signature_integrity_wompi" />
                             <button class="btn btn-success" type="submit">Pagar con Wompi</button>
                         </form>
                         <button class="btn btn-main d-none" style="color: var(--secondary);" onclick="confirmar('form-wompi', 'WOMPI');" id="btn_wompi">Pagar con Wompi</button>
@@ -413,12 +414,27 @@
                     if(data.contrato){
                         var str = window.location.hostname;
                         $.each(data.pasarelas, function(index, value){
-                            if(value.nombre == 'WOMPI'){
-                                $("#reference").val('<?=$nom_empresa;?>-'+data.contrato.factura);
-                                $("#amount-in-cents").val(parseFloat(data.contrato.price)+'00');
-                                $("#public_key_wompi").val(value.api_key);
-                                $("#redirect_url_wompi").val('https://'+str+'/wompi.php');
+                            if (value.nombre === 'WOMPI') {
+
+                            const reference = '<?=$nom_empresa;?>-' + data.contrato.factura;
+                            const amountInCents = parseInt(parseFloat(data.contrato.price) * 100);
+                            const currency = 'COP';
+                            const integritySecret = value.integrity; // prod_integrity_xxxxx
+
+                            $("#reference").val(reference);
+                            $("#amount-in-cents").val(amountInCents);
+                            $("#public_key_wompi").val(value.api_key);
+                            $("#redirect_url_wompi").val('https://' + str + '/wompi.php');
+
+                            // 🧠 CADENA PARA EL HASH
+                            const integrityString = reference + amountInCents + currency + integritySecret;
+
+                            // 🔐 GENERAR FIRMA
+                            sha256(integrityString).then(signature => {
+                                $("#signature_integrity_wompi").val(signature);
                                 $("#btn_wompi").removeClass('d-none');
+                            });
+
                             }else if(value.nombre == 'PayU'){
                                 var amount = (parseFloat(data.contrato.price)*1);
                                 $("#merchantId").val(value.merchantId);
@@ -510,6 +526,14 @@
                     cargando(false);
                 }
             });
+        }
+
+        async function sha256(message) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
     </script>
 </body>

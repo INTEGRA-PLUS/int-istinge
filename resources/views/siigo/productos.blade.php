@@ -37,7 +37,7 @@
                                         Seleccionar Producto Siigo
                                     </option>
                                     @foreach ($productosSiigo as $prodSiigo)
-                                        <option value="{{ $prodSiigo['id'] }}"
+                                        <option value="{{ $prodSiigo['id']  . "|" . $prodSiigo['code'] }}"
                                             {{ $producto->siigo_id == $prodSiigo['id'] ? 'selected' : '' }}>
                                             {{ $prodSiigo['name'] }}
                                         </option>

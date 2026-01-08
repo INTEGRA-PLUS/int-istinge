@@ -62,7 +62,7 @@
       </span>
     </div>
 
-    <div class="col-md-12 form-group">
+    <div class="col-md-9 form-group">
       <label class="control-label">Dirección <span class="text-danger">*</span></label>
       <input type="text" class="form-control"  id="direccion" name="direccion"  value="{{$radicado->direccion}}" maxlength="200" required="">
       <span class="help-block error">
@@ -71,11 +71,27 @@
     </div>
 
     <div class="col-md-3 form-group">
+        <label class="control-label">Barrio</label>
+        <input type="text" class="form-control" id="barrio" name="barrio" value="{{ $radicado->barrio }}" maxlength="200">
+        <span class="help-block error">
+            <strong>{{ $errors->first('barrio') }}</strong>
+        </span>
+    </div>
+
+    <div class="col-md-3 form-group">
       <label class="control-label">Fecha <span class="text-danger">*</span></label>
       <input type="text" class="form-control datepicker"  id="fecha" name="fecha" required="" value="{{ date('d-m-Y', strtotime($radicado->fecha))}}" required="">
       <span class="help-block error">
         <strong>{{ $errors->first('fecha') }}</strong>
       </span>
+    </div>
+
+    <div class="col-md-3 form-group">
+        <label class="control-label">Hora</label>
+        <input type="time" class="form-control"  id="hora" name="hora" value="{{ date('H:i', strtotime($radicado->hora ?? '00:00')) }}" >
+        <span class="help-block error">
+            <strong>{{ $errors->first('hora') }}</strong>
+        </span>
     </div>
 
     <div class="col-md-3 form-group">

@@ -1442,6 +1442,16 @@ class FacturaspController extends Controller
 
             $empresa = Empresa::Find($documentoSoporte->empresa);
             $cliente = $documentoSoporte->clienteObj;
+
+            // Validar que el cliente tenga NIT y no cédula
+            if ($cliente->tip_iden != 6) {
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit'], 400);
+                }else{
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'No puedes emitir documento soporte de cliente con cedula, tiene que ser nit');
+                }
+            }
+
             $operacionCodigo = "10"; //10=residente, 11=no residente
             $modoBTW = env('BTW_TEST_MODE') == 1 ? 'test' : 'prod';
 
@@ -1449,7 +1459,7 @@ class FacturaspController extends Controller
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'Factura o empresa no encontrada'], 404);
                 }else{
-                    return redirect('/empresa/facturasp')->with('message_denied', 'Factura o empresa no encontrada');
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'Factura o empresa no encontrada');
                 }
             }
 
@@ -1460,7 +1470,7 @@ class FacturaspController extends Controller
                 if(request()->ajax()){
                     return response()->json(['status'=>'error', 'message' => 'No hay resolucion de documento soporte activa, por favor verifique'], 404);
                 }else{
-                    return redirect('/empresa/facturasp')->with('message_denied', 'No hay resolucion de documento soporte activa, por favor verifique');
+                    return redirect('/empresa/facturasp/listadocumentossoporte')->with('message_denied', 'No hay resolucion de documento soporte activa, por favor verifique');
                 }
             }
 
@@ -1503,9 +1513,9 @@ class FacturaspController extends Controller
                 $mensajeCorreo = '';
 
                 // Envio de correo con el zip.
-                if($modoBTW == 'prod'){
-                    $mensajeCorreo = $this->sendPdfEmailBTW($btw,$documentoSoporte,$cliente,$empresa,3);
-                }
+                // if($modoBTW == 'prod'){
+                //     $mensajeCorreo = $this->sendPdfEmailBTW($btw,$documentoSoporte,$cliente,$empresa,3);
+                // }
                 // Fin envio de correo con el zip.
 
                 if(request()->code){

@@ -406,10 +406,10 @@ class ConfiguracionController extends Controller
       $numeracion->inicioverdadero = $request->inicio;
       $numeracion->final=$request->final;
       if ($request->desde) {
-        $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');
+        $numeracion->desde=$this->parseDate($request->desde);
       }
       if ($request->hasta) {
-        $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d');
+        $numeracion->hasta=$this->parseDate($request->hasta);
       }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -484,9 +484,9 @@ class ConfiguracionController extends Controller
       $numeracion->inicio=$request->inicio;
       $numeracion->final=$request->final;
 
-      if ($request->desde) { $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');  }
+      if ($request->desde) { $numeracion->desde=$this->parseDate($request->desde);  }
       else{ $numeracion->desde=null; }
-      if ($request->hasta) { $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d'); }
+      if ($request->hasta) { $numeracion->hasta=$this->parseDate($request->hasta); }
       else{ $numeracion->hasta=null; }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -532,10 +532,10 @@ class ConfiguracionController extends Controller
       $numeracion->inicioverdadero = $request->inicio;
       $numeracion->final=$request->final;
       if ($request->desde) {
-        $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');
+        $numeracion->desde=$this->parseDate($request->desde);
       }
       if ($request->hasta) {
-        $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d');
+        $numeracion->hasta=$this->parseDate($request->hasta);
       }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -1918,6 +1918,21 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function facturaProrrateo(Request $request)
+  {
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->contrato_factura_pro == 0) {
+      $empresa->contrato_factura_pro = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->contrato_factura_pro = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
   public function reconexionGenerica(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 
@@ -2561,10 +2576,10 @@ class ConfiguracionController extends Controller
         $numeracion->inicioverdadero = $request->inicio;
         $numeracion->final = $request->final;
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
@@ -2621,10 +2636,10 @@ class ConfiguracionController extends Controller
         $numeracion->final = $request->final;
 
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
@@ -2708,6 +2723,47 @@ class ConfiguracionController extends Controller
           $empresa->pago_siigo = 0;
           $empresa->save();
           return 0;
+        }
+    }
+
+    /**
+     * Parsea una fecha en diferentes formatos y la convierte a Y-m-d
+     * @param string $dateString Fecha en cualquier formato común
+     * @return string Fecha en formato Y-m-d
+     */
+    private function parseDate($dateString)
+    {
+        if (empty($dateString)) {
+            return null;
+        }
+
+        // Formatos comunes a intentar
+        $formats = [
+            'd/m/Y',      // 13/11/2025
+            'd-m-Y',      // 13-11-2025
+            'Y-m-d',      // 2025-11-13
+            'Y/m/d',      // 2025/11/13
+            'm/d/Y',      // 11/13/2025 (formato US)
+            'd.m.Y',      // 13.11.2025
+        ];
+
+        // Intentar parsear con cada formato
+        foreach ($formats as $format) {
+            try {
+                $date = Carbon::createFromFormat($format, $dateString);
+                return $date->format('Y-m-d');
+            } catch (\Exception $e) {
+                // Continuar con el siguiente formato
+                continue;
+            }
+        }
+
+        // Si ningún formato funciona, intentar parse automático de Carbon
+        try {
+            return Carbon::parse($dateString)->format('Y-m-d');
+        } catch (\Exception $e) {
+            // Si todo falla, lanzar excepción con mensaje claro
+            throw new \Exception("No se pudo parsear la fecha: {$dateString}. Formatos soportados: DD/MM/YYYY, YYYY-MM-DD, etc.");
         }
     }
 

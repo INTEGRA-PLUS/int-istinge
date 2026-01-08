@@ -124,6 +124,10 @@
 							<td>{{ $contrato->linea }}</td>
 						</tr>
 						@endif
+						<tr>
+							<th>Estrato</th>
+							<td>{{ $contrato->estrato ?? 'N/A' }}</td>
+						</tr>
 						@if($contrato->tecnologia)
 						<tr>
 							<th>Tecnología</th>

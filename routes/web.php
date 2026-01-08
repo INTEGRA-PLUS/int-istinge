@@ -10,13 +10,13 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
-
+use App\Http\Controllers\AdminOLTController;
 use App\Http\Controllers\TecnicoController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\ACSController;
-
+use App\Http\Controllers\PlanesVelocidadController;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 
@@ -147,6 +147,7 @@ Route::get('/generarfactura', 'CronController@CrearFactura')->name('CrearFactura
 Route::get('/deleteAll', 'CronController@deleteFactura');
 Route::get('/aplicateProrrateo', 'CronController@aplicateProrrateo');
 Route::get('/cortarfacturas', 'CronController@CortarFacturas')->name('CortarFacturas');
+Route::get('/cortarfacturasdiaespecifico', 'CronController@CortarFacturasDiaEspecifico')->name('CortarFacturasDiaEspecifico');
 Route::get('/cortartelevision', 'CronController@CortarTelevision');
 Route::get('/enviarsms', 'CronController@EnviarSMS')->name('EnviarSMS');
 Route::get('/migrarCRM', 'CronController@migrarCRM')->name('migrarCRM');
@@ -242,6 +243,7 @@ Route::get('qrcode', function () {
 });
 Route::post('configuracion_separacion_numero_contrato', 'ConfiguracionController@contratoNumeracion')->name('configuracion.contrato_numeracion');
 Route::post('configuracion_facturas_contratos_off', 'ConfiguracionController@facturaContratoOff');
+Route::post('configuracion_facturas_prorrateo', 'ConfiguracionController@facturaProrrateo');
 Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consultasMikrotik')->name('configuracion.consultas_mikrotik');
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
@@ -434,6 +436,9 @@ Route::group(['prefix' => 'tecnico', 'middleware' => ['auth']], function () {
 });
 
 Route::group(['prefix' => 'Olt'], function () {
+	Route::get('unconfigured-adminolt', 'OltAdminController@unconfigured')->name('olt.unconfiguredAdminOLT');
+	Route::get('form-authorized-onuAdminOLT', 'OltAdminController@formAuthorizeOnu')->name('olt.form-authorized-onuAdminOlt');
+	Route::post('authorized-onuAdmin', 'OltAdminController@authorizeOnu')->name('olt.authorized-onuAdmin');
 	Route::get('unconfigured-onus/{olt?}', 'OltController@unConfiguredOnus_view')->name('olt.unconfigured');
 	Route::post('authorized-onus', 'OltController@authorizedOnus')->name('olt.authorized-onus');
 	Route::get('form-authorized-onu', 'OltController@formAuthorizeOnu')->name('olt.form-authorized-onus');
@@ -1514,6 +1519,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/pings', 'ContratosController@conexion')->name('contratos.ping');
 		Route::get('{id}/ping_nuevo', 'ContratosController@ping_nuevo')->name('contratos.ping_nuevo');
 		Route::get('{id}/grafica-consumo', 'ContratosController@grafica_consumo')->name('contratos.grafica_consumo');
+		Route::get('{id}/grafica-proxy/{tipo}', 'ContratosController@grafica_proxy')->name('contratos.grafica_proxy');
 		Route::get('{cliente}/create', 'ContratosController@create')->name('contratos.create_cliente');
 		Route::get('deshabilitados', 'ContratosController@disabled')->name('contratos.disabled');
 		Route::get('habilitados', 'ContratosController@enabled')->name('contratos.enabled');
@@ -1720,6 +1726,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
 		Route::get('/cartera2', 'CRMController@whatsapp2')->name('crm.cartera2');
+		Route::post('/chat-ia/chatIaWebhook', 'chatboxIntegraController@chatIaWebhook')->name('chatia.chatIaWebhook');
 		Route::match(['get', 'post'], '/chatboxIA', 'CRMController@chatbox')->name('crm.chatboxIA');		//Route::get('/cartera', 'CRMController@whatsapp')->name('crm.whatsapp.post');
 		//Route::post('/cartera/{action?}', 'CRMController@whatsappActions')->name('crm.whatsapp.api');
 		Route::get('/cartera/whatsapp/action', 'CRMController@whatsappActions')->name('crm.whatsapp');
@@ -1732,6 +1739,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/etiquetas', 'EtiquetaController@index')->name('crm.etiquetas');
 		Route::get('/cambiar-etiqueta/{etiqueta}/{crm}', 'CRMController@cambiarEtiqueta')->name('crm.cambiar.etiqueta');
 		Route::get('/chat-ia', 'CRMController@chatIA')->name('crm.chat_IA');
+		Route::get('/chat-ia/{uuid}/messages', 'CRMController@chatIAMessages')->name('crm.chatIA.messages');
+		Route::get('/chat-ia/contacts/load-more', 'CRMController@chatIALoadMore')->name('crm.chatIA.loadMore');
+		Route::get('/chat-ia/search', 'CRMController@chatIASearch')->name('crm.chatIA.search');
+		Route::post('/chat-ia/send', 'CRMController@chatIASendMessage')->name('crm.chatIA.send');
 		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
 		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
@@ -1844,9 +1855,19 @@ Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name(
 Route::get('/spliter/index', 'SpliterController@index')->name('spliter.index');
 Route::get('/spliter/create', 'SpliterController@create')->name('spliter.create');
 Route::post('/spliter/store', 'SpliterController@store')->name('spliter.store');
-Route::get('spliter', 'SpliterController@spliter');
+Route::get('/spliter/datatable', 'SpliterController@spliter')->name('spliter.datatable');
+Route::get('/spliter/{id}', 'SpliterController@show')->name('spliter.show');
+Route::get('/spliter/{id}/edit', 'SpliterController@edit')->name('spliter.edit');
+Route::patch('/spliter/{id}', 'SpliterController@update')->name('spliter.update');
+Route::delete('/spliter/{id}', 'SpliterController@destroy')->name('spliter.destroy');
 
 //Rutas agregadas para cajas naps
 Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');
+Route::get('/caja-naps/datatable', 'CajaNapController@cajasNaps')->name('caja.naps.datatable');
 Route::get('/caja-naps/create', 'CajaNapController@create')->name('caja.naps.create');
 Route::post('/caja-naps/store', 'CajaNapController@store')->name('caja.naps.store');
+Route::get('/caja-naps/{id}', 'CajaNapController@show')->name('caja.naps.show');
+Route::get('/caja-naps/{id}/edit', 'CajaNapController@edit')->name('caja.naps.edit');
+Route::patch('/caja-naps/{id}', 'CajaNapController@update')->name('caja.naps.update');
+Route::delete('/caja-naps/{id}', 'CajaNapController@destroy')->name('caja.naps.destroy');
+Route::get('/caja-naps/{id}/puertos-disponibles/{contratoId?}', 'CajaNapController@getPuertosDisponibles')->name('caja.naps.puertos.disponibles');

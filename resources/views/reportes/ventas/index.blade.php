@@ -37,12 +37,12 @@
 		@endif
 
 		<div class="form-group col-md-2">
-			<label>Formas de pago</label>
-			<select class="form-control selectpicker" name="formapago" id="formapago">
-				@foreach($formasPago as $fp)
-					<option value="{{$fp->id}}" {{$fp->id == $request->formapago ? 'selected' : ''}}> {{$fp->nombre}} </option>
+			<label>Métodos de pago</label>
+			<select class="form-control selectpicker" name="metodo_pago" id="metodo_pago">
+				@foreach($metodosPago as $mp)
+					<option value="{{$mp->id}}" {{$mp->id == $request->metodo_pago ? 'selected' : ''}}> {{$mp->metodo}} </option>
 				@endforeach
-				<option {{ !$request->formapago ? 'selected' : ''}} value="">TODOS</option>
+				<option {{ !$request->metodo_pago ? 'selected' : ''}} value="">TODOS</option>
 			</select>
 		</div>
 
@@ -119,7 +119,7 @@
                         <td>{{date('d-m-Y', strtotime($factura->vencimiento))}}</td> --}}
                         <td>{{date('d-m-Y', strtotime($factura->pagada))}}</td>
                         <td>{{$factura->banco()->nombre}}</td>
-                        <td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total - $factura->devoluciones())}}</td>
+                        <td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->pagadoTotal - $factura->devoluciones())}}</td>
 					</tr>
 				@endforeach
 			</tbody>

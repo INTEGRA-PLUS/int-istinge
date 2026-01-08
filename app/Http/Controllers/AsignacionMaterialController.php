@@ -65,7 +65,7 @@ class AsignacionMaterialController extends Controller
             ->where('empresa', $empresa->id)
             ->where('status', 1)
             // ->where('type', 'MATERIAL')
-            ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega=' . $bodega->id . '), true)')
+            // ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega=' . $bodega->id . '), true)')
             ->orderBy('producto', 'ASC')
             ->get();
 

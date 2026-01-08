@@ -37,7 +37,7 @@ class Contrato extends Model
         'usuario', 'password', 'interfaz', 'conexion', 'status', 'id_vlan', 'name_vlan', 'grupo_corte', 'created_at',
         'updated_at', 'puerto_conexion', 'factura_individual', 'contrato_permanencia', 'contrato_permanencia_meses',
         'costo_reconexion', 'tipo_contrato', 'observaciones','tipo_nosuspension','fecha_hasta_nosuspension','fecha_desde_nosuspension',
-        'serial_moden','tipo_moden','descuento_pesos','rd_item_vencimiento','dt_item_hasta','fecha_hasta_desc'
+        'serial_moden','tipo_moden','descuento_pesos','rd_item_vencimiento','dt_item_hasta','fecha_hasta_desc','cajanap_id','cajanap_puerto','estrato'
     ];
 
     protected $appends = ['status'];
@@ -52,6 +52,13 @@ class Contrato extends Model
             return $this->state == 'enabled' ? 'success' : 'danger';
         }
         return $this->state == 'enabled' ? 'Habilitado' : 'Deshabilitado';
+    }
+
+    public function statusTV($class=false){
+        if($class){
+            return $this->state_olt_catv == '1' ? 'success' : 'danger';
+        }
+        return $this->state_olt_catv == '1' ? 'Habilitado' : 'Deshabilitado';
     }
 
     public function cliente(){

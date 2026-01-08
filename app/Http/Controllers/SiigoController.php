@@ -16,7 +16,66 @@ use Illuminate\Support\Facades\Auth;
 
 class SiigoController extends Controller
 {
-    public function configurarSiigo(Request $request, $cron = null)
+    /**
+     * Método helper para ejecutar llamadas a la API de Siigo con reintento automático en caso de 401
+     *
+     * @param array $curlOptions Opciones de cURL
+     * @param bool $returnArray Si debe retornar como array (true) o objeto (false)
+     * @return mixed Respuesta de la API
+     */
+    private function executeSiigoRequest($curlOptions, $returnArray = false)
+    {
+        $curl = curl_init();
+        curl_setopt_array($curl, $curlOptions);
+
+        $response = curl_exec($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        $decodedResponse = $returnArray ? json_decode($response, true) : json_decode($response);
+
+        // Verificar si la respuesta tiene Status 401 (no autorizado)
+        if ($httpCode == 401 || (is_array($decodedResponse) && isset($decodedResponse['Status']) && $decodedResponse['Status'] == 401)) {
+            // Hacer login automático
+            $loginResult = $this->configurarSiigo(null, true);
+
+            if ($loginResult == 1) {
+                // Reintentar la llamada una vez después del login
+                $empresa = Empresa::find(1);
+                $empresa->refresh(); // Refrescar para obtener el token actualizado
+
+                // Actualizar el token en las opciones de cURL si existe Authorization header
+                if (isset($curlOptions[CURLOPT_HTTPHEADER])) {
+                    foreach ($curlOptions[CURLOPT_HTTPHEADER] as $key => $header) {
+                        if (strpos($header, 'Authorization: Bearer') !== false) {
+                            $curlOptions[CURLOPT_HTTPHEADER][$key] = 'Authorization: Bearer ' . $empresa->token_siigo;
+                            break;
+                        }
+                    }
+                }
+
+                // Reintentar la llamada
+                $curl = curl_init();
+                curl_setopt_array($curl, $curlOptions);
+                $response = curl_exec($curl);
+                $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                curl_close($curl);
+
+                $retryResponse = $returnArray ? json_decode($response, true) : json_decode($response);
+
+                // Si después del reintento sigue siendo 401, retornar la respuesta original
+                if ($httpCode == 401 || (is_array($retryResponse) && isset($retryResponse['Status']) && $retryResponse['Status'] == 401)) {
+                    return $decodedResponse;
+                }
+
+                return $retryResponse;
+            }
+        }
+
+        return $decodedResponse;
+    }
+
+    public function configurarSiigo(Request $request = null, $cron = null)
     {
         $empresa = Empresa::find(1);
 
@@ -133,11 +192,10 @@ class SiigoController extends Controller
 
     public static function getTaxes()
     {
-
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
+        $instance = new self();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/taxes',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -151,11 +209,9 @@ class SiigoController extends Controller
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response = curl_exec($curl);
-        $response = json_decode($response);
-        curl_close($curl);
+        $response = $instance->executeSiigoRequest($curlOptions, false);
 
         if (is_array($response)) {
             return response()->json([
@@ -173,9 +229,9 @@ class SiigoController extends Controller
     public static function getDocumentTypes()
     {
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
+        $instance = new self();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/document-types?type=FV',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -189,20 +245,17 @@ class SiigoController extends Controller
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response_document_types = curl_exec($curl);
-        curl_close($curl);
-        return $response_document_types = json_decode($response_document_types, true);
+        return $instance->executeSiigoRequest($curlOptions, true);
     }
 
     public static function getCostCenters()
     {
-
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
+        $instance = new self();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/cost-centers',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -216,19 +269,17 @@ class SiigoController extends Controller
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response_costs = curl_exec($curl);
-        curl_close($curl);
-        return $response_costs = json_decode($response_costs, true);
+        return $instance->executeSiigoRequest($curlOptions, true);
     }
 
     public static function getPaymentTypes()
     {
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
+        $instance = new self();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/payment-types?document_type=FV',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -241,20 +292,17 @@ class SiigoController extends Controller
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response = curl_exec($curl);
-        $response = json_decode($response, true);
-        curl_close($curl);
-        return $response;
+        return $instance->executeSiigoRequest($curlOptions, true);
     }
 
     public static function getSeller()
     {
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
+        $instance = new self();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/users',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -267,12 +315,9 @@ class SiigoController extends Controller
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response = curl_exec($curl);
-        $response = json_decode($response, true);
-        curl_close($curl);
-        return $response;
+        return $instance->executeSiigoRequest($curlOptions, true);
     }
 
     public function sendInvoice(Request $request, $factura = null)
@@ -400,10 +445,9 @@ class SiigoController extends Controller
             ];
 
 
-            //Envio a curl invoice
-            $curl = curl_init();
 
-            curl_setopt_array($curl, array(
+            //Envio a curl invoice
+            $curlOptions = array(
                 CURLOPT_URL => 'https://api.siigo.com/v1/invoices',
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
@@ -418,11 +462,9 @@ class SiigoController extends Controller
                     'Content-Type: application/json',
                     'Authorization: Bearer ' . $empresa->token_siigo,
                 ),
-            ));
+            );
 
-            $response = curl_exec($curl);
-            $response = json_decode($response, true);
-            curl_close($curl);
+            $response = $this->executeSiigoRequest($curlOptions, true);
 
             if(isset($response['id'])){
                 $factura->siigo_id = $response['id'];
@@ -484,9 +526,8 @@ class SiigoController extends Controller
     public function impuestosSiigo()
     {
         $empresa = Empresa::Find(1);
-        $curl = curl_init();
 
-        curl_setopt_array($curl, array(
+        $curlOptions = array(
             CURLOPT_URL => 'https://api.siigo.com/v1/taxes',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -500,12 +541,9 @@ class SiigoController extends Controller
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
             ),
-        ));
+        );
 
-        $response = curl_exec($curl);
-        $response = json_decode($response);
-        curl_close($curl);
-        return $response;
+        return $this->executeSiigoRequest($curlOptions, false);
     }
 
     public function mapeoImpuestos()
@@ -554,12 +592,19 @@ class SiigoController extends Controller
         return redirect()->route('siigo.mapeo_vendedores')->with('success', 'Vendedores guardados correctamente.');
     }
 
-    public function getProducts(){
-        $empresa = Empresa::Find(1);
-        $curl = curl_init();
+    public function getProducts($page = 1, $pageSize = 25)
+    {
+        $empresa = Empresa::find(1);
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://api.siigo.com/v1/products?limit=1000&offset=0&order_by=code&order_direction=asc&status=active',
+        $url = 'https://api.siigo.com/v1/products'
+            . '?page=' . $page
+            . '&page_size=' . $pageSize
+            . '&order_by=code'
+            . '&order_direction=asc'
+            . '&status=active';
+
+        $curlOptions = [
+            CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -567,47 +612,104 @@ class SiigoController extends Controller
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_HTTPHEADER => array(
+            CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'Partner-Id: Integra',
                 'Authorization: Bearer ' . $empresa->token_siigo,
-            ),
-        ));
+            ],
+        ];
 
-        $response = curl_exec($curl);
-        $response = json_decode($response, true);
-        curl_close($curl);
-        return $response;
+        return $this->executeSiigoRequest($curlOptions, true);
     }
 
-    public function mapeoProductos(){
+
+    public function mapeoProductos()
+    {
         $this->getAllPermissions(Auth::user()->id);
-        view()->share(['title' => 'Mapeo de productos', 'icon' => 'fa fa-cogs', 'seccion' => 'Configuración']);
-        $productos = Inventario::where('status', 1)->get();
-        $productosSiigo = $this->getProducts()['results'];
 
-        return view('siigo.productos', compact('productos','productosSiigo'));
+        view()->share([
+            'title'   => 'Mapeo de productos',
+            'icon'    => 'fa fa-cogs',
+            'seccion' => 'Configuración'
+        ]);
+
+        $productos = Inventario::where('status', 1)->get();
+
+        // 🔹 Traer todos los productos de Siigo
+        $productosSiigo = [];
+        $page = 1;
+        $pageSize = 25;
+        $total = 0;
+
+        do {
+            $response = $this->getProducts($page, $pageSize);
+
+            if (!empty($response['results'])) {
+                $productosSiigo = array_merge($productosSiigo, $response['results']);
+            }
+
+            $total = $response['pagination']['total_results'] ?? 0;
+            $page++;
+
+        } while (count($productosSiigo) < $total);
+
+        return view('siigo.productos', compact('productos', 'productosSiigo'));
     }
 
-    public function storeProductos(Request $request){
-        for($i = 0; $i < count($request->productos); $i++){
+
+    public function storeProductos(Request $request)
+    {
+        for ($i = 0; $i < count($request->productos); $i++) {
+
             $producto = Inventario::find($request->productos[$i]);
-            $producto->siigo_id = $request->siigo_productos[$i];
+
+            // Valor que viene del select de Siigo
+            $siigoValue = $request->siigo_productos[$i] ?? null;
+
+            if (empty($siigoValue) || $siigoValue === '0') {
+                $producto->siigo_id = null;
+                $producto->codigo_siigo = null;
+                $producto->save();
+                continue;
+            }
+
+            if (strpos($siigoValue, '|') === false) {
+                // Formato inválido → no guardamos basura
+                $producto->siigo_id = null;
+                $producto->codigo_siigo = null;
+                $producto->save();
+                continue;
+            }
+
+            [$siigo_id, $siigo_code] = explode('|', $siigoValue, 2);
+
+            // Validación final por seguridad
+            if (empty($siigo_id) || empty($siigo_code)) {
+                $producto->siigo_id = null;
+                $producto->siigo_code = null;
+            } else {
+                $producto->siigo_id = trim($siigo_id);
+                $producto->codigo_siigo = trim($siigo_code);
+            }
+
             $producto->save();
         }
 
-        return redirect()->route('siigo.mapeo_productos')->with('success', 'Productos guardados correctamente.');
+        return redirect()
+            ->route('siigo.mapeo_productos')
+            ->with('success', 'Productos guardados correctamente.');
     }
+
+
 
     public function createItem($item){
 
         //Validacion para creacion de item en siigo en caso tal de que no exista.
         try {
-            $curl = curl_init();
             $empresa = Empresa::Find(1);
             $iva = Impuesto::find($item->id_impuesto);
 
-            curl_setopt_array($curl, array(
+            $curlOptionsGrupo = array(
                 CURLOPT_URL => 'https://api.siigo.com/v1/account-groups',
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
@@ -622,10 +724,9 @@ class SiigoController extends Controller
                     'Partner-Id: Integra',
                     'Authorization: Bearer ' . $empresa->token_siigo,
                 ),
-            ));
+            );
 
-            $grupo = curl_exec($curl);
-            $grupo = json_decode($grupo, true);
+            $grupo = $this->executeSiigoRequest($curlOptionsGrupo, true);
 
             $data = [
                 "code" => $item->ref,
@@ -645,7 +746,7 @@ class SiigoController extends Controller
                 ];
             }
 
-            curl_setopt_array($curl, array(
+            $curlOptionsProducto = array(
                 CURLOPT_URL => 'https://api.siigo.com/v1/products',
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => '',
@@ -660,12 +761,9 @@ class SiigoController extends Controller
                     'Partner-Id: Integra',
                     'Authorization: Bearer ' . $empresa->token_siigo,
                 ),
-            ));
+            );
 
-            $response = curl_exec($curl);
-            $response = json_decode($response, true);
-
-            curl_close($curl);
+            $response = $this->executeSiigoRequest($curlOptionsProducto, true);
 
             if (isset($response['id'])) {
                 //Guardamos el codigo siigo en el item de la factura.
@@ -705,7 +803,8 @@ class SiigoController extends Controller
                         $credito = $tiposPago->firstWhere('name', 'Crédito')['id'];
                     }
                     $servidor = $factura->servidor();
-                    $usuario = collect($this->getSeller())->last()[1]['id'];
+                    $sellerData = $this->getSeller();
+                    $usuario = collect($sellerData['results'] ?? [])->first()['id'] ?? null;
 
                     $request->merge(['tipos_pago' => $credito]);
                     $request->merge(['factura_id' => $facturas[$i]]);
@@ -713,6 +812,7 @@ class SiigoController extends Controller
                     $request->merge(['tipo_comprobante' => $servidor->tipodoc_siigo_id]);
 
                     $response = $this->sendInvoice($request,$factura);
+
                     // Extraer contenido del JSON si es instancia de Response
                     if ($response instanceof \Illuminate\Http\JsonResponse) {
                         $data = $response->getData(true);

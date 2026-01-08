@@ -96,6 +96,17 @@
                             <input type="text" class="form-control" id="linea" name="linea" placeholder="linea">
                         </div>
                         <div class="col-md-2 pl-1 pt-1">
+                            <select title="Estrato" class="form-control rounded selectpicker" id="c_estrato" name="c_estrato" data-size="5" data-live-search="true">
+                                <option value="">Todos</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 pl-1 pt-1">
                             <input type="text" class="form-control" id="celular" name="celular" placeholder="Celular">
                         </div>
         				<div class="col-md-2 pl-1 pt-1">
@@ -118,7 +129,7 @@
                         <div class="col-md-2 pl-1 pt-1">
                             <input type="text" class="form-control" id="ip" name="ip" placeholder="Dirección IP">
                         </div>
-                        <div class="col-md-2 pl-1 pt-1">
+                        <div class="col-md-3 pl-1 pt-1">
                             <input type="text" class="form-control" id="mac" name="mac"  placeholder="MAC">
                         </div>
 
@@ -181,6 +192,14 @@
                             </select>
                         </div>
                         <div class="col-md-3 pl-1 pt-1">
+                            <select title="Caja NAP" class="form-control selectpicker" id="cajanap_id" name="cajanap_id"data-size="5" data-live-search="true">
+                                <option value="">Todas</option>
+                                @foreach ($cajaNaps as $nap)
+                                    <option value="{{ $nap->id }}">{{ $nap->nombre }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 pl-1 pt-1">
                             <select title="Vendedor" class="form-control selectpicker" id="vendedor" name="vendedor">
                                 @foreach ($vendedores as $v)
                                     <option value="{{ $v->id }}">{{ $v->nombre }}</option>
@@ -198,6 +217,7 @@
                             <select title="Tipo de Tecnología" class="form-control selectpicker" id="tecnologia_s" name="tecnologia_s">
                                 <option value="1">Fibra</option>
                                 <option value="2">Inalámbrica</option>
+                                <option value="3">Cableado UTP</option>
                             </select>
                         </div>
                         <div class="col-md-3 pl-1 pt-1">
@@ -237,31 +257,15 @@
                             </select>
                         </div>
 
-                        <div class="col-md-8 pl-1 pt-1">
-                            <div class="row">
-                                <div class="col-md-4 pr-1">
-                                    <input type="text" class="form-control" id="desde" name="fecha" placeholder="desde">
-                                </div>
-                                <div class="col-md-4 pl-1">
-                                    <input type="text" class="form-control" id="hasta" name="hasta" placeholder="hasta">
-                                </div>
-                                <div class="col-md-4 pl-1">
-                                    <input type="text" class="form-control" id="fecha-corte" name="fecha_corte" placeholder="Fecha de corte Facturas">
-                                </div>
-                            </div>
+                        <div class="col-md-3 pl-1 pt-1">
+                            <input type="text" class="form-control" id="desde" name="fecha" placeholder="desde">
                         </div>
-                        <div class="col-md-8 pl-1 pt-1">
-                            <div class="row">
-                                <div class="col-md-4 pr-1">
-                                    <input type="text" class="form-control" id="fecha_sin_facturas" name="fecha_sin_facturas" placeholder="Fecha de filtro sin facturas">
-                                </div>
-                                {{-- <div class="col-md-4 pl-1">
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="sin_facturas_check" name="sin_facturas_check">
-                                        <label class="form-check-label" for="sin_facturas_check">Contratos sin facturas</label>
-                                    </div>
-                                </div> --}}
-                            </div>
+                        <div class="col-md-3 pl-1 pt-1">
+                            <input type="text" class="form-control" id="hasta" name="hasta" placeholder="hasta">
+                        </div>
+
+                        <div class="col-md-3 pl-1 pt-1">
+                            <input type="text" class="form-control" id="fecha-corte" name="fecha_corte" placeholder="Fecha de corte Facturas">
                         </div>
                     </div>
 
@@ -290,8 +294,8 @@
                 <a href="{{route('campos.organizar', 2)}}" class="btn btn-warning my-1"><i class="fas fa-table"></i> Organizar Tabla</a>
                 @endif
                 @if(isset($_SESSION['permisos']['815']))
-                <a href="{{route('contratos.importar')}}" class="btn btn-success mr-1"><i class="fas fa-file-upload"></i> Importar Contratos Internet</a>
-                <a href="{{route('contratos.actualizar')}}" class="btn btn-success mr-1"><i class="fas fa-file-upload"></i> Actualizar Contratos Internet</a>
+                <a href="{{route('contratos.importar')}}" class="btn btn-success mr-1"><i class="fas fa-file-upload"></i> Importar Contratos</a>
+                <a href="{{route('contratos.actualizar')}}" class="btn btn-success mr-1"><i class="fas fa-file-upload"></i> Actualizar Contratos</a>
                 @endif
                 @if(isset($_SESSION['permisos']['778']))
                 <div class="dropdown mr-1">
@@ -491,6 +495,7 @@
                 data.cliente_id = $('#client_id').val();
                 data.etiqueta_id = $('#etiqueta').val();
                 data.linea = $('#linea').val();
+                data.c_estrato = $('#c_estrato').val();
                 data.plan = $('#plan').val();
                 data.plan_tv = $('#plan_tv').val();
                 data.catv = $('#catv').val();
@@ -520,6 +525,7 @@
                 data.otra_opcion = $("#otra_opcion").val();
                 data.fecha_corte = $("#fecha-corte").val();
                 data.fecha_sin_facturas = $('#fecha_sin_facturas').val();
+                data.cajanap_id = $('#cajanap_id').val();
                 data.filtro = true;
             });
             isDataTableInitialized = true;
@@ -551,7 +557,7 @@
             }
         });
 
-        $('#client_id, #etiqueta, #plan, #barrio, #plan_tv, #catv, #state, #state_olt_catv, #grupo_cort, #conexion_s, #server_configuration_id_s, #nodo_s, #ap_s, #vendedor, #canal, #tecnologia_s, #facturacion_s, #desde, #hasta, #tipo_contrato, #otra_opcion').on('change',function() {
+        $('#client_id, #etiqueta, #plan, #barrio, #plan_tv, #catv, #state, #state_olt_catv, #grupo_cort, #conexion_s, #server_configuration_id_s, #nodo_s, #ap_s, #vendedor, #canal, #tecnologia_s, #facturacion_s, #desde, #hasta, #tipo_contrato, #otra_opcion, #cajanap_id, #c_estrato').on('change',function() {
             getDataTable();
             return false;
         });
@@ -635,6 +641,7 @@
         $("#fecha-corte").val('');
         $("#tipo_contrato").val('').selectpicker('refresh');
         $("#otra_opcion").val('').selectpicker('refresh');
+        $("#cajanap_id").val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
@@ -1030,6 +1037,7 @@
                 data.otra_opcion = $("#otra_opcion").val();
                 data.fecha_corte = $("#fecha-corte").val();
                 data.fecha_sin_facturas = $('#fecha_sin_facturas').val();
+                data.cajanap_id = $('#cajanap_id').val();
                 data.filtro = true;
             });
         isDataTableInitialized = true;  // Marca como inicializado

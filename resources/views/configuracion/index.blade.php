@@ -171,6 +171,11 @@
                         <a href="javascript:facturacionContratosOff()">{{ Auth::user()->empresa()->factura_contrato_off == 0 ? 'Habilitar':'Deshabilitar' }} facturas en contratos deshabilitados</a><br>
 			            <input type="hidden" id="factura_contrato_off" value="{{Auth::user()->empresa()->factura_contrato_off}}">
 
+                        <a href="javascript:facturacionProrrateo()">{{ Auth::user()->empresa()->contrato_factura_pro == 0 ? 'Habilitar' : 'Deshabilitar' }} creación de facturas con prorrateo en contratos nuevos</a> <a><i
+                                            data-tippy-content="Decida si crear una factura una vez el contrato se cree dependiendo del grupo de corte sobre los dias faltantes."
+                                            class="icono far fa-question-circle"></i></a><br>
+			            <input type="hidden" id="contrato_factura_pro" value="{{Auth::user()->empresa()->contrato_factura_pro}}">
+
                         <a href="javascript:separarNumeracionContrato()">{{ Auth::user()->empresa()->separar_numeracion == 0 ? 'Separar':'Unificar' }} Numeración por servidor</a><br>
 			            <input type="hidden" id="separar_numeracion" value="{{Auth::user()->empresa()->separar_numeracion}}">
 
@@ -959,11 +964,11 @@
         function consultasMk(){
 			let url = `{{ route('configuracion.consultas_mikrotik') }}`;
 
-		    if ($("#separar_numeracion").val() == 0) {
+		    if ($("#consultas_mk").val() == 0) {
 		        $titleswal = "¿Desea habilitar las consultas a la mikrotik?";
 		    }
 
-		    if ($("#separar_numeracion").val() == 1) {
+		    if ($("#consultas_mk").val() == 1) {
 		        $titleswal = "¿Desea deshabilitar las consultas a la mikrotik?";
 		    }
 
@@ -1061,6 +1066,67 @@
 		                            timer: 5000
 		                        })
 		                        $("#factura_contrato_off").val(0);
+		                    }
+		                    setTimeout(function(){
+		                    	var a = document.createElement("a");
+		                    	a.href = window.location.pathname;
+		                    	a.click();
+		                    }, 1000);
+		                }
+		            });
+
+		        }
+		    })
+		}
+
+        function facturacionProrrateo() {
+			if (window.location.pathname.split("/")[1] === "software") {
+				var url='/software/configuracion_facturas_prorrateo';
+			}else{
+				var url = '/configuracion_facturas_prorrateo';
+			}
+
+		    if ($("#contrato_factura_pro").val() == 0) {
+		        $titleswal = "¿Desea habilitar la creación de facturas con prorrateo en contratos nuevos?";
+		    }
+
+		    if ($("#contrato_factura_pro").val() == 1) {
+		        $titleswal = "¿Desea deshabilitar la creación de facturas con prorrateo en contratos nuevos?";
+		    }
+
+		    Swal.fire({
+		        title: $titleswal,
+		        type: 'warning',
+		        showCancelButton: true,
+		        confirmButtonColor: '#3085d6',
+		        cancelButtonColor: '#d33',
+		        cancelButtonText: 'Cancelar',
+		        confirmButtonText: 'Aceptar',
+		    }).then((result) => {
+		        if (result.value) {
+		            $.ajax({
+		                url: url,
+		                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+		                method: 'post',
+		                data: { contrato_factura_pro: $("#contrato_factura_pro").val() },
+		                success: function (data) {
+		                    console.log(data);
+		                    if (data == 1) {
+		                        Swal.fire({
+		                            type: 'success',
+		                            title: 'creación de facturas con prorrateo habilitada',
+		                            showConfirmButton: false,
+		                            timer: 5000
+		                        })
+		                        $("#contrato_factura_pro").val(1);
+		                    } else {
+		                        Swal.fire({
+		                            type: 'success',
+		                            title: 'creación de facturas con prorrateo deshabilitada',
+		                            showConfirmButton: false,
+		                            timer: 5000
+		                        })
+		                        $("#contrato_factura_pro").val(0);
 		                    }
 		                    setTimeout(function(){
 		                    	var a = document.createElement("a");

@@ -12,7 +12,7 @@
 <p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
-    <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar"><i class="fas fa-search"></i>Filtrar</a>
+    {{-- <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar"><i class="fas fa-search"></i>Filtrar</a> --}}
     <?php if (isset($_SESSION['permisos']['712'])) { ?>
         <a href="{{route('caja.naps.create')}}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nueva Caja Naps</a>
     <?php } ?>
@@ -32,7 +32,7 @@
             }, 5000);
         </script>
     @endif
-    
+
     @if(Session::has('danger'))
         <div class="alert alert-danger" style="margin-left: 2%;margin-right: 2%;">
 	    {{Session::get('danger')}}
@@ -45,15 +45,12 @@
         </script>
     @endif
 
-	<div class="container-fluid d-none" id="form-filter">
+	{{-- <div class="container-fluid d-none" id="form-filter">
 		<fieldset>
 			<legend>Filtro de Búsqueda</legend>
 			<div class="card shadow-sm border-0">
 				<div class="card-body pb-3 pt-2" style="background: #f9f9f9;">
 					<div class="row">
-						<div class="col-md-2 pl-1 pt-1 offset-md-1">
-							<input type="text" placeholder="Nro" id="nro" class="form-control rounded">
-						</div>
 						<div class="col-md-3 pl-1 pt-1">
 							<input type="text" placeholder="Nombre" id="nombre" class="form-control rounded">
 						</div>
@@ -71,7 +68,7 @@
 				</div>
 			</div>
 		</fieldset>
-	</div>
+	</div> --}}
 
 	<div class="row card-description">
 		@if(isset($_SESSION['permisos']['836']))
@@ -80,9 +77,9 @@
 	                @if(auth()->user()->modo_lectura())
 	                @else
 	                    <div class="dropdown mr-1">
-	                    	<button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+	                    	{{-- <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 	                    		Acciones en Lote
-	                    	</button>
+	                    	</button> --}}
 	                    	<div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
 	                    		<a class="dropdown-item" href="javascript:void(0)" id="btn_enabled"><i class="fas fa-fw fa-power-off" style="margin-left:4px; "></i> Habilitar Nodos</a>
 	                    		<a class="dropdown-item" href="javascript:void(0)" id="btn_disabled"><i class="fas fa-fw fa-power-off" style="margin-left:4px; "></i> Deshabilitar Nodos</a>
@@ -94,36 +91,19 @@
 			</div>
 		@endif
 		<div class="col-md-12">
-			<table class="table table-striped table-hover w-100" id="tabla-nodos">
-					<thead class="thead-dark">
+			<table class="table table-striped table-hover w-100" id="tabla-cajas-naps">
+                <thead class="thead-dark">
                     <tr>
                         <th>NOMBRE DE LA CAJA</th>
                         <th>SPLITER ASOCIADO</th>
                         <th>CANTIDAD DE PUERTOS</th>
                         <th>UBICACIÓN</th>
                         <th>COORDENADAS</th>
-                        <th>DESCRIPCION</th>
+                        <th>PUERTOS DISPONIBLES / TOTAL</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach ($cajanaps as $cajanap)
-                    <tr>
-                        <td>{{ $cajanap->nombre }}</td>
-                        <td>{{ $cajanap->spliter_asociado }}</td>
-                        <td>{{ $cajanap->cant_puertos }}</td>
-                        <td>{{ $cajanap->ubicacion }}</td>
-                        <td>{{ $cajanap->coordenadas }}</td>
-                        <td>{{ $cajanap->caja_naps_disponible}}</td>
-                        <td>{{ $cajanap->status == 1 ? 'Habilitado' : 'Deshabilitado' }}</td>
-                        <td>
-                            
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-
 			</table>
 		</div>
 	</div>
@@ -131,10 +111,10 @@
 
 @section('scripts')
 <script>
-  /*  var tabla = null;
+    var tabla = null;
     window.addEventListener('load',
     function() {
-		tabla = $('#tabla-nodos').DataTable({
+		tabla = $('#tabla-cajas-naps').DataTable({
 			responsive: true,
 			serverSide: true,
 			processing: true,
@@ -146,46 +126,26 @@
 				[0, "desc"]
 			],
 			"pageLength": {{ Auth::user()->empresa()->pageLength }},
-			ajax: '{{url("/nodos")}}',
+			ajax: '{{route("caja.naps.datatable")}}',
 			headers: {
 				'X-CSRF-TOKEN': '{{csrf_token()}}'
 			},
 			columns: [
-			    {data: 'nro'},
-			    {data: 'nombre'},
-				{data: 'status'},
-				{data: 'acciones'},
-			],
-			@if(isset($_SESSION['permisos']['836']))
-			select: true,
-            select: {
-                style: 'multi',
-            },
-			dom: 'Blfrtip',
-            buttons: [{
-            	text: '<i class="fas fa-check"></i> Seleccionar todos',
-            	action: function() {
-            		tabla.rows({
-            			page: 'current'
-            		}).select();
-            	}
-            },
-            {
-            	text: '<i class="fas fa-times"></i> Deseleccionar todos',
-            	action: function() {
-            		tabla.rows({
-            			page: 'current'
-            		}).deselect();
-            	}
-            }]
-            @endif
+			    {data: 'nombre', name: 'nombre'},
+			    {data: 'spliter_asociado', name: 'spliter_asociado'},
+			    {data: 'cant_puertos', name: 'cant_puertos'},
+			    {data: 'ubicacion', name: 'ubicacion'},
+			    {data: 'coordenadas', name: 'coordenadas'},
+			    {data: 'puertos_disponibles', name: 'puertos_disponibles'},
+				{data: 'status', name: 'status'},
+				{data: 'acciones', name: 'acciones', orderable: false, searchable: false},
+			]
 		});
 
         tabla.on('preXhr.dt', function(e, settings, data) {
-            data.nro = $('#nro').val();
-            data.nombre = $('#nombre').val();
-            data.status = $('#status').val();
-            data.filtro = true;
+            data.nombre = $('#nombre').val() || '';
+            data.status = $('#status').val() || '';
+            data.filtro = true; // Siempre enviar filtro para que el controlador procese correctamente
         });
 
         $('#filtrar').on('click', function(e) {
@@ -200,7 +160,7 @@
             }
         });
 
-        $('#nro, #nombre').on('keyup',function(e) {
+        $('#nombre').on('keyup',function(e) {
         	if(e.which > 32 || e.which == 8) {
         		getDataTable();
         		return false;
@@ -210,18 +170,6 @@
         $('#status').on('change',function() {
         	getDataTable();
         	return false;
-        });
-
-        $('#btn_enabled').click( function () {
-            states('enabled');
-        });
-
-        $('#btn_disabled').click( function () {
-            states('disabled');
-        });
-
-        $('#btn_destroy').click( function () {
-            destroy();
         });
     });
 
@@ -240,142 +188,11 @@
 	}
 
 	function cerrarFiltrador() {
-		$('#nro').val('');
 		$('#nombre').val('');
 		$('#status').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
 	}
-
-	function states(state){
-        var nodos = [];
-
-        var table = $('#tabla-nodos').DataTable();
-        var nro = table.rows('.selected').data().length;
-
-        if(nro<=1){
-            swal({
-                title: 'ERROR',
-                html: 'Para ejecutar esta acción, debe al menos seleccionar dos nodos',
-                type: 'error',
-            });
-            return false;
-        }
-
-        for (i = 0; i < nro; i++) {
-            nodos.push(table.rows('.selected').data()[i]['id']);
-        }
-
-        if(state === 'enabled'){
-            var states = 'habilitar';
-        }else{
-            var states = 'deshabilitar';
-        }
-
-        swal({
-            title: '¿Desea '+states+' '+nro+' nodos en lote?',
-            text: 'Al Aceptar, no podrá cancelar el proceso',
-            type: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#00ce68',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Aceptar',
-            cancelButtonText: 'Cancelar',
-        }).then((result) => {
-            if (result.value) {
-                cargando(true);
-
-                if (window.location.pathname.split("/")[1] === "software") {
-                    var url = `/software/empresa/nodos/`+nodos+`/`+state+`/state_lote`;
-                }else{
-                    var url = `/empresa/nodos/`+nodos+`/`+state+`/state_lote`;
-                }
-
-                $.ajax({
-                    url: url,
-                    method: 'GET',
-                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                    success: function(data) {
-                        cargando(false);
-                        if(data.state === 'enabled'){
-                        	var states = 'habilitados';
-                        }else{
-                        	var states = 'deshabilitados';
-
-                        }
-                        swal({
-                            title: 'PROCESO REALIZADO',
-                            html: '<strong>'+data.correctos+' nodos '+states+'</strong><br><strong>'+data.fallidos+' nodos no '+states+'</strong>',
-                            type: 'success',
-                            showConfirmButton: true,
-                            confirmButtonColor: '#1A59A1',
-                            confirmButtonText: 'ACEPTAR',
-                        });
-                        getDataTable();
-                    }
-                })
-            }
-        })
-    }
-
-    function destroy(){
-        var nodos = [];
-
-        var table = $('#tabla-nodos').DataTable();
-        var nro = table.rows('.selected').data().length;
-
-        if(nro<=1){
-            swal({
-                title: 'ERROR',
-                html: 'Para ejecutar esta acción, debe al menos seleccionar dos nodos',
-                type: 'error',
-            });
-            return false;
-        }
-
-        for (i = 0; i < nro; i++) {
-            nodos.push(table.rows('.selected').data()[i]['id']);
-        }
-
-        swal({
-            title: '¿Desea eliminar '+nro+' nodos en lote?',
-            text: 'Al Aceptar, no podrá cancelar el proceso',
-            type: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#00ce68',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Aceptar',
-            cancelButtonText: 'Cancelar',
-        }).then((result) => {
-            if (result.value) {
-                cargando(true);
-
-                if (window.location.pathname.split("/")[1] === "software") {
-                    var url = `/software/empresa/nodos/`+nodos+`/destroy_lote`;
-                }else{
-                    var url = `/empresa/nodos/`+nodos+`/destroy_lote`;
-                }
-
-                $.ajax({
-                    url: url,
-                    method: 'GET',
-                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                    success: function(data) {
-                        cargando(false);
-                        swal({
-                            title: 'PROCESO REALIZADO',
-                            html: '<strong>'+data.correctos+' nodos '+data.state+'</strong><br><strong>'+data.fallidos+' nodos no '+data.state+' por estar en uso</strong>',
-                            type: 'success',
-                            showConfirmButton: true,
-                            confirmButtonColor: '#1A59A1',
-                            confirmButtonText: 'ACEPTAR',
-                        });
-                        getDataTable();
-                    }
-                })
-            }
-        })
-    }*/
 </script>
 @endsection

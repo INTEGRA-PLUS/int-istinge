@@ -1,5 +1,18 @@
 @extends('layouts.app')
 @section('content')
+
+    @if(Session::has('error'))
+    <div class="alert alert-danger" >
+        {{Session::get('error')}}
+    </div>
+    <script type="text/javascript">
+        setTimeout(function(){
+            $('.alert').hide();
+            $('.active_table').attr('class', ' ');
+        }, 5000);
+    </script>
+    @endif
+
 	<form method="POST" action="{{ route('ingresos.update', $ingreso->nro) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-ingreso" >
     <h5>INFORMACIÓN GENERAL DEL INGRESO </h5>
   		{{ csrf_field() }}
@@ -180,7 +193,10 @@
   			<div class="form-group row">
           <label class="col-sm-4 col-form-label text-right">Recibo de caja #</label>
           <div class="col-sm-8  text-left">
-            <input type="text" readonly="" value="{{$ingreso->nro}}">
+            <input type="text" class="form-control" name="nro" id="nro" value="{{$ingreso->nro}}" required>
+            <span class="help-block error">
+              <strong>{{ $errors->first('nro') }}</strong>
+            </span>
           </div>
   			</div>
   			<div class="form-group row">

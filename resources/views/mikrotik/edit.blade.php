@@ -121,30 +121,32 @@
             </div>
 
             @if ($empresa->token_siigo != null && $empresa->token_siigo != '')
-                <div class="col-md-3 form-group">
-                    <label class="control-label">Tipo de documento Siigo <span class="text-danger">*</span></label>
-                    <select class="form-control selectpicker" name="tipodoc_siigo_id" id="tipodoc_siigo_id"
-                        title="Seleccione">
-                        @if (is_array($tiposSiigo) && count($tiposSiigo) > 0)
-                            @foreach ($tiposSiigo as $tipo)
-                                @php
-                                    $tipoId = is_object($tipo) ? $tipo->id ?? null : $tipo['id'] ?? null;
-                                    $tipoName = is_object($tipo) ? $tipo->name ?? '' : $tipo['name'] ?? '';
-                                    $isSelected = $mikrotik->tipodoc_siigo_id == $tipoId;
-                                @endphp
-                                @if ($tipoId)
-                                    <option value="{{ $tipoId }}" @if ($isSelected) selected @endif>
-                                        {{ $tipoName }}
-                                    </option>
-                                @endif
-                            @endforeach
-                        @endif
-                    </select>
-                    <span class="help-block error">
-                        <strong>{{ $errors->first('tipodoc_siigo_id') }}</strong>
-                    </span>
-                </div>
+            <div class="col-md-3 form-group">
+                <label class="control-label">Tipo de documento Siigo <span class="text-danger">*</span></label>
+                <select class="form-control selectpicker" name="tipodoc_siigo_id" id="tipodoc_siigo_id"
+                    title="Seleccione">
+                    @if (is_array($tiposSiigo) && count($tiposSiigo) > 0)
+                        @foreach ($tiposSiigo as $tipo)
+                            @php
+                                $tipoId = is_object($tipo) ? $tipo->id ?? null : $tipo['id'] ?? null;
+                                $tipoName = is_object($tipo) ? $tipo->name ?? '' : $tipo['name'] ?? '';
+                                $codigoSiigo = is_object($tipo) ? $tipo->code ?? '' : $tipo['code'] ?? '';
+                                $isSelected = $mikrotik->tipodoc_siigo_id == $tipoId;
+                            @endphp
+                            @if ($tipoId)
+                                <option value="{{ $tipoId }}" @if ($isSelected) selected @endif>
+                                    {{ $tipoName }} - {{$codigoSiigo}}
+                                </option>
+                            @endif
+                        @endforeach
+                    @endif
+                </select>
+                <span class="help-block error">
+                    <strong>{{ $errors->first('tipodoc_siigo_id') }}</strong>
+                </span>
+            </div>
             @endif
+
 
             <div class="col-md-12 form-group">
                 <label class="control-label">Segmentos <a><i

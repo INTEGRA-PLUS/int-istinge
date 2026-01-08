@@ -27,8 +27,39 @@ class Vendedor extends Model
 
     public function usado()
     {
-        return Factura::where('vendedor',$this->id)->count();
+        $facturas = Factura::where('vendedor', $this->id)->count();
+        $remisiones = Remision::where('vendedor', $this->id)->count();
         
+        return $facturas + $remisiones;
+    }
+    
+    /**
+     * Obtiene información detallada sobre dónde está siendo usado el vendedor
+     * @return array
+     */
+    public function usadoEn()
+    {
+        $usadoEn = [];
+        
+        $facturas = Factura::where('vendedor', $this->id)->count();
+        if ($facturas > 0) {
+            $usadoEn[] = [
+                'tabla' => 'facturas',
+                'cantidad' => $facturas,
+                'mensaje' => "El vendedor está asociado a {$facturas} factura(s)"
+            ];
+        }
+        
+        $remisiones = Remision::where('vendedor', $this->id)->count();
+        if ($remisiones > 0) {
+            $usadoEn[] = [
+                'tabla' => 'remisiones',
+                'cantidad' => $remisiones,
+                'mensaje' => "El vendedor está asociado a {$remisiones} remisión(es)"
+            ];
+        }
+        
+        return $usadoEn;
     }
 
     public function pagosFecha($inicio, $fin)

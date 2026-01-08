@@ -27,39 +27,6 @@ class SaldosInicialesController extends Controller
      */
     public function index(Request $request)
     {
-        // $movimientos = PucMovimiento::where('empresa',Auth::user()->empresa)->groupBy('nro')->get();
-        // return $movimientos;
-
-        //Desarrollo para poder numerar los asientos contables por grupos.
-        // $movimientos = PucMovimiento::where('empresa',Auth::user()->empresa)->get();
-        // return $movimientos;
-
-        //aumento de la numeracion en contabilidad
-        // $numeracion = Numeracion::where('empresa', Auth::user()->empresa)->first();
-        // $siguienteNumero = $numeracion->contabilidad+1;
-        // $numeracion->contabilidad = $siguienteNumero;
-
-
-        // foreach($movimientos as $mov){
-        //     if($mov->documento_id != null && $mov->nro == null){
-        //         $movimientosP = PucMovimiento::where('documento_id',$mov->documento_id)
-        //         ->where('tipo_comprobante',$mov->tipo_comprobante)
-        //         ->get();
-        //         foreach($movimientosP as $p){
-        //             if($p->nro == null){
-        //                 $p->nro = $siguienteNumero;
-        //                 $p->save();
-        //             }
-        //         }
-        //         $siguienteNumero++;
-        //         $numeracion->contabilidad = $siguienteNumero;
-        //         $numeracion->save();
-        //     }
-
-        // }
-
-        // return "ok";
-
 
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['title' => 'Comprobantes Contables', 'subseccion' => 'Comprobantes Contables']);

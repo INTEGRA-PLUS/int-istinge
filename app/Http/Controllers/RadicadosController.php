@@ -361,6 +361,7 @@ class RadicadosController extends Controller
 
         $radicado = new Radicado();
         $radicado->fecha = Carbon::parse($request->fecha)->format('Y-m-d');
+        $radicado->hora = Carbon::parse($request->hora)->format('H:i:s');
         $radicado->identificacion = $request->ident;
         $radicado->cliente = $request->id_cliente;
         $radicado->nombre = $request->nombre;
@@ -676,6 +677,7 @@ class RadicadosController extends Controller
             }
 
             $radicado->fecha = Carbon::parse($request->fecha)->format('Y-m-d');
+            $radicado->hora = Carbon::parse($request->hora)->format('H:i:s');
             $radicado->telefono = $request->telefono;
             $radicado->correo = $request->correo;
             $radicado->direccion = $request->direccion;

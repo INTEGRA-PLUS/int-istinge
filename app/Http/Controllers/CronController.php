@@ -213,10 +213,12 @@ class CronController extends Controller
 
     public static function CrearFactura(){
 
+        $fecha = Carbon::now()->format('Y-m-d');
+
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
         self::limpiarDuplicadosFacturaContratos();
-
+        self::validateFacturasDuplicadas($fecha);
 
         $empresa = Empresa::find(1);
 
@@ -232,7 +234,6 @@ class CronController extends Controller
             ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
             ->where('status', 1)->get();
 
-            $fecha = Carbon::now()->format('Y-m-d');
 
             $state = ['enabled'];
             if ($empresa->factura_contrato_off == 1) {
@@ -558,7 +559,7 @@ class CronController extends Controller
 
                                                 if($cm->rd_item_vencimiento == 1){
 
-                                                    if($cm->dt_item_hasta > now()){
+                                                    if($cm->dt_item_hasta >= now()){
                                                         $item_reg->save();
                                                     }
                                                 }else{
@@ -872,6 +873,318 @@ class CronController extends Controller
         self::up_transaccion_(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $precio, $ingreso->fecha, "Uso de saldo a favor automatico.",null,$empresa);
     }
 
+    public static function cortarFacturasDiaEspecifico(){
+
+        $i=0;
+        $fecha = date('Y-m-d');
+
+        if(request()->fechaCorte){
+            $fecha = request()->fechaCorte;
+        }
+        $swGrupo = 1; //masivo
+        $horaActual = date('H:i');
+
+        $contactos = Contacto::join('factura as f','f.cliente','=','contactos.id')->
+        join('contracts as cs','cs.client_id','=','contactos.id')->
+        select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+        where('f.estatus',1)->
+        whereIn('f.tipo', [1,2])->
+        where('contactos.status',1)->
+        where('cs.state','enabled')->
+        where('cs.fecha_suspension','!=', null)->
+        take(20)->
+        get();
+
+        if($contactos){
+            $empresa = Empresa::find(1);
+            foreach ($contactos as $contacto) {
+
+                //** Desarrollo nuevo:
+                //** Analizar la cantidad de facturas abiertas del contrato y el grupo de corte
+                $contacto->updated_at = now();
+                $contacto->save();
+
+                $grupo_corte = null;
+                $cant_fac_grupo_corte = 1;
+                $cantFacturasVencidas = 1;
+                if(isset($contacto->grupo_corte) && $contacto->grupo_corte != ""){
+                    $grupo_corte = GrupoCorte::Find($contacto->grupo_corte);
+                    $cant_fac_grupo_corte = $grupo_corte->nro_factura_vencida;
+                }
+
+                if(isset($grupo_corte->nro_factura_vencida) && $grupo_corte->nro_factura_vencida > 1){
+                    $contrato = Contrato::Find($contacto->contrato_id);
+                    if($contrato){
+                        $cantFacturasVencidas = $contrato->cantidadFacturasVencidas();
+                    }else{
+                        continue;
+                    }
+                }
+                //** Fin desarrollo nuevo
+
+                $factura = Factura::find($contacto->factura);
+
+                //ESto es lo que hay que refactorizar.
+                $facturaContratos = DB::table('facturas_contratos')
+                ->where('factura_id',$factura->id)
+                ->where('client_id',$factura->cliente)
+                ->pluck('contrato_nro');
+
+                if(!DB::table('facturas_contratos')
+                ->where('factura_id',$factura->id)->first()){
+
+                    $contratoVerificar = Contrato::where('id',$factura->contrato_id)->first();
+                    //Validando que si se trate de el contrato del verdadero cliente
+                    if($factura->cliente != $contratoVerificar->client_id){
+                        $contrato = Contrato::where('client_id',$factura->cliente)->first();
+                        if(!$contrato){
+                            $factura->contrato_id = null;
+                        }else{
+                            $factura->contrato_id = $contrato->id;
+                        }
+                        $factura->save();
+                    }
+                    $facturaContratos = Contrato::where('id',$factura->contrato_id)->pluck('nro');
+                }
+
+                $contratosId = Contrato::whereIn('nro',$facturaContratos)
+                ->pluck('id');
+
+                $ultimaFacturaRegistrada = Factura::
+                where('cliente',$factura->cliente)
+                ->where('estatus','<>',2)
+                ->whereIn('contrato_id',$contratosId)
+                ->orderBy('created_at', 'desc')
+                ->value('id');
+
+                //manera antigua de buscar el contrato.
+                if(!$ultimaFacturaRegistrada){
+                      $ultimaFacturaRegistrada = Factura::
+                        where('cliente',$factura->cliente)
+                        ->where('contrato_id',$factura->contrato_id)
+                        ->orderBy('created_at', 'desc')
+                        ->value('id');
+                }
+
+                //** Validacion nueva:
+                ///** validamos que segun el grupo_corte la cantidad de facturas vencidas si sea igual
+                if($factura->id == $ultimaFacturaRegistrada && $cantFacturasVencidas >= $cant_fac_grupo_corte){
+
+                    //1. debemos primero mirar si los contrsatos existen en la tabla detalle, si no hacemos el proceso antiguo
+                    $contratos = Contrato::whereIn('nro',$facturaContratos)->get();
+                    if(!$contratos){
+                        if($factura->contrato_id != null){
+                            $contratos = Contrato::where('id',$factura->contrato_id)->get();
+                        }else{
+                            $contratos = Contrato::where('id',$contacto->contrato_id)->get();
+                        }
+                    }
+
+                    $promesaExtendida = DB::table('promesa_pago')->where('factura', $contacto->factura)->where('vencimiento', '>=', $fecha)->count();
+
+                    //2. Debemos recorrer el o los contratos para que haga el disabled.
+                    foreach($contratos as $contrato){
+                        $crm = CRM::where('cliente', $contacto->id)->whereIn('estado', [0, 3])->delete();
+                        $crm = new CRM();
+                        $crm->cliente = $contacto->id;
+                        $crm->factura = $contacto->factura;
+                        $crm->estado = 0;
+                        $crm->servidor = isset($contrato->server_configuration_id) ? $contrato->server_configuration_id : '';
+                        $crm->grupo_corte = isset($contrato->grupo_corte) ? $contrato->grupo_corte : '';
+                        $crm->save();
+
+                        if($promesaExtendida > 0){
+
+                            if($contrato->state != 'enabled' && $empresa->consultas_mk ==1){
+
+                                if(isset($contrato->server_configuration_id) && $factura->estatus != 0){
+
+                                    $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+                                    $API = new RouterosAPI();
+                                    $API->port = $mikrotik->puerto_api;
+
+                                    if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                        $API->write('/ip/firewall/address-list/print', TRUE);
+                                        $ARRAYS = $API->read();
+
+
+                                    #ELIMINAMOS DE MOROSOS#
+                                    $API->write('/ip/firewall/address-list/print', false);
+                                    $API->write('?address='.$contrato->ip, false);
+                                    $API->write("?list=morosos",false);
+                                    $API->write('=.proplist=.id');
+                                    $ARRAYS = $API->read();
+
+                                    if(count($ARRAYS)>0){
+                                        $API->write('/ip/firewall/address-list/remove', false);
+                                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                                        $READ = $API->read();
+
+                                        $contrato->state = 'enabled';
+                                        $contrato->update();
+                                    }
+                                    #ELIMINAMOS DE MOROSOS#
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->disconnect();
+                                    }
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        //por aca entra cuando estamos deshbilitando de un grupo de corte sus contratos.
+                        if (($contrato && $swGrupo == 1) ||
+                        ($contrato && $swGrupo == 0 && $contrato->fecha_suspension == getdate()['mday'])) {
+
+                        //segundo filtro de validacion, validando por rango de fechas
+                        $diasHabilesNocobro = 0;
+                        if($contrato->tipo_nosuspension == 1 &&  $contrato->fecha_desde_nosuspension <= $fecha && $contrato->fecha_hasta_nosuspension >= $fecha){
+                            $diasHabilesNocobro = 1;
+                        }
+
+                        if($diasHabilesNocobro == 0){
+                            if(isset($contrato->server_configuration_id) || $promesaExtendida == 0){
+
+                                $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+                                $API = new RouterosAPI();
+                                $API->port = $mikrotik->puerto_api;
+
+                                if($empresa->consultas_mk ==1){
+                                if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                    $API->write('/ip/firewall/address-list/print', TRUE);
+                                    $ARRAYS = $API->read();
+                                    if($contrato->state == 'enabled'){
+                                        if($contrato->ip){
+                                            $API->comm("/ip/firewall/address-list/add", array(
+                                                "address" => $contrato->ip,
+                                                "comment" => $contrato->servicio,
+                                                "list" => 'morosos'
+                                                )
+                                            );
+
+                                            #ELIMINAMOS DE IP_AUTORIZADAS#
+                                            $API->write('/ip/firewall/address-list/print', false);
+                                            $API->write('?address='.$contrato->ip, false);
+                                            $API->write("?list=ips_autorizadas",false);
+                                            $API->write('=.proplist=.id');
+                                            $ARRAYS = $API->read();
+                                            if(count($ARRAYS)>0){
+                                                $API->write('/ip/firewall/address-list/remove', false);
+                                                $API->write('=.id='.$ARRAYS[0]['.id']);
+                                                $READ = $API->read();
+                                            }
+                                            #ELIMINAMOS DE IP_AUTORIZADAS#
+
+                                            if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
+
+                                                #DESHABILITACION DEL PPPoE#
+                                                if ($contrato->conexion == 1 && $contrato->usuario != null) {
+
+                                                    // Buscar el ID interno del secret con ese nombre
+                                                    $API->write('/ppp/secret/print', false);
+                                                    $API->write('?name=' . $contrato->usuario, true);
+                                                    $ARRAYS = $API->read();
+
+                                                    if (count($ARRAYS) > 0) {
+                                                        $id = $ARRAYS[0]['.id']; // obtenemos el .id interno
+
+                                                        // Deshabilitar el secret
+                                                        $API->write('/ppp/secret/disable', false);
+                                                        $API->write('=numbers=' . $id, true);
+                                                        $response = $API->read();
+
+                                                    }
+                                                }
+                                                #DESHABILITACION DEL PPPoE#
+
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                                if($contrato->conexion == 1 && $contrato->usuario != null){
+
+                                                    $API->write('/ppp/active/print', false);
+                                                    $API->write('?name=' . $contrato->usuario);
+                                                    $response = $API->read();
+
+                                                    if(isset($response['0']['.id'])){
+                                                        $API->comm("/ppp/active/remove", [
+                                                            ".id" => $response['0']['.id']
+                                                        ]);
+                                                    }
+                                                    else{ //NUEVO CODIGO
+
+                                                        //HACEMOS EL MISMO PROCESO PERO ENTONCES POR EL NRO CONTRARTO.
+                                                        $API->write('/ppp/active/print', false);
+                                                        $API->write('?name=' . $contrato->nro);
+                                                        $response = $API->read();
+
+                                                        if(isset($response['0']['.id'])){
+                                                            $API->comm("/ppp/active/remove", [
+                                                                ".id" => $response['0']['.id']
+                                                            ]);
+                                                        }
+                                                    }
+
+                                                }
+                                                #SE SACA DE LA ACTIVE CONNECTIONS
+                                            }
+
+
+                                        }
+                                        $i++;
+                                    }
+                                    $API->disconnect();
+                                }
+                                }
+
+                                $contrato->state = 'disabled';
+                                $contrato->observaciones = $contrato->observaciones. " - Contrato deshabilitado automaticamente";
+                                $contrato->save();
+
+                                $descripcion = '<i class="fas fa-check text-success"></i> <b>Cambio de Status</b> de habilitado a deshabilitado por cronjob de corte facturas<br>';
+                                $movimiento = new MovimientoLOG();
+                                $movimiento->contrato    = $contrato->id;
+                                $movimiento->modulo      = 5;
+                                $movimiento->descripcion = $descripcion;
+                                $movimiento->created_by  = 1;
+                                $movimiento->empresa     = $contrato->empresa;
+                                $movimiento->save();
+                            }
+                        }
+                        }
+                    }
+                }
+            }
+
+            if (file_exists("CorteFacturas.txt")){
+                $file = fopen("CorteFacturas.txt", "a");
+                fputs($file, "-----------------".PHP_EOL);
+                fputs($file, "Fecha de Corte: ".date('Y-m-d').''. PHP_EOL);
+                fputs($file, "Contratos Deshabilitados: ".$i.''. PHP_EOL);
+                fputs($file, "-----------------".PHP_EOL);
+                fclose($file);
+            }else{
+                $file = fopen("CorteFacturas.txt", "w");
+                fputs($file, "-----------------".PHP_EOL);
+                fputs($file, "Fecha de Corte: ".date('Y-m-d').''. PHP_EOL);
+                fputs($file, "Contratos Deshabilitados: ".$i.''. PHP_EOL);
+                fputs($file, "-----------------".PHP_EOL);
+                fclose($file);
+            }
+
+            if(request()->fechaCorte){
+                return back();
+            }
+        }
+
+    }
+
 
     public static function CortarFacturas(){
         $i=0;
@@ -885,7 +1198,7 @@ class CronController extends Controller
 
         $grupos_corte = DB::table('grupos_corte')
         ->where('status', 1)
-        ->where('hora_suspension','<=',$horaActual)
+        ->whereTime('hora_suspension', '<=', $horaActual)
         ->where('fecha_suspension','!=',0)
         ->orderby('nro_factura_vencida','asc')
         ->get();
@@ -905,20 +1218,27 @@ class CronController extends Controller
                 leftJoin('facturas_contratos as fcs', 'fcs.factura_id', '=', 'f.id')
                 ->leftJoin('contracts as cs', function ($join) {
                     $join->on('cs.nro', '=', 'fcs.contrato_nro');
-                        //  ->orOn('cs.id', '=', 'f.contrato_id');
                 })->
-                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus', 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
+                select('contactos.id', 'contactos.nombre', 'contactos.nit', 'f.id as factura', 'f.estatus',
+                 'f.suspension', 'cs.state', 'f.contrato_id','cs.grupo_corte')->
                 where('f.estatus',1)->
                 whereIn('f.tipo', [1,2])->
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
                 where('cs.fecha_suspension', null)->
-                where('cs.server_configuration_id','!=',null)-> //se comenta por que tambien se peuden canclear planes de tv que no estan con servidor
+                where('cs.server_configuration_id','!=',null)->
                 whereDate('f.vencimiento', '<=', now())->
+                where('f.id', function ($subquery) {
+                    $subquery->selectRaw('MAX(f2.id)')
+                        ->from('factura as f2')
+                        ->whereColumn('f2.cliente', 'contactos.id')
+                        ->where('f2.estatus', 1)
+                        ->whereIn('f2.tipo', [1, 2])
+                        ->whereDate('f2.vencimiento', '<=', now());
+                })->
                 orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
-                take(40)->
                 get();
 
         }else{
@@ -1280,11 +1600,18 @@ class CronController extends Controller
             ->where('f.estatus', 1)
             ->whereIn('f.tipo', [1, 2])
             ->where('contactos.status', 1)
-            // ->where('cs.state', 'enabled') // Solo si aplica
             ->whereDate('f.vencimiento', '<=', now())
             ->whereIn('cs.grupo_corte', $grupos_corte_array)
             ->where('cs.fecha_suspension', null)
             ->where('cs.state_olt_catv', true)
+            ->where('f.id', function ($subquery) {
+                $subquery->selectRaw('MAX(f2.id)')
+                    ->from('factura as f2')
+                    ->whereColumn('f2.cliente', 'contactos.id')
+                    ->where('f2.estatus', 1)
+                    ->whereIn('f2.tipo', [1, 2])
+                    ->whereDate('f2.vencimiento', '<=', now());
+            })
             ->orderBy('contactos.updated_at', 'asc')
             ->take(50)
             ->get();
@@ -3995,11 +4322,16 @@ class CronController extends Controller
         ]);
     }
 
-    public function envioFacturaWpp(WapiService $wapiService){
+    public function envioFacturaWpp(WapiService $wapiService)
+    {
         Log::info("=== Inicio de ejecución: envioFacturaWpp() ===");
 
         try {
             $empresa = Empresa::find(1);
+            if (!$empresa) {
+                Log::error("Empresa no encontrada (id=1).");
+                return;
+            }
             Log::info("Empresa encontrada: {$empresa->nombre}");
 
             $fecha = $empresa->cron_fecha_whatsapp ?? date('Y-m-d');
@@ -4015,6 +4347,7 @@ class CronController extends Controller
                 Log::info("cron_fecha_whatsapp reiniciada a: {$empresa->cron_fecha_whatsapp}");
             }
 
+            // Refrescar empresa (por si cambió algo)
             $empresa = Empresa::find(1);
 
             $grupos_corte = GrupoCorte::where('status', 1)->get();
@@ -4027,6 +4360,26 @@ class CronController extends Controller
 
             $grupos_corte_array = $grupos_corte->pluck('id')->toArray();
 
+            // ===========================
+            // ✅ Buscar instancia UNA VEZ
+            // ===========================
+            $instance = Instance::where('company_id', $empresa->id)
+                ->where('type', 1)
+                ->where('activo', 1)
+                ->first();
+
+            if (!$instance) {
+                Log::error("Instancia no encontrada para company_id={$empresa->id}.");
+                return;
+            }
+
+            // ✅ Límite dinámico según modo
+            $limit = ($instance->meta == 0) ? 45 : 15;
+            Log::info("Modo de envío detectado: " . ($instance->meta == 0 ? "WABA/Vibio (meta=0)" : "META directo (meta=1)") . " | Límite lote: {$limit}");
+
+            // ===========================
+            // ✅ Query de facturas (excluye pagas)
+            // ===========================
             $facturas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
                 ->join('contactos as con', 'con.id', 'c.client_id')
                 ->where(function ($query) {
@@ -4036,9 +4389,14 @@ class CronController extends Controller
                 ->where('factura.fecha', $fecha)
                 ->where('factura.whatsapp', 0)
                 ->whereIn('c.grupo_corte', $grupos_corte_array)
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('ingresos_factura as i')
+                        ->whereColumn('i.factura', 'factura.id'); // i.factura = factura.id
+                })
                 ->select('factura.*')
                 ->orderBy('factura.updated_at', 'asc')
-                ->limit(20)
+                ->limit($limit)
                 ->get();
 
             Log::info("Facturas seleccionadas para envío: " . $facturas->count());
@@ -4046,18 +4404,19 @@ class CronController extends Controller
             foreach ($facturas as $factura) {
                 Log::info("Procesando factura: {$factura->codigo}");
 
-                view()->share(['title' => 'Imprimir Factura']);
+                // ✅ Blindaje por si pagó entre selección y envío
+                $yaPago = DB::table('ingresos_factura')
+                    ->where('factura', $factura->id)
+                    ->exists();
 
-                $instance = Instance::where('company_id', $empresa->id)
-                    ->where('type', 1)
-                    ->where('activo', 1)
-                    ->first();
-
-                if (!$instance) {
-                    Log::error("Factura {$factura->codigo}: Instancia no encontrada.");
+                if ($yaPago) {
+                    Log::warning("Factura {$factura->codigo}: omitida porque ya registra pago en ingresos_factura.");
                     continue;
                 }
 
+                view()->share(['title' => 'Imprimir Factura']);
+
+                // Actualizar para control de orden/lotes
                 $factura->updated_at = now();
                 $factura->save();
 
@@ -4082,7 +4441,7 @@ class CronController extends Controller
                 // Prefijo dinámico
                 $prefijo = '57';
                 if (!empty($contacto->fk_idpais)) {
-                    $prefijoData = \DB::table('prefijos_telefonicos')
+                    $prefijoData = DB::table('prefijos_telefonicos')
                         ->where('iso2', strtoupper($contacto->fk_idpais))
                         ->first();
 
@@ -4239,6 +4598,7 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
                     Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
+
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         // Si sabemos que, a pesar del 500, el mensaje se envía igual:
@@ -4265,7 +4625,6 @@ class CronController extends Controller
                     $factura->save();
                     Log::info("Factura {$factura->codigo}: enviada por META ✅");
                     sleep(5);
-
                 }
             }
 
@@ -4681,6 +5040,111 @@ class CronController extends Controller
         return "correccion finalizada";
     }
 
+    //Este metodo me permite validar y eliminar facturas duplicadas con los mismos criterios.
+    public static function validateFacturasDuplicadas($fecha){
+
+        $eliminadas = 0;
+        $mensaje = [];
+
+        // VALIDACIÓN 1: Facturas duplicadas con mismo cliente, código y fecha
+        $facturasDuplicadas = DB::table('factura')
+            ->select('cliente', 'codigo', 'fecha', DB::raw('COUNT(*) as total'))
+            ->where('fecha', $fecha)
+            ->where('facturacion_automatica', 1)
+            ->groupBy('cliente', 'codigo', 'fecha')
+            ->having('total', '>', 1)
+            ->get();
+
+        foreach ($facturasDuplicadas as $grupo) {
+            // Obtener todas las facturas del grupo duplicado
+            $facturas = Factura::where('fecha', $grupo->fecha)
+                ->where('cliente', $grupo->cliente)
+                ->where('codigo', $grupo->codigo)
+                ->where('facturacion_automatica', 1)
+                ->orderBy('id', 'asc') // Ordenar por ID para conservar la primera
+                ->get();
+
+            if ($facturas->count() > 1) {
+                // Conservar la primera factura (la más antigua por ID)
+                $facturaConservar = $facturas->first();
+
+                // Eliminar las duplicadas (todas excepto la primera)
+                $facturasEliminar = $facturas->skip(1);
+
+                foreach ($facturasEliminar as $facturaEliminar) {
+                    self::eliminarFacturaCompleta($facturaEliminar);
+                    $eliminadas++;
+                    $mensaje[] = "Factura duplicada eliminada: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}). Se conservó la factura ID {$facturaConservar->id}";
+                }
+            }
+        }
+
+        // VALIDACIÓN 2: Facturas con mismo cliente, fecha y created_at (mismo año, mes, día, hora y minuto) pero diferente código
+        $facturasDuplicadasPorTiempo = DB::table('factura')
+            ->select('cliente', 'fecha', DB::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") as created_at_formatted'), DB::raw('COUNT(*) as total'))
+            ->where('fecha', $fecha)
+            ->where('facturacion_automatica', 1)
+            ->groupBy('cliente', 'fecha', DB::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i")'))
+            ->having('total', '>', 1)
+            ->get();
+
+        foreach ($facturasDuplicadasPorTiempo as $grupo) {
+            // Obtener todas las facturas del grupo duplicado por tiempo
+            $facturas = Factura::where('fecha', $grupo->fecha)
+                ->where('cliente', $grupo->cliente)
+                ->where('facturacion_automatica', 1)
+                ->whereRaw('DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") = ?', [$grupo->created_at_formatted])
+                ->orderBy('id', 'asc') // Ordenar por ID para conservar la primera
+                ->get();
+
+            if ($facturas->count() > 1) {
+                // Conservar la primera factura (la más antigua por ID)
+                $facturaConservar = $facturas->first();
+
+                // Eliminar las duplicadas (todas excepto la primera)
+                $facturasEliminar = $facturas->skip(1);
+
+                foreach ($facturasEliminar as $facturaEliminar) {
+                    self::eliminarFacturaCompleta($facturaEliminar);
+                    $eliminadas++;
+                    $mensaje[] = "Factura duplicada eliminada por tiempo de creación: ID {$facturaEliminar->id} (Código: {$facturaEliminar->codigo}, Cliente: {$facturaEliminar->cliente}, Creada: {$grupo->created_at_formatted}). Se conservó la factura ID {$facturaConservar->id}";
+                }
+            }
+        }
+
+        $resultado = [
+            'eliminadas' => $eliminadas,
+            'mensaje' => $mensaje,
+            'resumen' => "Se eliminaron {$eliminadas} factura(s) duplicada(s) de la fecha {$fecha}"
+        ];
+
+        return $resultado;
+    }
+
+    /**
+     * Elimina completamente una factura y todos sus registros relacionados
+     * @param Factura $factura
+     * @return void
+     */
+    private static function eliminarFacturaCompleta($factura)
+    {
+        // Eliminar items_factura
+        ItemsFactura::where('factura', $factura->id)->delete();
+
+        // Eliminar de ingresos_factura
+        DB::table('ingresos_factura')
+            ->where('factura', $factura->id)
+            ->delete();
+
+        // Eliminar de facturas_contratos
+        DB::table('facturas_contratos')
+            ->where('factura_id', $factura->id)
+            ->delete();
+
+        // Eliminar la factura misma
+        $factura->delete();
+    }
+
     public function refreshCorteIntertTV(){
 
         $fecha = Carbon::now()->format('Y-m-d');
@@ -4909,7 +5373,6 @@ class CronController extends Controller
             return "Cambio completado";
     }
 
-
     public function validacionFacturasContratos(){
         $facturasContratos = DB::table('facturas_contratos')->get();
 
@@ -4924,11 +5387,15 @@ class CronController extends Controller
                 ]);
             }else{
                 $factura = Factura::Find($fc->factura_id);
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'client_id' => $factura->cliente
-                ]);
+
+                if($factura && isset($factura->cliente)){
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'client_id' => $factura->cliente
+                    ]);
+                }
+
             }
 
         }
@@ -4939,30 +5406,33 @@ class CronController extends Controller
         foreach($facturasContratos as $fc){
 
             $factura = Factura::Find($fc->factura_id);
-            if($factura->cliente != $fc->client_id){
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'client_id' => $factura->cliente
-                ]);
-            }
+            if($factura){
 
-            $contratos = Contrato::where('client_id',$factura->cliente)->get();
-
-            $siPertenece = 0;
-            foreach($contratos as $c){
-                if($c->nro == $fc->contrato_nro && $siPertenece == 0){
-                    $siPertenece = 1;
+                if($factura->cliente != $fc->client_id){
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'client_id' => $factura->cliente
+                    ]);
                 }
-            }
 
-            if($siPertenece == 0){
-                $fc->contrato_nro = $c->nro;
-                DB::table('facturas_contratos')
-                ->where('id',$fc->id)
-                ->update([
-                   'contrato_nro' => $c->nro
-                ]);
+                $contratos = Contrato::where('client_id',$factura->cliente)->get();
+
+                $siPertenece = 0;
+                foreach($contratos as $c){
+                    if($c->nro == $fc->contrato_nro && $siPertenece == 0){
+                        $siPertenece = 1;
+                    }
+                }
+
+                if($siPertenece == 0){
+                    $fc->contrato_nro = $c->nro;
+                    DB::table('facturas_contratos')
+                    ->where('id',$fc->id)
+                    ->update([
+                       'contrato_nro' => $c->nro
+                    ]);
+                }
             }
 
         }
