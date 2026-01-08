@@ -68,10 +68,185 @@ class FacturasController extends Controller{
 
     protected $url;
 
+    /**
+     * Constantes para tipos de cambios registrables en facturas
+     * Estas constantes se utilizan para identificar el tipo de cambio
+     * al registrar logs en el sistema de auditoría
+     */
+    const CAMBIO_FECHA_VENCIMIENTO = 'fecha_vencimiento';
+    const CAMBIO_PRECIO = 'precio';
+    const CAMBIO_CLIENTE = 'cliente';
+    const CAMBIO_FECHA = 'fecha';
+    // Agregar más constantes según se necesiten en el futuro
+
     public function __construct(ElectronicBillingService $electronicBillingService){
         $this->middleware('auth');
         view()->share(['seccion' => 'facturas', 'title' => 'Factura de Venta', 'icon' =>'fas fa-plus', 'subseccion' => 'venta']);
         $this->electronicBillingService = $electronicBillingService;
+    }
+
+    /**
+     * Registra un log de cambio en una factura en el sistema de auditoría
+     *
+     * Este método centraliza el registro de logs para cambios en facturas,
+     * permitiendo un código más limpio y mantenible. Está diseñado para ser
+     * extensible, facilitando la adición de nuevos tipos de cambios en el futuro.
+     *
+     * @param Factura $factura La factura que fue modificada
+     * @param string $tipoCambio Tipo de cambio (usar constantes CAMBIO_* definidas en la clase)
+     * @param mixed $valorAnterior Valor anterior del campo antes de la modificación
+     * @param mixed $valorNuevo Valor nuevo del campo después de la modificación
+     * @param array $opciones Opciones adicionales para personalizar el log:
+     *                       - 'icono': Clase del icono FontAwesome (ej: 'fas fa-calendar-alt')
+     *                       - 'color_icono': Clase de color para el icono (ej: 'text-info')
+     *                       - 'titulo': Título del cambio (ej: 'Se actualizó la fecha de vencimiento')
+     *                       - 'formato_anterior': Función callback para formatear el valor anterior
+     *                       - 'formato_nuevo': Función callback para formatear el valor nuevo
+     *                       - 'color_anterior': Clase de color para el valor anterior (ej: 'text-danger')
+     *                       - 'color_nuevo': Clase de color para el valor nuevo (ej: 'text-success')
+     * @return void
+     *
+     * @example
+     * // Registrar cambio de fecha de vencimiento
+     * $this->registrarLogCambioFactura(
+     *     $factura,
+     *     self::CAMBIO_FECHA_VENCIMIENTO,
+     *     $vencimientoAnterior,
+     *     $factura->vencimiento
+     * );
+     *
+     * @example
+     * // Registrar cambio personalizado
+     * $this->registrarLogCambioFactura(
+     *     $factura,
+     *     'descuento',
+     *     $descuentoAnterior,
+     *     $factura->descuento,
+     *     [
+     *         'icono' => 'fas fa-percent',
+     *         'titulo' => 'Se actualizó el descuento'
+     *     ]
+     * );
+     */
+    protected function registrarLogCambioFactura(
+        Factura $factura,
+        string $tipoCambio,
+        $valorAnterior,
+        $valorNuevo,
+        array $opciones = []
+    ) {
+        // Si los valores son iguales, no registrar log
+        if ($valorAnterior == $valorNuevo) {
+            return;
+        }
+
+        // Configuración de mensajes por tipo de cambio
+        // Esta estructura permite agregar fácilmente nuevos tipos de cambios
+        $configuraciones = [
+            self::CAMBIO_FECHA_VENCIMIENTO => [
+                'icono' => 'fas fa-calendar-alt',
+                'color_icono' => 'text-info',
+                'titulo' => 'Se actualizó la fecha de vencimiento',
+                'formato_anterior' => function($valor) {
+                    return $valor ? date('d-m-Y', strtotime($valor)) : 'N/A';
+                },
+                'formato_nuevo' => function($valor) {
+                    return $valor ? date('d-m-Y', strtotime($valor)) : 'N/A';
+                },
+                'color_anterior' => 'text-danger',
+                'color_nuevo' => 'text-success',
+            ],
+            self::CAMBIO_PRECIO => [
+                'icono' => 'fas fa-dollar-sign',
+                'color_icono' => 'text-warning',
+                'titulo' => 'Se actualizó el precio',
+                'formato_anterior' => function($valor) {
+                    return number_format($valor, 2, ',', '.');
+                },
+                'formato_nuevo' => function($valor) {
+                    return number_format($valor, 2, ',', '.');
+                },
+                'color_anterior' => 'text-danger',
+                'color_nuevo' => 'text-success',
+            ],
+            self::CAMBIO_CLIENTE => [
+                'icono' => 'fas fa-user',
+                'color_icono' => 'text-primary',
+                'titulo' => 'Se actualizó el cliente',
+                'formato_anterior' => function($valor) {
+                    $cliente = Contacto::find($valor);
+                    return $cliente ? $cliente->nombre : 'N/A';
+                },
+                'formato_nuevo' => function($valor) {
+                    $cliente = Contacto::find($valor);
+                    return $cliente ? $cliente->nombre : 'N/A';
+                },
+                'color_anterior' => 'text-muted',
+                'color_nuevo' => 'text-primary',
+            ],
+            self::CAMBIO_FECHA => [
+                'icono' => 'fas fa-calendar',
+                'color_icono' => 'text-secondary',
+                'titulo' => 'Se actualizó la fecha',
+                'formato_anterior' => function($valor) {
+                    return $valor ? date('d-m-Y', strtotime($valor)) : 'N/A';
+                },
+                'formato_nuevo' => function($valor) {
+                    return $valor ? date('d-m-Y', strtotime($valor)) : 'N/A';
+                },
+                'color_anterior' => 'text-muted',
+                'color_nuevo' => 'text-info',
+            ],
+        ];
+
+        // Obtener configuración del tipo de cambio o usar valores por defecto
+        // Si el tipo de cambio no está en las configuraciones, se usan las opciones
+        // personalizadas o valores por defecto
+        $config = $configuraciones[$tipoCambio] ?? [
+            'icono' => $opciones['icono'] ?? 'fas fa-edit',
+            'color_icono' => $opciones['color_icono'] ?? 'text-secondary',
+            'titulo' => $opciones['titulo'] ?? 'Se actualizó un campo',
+            'formato_anterior' => $opciones['formato_anterior'] ?? function($valor) {
+                return $valor ?? 'N/A';
+            },
+            'formato_nuevo' => $opciones['formato_nuevo'] ?? function($valor) {
+                return $valor ?? 'N/A';
+            },
+            'color_anterior' => $opciones['color_anterior'] ?? 'text-muted',
+            'color_nuevo' => $opciones['color_nuevo'] ?? 'text-info',
+        ];
+
+        // Formatear valores usando las funciones de formato definidas
+        $valorAnteriorFormateado = is_callable($config['formato_anterior'])
+            ? $config['formato_anterior']($valorAnterior)
+            : ($valorAnterior ?? 'N/A');
+
+        $valorNuevoFormateado = is_callable($config['formato_nuevo'])
+            ? $config['formato_nuevo']($valorNuevo)
+            : ($valorNuevo ?? 'N/A');
+
+        // Construir descripción del log con formato HTML
+        // El formato incluye icono, título, código de factura y valores anterior/nuevo
+        $descripcion = sprintf(
+            '<i class="%s %s"></i> <b>%s</b> de la factura %s de <span class="%s">%s</span> a <span class="%s">%s</span>',
+            $config['icono'],
+            $config['color_icono'],
+            $config['titulo'],
+            $factura->codigo,
+            $config['color_anterior'],
+            $valorAnteriorFormateado,
+            $config['color_nuevo'],
+            $valorNuevoFormateado
+        );
+
+        // Registrar el log en la tabla log_movimientos
+        $movimiento = new MovimientoLOG();
+        $movimiento->contrato    = $factura->id; // ID de la factura
+        $movimiento->modulo      = 8; // Módulo de facturas (según estándar del sistema)
+        $movimiento->descripcion = $descripcion; // Descripción formateada con HTML
+        $movimiento->created_by  = Auth::user()->id; // Usuario que realizó el cambio
+        $movimiento->empresa     = $factura->empresa; // Empresa asociada
+        $movimiento->save();
     }
 
     public function indexold(Request $request){
@@ -1759,6 +1934,10 @@ class FacturasController extends Controller{
                     }
                 }
 
+                // Guardar valores anteriores para comparación y registro de logs
+                // Esto permite detectar cambios y registrar logs solo cuando hay modificaciones
+                $vencimientoAnterior = $factura->vencimiento;
+
                 //Modificacion de los datos de la factura
                 $factura->notas =$request->notas;
                 $factura->cliente=$request->cliente;
@@ -1783,6 +1962,21 @@ class FacturasController extends Controller{
                 }else{
                     $factura->pago_oportuno =$factura->vencimiento;
                 }
+
+                // Registrar log de cambio de fecha de vencimiento si hubo modificación
+                // El método registrarLogCambioFactura solo registra si los valores son diferentes
+                $this->registrarLogCambioFactura(
+                    $factura,
+                    self::CAMBIO_FECHA_VENCIMIENTO,
+                    $vencimientoAnterior,
+                    $factura->vencimiento
+                );
+
+                // Nota: Para registrar logs de otros campos en el futuro, seguir este patrón:
+                // 1. Guardar el valor anterior antes de modificar: $campoAnterior = $factura->campo;
+                // 2. Modificar el campo: $factura->campo = $nuevoValor;
+                // 3. Registrar el log: $this->registrarLogCambioFactura($factura, self::CAMBIO_CAMPO, $campoAnterior, $factura->campo);
+
                 $factura->save();
 
 
