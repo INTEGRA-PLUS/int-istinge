@@ -1033,9 +1033,11 @@ public function forma_pago()
                     }
                   }
               }
-            }else{
-                $saldoMesAnterior+=$vencida->porpagar();
             }
+            //Se comenta por que no se necesita sumar facturas que no esten asociadas a un contrato.
+            // else{
+            //     $saldoMesAnterior+=$vencida->porpagar();
+            // }
         }
 
         $estadoCuenta['saldoMesAnterior'] = $saldoMesAnterior;
