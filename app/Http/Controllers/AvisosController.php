@@ -245,7 +245,8 @@ class AvisosController extends Controller
             'contenido' => $plantilla->contenido,
             'body_text' => json_decode($plantilla->body_text, true),
             'language' => $plantilla->language,
-            'body_dinamic' => $bodyDinamic
+            'body_dinamic' => $bodyDinamic,
+            'body_header' => $plantilla->body_header
         ]);
     }
 
@@ -437,7 +438,7 @@ class AvisosController extends Controller
                                             } catch (\Exception $e) {
                                                 \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
                                             }
-                                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 2, ',', '.'), $paramValue);
+                                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
 
                                             // Obtener porpagar de la factura
                                             $facturaPorpagar = 0;
@@ -446,7 +447,7 @@ class AvisosController extends Controller
                                             } catch (\Exception $e) {
                                                 \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
                                             }
-                                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 2, ',', '.'), $paramValue);
+                                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
                                         } else {
                                             $paramValue = str_replace('[factura.fecha]', '', $paramValue);
                                             $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
@@ -472,17 +473,64 @@ class AvisosController extends Controller
                                 $parameters[] = ["type" => "text", "text" => $paramValue];
                             }
 
+                            // Construir componentes
+                            $components = [
+                                [
+                                    "type" => "body",
+                                    "parameters" => $parameters
+                                ]
+                            ];
+
+                            // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
+                            if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                                // Generar PDF temporal de la factura
+                                try {
+                                    $fileName = "Factura_{$factura->codigo}.pdf";
+                                    $storagePath = storage_path("app/public/temp/{$fileName}");
+
+                                    // Si no existe, generarlo
+                                    if (!file_exists($storagePath)) {
+                                        $cronController = new \App\Http\Controllers\CronController();
+                                        $cronController->getFacturaTemp($factura->id, config('app.key'));
+
+                                        // Esperar a que se genere el PDF (máximo 5 intentos)
+                                        $attempts = 0;
+                                        while (!file_exists($storagePath) && $attempts < 5) {
+                                            usleep(300000); // 0.3 segundos
+                                            $attempts++;
+                                        }
+                                    }
+
+                                    if (file_exists($storagePath)) {
+                                        $urlFactura = url("storage/temp/{$fileName}");
+
+                                        // Agregar header al inicio de components
+                                        array_unshift($components, [
+                                            "type" => "header",
+                                            "parameters" => [
+                                                [
+                                                    "type" => "document",
+                                                    "document" => [
+                                                        "link" => $urlFactura,
+                                                        "filename" => $fileName
+                                                    ]
+                                                ]
+                                            ]
+                                        ]);
+                                    } else {
+                                        \Log::warning("Factura {$factura->codigo}: PDF no encontrado después de generar. Se enviará sin documento.");
+                                    }
+                                } catch (\Exception $e) {
+                                    \Log::error("Error al generar PDF de factura {$factura->codigo}: " . $e->getMessage());
+                                }
+                            }
+
                             // Construir body dinámicamente
                             $body = [
                                 "phone" => $telefonoCompleto,
                                 "templateName" => $plantilla->title,  // Usar title como templateName
                                 "languageCode" => $plantilla->language,  // Usar language guardado
-                                "components" => [
-                                    [
-                                        "type" => "body",
-                                        "parameters" => $parameters
-                                    ]
-                                ]
+                                "components" => $components
                             ];
 
                             // Enviar template

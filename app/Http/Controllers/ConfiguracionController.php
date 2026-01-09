@@ -2878,10 +2878,13 @@ class ConfiguracionController extends Controller
 
                 // Buscar componente con type: "BODY"
                 $bodyComponent = null;
+                $headerComponent = null;
                 foreach ($template['components'] as $component) {
                     if (isset($component['type']) && $component['type'] === 'BODY') {
                         $bodyComponent = $component;
-                        break;
+                    }
+                    if (isset($component['type']) && ($component['type'] === 'HEADER' || $component['type'] === 'header')) {
+                        $headerComponent = $component;
                     }
                 }
 
@@ -2896,6 +2899,12 @@ class ConfiguracionController extends Controller
                     ? $bodyComponent['example']['body_text'][0] 
                     : [];
 
+                // Extraer body_header si existe componente HEADER con format DOCUMENT
+                $bodyHeader = null;
+                if ($headerComponent && isset($headerComponent['format']) && $headerComponent['format'] === 'DOCUMENT') {
+                    $bodyHeader = 'DOCUMENT';
+                }
+
                 // Verificar si ya existe una plantilla con el mismo título para esta empresa
                 $plantillaExistente = \App\Plantilla::where('empresa', Auth::user()->empresa)
                     ->where('title', $template['name'])
@@ -2909,6 +2918,7 @@ class ConfiguracionController extends Controller
                     // Actualizar plantilla existente
                     $plantillaExistente->contenido = $text;
                     $plantillaExistente->body_text = json_encode([$bodyText]);
+                    $plantillaExistente->body_header = $bodyHeader;
                     $plantillaExistente->tipo = 3;
                     $plantillaExistente->status = 1;
                     $plantillaExistente->clasificacion = 'Notificación';
@@ -2926,6 +2936,7 @@ class ConfiguracionController extends Controller
                     $plantilla->title = $template['name'];
                     $plantilla->contenido = $text;
                     $plantilla->body_text = json_encode([$bodyText]);
+                    $plantilla->body_header = $bodyHeader;
                     $plantilla->status = 1;
                     $plantilla->empresa = Auth::user()->empresa;
                     $plantilla->lectura = 1;
