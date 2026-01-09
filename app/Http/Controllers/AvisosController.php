@@ -301,7 +301,7 @@ class AvisosController extends Controller
         // Si la plantilla es de tipo Meta, guardar la configuración de body_dinamic primero
         $plantilla = Plantilla::find($request->plantilla);
         if ($plantilla && $plantilla->tipo == 3 && $request->type == 'whatsapp') {
-            $bodyDinamic = $request->input('body_dinamic', null);
+            $bodyDinamic = $request->input('body_dinamic_params', null);
             if ($bodyDinamic) {
                 // body_dinamic viene como JSON string desde el formulario
                 // Debe tener el formato: [["[campo1]", "[campo2]", ...]]
