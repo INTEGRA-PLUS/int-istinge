@@ -302,8 +302,9 @@ class AvisosController extends Controller
         $plantilla = Plantilla::find($request->plantilla);
         if ($plantilla && $plantilla->tipo == 3 && $request->type == 'whatsapp') {
             $bodyDinamic = $request->input('body_dinamic_params', null);
-            if ($bodyDinamic) {
-                $plantilla->body_dinamic = $bodyDinamic;
+            if ($bodyDinamic && is_array($bodyDinamic)) {
+                // Guardar como JSON string con formato [["[campo1]", "[campo2]", ...]]
+                $plantilla->body_dinamic = json_encode([$bodyDinamic]);
                 $plantilla->save();
             }
         }
@@ -408,13 +409,13 @@ class AvisosController extends Controller
                             $bodyTextParams = [];
 
                             if ($bodyDinamic) {
-                                // Decodificar el JSON de body_dinamic
-                                $bodyDinamicArray = json_decode($bodyDinamic, true);
+                                // body_dinamic_params viene como array directo: ["[campo1]", "[campo2]", ...]
+                                $bodyDinamicArray = $bodyDinamic;
 
-                                if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0])) {
+                                if (is_array($bodyDinamicArray)) {
                                     // Procesar cada parámetro reemplazando los placeholders
-                                    foreach ($bodyDinamicArray[0] as $paramTemplate) {
-                                        $paramValue = $paramTemplate;
+                                    foreach ($bodyDinamicArray as $paramTemplate) {
+                                        $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
 
                                         // Reemplazar campos de contacto
                                         $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
