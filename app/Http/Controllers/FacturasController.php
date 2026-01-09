@@ -1890,9 +1890,12 @@ class FacturasController extends Controller{
 
         $factura =Factura::find($id);
 
-        if($factura->facturacion_automatica == 1 && isset($request->contratos_json) && $request->contratos_json == null){
-            return back()->with('error', 'Debe escoger un contrato asociado a la factura.');
-       }
+        // Validación: Para facturas con facturación automática, normalmente se requiere un contrato
+        // Pero permitimos eliminarlo si el usuario lo desea explícitamente
+        // Comentamos esta validación para permitir la eliminación del contrato
+        // if($factura->facturacion_automatica == 1 && (empty($request->contratos_json) || $request->contratos_json == '')){
+        //     return back()->with('error', 'Debe escoger un contrato asociado a la factura.');
+        // }
 
         $user = Auth::user();
         if ($factura) {
@@ -1954,32 +1957,50 @@ class FacturasController extends Controller{
 
                 $factura->save();
 
+                // Manejo de contratos principales (contratos_json)
+                // Primero, eliminamos todas las relaciones de contratos principales que no sean de cron
+                // Esto incluye tanto el contrato principal como cualquier relación manual previa
+                DB::table('facturas_contratos')
+                    ->where('factura_id', $factura->id)
+                    ->where('is_cron', 0)
+                    ->delete();
 
-                //Asociamos los contratos asociados a la factura.
-                $contratoAntiguo = DB::table('facturas_contratos')->where('factura_id',$id)->where('contrato_nro',$request->contratos)->first();
-                //Si no hay contrato antiguo es por que seleccionaron un nuevo contrato y toca elminar las relaciones existentes.
-                if(!$contratoAntiguo){
-                    if(isset($request->contratos_json) && $request->contratos_json ==null)
-                    DB::table('facturas_contratos')->where('factura_id',$id)->delete();
+                // Si se seleccionó un contrato, crear la nueva relación
+                if(isset($request->contratos_json) && !empty($request->contratos_json)){
+                    $contrato = Contrato::find($request->contratos_json);
+                    if($contrato){
+                        // Verificar que no exista ya esta relación (por si acaso quedó alguna de cron)
+                        $existe = DB::table('facturas_contratos')
+                            ->where('factura_id', $factura->id)
+                            ->where('contrato_nro', $contrato->nro)
+                            ->first();
+
+                        if(!$existe){
+                            DB::table('facturas_contratos')->insert([
+                                'factura_id' => $factura->id,
+                                'contrato_nro' => $contrato->nro,
+                                'client_id' => $factura->cliente,
+                                'is_cron' => 0,
+                                'created_by' => $user->id,
+                                'created_at' => Carbon::now()
+                            ]);
+                        }
+                    }
                 }
 
-                //Asociamos los contratos asociados a la factura.
-                if(isset($request->contratos_asociados)){
-                    // Eliminamos todas las relaciones de contratos asociados para evitar duplicados
-                    DB::table('facturas_contratos')
-                        ->where('factura_id', $factura->id)
-                        ->where('is_cron', 0)
-                        ->delete();
-
-                    $contratosArray = explode(',',$request->contratos_asociados);
+                // Manejo de contratos asociados adicionales (contratos_asociados)
+                if(isset($request->contratos_asociados) && !empty($request->contratos_asociados)){
+                    $contratosArray = explode(',', $request->contratos_asociados);
                     // Eliminamos valores vacíos del array
                     $contratosArray = array_filter($contratosArray, function($value) {
                         return trim($value) !== '';
                     });
 
-                    for($i = 0 ; $i < count($contratosArray); $i++){
-                        $contratoNro = trim($contratosArray[$i]);
-                        // Verificamos que no exista ya esta relación para evitar duplicados
+                    foreach($contratosArray as $contratoNro){
+                        $contratoNro = trim($contratoNro);
+                        if(empty($contratoNro)) continue;
+
+                        // Verificar que no exista ya esta relación
                         $existe = DB::table('facturas_contratos')
                             ->where('factura_id', $factura->id)
                             ->where('contrato_nro', $contratoNro)
@@ -1992,6 +2013,7 @@ class FacturasController extends Controller{
                                 'client_id' => $factura->cliente,
                                 'is_cron' => 0,
                                 'created_by' => $user->id,
+                                'created_at' => Carbon::now()
                             ]);
                         }
                     }
