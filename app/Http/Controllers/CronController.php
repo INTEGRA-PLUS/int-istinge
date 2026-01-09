@@ -4528,16 +4528,12 @@ class CronController extends Controller
 
                     Log::info("Factura {$factura->codigo}: cuerpo mensaje => " . json_encode($body));
 
-                    $response = $tipoCanal === "waba"
-                        ? (object) $wapiService->sendTemplate($instance->uuid, $body)
-                        : (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
-                            "phone" => $telefonoCompleto,
-                            "caption" => "Factura {$factura->codigo} - {$empresa->nombre}",
-                            "document" => [
-                                "url" => $urlFactura,
-                                "filename" => "Factura_{$factura->codigo}.pdf"
-                            ]
-                        ]);
+                    if ($tipoCanal !== "waba") {
+                        Log::error("Canal no permitido: {$tipoCanal}. Solo se permite waba.");
+                        continue;
+                    }
+
+                    $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
 
                     Log::info("Factura {$factura->codigo}: respuesta API => " . json_encode($response));
 

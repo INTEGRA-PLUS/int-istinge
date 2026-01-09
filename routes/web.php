@@ -258,6 +258,8 @@ Route::post('configuracion_periodo_tirilla', 'ConfiguracionController@periodoTir
 Route::post('configuracion_envio_wpp_ingreso', 'ConfiguracionController@envioWppIngreso');
 Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache');
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
+Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
+Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -1641,6 +1643,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// AVISOS
 	Route::group(['prefix' => 'avisos'], function () {
+		// Ruta específica debe ir ANTES de las rutas con parámetros dinámicos para evitar conflictos
+		Route::get('/get-plantilla-meta/{id}', 'AvisosController@getPlantillaMeta')->name('avisos.get-plantilla-meta')->where('id', '[0-9]+');
 		Route::get('/envio/sms', 'AvisosController@sms')->name('avisos.envio.sms');
 		Route::get('/envio/email', 'AvisosController@email')->name('avisos.envio.email');
 		Route::get('/envio/whatsapp', 'AvisosController@whatsapp')->name('avisos.envio_whatsapp');

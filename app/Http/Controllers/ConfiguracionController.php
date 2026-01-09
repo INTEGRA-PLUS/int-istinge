@@ -30,6 +30,7 @@ use App\Http\Controllers\Nomina\PersonasController;
 use App\Model\Inventario\Inventario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Plantilla;
 
 include_once(app_path() .'/../public/routeros_api.class.php');
 include_once(app_path() .'/../public/api_mt_include2.php');
@@ -2764,6 +2765,184 @@ class ConfiguracionController extends Controller
         } catch (\Exception $e) {
             // Si todo falla, lanzar excepción con mensaje claro
             throw new \Exception("No se pudo parsear la fecha: {$dateString}. Formatos soportados: DD/MM/YYYY, YYYY-MM-DD, etc.");
+        }
+    }
+
+    /**
+     * Guarda el WhatsApp Business Account ID en la empresa
+     */
+    public function guardarWhatsappBusinessId(Request $request)
+    {
+        $request->validate([
+            'whatsapp_business_account_id' => 'required|string|max:200'
+        ]);
+
+        try {
+            $empresa = Empresa::find(Auth::user()->empresa);
+            if (!$empresa) {
+                return response()->json(0);
+            }
+
+            $empresa->whatsapp_business_account_id = $request->whatsapp_business_account_id;
+            $empresa->save();
+
+            return response()->json(1);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar WhatsApp Business ID: ' . $e->getMessage());
+            return response()->json(0);
+        }
+    }
+
+    /**
+     * Obtiene las plantillas de WhatsApp Meta desde la API de Facebook Graph
+     */
+    public function obtenerPlantillasWhatsappMeta(Request $request)
+    {
+        try {
+            $empresa = Empresa::find(Auth::user()->empresa);
+            
+            if (!$empresa) {
+                return response()->json(['success' => 0, 'message' => 'Empresa no encontrada'], 400);
+            }
+
+            // Validar que tenga whatsapp_business_account_id configurado
+            if (empty($empresa->whatsapp_business_account_id)) {
+                return response()->json(['success' => 0, 'message' => 'Debe configurar el WhatsApp Business Account ID primero'], 400);
+            }
+
+            // Obtener ACCESS_TOKEN_META del .env
+            $accessToken = env('ACCESS_TOKEN_META');
+            if (empty($accessToken)) {
+                return response()->json(['success' => 0, 'message' => 'ACCESS_TOKEN_META no está configurado en el archivo .env'], 400);
+            }
+
+            // Hacer petición cURL a Facebook Graph API
+            $url = 'https://graph.facebook.com/v23.0/' . $empresa->whatsapp_business_account_id . '/message_templates';
+            
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => array(
+                    'Authorization: Bearer ' . $accessToken
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            curl_close($curl);
+
+            if ($curlError) {
+                Log::error('Error cURL al obtener plantillas WhatsApp: ' . $curlError);
+                return response()->json(['success' => 0, 'message' => 'Error al conectar con la API de Facebook: ' . $curlError], 400);
+            }
+
+            if ($httpCode != 200) {
+                Log::error('Error HTTP al obtener plantillas WhatsApp: ' . $httpCode . ' - ' . $response);
+                return response()->json(['success' => 0, 'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'], 400);
+            }
+
+            $responseData = json_decode($response, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
+                return response()->json(['success' => 0, 'message' => 'Error al procesar la respuesta de la API'], 400);
+            }
+
+            if (!isset($responseData['data']) || !is_array($responseData['data'])) {
+                Log::error('Respuesta de API sin campo data: ' . $response);
+                return response()->json(['success' => 0, 'message' => 'La respuesta de la API no contiene plantillas'], 400);
+            }
+
+            // Obtener el número siguiente para las plantillas de la empresa
+            $lastPlantilla = \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->orderBy('nro', 'desc')
+                ->first();
+            $nro = $lastPlantilla ? ($lastPlantilla->nro + 1) : 1;
+
+            $plantillasGuardadas = 0;
+            $plantillasActualizadas = 0;
+
+            // Procesar cada plantilla
+            foreach ($responseData['data'] as $template) {
+                if (!isset($template['name']) || !isset($template['components'])) {
+                    continue;
+                }
+
+                // Buscar componente con type: "BODY"
+                $bodyComponent = null;
+                foreach ($template['components'] as $component) {
+                    if (isset($component['type']) && $component['type'] === 'BODY') {
+                        $bodyComponent = $component;
+                        break;
+                    }
+                }
+
+                // Si no hay componente BODY, saltar esta plantilla
+                if (!$bodyComponent || !isset($bodyComponent['text'])) {
+                    continue;
+                }
+
+                // Extraer text y body_text
+                $text = $bodyComponent['text'];
+                $bodyText = isset($bodyComponent['example']['body_text'][0]) 
+                    ? $bodyComponent['example']['body_text'][0] 
+                    : [];
+
+                // Verificar si ya existe una plantilla con el mismo título para esta empresa
+                $plantillaExistente = \App\Plantilla::where('empresa', Auth::user()->empresa)
+                    ->where('title', $template['name'])
+                    ->where('lectura', 1)
+                    ->first();
+
+                // Extraer language de la plantilla
+                $language = isset($template['language']) ? $template['language'] : 'en';
+
+                if ($plantillaExistente) {
+                    // Actualizar plantilla existente
+                    $plantillaExistente->contenido = $text;
+                    $plantillaExistente->body_text = json_encode([$bodyText]);
+                    $plantillaExistente->tipo = 3;
+                    $plantillaExistente->status = 1;
+                    $plantillaExistente->clasificacion = 'Notificación';
+                    $plantillaExistente->lectura = 1;
+                    $plantillaExistente->language = $language;
+                    $plantillaExistente->updated_by = Auth::user()->id;
+                    $plantillaExistente->save();
+                    $plantillasActualizadas++;
+                } else {
+                    // Crear nueva plantilla
+                    $plantilla = new \App\Plantilla();
+                    $plantilla->nro = $nro++;
+                    $plantilla->tipo = 3;
+                    $plantilla->clasificacion = 'Notificación';
+                    $plantilla->title = $template['name'];
+                    $plantilla->contenido = $text;
+                    $plantilla->body_text = json_encode([$bodyText]);
+                    $plantilla->status = 1;
+                    $plantilla->empresa = Auth::user()->empresa;
+                    $plantilla->lectura = 1;
+                    $plantilla->language = $language;
+                    $plantilla->created_by = Auth::user()->id;
+                    $plantilla->save();
+                    $plantillasGuardadas++;
+                }
+            }
+
+            $mensaje = "Plantillas procesadas correctamente. Nuevas: {$plantillasGuardadas}, Actualizadas: {$plantillasActualizadas}";
+            return response()->json(['success' => 1, 'message' => $mensaje]);
+
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas WhatsApp Meta: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json(['success' => 0, 'message' => 'Error inesperado: ' . $e->getMessage()], 500);
         }
     }
 

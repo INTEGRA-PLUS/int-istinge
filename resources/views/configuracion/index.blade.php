@@ -363,6 +363,15 @@
                 @endif
             @endif
         </div>
+
+        <div class="col-sm-3 enlaces">
+            <h4 class="card-title">Configuración Whatsapp Meta</h4>
+            <p>Configura la integración con WhatsApp Meta Business Account.</p>
+            <a href="#" data-toggle="modal" data-target="#config_whatsapp_meta">Ingresar whatsapp business id</a><br>
+            <a href="javascript:obtenerPlantillasWhatsapp()">Obtener plantillas whatsapp meta</a><br>
+        </div>
+
+
     </div>
 
     {{-- MÓDULOS --}}
@@ -557,6 +566,39 @@
         </div>
     </div>
     {{-- /CONFIGURACION SIIGO --}}
+
+    {{-- CONFIGURACION WHATSAPP META --}}
+    <div class="modal fade" id="config_whatsapp_meta" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Configuración Whatsapp Meta</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" style="padding: 2% 3%;" role="form" class="forms-sample" novalidate id="form_whatsapp_meta">
+                        {{ csrf_field() }}
+                        <div class="row">
+                            <div class="col-md-12 form-group">
+                                <label class="control-label">WhatsApp Business Account ID</label>
+                                <input type="text" class="form-control" id="whatsapp_business_account_id" name="whatsapp_business_account_id"
+                                    required="" value="{{ Auth::user()->empresa()->whatsapp_business_account_id }}"
+                                    maxlength="200">
+                                <span class="help-block error">
+                                    <strong>{{ $errors->first('whatsapp_business_account_id') }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
+                    <a href="javascript:guardarWhatsappBusinessId()" class="btn btn-success">Guardar</A>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- /CONFIGURACION WHATSAPP META --}}
 
     {{-- CANT REGISTRO --}}
     <div class="modal fade show" id="nro_registro" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
@@ -2043,6 +2085,119 @@
                         a.href = window.location.pathname;
                         a.click();
                     }, 2000);
+                }
+            });
+        }
+
+        function guardarWhatsappBusinessId() {
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion/whatsapp-business-id';
+            } else {
+                var url = '/configuracion/whatsapp-business-id';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'post',
+                data: {
+                    whatsapp_business_account_id: $("#whatsapp_business_account_id").val()
+                },
+                success: function(data) {
+                    $("#config_whatsapp_meta").modal('hide');
+                    if (data == 1) {
+                        Swal.fire({
+                            type: 'success',
+                            title: 'La configuración de WhatsApp Meta ha sido registrada con éxito',
+                            text: 'Recargando la página',
+                            showConfirmButton: false,
+                            timer: 5000
+                        })
+                    } else {
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error al guardar la configuración',
+                            text: 'Por favor intenta nuevamente'
+                        })
+                    }
+                    setTimeout(function() {
+                        var a = document.createElement("a");
+                        a.href = window.location.pathname;
+                        a.click();
+                    }, 2000);
+                },
+                error: function() {
+                    Swal.fire({
+                        type: 'error',
+                        title: 'Error al guardar la configuración',
+                        text: 'Por favor intenta nuevamente'
+                    })
+                }
+            });
+        }
+
+        function obtenerPlantillasWhatsapp() {
+            Swal.fire({
+                title: 'Obteniendo plantillas...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion/obtener-plantillas-whatsapp';
+            } else {
+                var url = '/configuracion/obtener-plantillas-whatsapp';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'post',
+                success: function(data) {
+                    if (data.success == 1) {
+                        Swal.fire({
+                            type: 'success',
+                            title: 'Plantillas obtenidas con éxito',
+                            text: data.message || 'Las plantillas se han guardado correctamente',
+                            showConfirmButton: false,
+                            timer: 5000
+                        })
+                    } else {
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error al obtener las plantillas',
+                            text: data.message || 'Por favor verifica la configuración e intenta nuevamente'
+                        })
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = 'Error al obtener las plantillas';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    } else if (xhr.responseText) {
+                        try {
+                            var errorData = JSON.parse(xhr.responseText);
+                            if (errorData.message) {
+                                errorMessage = errorData.message;
+                            }
+                        } catch(e) {
+                            // Mantener el mensaje por defecto
+                        }
+                    }
+                    Swal.fire({
+                        type: 'error',
+                        title: 'Error',
+                        text: errorMessage
+                    })
                 }
             });
         }
