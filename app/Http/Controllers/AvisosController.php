@@ -404,7 +404,7 @@ class AvisosController extends Controller
                             $factura = Factura::where('contrato_id', $contrato->id)->latest()->first();
 
                             // Obtener body_dinamic del request o usar body_text_params como fallback
-                            $bodyDinamic = $request->input('body_dinamic', null);
+                            $bodyDinamic = $request->input('body_dinamic_params', null);
                             $bodyTextParams = [];
 
                             if ($bodyDinamic) {
