@@ -303,23 +303,7 @@ class AvisosController extends Controller
         if ($plantilla && $plantilla->tipo == 3 && $request->type == 'whatsapp') {
             $bodyDinamic = $request->input('body_dinamic_params', null);
             if ($bodyDinamic) {
-                // body_dinamic viene como JSON string desde el formulario
-                // Debe tener el formato: [["[campo1]", "[campo2]", ...]]
-                $bodyDinamicArray = json_decode($bodyDinamic, true);
-
-                if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
-                    // Convertir valores antiguos de { } a [ ] si existen
-                    foreach ($bodyDinamicArray[0] as $index => $value) {
-                        if (is_string($value)) {
-                            $bodyDinamicArray[0][$index] = str_replace(['{', '}'], ['[', ']'], $value);
-                        }
-                    }
-                    // Guardar como JSON string
-                    $plantilla->body_dinamic = json_encode($bodyDinamicArray);
-                } else {
-                    // Si el formato no es correcto, guardar como está
-                    $plantilla->body_dinamic = $bodyDinamic;
-                }
+                $plantilla->body_dinamic = $bodyDinamic;
                 $plantilla->save();
             }
         }
