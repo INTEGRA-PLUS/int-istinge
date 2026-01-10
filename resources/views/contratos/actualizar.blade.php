@@ -9,8 +9,9 @@
                 @csrf
                 <label for="conexion">Selecciona tipo de conexión para descargar archivo Excel de ejemplo.:</label>
                 <select name="conexion" id="conexion" style="padding-left:10px;">
-                    {{-- <option value="1">PPPoE</option> --}}
+                    <option value="1">PPPoE</option>
                     <option value="0">IP Estática</option>
+                    <option value="2">DHCP</option>
                 </select>
                 <br><br>
                 <input type="submit" value="Click Aqui!" style="border:1px solid #305498;background-color: #305498 !important; color: #fff;">
@@ -18,7 +19,8 @@
 
             {{-- <li class="ml-3">Verifique que el orden de las columnas en su documento sea correcto. <small>Si no lo conoce haga clic <a href="{{ route('contratos.ejemplo') }}"><b>aqui</b></a> para descargar archivo Excel de ejemplo.</small></li> --}}
             <li class="ml-3">Verifique que el comienzo de la data sea a partir de la fila 4.</li>
-            <li class="ml-3">Los campos obligatorios son <b>Identificacion, Servicio, Mikrotik, Plan, Estado, IP, Conexion, Interfaz, Segmento, Grupo de Corte, Facturacion, Tecnologia</b>.</li>
+            <li class="ml-3">La columna A debe contener el <b>nro contrato</b> para identificar el contrato a actualizar. Si el contrato no existe, se creará uno nuevo.</li>
+            <li class="ml-3">Los campos obligatorios son <b>Nro Contrato, Identificacion, Servicio, Mikrotik, Plan, Estado, IP, Conexion, Interfaz, Segmento, Grupo de Corte, Facturacion, Tecnologia</b>.</li>
 
             <li class="ml-3">Las mikrotik disponibles son los siguientes:
                 <div class="col-md-6 my-2">
