@@ -1321,8 +1321,9 @@
                 $("#{{ $subseccion }}").addClass("active");
             @endif
 
-            // Muestra la alerta solo si la suscripción ha caducado
+            // Muestra la alerta solo si la suscripción ha caducado (excepto para usuarios rol 1)
             @if (Auth::check() &&
+                    Auth::user()->rol != 1 &&
                     Auth::user()->empresaObj &&
                     isset(Auth::user()->empresaObj->is_subscription_active) &&
                     !Auth::user()->empresaObj->is_subscription_active)
@@ -1330,8 +1331,9 @@
                     title: 'Suscripción Expirada',
                     text: 'Su suscripción ha expirado. Por favor, pague su mensualidad para continuar.',
                     icon: 'warning',
-                    confirmButtonText: 'Pagar ahora',
-                    showCancelButton: true,
+                    showConfirmButton: false,
+                    confirmButtonText: "Pagar ahora",
+                    showCancelButton: false,
                     cancelButtonText: 'Más tarde',
                     allowOutsideClick: false,
                     allowEscapeKey: false,

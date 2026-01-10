@@ -415,6 +415,7 @@ Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], functio
 	Route::group(['prefix' => 'empresas'], function () {
 		Route::post('desactivar/{id}', 'EmpresasController@desactivar')->name('empresas.desactivar');
 		Route::post('activar/{id}', 'EmpresasController@activar')->name('empresas.activar');
+		Route::post('cambiar-estado-suscripcion/{id}', 'EmpresasController@cambiarEstadoSuscripcion')->name('empresas.cambiar_estado_suscripcion');
 		Route::get('inactivas', 'EmpresasController@inactivas')->name('empresas.inactivas');
 		Route::get('ingresar/{email}', 'EmpresasController@ingresar')->name('empresas.ingresar');
 		Route::get('{id}/nomina', 'EmpresasController@nomina')->name('empresas.nomina');
