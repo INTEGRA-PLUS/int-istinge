@@ -4768,7 +4768,7 @@ class ContratosController extends Controller
             )
         );
 
-        $objPHPExcel->getActiveSheet()->getStyle('A3:' . $ultimaColumna . $j)->applyFromArray($estilo);
+        $objPHPExcel->getActiveSheet()->getStyle('A3:' . $ultimaColumna . 3)->applyFromArray($estilo);
 
         for ($i = 'A'; $i <= $ultimaColumna; $i++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($i)->setAutoSize(TRUE);
