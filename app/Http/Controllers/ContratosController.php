@@ -5307,16 +5307,61 @@ class ContratosController extends Controller
         }
 
         for ($row = 4; $row <= $highestRow; $row++) {
-            $nit = $sheet->getCell("A" . $row)->getValue();
-            if (empty($nit)) {
+            $valorColumnaA = $sheet->getCell("A" . $row)->getValue();
+            if (empty($valorColumnaA)) {
                 break;
             }
+
+            // Detectar si la columna A contiene un número de contrato (misma lógica que el primer bucle)
+            $esNroContrato = false;
+            $nro_contrato_actualizar = null;
+            if (is_numeric($valorColumnaA)) {
+                $contratoExistente = Contrato::where('nro', $valorColumnaA)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->first();
+                if ($contratoExistente) {
+                    $esNroContrato = true;
+                    $nro_contrato_actualizar = $valorColumnaA;
+                    $nit = $sheet->getCell("B" . $row)->getValue();
+                } else {
+                    $nit = $valorColumnaA;
+                }
+            } else {
+                $nit = $valorColumnaA;
+            }
+
             $request                = (object) array();
-            $request->servicio      = $sheet->getCell("B" . $row)->getValue();
-            $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();
-            $request->plan          = $sheet->getCell("D" . $row)->getValue();
-            $request->mikrotik      = $sheet->getCell("E" . $row)->getValue();
-            $request->state         = $sheet->getCell("F" . $row)->getValue();
+
+            // Función helper para calcular columnas con offset
+            $getCol = function($base, $offset) {
+                $num = ord($base) - ord('A') + 1 + $offset;
+                if ($num <= 26) {
+                    return chr(ord('A') + $num - 1);
+                } else {
+                    $first = chr(ord('A') + (($num - 1) / 26) - 1);
+                    $second = chr(ord('A') + (($num - 1) % 26));
+                    return $first . $second;
+                }
+            };
+
+            // Ajustar columnas según si hay nro contrato
+            $offsetColumna = $esNroContrato ? 1 : 0;
+
+            if ($esNroContrato) {
+                // Si hay nro contrato en A, los demás campos se desplazan una columna
+                $request->servicio      = $sheet->getCell("C" . $row)->getValue();
+                $request->serial_onu    = $sheet->getCell("D" . $row)->getValue();
+                $request->plan          = $sheet->getCell("E" . $row)->getValue();
+                $request->mikrotik      = $sheet->getCell("F" . $row)->getValue();
+                $request->state         = $sheet->getCell("G" . $row)->getValue();
+            } else {
+                // Sin nro contrato, lectura normal (archivo de importación)
+                $request->servicio      = $sheet->getCell("B" . $row)->getValue();
+                $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();
+                $request->plan          = $sheet->getCell("D" . $row)->getValue();
+                $request->mikrotik      = $sheet->getCell("E" . $row)->getValue();
+                $request->state         = $sheet->getCell("F" . $row)->getValue();
+            }
 
             // Calcular columnas con offset
             $colH = $getCol('H', $offsetColumna);
