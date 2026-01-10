@@ -11,7 +11,7 @@ use App\User;
 
 class WhatsappMetaLog extends Model
 {
-    protected $table = "whatsapp_meta_logs";
+    protected $table = "log_meta";
     protected $primaryKey = 'id';
 
     /**
