@@ -369,6 +369,7 @@
             <p>Configura la integración con WhatsApp Meta Business Account.</p>
             <a href="#" data-toggle="modal" data-target="#config_whatsapp_meta">Ingresar whatsapp business id</a><br>
             <a href="javascript:obtenerPlantillasWhatsapp()">Obtener plantillas whatsapp meta</a><br>
+            <a href="#" data-toggle="modal" data-target="#config_plantilla_factura_whatsapp">Configurar plantilla por defecto para facturas</a><br>
         </div>
 
 
@@ -599,6 +600,59 @@
         </div>
     </div>
     {{-- /CONFIGURACION WHATSAPP META --}}
+
+    {{-- CONFIGURACION PLANTILLA FACTURA WHATSAPP --}}
+    <div class="modal fade" id="config_plantilla_factura_whatsapp" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Configurar Plantilla por Defecto para Facturas</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" style="padding: 2% 3%;" role="form" class="forms-sample" novalidate id="form_plantilla_factura_whatsapp">
+                        {{ csrf_field() }}
+                        <div class="row">
+                            <div class="col-md-12 form-group">
+                                <label class="control-label">Plantilla Meta <span class="text-danger">*</span></label>
+                                <select class="form-control selectpicker" id="plantilla_meta_factura" name="plantilla_id"
+                                    title="Seleccione una plantilla" data-live-search="true" data-size="5"
+                                    onchange="cargarPlantillaMetaFactura(this.value)">
+                                    <!-- Las opciones se cargarán dinámicamente -->
+                                </select>
+                                <span class="help-block error">
+                                    <strong id="error_plantilla_meta_factura"></strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Sección de parámetros dinámicos -->
+                        <div class="row" id="parametros-meta-factura" style="display: none;">
+                            <div class="col-md-12">
+                                <hr class="my-4">
+                                <h5><i class="fa fa-sliders"></i> Configuración de Parámetros Dinámicos</h5>
+                                <div id="inputs-parametros-factura">
+                                    <!-- Los inputs se generarán dinámicamente aquí -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview del mensaje -->
+                        <div class="row" id="preview-mensaje-meta-factura" style="display: none;">
+                            <div class="col-md-12">
+                                <!-- Aquí se mostrará la vista previa dinámicamente -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
+                    <a href="javascript:guardarPlantillaFacturaWhatsapp()" class="btn btn-success">Guardar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- /CONFIGURACION PLANTILLA FACTURA WHATSAPP --}}
 
     {{-- CANT REGISTRO --}}
     <div class="modal fade show" id="nro_registro" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
@@ -2586,6 +2640,364 @@
                 }, 'json');
             });
         });
+
+        // ============================================================
+        // VARIABLES GLOBALES PARA PLANTILLA FACTURA WHATSAPP
+        // ============================================================
+        let plantillaMetaFacturaActual = null;
+        let bodyTextValuesFactura = [];
+
+        // Campos dinámicos disponibles (mismos que en avisos.envio.blade.php)
+        const camposDinamicosFactura = {
+            'contacto': {
+                'nombre': 'Nombre del contacto',
+                'apellido1': 'Primer apellido',
+                'apellido2': 'Segundo apellido'
+            },
+            'factura': {
+                'fecha': 'Fecha de la factura',
+                'vencimiento': 'Fecha de vencimiento',
+                'total': 'Total de la factura',
+                'porpagar': 'Por pagar'
+            },
+            'empresa': {
+                'nombre': 'Nombre de la empresa',
+                'nit': 'NIT de la empresa'
+            }
+        };
+
+        // Cargar plantillas Meta al abrir el modal
+        $('#config_plantilla_factura_whatsapp').on('show.bs.modal', function() {
+            cargarPlantillasMetaDisponibles();
+        });
+
+        // Inicializar selectpicker después de que el modal se muestre
+        $('#config_plantilla_factura_whatsapp').on('shown.bs.modal', function() {
+            $('#plantilla_meta_factura').selectpicker('refresh');
+        });
+
+        function cargarPlantillasMetaDisponibles() {
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/get-plantillas-meta-factura';
+            } else {
+                var url = '/empresa/configuracion/get-plantillas-meta-factura';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'get',
+                success: function(data) {
+                    var $select = $('#plantilla_meta_factura');
+                    $select.empty();
+                    $select.append('<option value="">-- Seleccione una plantilla --</option>');
+
+                    if (data.plantillas && data.plantillas.length > 0) {
+                        data.plantillas.forEach(function(plantilla) {
+                            var selected = plantilla.preferida_cron_factura == 1 ? 'selected' : '';
+                            $select.append('<option value="' + plantilla.id + '" ' + selected + '>' + plantilla.title + '</option>');
+                        });
+                    }
+
+                    $select.selectpicker('refresh');
+
+                    // Si hay una plantilla preferida, cargarla automáticamente
+                    var plantillaPreferida = $select.find('option[selected]').val();
+                    if (plantillaPreferida) {
+                        cargarPlantillaMetaFactura(plantillaPreferida);
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error al cargar plantillas Meta:', xhr);
+                }
+            });
+        }
+
+        function cargarPlantillaMetaFactura(plantillaId) {
+            if (!plantillaId) {
+                $('#parametros-meta-factura').hide();
+                $('#preview-mensaje-meta-factura').hide();
+                return;
+            }
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/get-plantilla-meta-factura/' + plantillaId;
+            } else {
+                var url = '/empresa/configuracion/get-plantilla-meta-factura/' + plantillaId;
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'get',
+                success: function(data) {
+                    if (data.error) {
+                        console.error('Error al cargar plantilla:', data.error);
+                        $('#parametros-meta-factura').hide();
+                        $('#preview-mensaje-meta-factura').hide();
+                        return;
+                    }
+
+                    plantillaMetaFacturaActual = data;
+
+                    // Procesar body_text para obtener los parámetros
+                    if (data.body_text && Array.isArray(data.body_text) && data.body_text.length > 0) {
+                        bodyTextValuesFactura = Array.isArray(data.body_text[0]) ? data.body_text[0] : [];
+                    } else {
+                        bodyTextValuesFactura = [];
+                    }
+
+                    // Cargar body_dinamic si existe
+                    let bodyDinamicValues = [];
+                    if (data.body_dinamic) {
+                        try {
+                            let parsedData = data.body_dinamic;
+
+                            if (typeof parsedData === 'string') {
+                                parsedData = JSON.parse(parsedData);
+                            }
+
+                            if (Array.isArray(parsedData) && parsedData.length > 0) {
+                                if (Array.isArray(parsedData[0])) {
+                                    bodyDinamicValues = parsedData[0];
+                                } else {
+                                    bodyDinamicValues = parsedData;
+                                }
+
+                                // Convertir valores antiguos de { } a [ ] si existen
+                                bodyDinamicValues = bodyDinamicValues.map(function(val) {
+                                    if (typeof val === 'string') {
+                                        return val.replace(/\{/g, '[').replace(/\}/g, ']');
+                                    }
+                                    return val;
+                                });
+                            }
+                        } catch(e) {
+                            console.error('Error parsing body_dinamic:', e);
+                        }
+                    }
+
+                    // Generar inputs dinámicos
+                    generarInputsParametrosFactura(bodyDinamicValues);
+
+                    // Mostrar preview inicial
+                    actualizarPreviewFactura();
+                },
+                error: function(xhr) {
+                    console.error('Error al cargar plantilla Meta:', xhr);
+                    $('#parametros-meta-factura').hide();
+                    $('#preview-mensaje-meta-factura').hide();
+                }
+            });
+        }
+
+        function generarInputsParametrosFactura(valoresDinamicos = []) {
+            const $container = $('#inputs-parametros-factura');
+            $container.empty();
+
+            if (bodyTextValuesFactura.length === 0) {
+                $('#parametros-meta-factura').hide();
+                return;
+            }
+
+            // Generar un input por cada parámetro
+            bodyTextValuesFactura.forEach(function(valorEjemplo, index) {
+                const numeroParam = index + 1;
+                const valorDinamico = valoresDinamicos[index] || '';
+
+                // Crear contenedor principal
+                const $paramGroup = $('<div class="parametro-meta-group mb-4 p-3 border rounded"></div>');
+
+                // Label
+                const $label = $('<label class="control-label d-block mb-2"><strong>Parámetro ' + numeroParam + '</strong> <small class="text-muted">(ejemplo: ' + valorEjemplo + ')</small></label>');
+
+                // Contenedor del input con botones
+                const $inputWrapper = $('<div class="input-group mb-2"></div>');
+
+                // Input principal
+                const $input = $('<input>', {
+                    type: 'text',
+                    class: 'form-control parametro-meta-input-factura',
+                    'data-param-index': index,
+                    placeholder: 'Escriba texto o use campos dinámicos',
+                    value: valorDinamico
+                });
+
+                // Botón dropdown para agregar campos
+                const $dropdownBtn = $('<button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false"><i class="fa fa-plus"></i> Campos</button>');
+                const $dropdownMenu = $('<ul class="dropdown-menu dropdown-menu-right"></ul>');
+
+                // Agregar opciones al dropdown
+                Object.keys(camposDinamicosFactura).forEach(function(categoria) {
+                    const $categoriaHeader = $('<li><h6 class="dropdown-header">' + categoria.charAt(0).toUpperCase() + categoria.slice(1) + '</h6></li>');
+                    $dropdownMenu.append($categoriaHeader);
+
+                    Object.keys(camposDinamicosFactura[categoria]).forEach(function(campo) {
+                        const campoKey = '[' + categoria + '.' + campo + ']';
+                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicosFactura[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
+                        $dropdownMenu.append($item);
+                    });
+                });
+
+                // Event listener para insertar campos
+                $dropdownMenu.on('click', 'a', function(e) {
+                    e.preventDefault();
+                    const campo = $(this).data('campo');
+                    const paramIndex = $(this).data('param-index');
+                    const $targetInput = $('.parametro-meta-input-factura[data-param-index="' + paramIndex + '"]');
+                    const cursorPos = $targetInput[0].selectionStart || $targetInput.val().length;
+                    const textBefore = $targetInput.val().substring(0, cursorPos);
+                    const textAfter = $targetInput.val().substring(cursorPos);
+                    $targetInput.val(textBefore + campo + textAfter);
+                    $targetInput.focus();
+                    $targetInput[0].setSelectionRange(cursorPos + campo.length, cursorPos + campo.length);
+                    actualizarPreviewFactura();
+                });
+
+                // Botón para limpiar
+                const $clearBtn = $('<button class="btn btn-outline-danger" type="button" title="Limpiar"><i class="fa fa-times"></i></button>');
+                $clearBtn.on('click', function() {
+                    $input.val('');
+                    actualizarPreviewFactura();
+                });
+
+                $inputWrapper.append($input);
+                $inputWrapper.append($dropdownBtn);
+                $inputWrapper.append($dropdownMenu);
+                $inputWrapper.append($clearBtn);
+
+                // Event listener para actualizar preview
+                $input.on('input keyup', function() {
+                    actualizarPreviewFactura();
+                });
+
+                // Información adicional
+                const $info = $('<small class="text-muted d-block mt-2"><i class="fa fa-info-circle"></i> Puede escribir texto libre y agregar campos dinámicos desde el menú</small>');
+
+                $paramGroup.append($label);
+                $paramGroup.append($inputWrapper);
+                $paramGroup.append($info);
+                $container.append($paramGroup);
+            });
+
+            $('#parametros-meta-factura').show();
+        }
+
+        function actualizarPreviewFactura() {
+            if (!plantillaMetaFacturaActual || !plantillaMetaFacturaActual.contenido) {
+                $('#preview-mensaje-meta-factura').hide();
+                return;
+            }
+
+            let contenido = plantillaMetaFacturaActual.contenido;
+
+            // Obtener valores de los inputs
+            const valoresParametros = [];
+            $('.parametro-meta-input-factura').each(function() {
+                let valor = $(this).val() || '';
+                // Reemplazar placeholders con valores de ejemplo (solo para preview)
+                valor = valor.replace(/\[contacto\.nombre\]/g, 'Juan');
+                valor = valor.replace(/\[contacto\.apellido1\]/g, 'Pérez');
+                valor = valor.replace(/\[contacto\.apellido2\]/g, 'González');
+                valor = valor.replace(/\[factura\.fecha\]/g, '01/01/2024');
+                valor = valor.replace(/\[factura\.vencimiento\]/g, '15/01/2024');
+                valor = valor.replace(/\[factura\.total\]/g, '$100.000');
+                valor = valor.replace(/\[factura\.porpagar\]/g, '$50.000');
+                valor = valor.replace(/\[empresa\.nombre\]/g, 'Mi Empresa S.A.S.');
+                valor = valor.replace(/\[empresa\.nit\]/g, '900123456-1');
+                valoresParametros.push(valor);
+            });
+
+            // Reemplazar placeholders {{1}}, {{2}}, etc.
+            valoresParametros.forEach(function(valor, index) {
+                const numeroParam = index + 1;
+                const placeholderText = '{{' + numeroParam + '}}';
+                if (valor && valor.trim() !== '') {
+                    contenido = contenido.replace(new RegExp('\\{\\{' + numeroParam + '\\}\\}', 'g'), valor);
+                }
+            });
+
+            // Mostrar preview
+            const $preview = $('#preview-mensaje-meta-factura');
+            $preview.html(`
+                <hr class="my-4">
+                <div class="alert alert-info">
+                    <strong><i class="fa fa-eye"></i> Vista Previa del Mensaje:</strong>
+                    <div class="mt-3 p-3 bg-white rounded border" style="white-space: pre-wrap; font-family: monospace;">
+                        ${contenido.replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `).show();
+        }
+
+        function guardarPlantillaFacturaWhatsapp() {
+            var plantillaId = $('#plantilla_meta_factura').val();
+            if (!plantillaId) {
+                Swal.fire({
+                    type: 'error',
+                    title: 'Error',
+                    text: 'Debe seleccionar una plantilla'
+                });
+                return;
+            }
+
+            // Obtener valores de body_dinamic
+            const bodyDinamicValues = [];
+            $('.parametro-meta-input-factura').each(function() {
+                bodyDinamicValues.push($(this).val() || '');
+            });
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/guardar-plantilla-factura-whatsapp';
+            } else {
+                var url = '/empresa/configuracion/guardar-plantilla-factura-whatsapp';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'post',
+                data: {
+                    plantilla_id: plantillaId,
+                    body_dinamic_params: bodyDinamicValues
+                },
+                success: function(data) {
+                    if (data.success == 1) {
+                        Swal.fire({
+                            type: 'success',
+                            title: 'Configuración guardada',
+                            text: data.message || 'La plantilla ha sido configurada correctamente',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                        $('#config_plantilla_factura_whatsapp').modal('hide');
+                    } else {
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error',
+                            text: data.message || 'No se pudo guardar la configuración'
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = 'Error al guardar la configuración';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    Swal.fire({
+                        type: 'error',
+                        title: 'Error',
+                        text: errorMessage
+                    });
+                }
+            });
+        }
     </script>
 @endsection
 

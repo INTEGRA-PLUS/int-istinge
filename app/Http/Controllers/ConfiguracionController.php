@@ -2784,6 +2784,7 @@ class ConfiguracionController extends Controller
             }
 
             $empresa->whatsapp_business_account_id = $request->whatsapp_business_account_id;
+            $empresa->wppNuevo = 1;
             $empresa->save();
 
             return response()->json(1);
@@ -2800,7 +2801,7 @@ class ConfiguracionController extends Controller
     {
         try {
             $empresa = Empresa::find(Auth::user()->empresa);
-            
+
             if (!$empresa) {
                 return response()->json(['success' => 0, 'message' => 'Empresa no encontrada'], 400);
             }
@@ -2818,7 +2819,7 @@ class ConfiguracionController extends Controller
 
             // Hacer petición cURL a Facebook Graph API
             $url = 'https://graph.facebook.com/v23.0/' . $empresa->whatsapp_business_account_id . '/message_templates';
-            
+
             $curl = curl_init();
             curl_setopt_array($curl, array(
                 CURLOPT_URL => $url,
@@ -2850,7 +2851,7 @@ class ConfiguracionController extends Controller
             }
 
             $responseData = json_decode($response, true);
-            
+
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
                 return response()->json(['success' => 0, 'message' => 'Error al procesar la respuesta de la API'], 400);
@@ -2895,8 +2896,8 @@ class ConfiguracionController extends Controller
 
                 // Extraer text y body_text
                 $text = $bodyComponent['text'];
-                $bodyText = isset($bodyComponent['example']['body_text'][0]) 
-                    ? $bodyComponent['example']['body_text'][0] 
+                $bodyText = isset($bodyComponent['example']['body_text'][0])
+                    ? $bodyComponent['example']['body_text'][0]
                     : [];
 
                 // Extraer body_header si existe componente HEADER con format DOCUMENT
@@ -2954,6 +2955,121 @@ class ConfiguracionController extends Controller
             Log::error('Error al obtener plantillas WhatsApp Meta: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json(['success' => 0, 'message' => 'Error inesperado: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Obtiene las plantillas Meta disponibles para configurar como preferida para facturas
+     */
+    public function getPlantillasMetaFactura()
+    {
+        try {
+            $plantillas = \App\Plantilla::where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', Auth::user()->empresa)
+                ->select('id', 'title', 'preferida_cron_factura')
+                ->orderBy('title', 'ASC')
+                ->get();
+
+            return response()->json([
+                'success' => 1,
+                'plantillas' => $plantillas
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas Meta para facturas: ' . $e->getMessage());
+            return response()->json(['success' => 0, 'message' => 'Error al obtener plantillas'], 500);
+        }
+    }
+
+    /**
+     * Obtiene los datos de una plantilla Meta específica para facturas
+     */
+    public function getPlantillaMetaFactura($id)
+    {
+        try {
+            $plantilla = \App\Plantilla::where('id', $id)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json(['error' => 'Plantilla no encontrada o no es de tipo Meta'], 404);
+            }
+
+            // Parsear body_dinamic si existe
+            $bodyDinamic = null;
+            if ($plantilla->body_dinamic) {
+                $decoded = json_decode($plantilla->body_dinamic, true);
+                $bodyDinamic = $decoded !== null ? $decoded : $plantilla->body_dinamic;
+            }
+
+            return response()->json([
+                'id' => $plantilla->id,
+                'title' => $plantilla->title,
+                'contenido' => $plantilla->contenido,
+                'body_text' => json_decode($plantilla->body_text, true),
+                'language' => $plantilla->language,
+                'body_dinamic' => $bodyDinamic,
+                'body_header' => $plantilla->body_header
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantilla Meta para facturas: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener plantilla'], 500);
+        }
+    }
+
+    /**
+     * Guarda la configuración de plantilla preferida para facturas
+     */
+    public function guardarPlantillaFacturaWhatsapp(Request $request)
+    {
+        try {
+            $request->validate([
+                'plantilla_id' => 'required|exists:plantillas,id'
+            ]);
+
+            $plantillaId = $request->plantilla_id;
+            $bodyDinamicParams = $request->input('body_dinamic_params', []);
+
+            // Verificar que la plantilla sea de tipo Meta y pertenezca a la empresa
+            $plantilla = \App\Plantilla::where('id', $plantillaId)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La plantilla seleccionada no es válida'
+                ], 400);
+            }
+
+            // Desmarcar todas las plantillas como preferidas para esta empresa
+            \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->where('tipo', 3)
+                ->update(['preferida_cron_factura' => 0]);
+
+            // Marcar la plantilla seleccionada como preferida
+            $plantilla->preferida_cron_factura = 1;
+
+            // Guardar body_dinamic si se proporciona
+            if (!empty($bodyDinamicParams) && is_array($bodyDinamicParams)) {
+                $plantilla->body_dinamic = json_encode([$bodyDinamicParams]);
+            }
+
+            $plantilla->updated_by = Auth::user()->id;
+            $plantilla->save();
+
+            return response()->json([
+                'success' => 1,
+                'message' => 'Plantilla configurada correctamente como preferida para el envío de facturas'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar plantilla preferida para facturas: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al guardar la configuración: ' . $e->getMessage()
+            ], 500);
         }
     }
 

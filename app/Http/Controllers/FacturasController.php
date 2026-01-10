@@ -5431,19 +5431,103 @@ class FacturasController extends Controller{
             // ============================================================
             // 📦 CONSTRUIR BODY PARA WAPI
             // ============================================================
-            $nameEmpresa = auth()->user()->empresa()->nombre;
+            $empresaObj = auth()->user()->empresa();
             $estadoCuenta = $factura->estadoCuenta();
             $total = $factura->total()->total;
             $saldo = $estadoCuenta->saldoMesAnterior > 0
                 ? $estadoCuenta->saldoMesAnterior + $total
                 : $total;
 
-            $body = [
-                "phone" => $telefonoCompleto,
-                "templateName" => "facturas",
-                "languageCode" => "en", // asegúrate de usar el idioma correcto del template
-                "components" => [
+            // Buscar plantilla preferida para facturas
+            $plantilla = Plantilla::where('preferida_cron_factura', 1)
+                ->where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', auth()->user()->empresa)
+                ->first();
+
+            // Si hay plantilla preferida, usar sus datos
+            if ($plantilla) {
+                // Procesar body_dinamic si existe
+                $bodyTextParams = [];
+                if ($plantilla->body_dinamic) {
+                    $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+                    if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                        $bodyDinamicArray = $bodyDinamicArray[0];
+                    }
+
+                    if (is_array($bodyDinamicArray)) {
+                        foreach ($bodyDinamicArray as $paramTemplate) {
+                            $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+
+                            // Reemplazar campos de contacto
+                            $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
+                            $paramValue = str_replace('[contacto.apellido1]', $contacto->apellido1 ?? '', $paramValue);
+                            $paramValue = str_replace('[contacto.apellido2]', $contacto->apellido2 ?? '', $paramValue);
+
+                            // Reemplazar campos de factura
+                            $paramValue = str_replace('[factura.fecha]', $factura->fecha ?? '', $paramValue);
+                            $paramValue = str_replace('[factura.vencimiento]', $factura->vencimiento ?? '', $paramValue);
+
+                            // Obtener total de la factura
+                            $facturaTotal = 0;
+                            try {
+                                $totalObj = $factura->total();
+                                if ($totalObj && isset($totalObj->total)) {
+                                    $facturaTotal = $totalObj->total;
+                                }
+                            } catch (\Exception $e) {
+                                \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
+                            }
+                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
+
+                            // Obtener porpagar de la factura
+                            $facturaPorpagar = 0;
+                            try {
+                                $facturaPorpagar = $factura->porpagar();
+                            } catch (\Exception $e) {
+                                \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
+                            }
+                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
+
+                            // Reemplazar campos de empresa
+                            $paramValue = str_replace('[empresa.nombre]', $empresaObj->nombre ?? '', $paramValue);
+                            $paramValue = str_replace('[empresa.nit]', $empresaObj->nit ?? '', $paramValue);
+
+                            $bodyTextParams[] = $paramValue;
+                        }
+                    }
+                } else {
+                    // Fallback: usar body_text si no hay body_dinamic
+                    $bodyTextArray = json_decode($plantilla->body_text, true);
+                    if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                        $bodyTextParams = $bodyTextArray[0];
+                    } else {
+                        // Valores por defecto si no hay configuración
+                        $bodyTextParams = [
+                            $contacto->nombre . " " . $contacto->apellido1,
+                            $empresaObj->nombre,
+                            number_format($saldo, 0, ',', '.')
+                        ];
+                    }
+                }
+
+                // Construir parámetros para components
+                $parameters = [];
+                foreach ($bodyTextParams as $paramValue) {
+                    $parameters[] = ["type" => "text", "text" => $paramValue];
+                }
+
+                // Construir components
+                $components = [
                     [
+                        "type" => "body",
+                        "parameters" => $parameters
+                    ]
+                ];
+
+                // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
+                if ($plantilla->body_header === 'DOCUMENT') {
+                    array_unshift($components, [
                         "type" => "header",
                         "parameters" => [
                             [
@@ -5454,17 +5538,45 @@ class FacturasController extends Controller{
                                 ]
                             ]
                         ]
-                    ],
-                    [
-                        "type" => "body",
-                        "parameters" => [
-                            ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
-                            ["type" => "text", "text" => $nameEmpresa],
-                            ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                    ]);
+                }
+
+                $body = [
+                    "phone" => $telefonoCompleto,
+                    "templateName" => $plantilla->title,
+                    "languageCode" => $plantilla->language ?? 'en',
+                    "components" => $components
+                ];
+            } else {
+                // Comportamiento por defecto si no hay plantilla preferida
+                $body = [
+                    "phone" => $telefonoCompleto,
+                    "templateName" => "facturas",
+                    "languageCode" => "en",
+                    "components" => [
+                        [
+                            "type" => "header",
+                            "parameters" => [
+                                [
+                                    "type" => "document",
+                                    "document" => [
+                                        "link" => $urlFactura,
+                                        "filename" => "Factura_{$factura->codigo}.pdf"
+                                    ]
+                                ]
+                            ]
+                        ],
+                        [
+                            "type" => "body",
+                            "parameters" => [
+                                ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
+                                ["type" => "text", "text" => $empresaObj->nombre],
+                                ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                            ]
                         ]
                     ]
-                ]
-            ];
+                ];
+            }
 
             // ============================================================
             // 🚀 ENVIAR MENSAJE

@@ -260,6 +260,9 @@ Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache'
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
 Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
 Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
+Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -1361,6 +1364,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 			'/numeracion_equivalente/{id}/act_desc',
 			'ConfiguracionController@numeraciones_equivalente_act_desc'
 		)->name('numeraciones_equivalente.act_desc');
+
+		// Configuración plantilla WhatsApp Meta para facturas
+		Route::get('/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+		Route::get('/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+		Route::post('/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 	});
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
