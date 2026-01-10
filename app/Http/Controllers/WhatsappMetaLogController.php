@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\DB;
 class WhatsappMetaLogController extends Controller
 {
 
+    public function __construct(){
+        $this->middleware('auth');
+        view()->share(['seccion' => 'Meta', 'title' => 'Meta', 'icon' =>'fas fa-plus', 'subseccion' => 'logs']);
+    }
+
+
     public function index()
     {
         $this->getAllPermissions(Auth::user()->id);
