@@ -5581,20 +5581,56 @@ class ContratosController extends Controller
             $contrato->password                = $request->clave ?? null;
             $contrato->local_adress_pppoe      = $request->local_address_pppoe ?? null;
 
-            // Asignar puerto disponible de la caja NAP
-            $puertoDisponible = null;
+            // Manejar caja NAP y puerto
             if ($cajaNap != null) {
-                $puertoDisponible = $cajaNap->obtenerPuertoDisponible();
+                // Si es una actualización de contrato existente
+                if ($esNroContrato && $nro_contrato_actualizar && isset($contrato->id)) {
+                    // Verificar si la caja NAP cambió
+                    $cajaNapCambio = ($contrato->cajanap_id != $cajaNap->id);
 
-                if ($puertoDisponible === null) {
-                    // No hay puertos disponibles, retornar error
-                    return back()->withErrors(['puerto_caja_nap' => 'La caja NAP ' . $cajaNap->nombre . ' no tiene puertos disponibles'])->withInput();
+                    if ($cajaNapCambio) {
+                        // Si cambió la caja NAP, asignar un nuevo puerto disponible
+                        $puertoDisponible = $cajaNap->obtenerPuertoDisponible();
+                        if ($puertoDisponible === null) {
+                            return back()->withErrors(['puerto_caja_nap' => 'La caja NAP ' . $cajaNap->nombre . ' no tiene puertos disponibles'])->withInput();
+                        }
+                        $contrato->cajanap_puerto = $puertoDisponible;
+                        $contrato->cajanap_id = $cajaNap->id;
+                    } else {
+                        // Si la caja NAP no cambió, mantener el puerto existente
+                        // No modificar cajanap_puerto ni cajanap_id
+                        // Solo actualizar si se especifica explícitamente en el Excel (por ahora mantenemos el existente)
+                        // Si en el futuro se quiere permitir cambiar solo el puerto, se podría agregar una columna específica
+                    }
+                } else {
+                    // Si es un nuevo contrato, asignar un nuevo puerto disponible
+                    $puertoDisponible = $cajaNap->obtenerPuertoDisponible();
+                    if ($puertoDisponible === null) {
+                        return back()->withErrors(['puerto_caja_nap' => 'La caja NAP ' . $cajaNap->nombre . ' no tiene puertos disponibles'])->withInput();
+                    }
+                    $contrato->cajanap_puerto = $puertoDisponible;
+                    $contrato->cajanap_id = $cajaNap->id;
                 }
+            } else {
+                // Si no se especifica caja NAP en el Excel y es una actualización, mantener los valores actuales
+                // Si es un nuevo contrato, dejar null
+                if (!($esNroContrato && $nro_contrato_actualizar && isset($contrato->id))) {
+                    $contrato->cajanap_puerto = null;
+                    $contrato->cajanap_id = null;
+                }
+                // Si es actualización y no se especifica caja NAP, no modificamos esos campos
             }
 
-            $contrato->cajanap_puerto          = $puertoDisponible;
-            $contrato->cajanap_id              = $cajaNap != null ? $cajaNap->id : null;
-            $contrato->created_at              = Carbon::now();
+            // Solo actualizar created_at si es un nuevo contrato
+            if (!($esNroContrato && $nro_contrato_actualizar && isset($contrato->id))) {
+                $contrato->created_at = Carbon::now();
+            } else {
+                // Para actualizaciones, solo actualizar si viene fecha en el Excel
+                if (!empty($request->created_at)) {
+                    $contrato->created_at = $request->created_at;
+                }
+                // Si no viene fecha, mantener la fecha original
+            }
 
             $contrato->save();
         }
