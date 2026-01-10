@@ -119,7 +119,7 @@
             order: [[0, "desc"]],
             "pageLength": {{ Auth::user()->empresa()->pageLength }},
             ajax: {
-                url: '{{ route("whatsapp-meta-logs.datatable") }}',
+                url: '{{ url("empresa/whatsapp-meta-logs/datatable") }}',
                 type: 'GET',
                 data: function(d) {
                     d.plantilla_id = $('#plantilla_id').val();
@@ -179,8 +179,12 @@
     }
 
     function limpiarFiltros() {
+        var url = window.location.pathname.split("/")[1] === "software" 
+            ? '/software/empresa/whatsapp-meta-logs/limpiar-filtros'
+            : '/empresa/whatsapp-meta-logs/limpiar-filtros';
+        
         $.ajax({
-            url: '{{ route("whatsapp-meta-logs.limpiar-filtros") }}',
+            url: url,
             type: 'POST',
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -206,7 +210,10 @@
     }
 
     function verLog(id) {
-        window.open('{{ url("whatsapp-meta-logs") }}/' + id, '_blank', 'width=800,height=600,scrollbars=yes');
+        var baseUrl = window.location.pathname.split("/")[1] === "software" 
+            ? '/software/empresa/whatsapp-meta-logs/'
+            : '/empresa/whatsapp-meta-logs/';
+        window.open(baseUrl + id, '_blank', 'width=800,height=600,scrollbars=yes');
     }
 </script>
 @endsection

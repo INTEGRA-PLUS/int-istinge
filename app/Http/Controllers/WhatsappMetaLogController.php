@@ -7,7 +7,7 @@ use App\Plantilla;
 use App\Contacto;
 use App\Model\Ingresos\Factura;
 use Illuminate\Http\Request;
-use Auth;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 

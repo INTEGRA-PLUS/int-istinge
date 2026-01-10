@@ -1761,12 +1761,6 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
 		Route::get('/chat-meta/search', 'CRMController@chatMetaSearch')->name('crm.chatMeta.search');
 	});
-
-	// Logs de WhatsApp Meta
-	Route::get('whatsapp-meta-logs', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
-	Route::get('whatsapp-meta-logs/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
-	Route::get('whatsapp-meta-logs/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
-	Route::post('whatsapp-meta-logs/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');
 	Route::get('/etiqueta/eliminar/{id}', 'EtiquetaController@eliminar');
@@ -1822,6 +1816,14 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('auditoria', 'AuditoriaController');
 	Route::resource('barrios', 'BarriosController');
 	Route::post('/delete-barrio/{id}', 'BarriosController@delete');
+
+	// Logs de WhatsApp Meta
+	Route::group(['prefix' => 'whatsapp-meta-logs'], function () {
+		Route::get('/', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
+		Route::get('/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
+		Route::get('/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
+		Route::post('/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
+	});
 });
 
 
