@@ -3374,7 +3374,7 @@ class ContratosController extends Controller
         $objPHPExcel->setActiveSheetIndex(0);
 
         // Inmovilizar paneles
-        $objPHPExcel->getActiveSheet(0)->freezePane('A5');
+        $objPHPExcel->getActiveSheet(0)->freezePane('A4');
         $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
         $objPHPExcel->setActiveSheetIndex(0);
         header("Pragma: no-cache");
@@ -4876,8 +4876,8 @@ class ContratosController extends Controller
         $objPHPExcel->setActiveSheetIndex(0);
 
         // Inmovilizar paneles
-        $objPHPExcel->getActiveSheet(0)->freezePane('A5');
-        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 5);
+        $objPHPExcel->getActiveSheet(0)->freezePane('A4');
+        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 4);
         $objPHPExcel->setActiveSheetIndex(0);
         header("Pragma: no-cache");
         header('Content-type: application/vnd.ms-excel');
