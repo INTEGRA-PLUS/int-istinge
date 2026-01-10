@@ -13,40 +13,33 @@ use Illuminate\Support\Facades\DB;
 
 class WhatsappMetaLogController extends Controller
 {
-    public function getAllPermissions($id)
-    {
-        $permisos = DB::table('permisos_usuarios')->where('usuario_id', $id)->get();
-        foreach ($permisos as $permiso) {
-            $_SESSION['permisos'][$permiso->permiso_id] = $permiso->permiso_id;
-        }
-    }
 
     public function index()
     {
         $this->getAllPermissions(Auth::user()->id);
-        
+
         view()->share(['title' => 'Logs de Envío WhatsApp Meta', 'icon' => 'fas fa-file-alt']);
-        
+
         // Obtener plantillas tipo 3 para el filtro
         $plantillas = Plantilla::where('tipo', 3)
             ->where('status', 1)
             ->where('empresa', Auth::user()->empresa)
             ->orderBy('title', 'ASC')
             ->get();
-        
+
         // Fechas predeterminadas (mes actual)
         $fechaDesde = Carbon::now()->startOfMonth()->format('Y-m-d');
         $fechaHasta = Carbon::now()->endOfMonth()->format('Y-m-d');
-        
+
         return view('whatsapp-meta-logs.index', compact('plantillas', 'fechaDesde', 'fechaHasta'));
     }
 
     public function datatable(Request $request)
     {
         $this->getAllPermissions(Auth::user()->id);
-        
+
         $empresaId = Auth::user()->empresa;
-        
+
         // Construir query
         $logs = WhatsappMetaLog::select(
                 'whatsapp_meta_logs.*',
@@ -142,15 +135,15 @@ class WhatsappMetaLogController extends Controller
     public function show($id)
     {
         $this->getAllPermissions(Auth::user()->id);
-        
+
         $log = WhatsappMetaLog::with(['factura', 'contacto', 'plantilla', 'usuarioEnvio', 'empresaObj'])
             ->findOrFail($id);
-        
+
         // Verificar que el log pertenezca a la empresa del usuario
         if ($log->empresa != Auth::user()->empresa) {
             abort(403, 'No tienes permiso para ver este log.');
         }
-        
+
         // Formatear respuesta JSON
         $responseJson = null;
         if ($log->response) {
@@ -159,7 +152,7 @@ class WhatsappMetaLogController extends Controller
                 $responseJson = $log->response; // Si no es JSON válido, mostrar como texto
             }
         }
-        
+
         return view('whatsapp-meta-logs.show', compact('log', 'responseJson'));
     }
 
