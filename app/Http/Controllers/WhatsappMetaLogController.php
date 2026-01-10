@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\WhatsappMetaLog;
+use App\Plantilla;
+use App\Contacto;
+use App\Model\Ingresos\Factura;
+use Illuminate\Http\Request;
+use Auth;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class WhatsappMetaLogController extends Controller
+{
+    public function getAllPermissions($id)
+    {
+        $permisos = DB::table('permisos_usuarios')->where('usuario_id', $id)->get();
+        foreach ($permisos as $permiso) {
+            $_SESSION['permisos'][$permiso->permiso_id] = $permiso->permiso_id;
+        }
+    }
+
+    public function index()
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        
+        view()->share(['title' => 'Logs de Envío WhatsApp Meta', 'icon' => 'fas fa-file-alt']);
+        
+        // Obtener plantillas tipo 3 para el filtro
+        $plantillas = Plantilla::where('tipo', 3)
+            ->where('status', 1)
+            ->where('empresa', Auth::user()->empresa)
+            ->orderBy('title', 'ASC')
+            ->get();
+        
+        // Fechas predeterminadas (mes actual)
+        $fechaDesde = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $fechaHasta = Carbon::now()->endOfMonth()->format('Y-m-d');
+        
+        return view('whatsapp-meta-logs.index', compact('plantillas', 'fechaDesde', 'fechaHasta'));
+    }
+
+    public function datatable(Request $request)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        
+        $empresaId = Auth::user()->empresa;
+        
+        // Construir query
+        $logs = WhatsappMetaLog::select(
+                'whatsapp_meta_logs.*',
+                'contactos.nombre as contacto_nombre',
+                'contactos.apellido1 as contacto_apellido1',
+                'contactos.apellido2 as contacto_apellido2',
+                'plantillas.title as plantilla_title',
+                'factura.codigo as factura_codigo',
+                'factura.emitida as factura_emitida',
+                'usuarios.nombres as usuario_nombres'
+            )
+            ->leftJoin('contactos', 'whatsapp_meta_logs.contacto_id', '=', 'contactos.id')
+            ->leftJoin('plantillas', 'whatsapp_meta_logs.plantilla_id', '=', 'plantillas.id')
+            ->leftJoin('factura', 'whatsapp_meta_logs.factura_id', '=', 'factura.id')
+            ->leftJoin('usuarios', 'whatsapp_meta_logs.enviado_por', '=', 'usuarios.id')
+            ->where('whatsapp_meta_logs.empresa', $empresaId);
+
+        // Filtro por plantilla
+        if ($request->has('plantilla_id') && $request->plantilla_id != '') {
+            $logs->where('whatsapp_meta_logs.plantilla_id', $request->plantilla_id);
+        }
+
+        // Filtro por cliente
+        if ($request->has('contacto_id') && $request->contacto_id != '') {
+            $logs->where('whatsapp_meta_logs.contacto_id', $request->contacto_id);
+        }
+
+        // Filtro por fecha desde
+        if ($request->has('fecha_desde') && $request->fecha_desde != '') {
+            $logs->whereDate('whatsapp_meta_logs.created_at', '>=', $request->fecha_desde);
+        } else {
+            // Predeterminado: inicio del mes actual
+            $logs->whereDate('whatsapp_meta_logs.created_at', '>=', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        }
+
+        // Filtro por fecha hasta
+        if ($request->has('fecha_hasta') && $request->fecha_hasta != '') {
+            $logs->whereDate('whatsapp_meta_logs.created_at', '<=', $request->fecha_hasta);
+        } else {
+            // Predeterminado: fin del mes actual
+            $logs->whereDate('whatsapp_meta_logs.created_at', '<=', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        }
+
+        // Filtro por factura emitida
+        if ($request->has('factura_emitida') && $request->factura_emitida != 'ambas') {
+            if ($request->factura_emitida == 'si') {
+                $logs->whereNotNull('whatsapp_meta_logs.factura_id')
+                    ->where('factura.emitida', 1);
+            } elseif ($request->factura_emitida == 'no') {
+                $logs->where(function($query) {
+                    $query->whereNull('whatsapp_meta_logs.factura_id')
+                          ->orWhere('factura.emitida', '!=', 1);
+                });
+            }
+        }
+
+        return datatables()->eloquent($logs)
+            ->editColumn('id', function ($log) {
+                return $log->id;
+            })
+            ->editColumn('created_at', function ($log) {
+                return Carbon::parse($log->created_at)->format('d/m/Y H:i:s');
+            })
+            ->editColumn('contacto', function ($log) {
+                if ($log->contacto_id) {
+                    $nombre = trim(($log->contacto_nombre ?? '') . ' ' . ($log->contacto_apellido1 ?? '') . ' ' . ($log->contacto_apellido2 ?? ''));
+                    return '<a href="' . route('contactos.show', $log->contacto_id) . '">' . $nombre . '</a>';
+                }
+                return '-';
+            })
+            ->editColumn('plantilla', function ($log) {
+                return $log->plantilla_title ?? '-';
+            })
+            ->editColumn('factura', function ($log) {
+                if ($log->factura_id) {
+                    return '<a href="' . route('facturas.show', $log->factura_id) . '">' . ($log->factura_codigo ?? '-') . '</a>';
+                }
+                return '-';
+            })
+            ->editColumn('status', function ($log) {
+                return $log->estadoFormateado();
+            })
+            ->editColumn('mensaje_enviado', function ($log) {
+                return '<span title="' . htmlspecialchars($log->mensaje_enviado ?? '') . '">' . htmlspecialchars($log->mensajeTruncado(80)) . '</span>';
+            })
+            ->addColumn('acciones', function ($log) {
+                return view('whatsapp-meta-logs.acciones', compact('log'));
+            })
+            ->rawColumns(['contacto', 'factura', 'status', 'mensaje_enviado', 'acciones'])
+            ->toJson();
+    }
+
+    public function show($id)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        
+        $log = WhatsappMetaLog::with(['factura', 'contacto', 'plantilla', 'usuarioEnvio', 'empresaObj'])
+            ->findOrFail($id);
+        
+        // Verificar que el log pertenezca a la empresa del usuario
+        if ($log->empresa != Auth::user()->empresa) {
+            abort(403, 'No tienes permiso para ver este log.');
+        }
+        
+        // Formatear respuesta JSON
+        $responseJson = null;
+        if ($log->response) {
+            $responseJson = json_decode($log->response, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $responseJson = $log->response; // Si no es JSON válido, mostrar como texto
+            }
+        }
+        
+        return view('whatsapp-meta-logs.show', compact('log', 'responseJson'));
+    }
+
+    public function limpiarFiltros()
+    {
+        // Retornar las fechas predeterminadas (mes actual)
+        return response()->json([
+            'success' => true,
+            'fecha_desde' => Carbon::now()->startOfMonth()->format('Y-m-d'),
+            'fecha_hasta' => Carbon::now()->endOfMonth()->format('Y-m-d'),
+            'plantilla_id' => '',
+            'contacto_id' => '',
+            'factura_emitida' => 'ambas'
+        ]);
+    }
+}

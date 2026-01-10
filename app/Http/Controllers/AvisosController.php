@@ -25,6 +25,7 @@ use App\Services\WapiService;
 use Illuminate\Support\Facades\Auth as Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
+use App\WhatsappMetaLog;
 
 class AvisosController extends Controller
 {
@@ -533,8 +534,22 @@ class AvisosController extends Controller
                                 "components" => $components
                             ];
 
+                            // Construir mensaje enviado para el log
+                            $mensajeEnviado = '';
+                            if ($plantilla && isset($plantilla->contenido)) {
+                                $mensajeEnviado = $plantilla->contenido;
+                                // Reemplazar placeholders con valores reales
+                                foreach ($bodyTextParams as $index => $paramValue) {
+                                    $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                                }
+                                if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                                    $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                                }
+                            }
+
                             // Enviar template
                             $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                            $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
 
                             // Validar respuesta
                             if (isset($response->scalar)) {
@@ -570,6 +585,18 @@ class AvisosController extends Controller
                                     $esExitoso = true;
                                 }
 
+                                // Registrar log
+                                WhatsappMetaLog::create([
+                                    'status' => $esExitoso ? 'success' : 'error',
+                                    'response' => $responseOriginal,
+                                    'factura_id' => $factura ? $factura->id : null,
+                                    'contacto_id' => $contacto->id,
+                                    'empresa' => Auth::user()->empresa,
+                                    'mensaje_enviado' => $mensajeEnviado,
+                                    'plantilla_id' => $plantilla->id,
+                                    'enviado_por' => Auth::user()->id
+                                ]);
+
                                 if ($esExitoso) {
                                     $enviadosExito++;
                                     \Log::info('WhatsApp Meta enviado a: ' . $telefonoCompleto . ' | Plantilla: ' . $plantilla->title);
@@ -578,6 +605,18 @@ class AvisosController extends Controller
                                     \Log::error('Error WhatsApp Meta a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                 }
                             } else {
+                                // Registrar log para error sin respuesta
+                                WhatsappMetaLog::create([
+                                    'status' => 'error',
+                                    'response' => $responseOriginal,
+                                    'factura_id' => $factura ? $factura->id : null,
+                                    'contacto_id' => $contacto->id,
+                                    'empresa' => Auth::user()->empresa,
+                                    'mensaje_enviado' => $mensajeEnviado,
+                                    'plantilla_id' => $plantilla->id,
+                                    'enviado_por' => Auth::user()->id
+                                ]);
+
                                 $enviadosFallidos++;
                                 \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto);
                             }

@@ -1761,6 +1761,12 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
 		Route::get('/chat-meta/search', 'CRMController@chatMetaSearch')->name('crm.chatMeta.search');
 	});
+
+	// Logs de WhatsApp Meta
+	Route::get('whatsapp-meta-logs', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
+	Route::get('whatsapp-meta-logs/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
+	Route::get('whatsapp-meta-logs/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
+	Route::post('whatsapp-meta-logs/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');
 	Route::get('/etiqueta/eliminar/{id}', 'EtiquetaController@eliminar');

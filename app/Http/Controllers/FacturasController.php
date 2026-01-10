@@ -62,6 +62,7 @@ use App\Services\WapiService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
 
 class FacturasController extends Controller{
@@ -5595,14 +5596,52 @@ class FacturasController extends Controller{
             }
 
             // ============================================================
-            // ✅ VALIDAR RESPUESTA
+            // ✅ VALIDAR RESPUESTA Y REGISTRAR LOG
             // ============================================================
+            $responseData = json_decode($response->scalar ?? '{}', true);
+            $responseOriginal = $response->scalar ?? json_encode($response);
+
+            // Construir mensaje enviado
+            $mensajeEnviado = '';
+            if ($plantilla && isset($plantilla->contenido)) {
+                $mensajeEnviado = $plantilla->contenido;
+                // Reemplazar placeholders con valores reales
+                foreach ($bodyTextParams as $index => $paramValue) {
+                    $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                }
+                if ($plantilla->body_header === 'DOCUMENT') {
+                    $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                }
+            } else {
+                // Mensaje por defecto
+                $mensajeEnviado = "{$empresaObj->nombre} le informa que su factura {$factura->codigo} tiene un valor de " . number_format($saldo, 0, ',', '.') . " pesos.";
+            }
+
+            // Determinar status
+            $status = 'error';
+            if (!isset($response->statusCode) || $response->statusCode === 200) {
+                if (isset($responseData['status']) && $responseData['status'] === "success") {
+                    $status = 'success';
+                }
+            }
+
+            // Registrar log
+            WhatsappMetaLog::create([
+                'status' => $status,
+                'response' => $responseOriginal,
+                'factura_id' => $factura->id,
+                'contacto_id' => $contacto->id,
+                'empresa' => Auth::user()->empresa,
+                'mensaje_enviado' => $mensajeEnviado,
+                'plantilla_id' => $plantilla ? $plantilla->id : null,
+                'enviado_por' => Auth::user()->id
+            ]);
+
             if (isset($response->statusCode) && $response->statusCode !== 200) {
                 return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
             }
 
-            $response = json_decode($response->scalar ?? '{}');
-            if (!isset($response->status) || $response->status !== "success") {
+            if (!isset($responseData['status']) || $responseData['status'] !== "success") {
                 return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
 
@@ -5650,6 +5689,27 @@ class FacturasController extends Controller{
             ];
 
             $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+            
+            $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
+            $responseData = json_decode($responseOriginal, true);
+
+            // Determinar status
+            $status = 'error';
+            if (!isset($response->statusCode) || (isset($responseData['status']) && $responseData['status'] === "success")) {
+                $status = 'success';
+            }
+
+            // Registrar log
+            WhatsappMetaLog::create([
+                'status' => $status,
+                'response' => $responseOriginal,
+                'factura_id' => $factura->id,
+                'contacto_id' => $contacto->id,
+                'empresa' => Auth::user()->empresa,
+                'mensaje_enviado' => $message,
+                'plantilla_id' => null, // MODO META no usa plantilla
+                'enviado_por' => Auth::user()->id
+            ]);
 
             if (isset($response->statusCode)) {
                 return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');

@@ -49,6 +49,7 @@ use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\WhatsappMetaLog;
 
 class CronController extends Controller
 {
@@ -4671,10 +4672,45 @@ class CronController extends Controller
                         continue;
                     }
 
-                    $response = json_decode($response->scalar ?? '{}');
+                    $responseData = json_decode($response->scalar ?? '{}');
+                    $responseOriginal = $response->scalar ?? json_encode($response);
 
-                    if (!isset($response->status) || $response->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($response));
+                    // Construir mensaje enviado
+                    $mensajeEnviado = '';
+                    if ($plantilla && isset($plantilla->contenido)) {
+                        $mensajeEnviado = $plantilla->contenido;
+                        // Reemplazar placeholders con valores reales
+                        foreach ($bodyTextParams as $index => $paramValue) {
+                            $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                        }
+                        if ($plantilla->body_header === 'DOCUMENT') {
+                            $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                        }
+                    } else {
+                        // Mensaje por defecto
+                        $mensajeEnviado = "{$empresa->nombre} le informa que su factura {$factura->codigo} tiene un valor de " . number_format($saldo, 0, ',', '.') . " pesos.";
+                    }
+
+                    // Determinar status
+                    $status = 'error';
+                    if (isset($responseData->status) && $responseData->status === "success") {
+                        $status = 'success';
+                    }
+
+                    // Registrar log
+                    WhatsappMetaLog::create([
+                        'status' => $status,
+                        'response' => $responseOriginal,
+                        'factura_id' => $factura->id,
+                        'contacto_id' => $contacto->id,
+                        'empresa' => $empresa->id,
+                        'mensaje_enviado' => $mensajeEnviado,
+                        'plantilla_id' => $plantilla ? $plantilla->id : null,
+                        'enviado_por' => null // Cron no tiene usuario
+                    ]);
+
+                    if (!isset($responseData->status) || $responseData->status !== "success") {
+                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($responseData));
                         continue;
                     }
 
@@ -4737,11 +4773,29 @@ class CronController extends Controller
                     }
 
                     if (isset($response->scalar)) {
-                        $response = json_decode($response->scalar);
+                        $responseDecoded = json_decode($response->scalar);
+                    } else {
+                        $responseDecoded = $response;
                     }
 
-                    if (!isset($response->status) || $response->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($response));
+                    // Actualizar status del log si se envió correctamente
+                    $statusLog = 'error';
+                    if (!isset($response->statusCode) || ($response->statusCode == 500) || (isset($responseDecoded->status) && $responseDecoded->status === "success")) {
+                        $statusLog = 'success';
+                    }
+
+                    // Actualizar log creado anteriormente
+                    $lastLog = WhatsappMetaLog::where('factura_id', $factura->id)
+                        ->where('empresa', $empresa->id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+                    if ($lastLog) {
+                        $lastLog->status = $statusLog;
+                        $lastLog->save();
+                    }
+
+                    if (!isset($responseDecoded->status) || $responseDecoded->status !== "success") {
+                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($responseDecoded));
                         sleep(5);
                         continue;
                     }

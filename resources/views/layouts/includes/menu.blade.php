@@ -346,6 +346,9 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('crm.chatboxIA')}}">Chatbox</a>
             </li>
             {{-- @endif --}}
+            <li class="nav-item" id="whatsapp_meta_logs">
+                <a class="nav-link" href="{{route('whatsapp-meta-logs.index')}}">Logs de Envío Meta</a>
+            </li>
 
         </ul>
     </div>
