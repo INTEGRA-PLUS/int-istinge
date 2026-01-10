@@ -48,7 +48,7 @@ class WhatsappMetaLogController extends Controller
 
         // Construir query
         $logs = WhatsappMetaLog::select(
-                'whatsapp_meta_logs.*',
+                'log_meta.*',
                 'contactos.nombre as contacto_nombre',
                 'contactos.apellido1 as contacto_apellido1',
                 'contactos.apellido2 as contacto_apellido2',
@@ -57,46 +57,46 @@ class WhatsappMetaLogController extends Controller
                 'factura.emitida as factura_emitida',
                 'usuarios.nombres as usuario_nombres'
             )
-            ->leftJoin('contactos', 'whatsapp_meta_logs.contacto_id', '=', 'contactos.id')
-            ->leftJoin('plantillas', 'whatsapp_meta_logs.plantilla_id', '=', 'plantillas.id')
-            ->leftJoin('factura', 'whatsapp_meta_logs.factura_id', '=', 'factura.id')
-            ->leftJoin('usuarios', 'whatsapp_meta_logs.enviado_por', '=', 'usuarios.id')
-            ->where('whatsapp_meta_logs.empresa', $empresaId);
+            ->leftJoin('contactos', 'log_meta.contacto_id', '=', 'contactos.id')
+            ->leftJoin('plantillas', 'log_meta.plantilla_id', '=', 'plantillas.id')
+            ->leftJoin('factura', 'log_meta.factura_id', '=', 'factura.id')
+            ->leftJoin('usuarios', 'log_meta.enviado_por', '=', 'usuarios.id')
+            ->where('log_meta.empresa', $empresaId);
 
         // Filtro por plantilla
         if ($request->has('plantilla_id') && $request->plantilla_id != '') {
-            $logs->where('whatsapp_meta_logs.plantilla_id', $request->plantilla_id);
+            $logs->where('log_meta.plantilla_id', $request->plantilla_id);
         }
 
         // Filtro por cliente
         if ($request->has('contacto_id') && $request->contacto_id != '') {
-            $logs->where('whatsapp_meta_logs.contacto_id', $request->contacto_id);
+            $logs->where('log_meta.contacto_id', $request->contacto_id);
         }
 
         // Filtro por fecha desde
         if ($request->has('fecha_desde') && $request->fecha_desde != '') {
-            $logs->whereDate('whatsapp_meta_logs.created_at', '>=', $request->fecha_desde);
+            $logs->whereDate('log_meta.created_at', '>=', $request->fecha_desde);
         } else {
             // Predeterminado: inicio del mes actual
-            $logs->whereDate('whatsapp_meta_logs.created_at', '>=', Carbon::now()->startOfMonth()->format('Y-m-d'));
+            $logs->whereDate('log_meta.created_at', '>=', Carbon::now()->startOfMonth()->format('Y-m-d'));
         }
 
         // Filtro por fecha hasta
         if ($request->has('fecha_hasta') && $request->fecha_hasta != '') {
-            $logs->whereDate('whatsapp_meta_logs.created_at', '<=', $request->fecha_hasta);
+            $logs->whereDate('log_meta.created_at', '<=', $request->fecha_hasta);
         } else {
             // Predeterminado: fin del mes actual
-            $logs->whereDate('whatsapp_meta_logs.created_at', '<=', Carbon::now()->endOfMonth()->format('Y-m-d'));
+            $logs->whereDate('log_meta.created_at', '<=', Carbon::now()->endOfMonth()->format('Y-m-d'));
         }
 
         // Filtro por factura emitida
         if ($request->has('factura_emitida') && $request->factura_emitida != 'ambas') {
             if ($request->factura_emitida == 'si') {
-                $logs->whereNotNull('whatsapp_meta_logs.factura_id')
+                $logs->whereNotNull('log_meta.factura_id')
                     ->where('factura.emitida', 1);
             } elseif ($request->factura_emitida == 'no') {
                 $logs->where(function($query) {
-                    $query->whereNull('whatsapp_meta_logs.factura_id')
+                    $query->whereNull('log_meta.factura_id')
                           ->orWhere('factura.emitida', '!=', 1);
                 });
             }
