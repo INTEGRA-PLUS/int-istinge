@@ -22,7 +22,12 @@
                         <label class="control-label">Cliente</label>
                         <select class="form-control selectpicker" id="contacto_id" name="contacto_id" data-size="5" data-live-search="true" title="Todos los clientes">
                             <option value="">Todos los clientes</option>
-                            <!-- Se cargará dinámicamente -->
+                            @foreach($contactos as $contacto)
+                                @php
+                                    $nombre = trim(($contacto->nombre ?? '') . ' ' . ($contacto->apellido1 ?? '') . ' ' . ($contacto->apellido2 ?? ''));
+                                @endphp
+                                <option value="{{ $contacto->id }}">{{ $nombre }} - {{ $contacto->nit ?? '' }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -103,9 +108,6 @@
             }
         });
 
-        // Cargar clientes para el select
-        cargarClientes();
-
         // Inicializar DataTable
         tabla = $('#tabla-logs').DataTable({
             responsive: true,
@@ -121,6 +123,9 @@
             ajax: {
                 url: '{{ url("empresa/whatsapp-meta-logs/datatable") }}',
                 type: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
                 data: function(d) {
                     d.plantilla_id = $('#plantilla_id').val();
                     d.contacto_id = $('#contacto_id').val();
@@ -142,35 +147,6 @@
         });
     });
 
-    function cargarClientes() {
-        var url = window.location.pathname.split("/")[1] === "software" 
-            ? '/software/getAllDatacb4ccecb55sdfh93195d6a785829' 
-            : '/getAllDatacb4ccecb55sdfh93195d6a785829';
-        
-        $.ajax({
-            url: url + '/' + {{ Auth::user()->empresa }} + '/',
-            type: 'GET',
-            success: function(response) {
-                var data = typeof response === 'string' ? JSON.parse(response) : response;
-                var contactos = data.contact || [];
-                
-                var select = $('#contacto_id');
-                select.empty();
-                select.append('<option value="">Todos los clientes</option>');
-                
-                contactos.forEach(function(contacto) {
-                    var nombre = (contacto.nombre || '') + ' ' + (contacto.apellido1 || '') + ' ' + (contacto.apellido2 || '');
-                    nombre = nombre.trim();
-                    select.append('<option value="' + contacto.id + '">' + nombre + ' - ' + (contacto.nit || '') + '</option>');
-                });
-                
-                select.selectpicker('refresh');
-            },
-            error: function() {
-                console.error('Error al cargar clientes');
-            }
-        });
-    }
 
     function aplicarFiltros() {
         if (tabla) {
@@ -179,10 +155,10 @@
     }
 
     function limpiarFiltros() {
-        var url = window.location.pathname.split("/")[1] === "software" 
+        var url = window.location.pathname.split("/")[1] === "software"
             ? '/software/empresa/whatsapp-meta-logs/limpiar-filtros'
             : '/empresa/whatsapp-meta-logs/limpiar-filtros';
-        
+
         $.ajax({
             url: url,
             type: 'POST',
@@ -195,10 +171,10 @@
                 $('#fecha_desde').val(response.fecha_desde);
                 $('#fecha_hasta').val(response.fecha_hasta);
                 $('#factura_emitida').val('ambas');
-                
+
                 $('#plantilla_id').selectpicker('refresh');
                 $('#contacto_id').selectpicker('refresh');
-                
+
                 if (tabla) {
                     tabla.ajax.reload();
                 }
@@ -210,7 +186,7 @@
     }
 
     function verLog(id) {
-        var baseUrl = window.location.pathname.split("/")[1] === "software" 
+        var baseUrl = window.location.pathname.split("/")[1] === "software"
             ? '/software/empresa/whatsapp-meta-logs/'
             : '/empresa/whatsapp-meta-logs/';
         window.open(baseUrl + id, '_blank', 'width=800,height=600,scrollbars=yes');

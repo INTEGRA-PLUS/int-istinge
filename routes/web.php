@@ -1821,6 +1821,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::group(['prefix' => 'whatsapp-meta-logs'], function () {
 		Route::get('/', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
 		Route::get('/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
+		Route::get('/contactos', 'WhatsappMetaLogController@getContactos')->name('whatsapp-meta-logs.contactos');
 		Route::get('/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
 		Route::post('/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
 	});

@@ -37,7 +37,15 @@ class WhatsappMetaLogController extends Controller
         $fechaDesde = Carbon::now()->startOfMonth()->format('Y-m-d');
         $fechaHasta = Carbon::now()->endOfMonth()->format('Y-m-d');
 
-        return view('whatsapp-meta-logs.index', compact('plantillas', 'fechaDesde', 'fechaHasta'));
+        // Obtener contactos para el filtro
+        $contactos = Contacto::where('empresa', Auth::user()->empresa)
+            ->where('status', 1)
+            ->orderBy('nombre', 'ASC')
+            ->orderBy('apellido1', 'ASC')
+            ->limit(500)
+            ->get(['id', 'nombre', 'apellido1', 'apellido2', 'nit']);
+
+        return view('whatsapp-meta-logs.index', compact('plantillas', 'fechaDesde', 'fechaHasta', 'contactos'));
     }
 
     public function datatable(Request $request)
@@ -173,5 +181,39 @@ class WhatsappMetaLogController extends Controller
             'contacto_id' => '',
             'factura_emitida' => 'ambas'
         ]);
+    }
+
+    public function getContactos(Request $request)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+
+        $empresaId = Auth::user()->empresa;
+        $search = $request->get('search', '');
+
+        $contactos = Contacto::where('empresa', $empresaId)
+            ->where('status', 1)
+            ->where(function($query) use ($search) {
+                if (!empty($search)) {
+                    $query->where('nombre', 'like', "%{$search}%")
+                        ->orWhere('apellido1', 'like', "%{$search}%")
+                        ->orWhere('nit', 'like', "%{$search}%");
+                }
+            })
+            ->orderBy('nombre', 'ASC')
+            ->orderBy('apellido1', 'ASC')
+            ->limit(100)
+            ->get(['id', 'nombre', 'apellido1', 'apellido2', 'nit']);
+
+        $result = [];
+        foreach ($contactos as $contacto) {
+            $nombre = trim(($contacto->nombre ?? '') . ' ' . ($contacto->apellido1 ?? '') . ' ' . ($contacto->apellido2 ?? ''));
+            $result[] = [
+                'id' => $contacto->id,
+                'nombre' => $nombre,
+                'nit' => $contacto->nit ?? ''
+            ];
+        }
+
+        return response()->json($result);
     }
 }
