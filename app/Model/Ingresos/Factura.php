@@ -156,78 +156,105 @@ class Factura extends Model
 
     public function estatus($class = false, $isId = false)
     {
-
+        // =========================
+        // Obtener estatus base
+        // =========================
         if (!isset($this->estatus)) {
-            $factura = DB::table('factura')->select('estatus as estado')->where('id', $this->id)->first();
+            $factura = DB::table('factura')
+                ->select('estatus as estado')
+                ->where('id', $this->id)
+                ->first();
+
             if (!$factura) {
                 return '';
             }
+
             $estatus = $factura->estado;
         } else {
             $estatus = $this->estatus;
         }
 
+        // =========================
+        // Variables cacheadas
+        // =========================
+        $totalObj   = $this->total();          // solo una vez
+        $total      = $totalObj->total ?? 0;
+        $subtotal   = $totalObj->subtotal ?? 0;
+        $descuento  = $totalObj->descuento ?? 0;
+        $pagado     = $this->pagado();         // solo una vez
+        $notas      = $this->notas_credito();  // solo una vez
 
+        // =========================
+        // Retorno de clase CSS
+        // =========================
         if ($class) {
             if ($estatus == 2) {
                 return 'warning';
             }
 
-            if($estatus ==1 && $this->pagado()){
+            if ($estatus == 1 && $pagado) {
                 return 'info';
             }
 
             return $estatus == 1 ? 'danger' : 'success';
         }
 
+        // =========================
+        // Factura anulada
+        // =========================
         if ($estatus == 2) {
-            if ($isId) {
-                return 2;
-            } else {
-                return 'Anulada';
-            }
+            return $isId ? 2 : 'Anulada';
         }
 
-        if ($this->notas_credito()) {
+        // =========================
+        // Notas crédito
+        // =========================
+        if ($notas) {
             $precioNotas = 0;
 
-            foreach ($this->notas_credito() as $notas) {
-
-                //Acumulado de total en notas creditos de la factura.
-                $precioNotas += $notas->nota()->total()->total;
+            foreach ($notas as $nota) {
+                $precioNotas += $nota->nota()->total()->total ?? 0;
             }
 
-            if ($precioNotas > 0 && $this->total()->total > $precioNotas && $estatus == 1 && $precioNotas + $this->pagado() < $this->total()->total) {
-                if ($isId) {
-                    return 3;
-                } else {
-                    return "Abierta con nota crédito";
-                }
-            } elseif ($this->total()->total == $precioNotas) {
-                if ($isId) {
-                    return 4;
-                } else {
-                    return "Cerrada con nota crédito";
-                }
-            } elseif ($precioNotas > 0 && $estatus == 1 && $precioNotas + $this->pagado() >= $this->total()->total) {
-                if ($isId) {
-                    return 3;
-                } else {
-                    return "Cerrada con nota crédito";
-                }
+            if (
+                $precioNotas > 0 &&
+                $estatus == 1 &&
+                $precioNotas + $pagado < $total
+            ) {
+                return $isId ? 3 : 'Abierta con nota crédito';
+            }
+
+            if (
+                $total == $precioNotas &&
+                $descuento != $subtotal
+            ) {
+                return $isId ? 4 : 'Cerrada con nota crédito';
+            }
+
+            if (
+                $precioNotas > 0 &&
+                $estatus == 1 &&
+                $precioNotas + $pagado >= $total
+            ) {
+                return $isId ? 3 : 'Cerrada con nota crédito';
             }
         }
 
-        if($estatus == 1 && $this->pagado()){
-                return "Abonada";
+        // =========================
+        // Factura abonada
+        // =========================
+        if ($estatus == 1 && $pagado) {
+            return 'Abonada';
         }
 
-        if ($isId) {
-            return $estatus == 1 ? 1 : 0;
-        } else {
-            return $estatus == 1 ? 'Abierta' : 'Cerrada';
-        }
+        // =========================
+        // Retorno final
+        // =========================
+        return $isId
+            ? ($estatus == 1 ? 1 : 0)
+            : ($estatus == 1 ? 'Abierta' : 'Cerrada');
     }
+
 
     public function total()
     {
