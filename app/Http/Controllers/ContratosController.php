@@ -5044,14 +5044,14 @@ class ContratosController extends Controller
         // Se activa la hoja para que sea la que se muestre cuando el archivo se abre
         $objPHPExcel->setActiveSheetIndex(0);
 
-        // Inmovilizar paneles
-        $objPHPExcel->getActiveSheet(0)->freezePane('A5');
-        $objPHPExcel->getActiveSheet(0)->freezePaneByColumnAndRow(0, 5);
+        // Inmovilizar paneles - Solo congelar filas 1-3 (título, fecha y encabezados)
+        // La fila 4 forma parte de los datos y no debe estar congelada
+        $objPHPExcel->getActiveSheet(0)->freezePane('A4');
         $objPHPExcel->setActiveSheetIndex(0);
         header("Pragma: no-cache");
         header('Content-type: application/vnd.ms-excel');
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="Archivo_Importacion_Contratos.xlsx"');
+        header('Content-Disposition: attachment;filename="Archivo_Actualizacion_Contratos.xlsx"');
         header('Cache-Control: max-age=0');
         $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
         $objWriter->save('php://output');
