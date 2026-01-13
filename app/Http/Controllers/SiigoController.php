@@ -75,7 +75,7 @@ class SiigoController extends Controller
         return $decodedResponse;
     }
 
-    public function configurarSiigo(Request $request = null, $cron = null)
+    public function configurarSiigo($request = null, $cron = null)
     {
         $empresa = Empresa::find(1);
 
