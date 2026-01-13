@@ -1877,7 +1877,7 @@ class CronController extends Controller
 
         //Conectando login de siigo cada cierto tiempo
         $siigoLogin = new SiigoController();
-        $siigoLogin->configurarSiigo(request(), true);
+        $siigoLogin->configurarSiigo(null,null, true);
 
     }
 

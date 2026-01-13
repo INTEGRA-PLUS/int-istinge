@@ -2263,16 +2263,16 @@
                 var url = '/siigo/configuracion_siigo';
             }
 
+            var usuario_siigo = encodeURIComponent($("#usuario_siigo").val());
+            var api_key_siigo = encodeURIComponent($("#api_key_siigo").val());
+            var fullUrl = url + '?usuario_siigo=' + usuario_siigo + '&api_key_siigo=' + api_key_siigo;
+
             $.ajax({
-                url: url,
+                url: fullUrl,
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                method: 'post',
-                data: {
-                    usuario_siigo: $("#usuario_siigo").val(),
-                    api_key_siigo: $("#api_key_siigo").val()
-                },
+                method: 'get',
                 success: function(data) {
                     $("#config_siigo").modal('hide');
                     if (data == 1) {

@@ -75,11 +75,30 @@ class SiigoController extends Controller
         return $decodedResponse;
     }
 
-    public function configurarSiigo($request = null, $cron = null)
+    public function configurarSiigo(Request $request = null, $cron = null)
     {
         $empresa = Empresa::find(1);
+        $usuario_siigo = null;
+        $api_key_siigo = null;
 
-        if ($empresa && $cron == null) {
+        // Si se llama desde el método executeSiigoRequest, $request será null y $cron será true
+        if ($request === null && $cron === true) {
+            // Usar los datos guardados en la empresa para renovar el token
+            // No hacer nada aquí, el código del else if se encargará
+        } else {
+            // Si viene desde la ruta web, obtener el Request usando el helper
+            // Laravel puede no inyectar Request cuando tiene valor por defecto null
+            if ($request === null) {
+                $request = request();
+            }
+
+            // Obtener parámetros del request (query string para GET)
+            $usuario_siigo = $request->input('usuario_siigo');
+            $api_key_siigo = $request->input('api_key_siigo');
+            $cron = $request->input('cron', null);
+        }
+
+        if ($empresa && $cron == null && $usuario_siigo !== null && $api_key_siigo !== null) {
 
             //Probando conexion de la api.
             $curl = curl_init();
@@ -94,8 +113,8 @@ class SiigoController extends Controller
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
                 CURLOPT_POSTFIELDS => json_encode([
-                    'username' => $request->usuario_siigo,
-                    'access_key' => $request->api_key_siigo,
+                    'username' => $usuario_siigo,
+                    'access_key' => $api_key_siigo,
                 ]),
                 CURLOPT_HTTPHEADER => array(
                     'Content-Type: application/json'
@@ -107,8 +126,8 @@ class SiigoController extends Controller
             $response = json_decode($response);
 
             if (isset($response->access_token)) {
-                $empresa->usuario_siigo = $request->usuario_siigo;
-                $empresa->api_key_siigo = $request->api_key_siigo;
+                $empresa->usuario_siigo = $usuario_siigo;
+                $empresa->api_key_siigo = $api_key_siigo;
                 $empresa->token_siigo = $response->access_token;
                 $empresa->fecha_token_siigo = Carbon::now();
                 $empresa->save();

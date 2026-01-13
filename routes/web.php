@@ -469,7 +469,7 @@ Route::group(['prefix' => 'Olt'], function () {
 });
 
 Route::group(['prefix' => 'siigo'], function () {
-	Route::post('configuracion_siigo', 'SiigoController@configurarSiigo');
+	Route::get('configuracion_siigo', 'SiigoController@configurarSiigo');
 	Route::post('create_invoice', 'SiigoController@createInvoice')->name('siigo.create_invoice');
 	Route::get('get_modal_invoice', 'SiigoController@getModalInvoice');
 	Route::get('send_invoice', 'SiigoController@sendInvoice');
