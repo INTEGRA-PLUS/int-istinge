@@ -168,7 +168,6 @@ class ContratosController extends Controller
                 'contactos.celular as c_celular',
                 'contactos.fk_idmunicipio',
                 'contactos.firma_isp',
-                'contracts.estrato',
                 'barrio.nombre as barrio_nombre',
                 'cn.nombre as cajanap_nombre',
                 DB::raw('(select fecha from ingresos where ingresos.cliente = contracts.client_id and ingresos.tipo = 1 LIMIT 1) AS pago')

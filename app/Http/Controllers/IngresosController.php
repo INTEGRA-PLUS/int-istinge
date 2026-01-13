@@ -606,9 +606,14 @@ class IngresosController extends Controller
                            $contrato = Contrato::where('id',$factura->contrato_id)->first();
                         }
 
+
                         if($contrato){
-                            if($empresa->consultas_mk == 1){
-                                $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                            $ultimaFactura =$contrato->facturas->last();
+                            //validacion de que solo haga las funciones mikrotik si se trata de la ultima factura.
+                            if($ultimaFactura){
+                                if($empresa->consultas_mk == 1 && $ultimaFactura->id == $factura->id){
+                                    $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                                }
                             }
                         }
 
