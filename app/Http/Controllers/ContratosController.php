@@ -5159,30 +5159,30 @@ class ContratosController extends Controller
                 }
             };
 
-            // Las columnas se desplazan según el offset (ahora también por la nueva columna olt_sn_mac)
-            // La nueva columna está después de Serial ONU, así que todas las columnas desde Plan en adelante se desplazan 1 más
-            $colH = $getCol('H', $offsetColumna + 1);
-            $colI = $getCol('I', $offsetColumna + 1);
-            $colJ = $getCol('J', $offsetColumna + 1);
-            $colK = $getCol('K', $offsetColumna + 1);
-            $colL = $getCol('L', $offsetColumna + 1);
-            $colM = $getCol('M', $offsetColumna + 1);
-            $colN = $getCol('N', $offsetColumna + 1);
-            $colO = $getCol('O', $offsetColumna + 1);
-            $colP = $getCol('P', $offsetColumna + 1);
-            $colQ = $getCol('Q', $offsetColumna + 1);
-            $colR = $getCol('R', $offsetColumna + 1);
-            $colS = $getCol('S', $offsetColumna + 1);
-            $colT = $getCol('T', $offsetColumna + 1);
-            $colU = $getCol('U', $offsetColumna + 1);
-            $colV = $getCol('V', $offsetColumna + 1);
-            $colW = $getCol('W', $offsetColumna + 1);
-            $colX = $getCol('X', $offsetColumna + 1);
-            $colY = $getCol('Y', $offsetColumna + 1);
-            $colZ = $getCol('Z', $offsetColumna + 1);
+            // Las columnas se desplazan solo según el offset del nro contrato
+            // La nueva columna OLT SN MAC ya está en su posición correcta en el Excel
+            $colH = $getCol('H', $offsetColumna);
+            $colI = $getCol('I', $offsetColumna);
+            $colJ = $getCol('J', $offsetColumna);
+            $colK = $getCol('K', $offsetColumna);
+            $colL = $getCol('L', $offsetColumna);
+            $colM = $getCol('M', $offsetColumna);
+            $colN = $getCol('N', $offsetColumna);
+            $colO = $getCol('O', $offsetColumna);
+            $colP = $getCol('P', $offsetColumna);
+            $colQ = $getCol('Q', $offsetColumna);
+            $colR = $getCol('R', $offsetColumna);
+            $colS = $getCol('S', $offsetColumna);
+            $colT = $getCol('T', $offsetColumna);
+            $colU = $getCol('U', $offsetColumna);
+            $colV = $getCol('V', $offsetColumna);
+            $colW = $getCol('W', $offsetColumna);
+            $colX = $getCol('X', $offsetColumna);
+            $colY = $getCol('Y', $offsetColumna);
+            $colZ = $getCol('Z', $offsetColumna);
 
-            // Ajustar conexión: ahora está una columna más adelante debido a olt_sn_mac
-            $colConexion = $getCol('I', $offsetColumna + 1);
+            // Ajustar conexión según el offset del nro contrato
+            $colConexion = $getCol('J', $offsetColumna);
             $conexionCelda = $sheet->getCell($colConexion . $row)->getValue();
             if (empty($conexionCelda)) {
                 $colConexionAlt = $getCol('J', $offsetColumna + 1);
@@ -5201,27 +5201,27 @@ class ContratosController extends Controller
                 $request->conexion = $conexionCelda;
             }
 
-            // Leer datos según tipo de conexión, ajustando columnas (ahora con offset +1 por olt_sn_mac)
+            // Leer datos según tipo de conexión, ajustando columnas según el offset del nro contrato
             if ($request->conexion == 2) {
                 // Plantilla DHCP
                 $request->ip              = null;
-                $colMac = $getCol('H', $offsetColumna + 1);
+                $colMac = $getCol('I', $offsetColumna);
                 $request->mac             = $sheet->getCell($colMac . $row)->getValue();
-                $request->simple_queue    = $sheet->getCell($colJ . $row)->getValue();
-                $request->tipo_tecnologia = $sheet->getCell($colK . $row)->getValue();
-                $request->puerto_caja_nap = $sheet->getCell($colL . $row)->getValue();
-                $request->grupo_corte     = $sheet->getCell($colM . $row)->getValue();
-                $request->facturacion     = $sheet->getCell($colN . $row)->getValue();
-                $request->descuento       = $sheet->getCell($colO . $row)->getValue();
-                $request->canal           = $sheet->getCell($colP . $row)->getValue();
-                $request->oficina         = $sheet->getCell($colQ . $row)->getValue();
-                $request->tecnologia      = $sheet->getCell($colR . $row)->getValue();
-                $request->created_at      = $sheet->getCell($colS . $row)->getValue();
-                $request->mk              = $sheet->getCell($colT . $row)->getValue();
-                $request->tipo_contrato   = $sheet->getCell($colU . $row)->getValue();
+                $request->simple_queue    = $sheet->getCell($colK . $row)->getValue();
+                $request->tipo_tecnologia = $sheet->getCell($colL . $row)->getValue();
+                $request->puerto_caja_nap = $sheet->getCell($colM . $row)->getValue();
+                $request->grupo_corte     = $sheet->getCell($colN . $row)->getValue();
+                $request->facturacion     = $sheet->getCell($colO . $row)->getValue();
+                $request->descuento       = $sheet->getCell($colP . $row)->getValue();
+                $request->canal           = $sheet->getCell($colQ . $row)->getValue();
+                $request->oficina         = $sheet->getCell($colR . $row)->getValue();
+                $request->tecnologia      = $sheet->getCell($colS . $row)->getValue();
+                $request->created_at      = $sheet->getCell($colT . $row)->getValue();
+                $request->mk              = $sheet->getCell($colU . $row)->getValue();
+                $request->tipo_contrato   = $sheet->getCell($colV . $row)->getValue();
             } else {
                 // Plantillas PPPOE, IP Estática y VLAN
-                $colIp = $getCol('H', $offsetColumna + 1);
+                $colIp = $getCol('H', $offsetColumna);
                 $request->ip                   = $sheet->getCell($colIp . $row)->getValue();
                 $request->mac                  = $sheet->getCell($colI . $row)->getValue();
                 $request->interfaz             = $sheet->getCell($colK . $row)->getValue();
@@ -5240,7 +5240,7 @@ class ContratosController extends Controller
                 $request->profile              = $sheet->getCell($colX . $row)->getValue();
                 $request->local_address_pppoe  = $sheet->getCell($colY . $row)->getValue();
                 $request->usuario              = $sheet->getCell($colZ . $row)->getValue();
-                $colClave = $getCol('AA', $offsetColumna + 1);
+                $colClave = $getCol('AA', $offsetColumna);
                 $request->clave                = $sheet->getCell($colClave . $row)->getValue();
             }
 
@@ -5379,33 +5379,33 @@ class ContratosController extends Controller
                 $request->state         = $sheet->getCell("G" . $row)->getValue();
             }
 
-            // Calcular columnas con offset (ahora también +1 por olt_sn_mac)
-            $colH = $getCol('H', $offsetColumna + 1);
-            $colI = $getCol('I', $offsetColumna + 1);
-            $colJ = $getCol('J', $offsetColumna + 1);
-            $colK = $getCol('K', $offsetColumna + 1);
-            $colL = $getCol('L', $offsetColumna + 1);
-            $colM = $getCol('M', $offsetColumna + 1);
-            $colN = $getCol('N', $offsetColumna + 1);
-            $colO = $getCol('O', $offsetColumna + 1);
-            $colP = $getCol('P', $offsetColumna + 1);
-            $colQ = $getCol('Q', $offsetColumna + 1);
-            $colR = $getCol('R', $offsetColumna + 1);
-            $colS = $getCol('S', $offsetColumna + 1);
-            $colT = $getCol('T', $offsetColumna + 1);
-            $colU = $getCol('U', $offsetColumna + 1);
-            $colV = $getCol('V', $offsetColumna + 1);
-            $colW = $getCol('W', $offsetColumna + 1);
-            $colX = $getCol('X', $offsetColumna + 1);
-            $colY = $getCol('Y', $offsetColumna + 1);
-            $colZ = $getCol('Z', $offsetColumna + 1);
-            $colG = $getCol('H', $offsetColumna + 1);
+            // Calcular columnas con offset solo por el nro contrato
+            $colH = $getCol('H', $offsetColumna);
+            $colI = $getCol('I', $offsetColumna);
+            $colJ = $getCol('J', $offsetColumna);
+            $colK = $getCol('K', $offsetColumna);
+            $colL = $getCol('L', $offsetColumna);
+            $colM = $getCol('M', $offsetColumna);
+            $colN = $getCol('N', $offsetColumna);
+            $colO = $getCol('O', $offsetColumna);
+            $colP = $getCol('P', $offsetColumna);
+            $colQ = $getCol('Q', $offsetColumna);
+            $colR = $getCol('R', $offsetColumna);
+            $colS = $getCol('S', $offsetColumna);
+            $colT = $getCol('T', $offsetColumna);
+            $colU = $getCol('U', $offsetColumna);
+            $colV = $getCol('V', $offsetColumna);
+            $colW = $getCol('W', $offsetColumna);
+            $colX = $getCol('X', $offsetColumna);
+            $colY = $getCol('Y', $offsetColumna);
+            $colZ = $getCol('Z', $offsetColumna);
+            $colG = $getCol('H', $offsetColumna);
 
-            // Ajustar conexión: ahora está una columna más adelante
-            $colConexion = $getCol('I', $offsetColumna + 1);
+            // Ajustar conexión según el offset del nro contrato
+            $colConexion = $getCol('J', $offsetColumna);
             $conexionCelda = $sheet->getCell($colConexion . $row)->getValue();
             if (empty($conexionCelda)) {
-                $colConexionAlt = $getCol('J', $offsetColumna + 1);
+                $colConexionAlt = $getCol('J', $offsetColumna);
                 $conexionCelda = $sheet->getCell($colConexionAlt . $row)->getValue();
             }
             $conexionTexto = strtoupper(trim((string) $conexionCelda));
@@ -5423,22 +5423,22 @@ class ContratosController extends Controller
 
             if ($request->conexion == 2) {
                 $request->ip              = null;
-                $colMac = $getCol('H', $offsetColumna + 1);
+                $colMac = $getCol('I', $offsetColumna);
                 $request->mac             = $sheet->getCell($colMac . $row)->getValue();
-                $request->simple_queue    = $sheet->getCell($colJ . $row)->getValue();
-                $request->tipo_tecnologia = $sheet->getCell($colK . $row)->getValue();
-                $request->puerto_caja_nap = $sheet->getCell($colL . $row)->getValue();
-                $request->grupo_corte     = $sheet->getCell($colM . $row)->getValue();
-                $request->facturacion     = $sheet->getCell($colN . $row)->getValue();
-                $request->descuento       = $sheet->getCell($colO . $row)->getValue();
-                $request->canal           = $sheet->getCell($colP . $row)->getValue();
-                $request->oficina         = $sheet->getCell($colQ . $row)->getValue();
-                $request->tecnologia      = $sheet->getCell($colR . $row)->getValue();
-                $request->created_at      = $sheet->getCell($colS . $row)->getValue();
-                $request->mk              = $sheet->getCell($colT . $row)->getValue();
-                $request->tipo_contrato   = $sheet->getCell($colU . $row)->getValue();
+                $request->simple_queue    = $sheet->getCell($colK . $row)->getValue();
+                $request->tipo_tecnologia = $sheet->getCell($colL . $row)->getValue();
+                $request->puerto_caja_nap = $sheet->getCell($colM . $row)->getValue();
+                $request->grupo_corte     = $sheet->getCell($colN . $row)->getValue();
+                $request->facturacion     = $sheet->getCell($colO . $row)->getValue();
+                $request->descuento       = $sheet->getCell($colP . $row)->getValue();
+                $request->canal           = $sheet->getCell($colQ . $row)->getValue();
+                $request->oficina         = $sheet->getCell($colR . $row)->getValue();
+                $request->tecnologia      = $sheet->getCell($colS . $row)->getValue();
+                $request->created_at      = $sheet->getCell($colT . $row)->getValue();
+                $request->mk              = $sheet->getCell($colU . $row)->getValue();
+                $request->tipo_contrato   = $sheet->getCell($colV . $row)->getValue();
             } else {
-                $colIp = $getCol('H', $offsetColumna + 1);
+                $colIp = $getCol('H', $offsetColumna);
                 $request->ip                   = $sheet->getCell($colIp . $row)->getValue();
                 $request->mac                  = $sheet->getCell($colI . $row)->getValue();
                 $request->interfaz             = $sheet->getCell($colK . $row)->getValue();
@@ -5457,7 +5457,7 @@ class ContratosController extends Controller
                 $request->profile              = $sheet->getCell($colX . $row)->getValue();
                 $request->local_address_pppoe  = $sheet->getCell($colY . $row)->getValue();
                 $request->usuario              = $sheet->getCell($colZ . $row)->getValue();
-                $colClave = $getCol('AA', $offsetColumna + 1);
+                $colClave = $getCol('AA', $offsetColumna);
                 $request->clave                = $sheet->getCell($colClave . $row)->getValue();
             }
 
