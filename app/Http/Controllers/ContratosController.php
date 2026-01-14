@@ -5181,18 +5181,28 @@ class ContratosController extends Controller
             $colY = 'Y';
             $colZ = 'Z';
 
-            // Ajustar conexión según el offset del nro contrato
-            // Conexion está en I sin nro contrato, J con nro contrato
-            $colConexion = $getCol('I', $offsetColumna);
+            // Ajustar conexión - está en J para DHCP (con o sin nro contrato)
+            $colConexion = 'J';
             $conexionCelda = $sheet->getCell($colConexion . $row)->getValue();
             if (empty($conexionCelda)) {
-                $colConexionAlt = $getCol('J', $offsetColumna);
-                $conexionCelda = $sheet->getCell($colConexionAlt . $row)->getValue();
+                // Si está vacía, intentar en I (para compatibilidad con archivos antiguos)
+                $conexionCelda = $sheet->getCell('I' . $row)->getValue();
             }
             $conexionTexto = strtoupper(trim((string) $conexionCelda));
+            // También verificar en la columna K (Simple Queue) si J está vacía o tiene un valor no reconocido
+            if (empty($conexionTexto) || ($conexionTexto != 'PPPOE' && $conexionTexto != 'DHCP' && $conexionTexto != 'IP ESTATICA' && $conexionTexto != 'IP ESTÁTICA' && $conexionTexto != 'VLAN')) {
+                $simpleQueueVal = $sheet->getCell('K' . $row)->getValue();
+                $simpleQueueTexto = strtoupper(trim((string) $simpleQueueVal));
+                // Si K tiene "DINAMICA" o "ESTATICA", es un indicador de que es DHCP
+                if ($simpleQueueTexto == 'DINAMICA' || $simpleQueueTexto == 'DINÁMICA' || $simpleQueueTexto == 'ESTATICA' || $simpleQueueTexto == 'ESTÁTICA') {
+                    $conexionTexto = 'DHCP';
+                    $conexionCelda = 2;
+                }
+            }
+
             if ($conexionTexto == 'PPPOE' || $conexionCelda == 1) {
                 $request->conexion = 1;
-            } elseif ($conexionTexto == 'DHCP' || $conexionCelda == 2) {
+            } elseif ($conexionTexto == 'DHCP' || $conexionTexto == 'DINAMICA' || $conexionTexto == 'DINÁMICA' || $conexionCelda == 2) {
                 $request->conexion = 2;
             } elseif ($conexionTexto == 'IP ESTATICA' || $conexionTexto == 'IP ESTÁTICA' || $conexionCelda == 3) {
                 $request->conexion = 3;
@@ -5386,9 +5396,20 @@ class ContratosController extends Controller
                 $conexionCelda = $sheet->getCell($colConexionAlt . $row)->getValue();
             }
             $conexionTexto = strtoupper(trim((string) $conexionCelda));
+            // También verificar en la columna K (Simple Queue) si J está vacía o tiene un valor no reconocido
+            if (empty($conexionTexto) || ($conexionTexto != 'PPPOE' && $conexionTexto != 'DHCP' && $conexionTexto != 'IP ESTATICA' && $conexionTexto != 'IP ESTÁTICA' && $conexionTexto != 'VLAN')) {
+                $simpleQueueVal = $sheet->getCell('K' . $row)->getValue();
+                $simpleQueueTexto = strtoupper(trim((string) $simpleQueueVal));
+                // Si K tiene "DINAMICA" o "ESTATICA", es un indicador de que es DHCP
+                if ($simpleQueueTexto == 'DINAMICA' || $simpleQueueTexto == 'DINÁMICA' || $simpleQueueTexto == 'ESTATICA' || $simpleQueueTexto == 'ESTÁTICA') {
+                    $conexionTexto = 'DHCP';
+                    $conexionCelda = 2;
+                }
+            }
+
             if ($conexionTexto == 'PPPOE' || $conexionCelda == 1) {
                 $request->conexion = 1;
-            } elseif ($conexionTexto == 'DHCP' || $conexionCelda == 2) {
+            } elseif ($conexionTexto == 'DHCP' || $conexionTexto == 'DINAMICA' || $conexionTexto == 'DINÁMICA' || $conexionCelda == 2) {
                 $request->conexion = 2;
             } elseif ($conexionTexto == 'IP ESTATICA' || $conexionTexto == 'IP ESTÁTICA' || $conexionCelda == 3) {
                 $request->conexion = 3;
