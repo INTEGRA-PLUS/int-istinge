@@ -740,7 +740,7 @@
     @endif
 
     <div id="contenedor_carga">
-        <img id="carga" src="{{ asset('images/gif-tuerca.gif') }}">
+        <img id="carga" src="{{ asset('images/gif-tuerca.gif') }}" onerror="this.style.display='none'; document.getElementById('contenedor_carga').style.display='none';" onload="setTimeout(function(){ var contenedor = document.getElementById('contenedor_carga'); if(contenedor) { contenedor.style.visibility = 'hidden'; contenedor.style.opacity = '0'; } }, 100);">
     </div>
     <div class="loader"></div>
     <div class="container-scroller">
@@ -1117,11 +1117,28 @@
     </div>
 
     <script>
-        window.onload = function() {
+        // Función para ocultar el loader
+        function ocultarLoader() {
             var contenedor = document.getElementById('contenedor_carga');
-            contenedor.style.visibility = 'hidden';
-            contenedor.style.opacity = '0';
+            if (contenedor) {
+                contenedor.style.visibility = 'hidden';
+                contenedor.style.opacity = '0';
+                contenedor.style.display = 'none';
+            }
         }
+
+        // Ocultar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ocultarLoader);
+        } else {
+            ocultarLoader();
+        }
+
+        // Ocultar cuando la ventana termine de cargar
+        window.addEventListener('load', ocultarLoader);
+
+        // Timeout de seguridad: ocultar después de 3 segundos máximo
+        setTimeout(ocultarLoader, 3000);
     </script>
     <!-- container-scroller -->
 

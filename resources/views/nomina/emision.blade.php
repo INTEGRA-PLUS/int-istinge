@@ -110,8 +110,8 @@
                 </button>
             </div>
         @else
-            <a href="javascript:emisionMasiva()" class="btn btn-primary btn-sm btn-gris"><i class="fas fa-plus"></i>
-                Emisión masiva</a>
+            {{-- <a href="javascript:emisionMasiva()" class="btn btn-primary btn-sm btn-gris"><i class="fas fa-plus"></i>
+                Emisión masiva</a> --}}
         @endif
     @endsection
 
