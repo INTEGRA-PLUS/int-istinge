@@ -213,6 +213,32 @@ class CronController extends Controller
     return "Duplicados eliminados: " . $eliminados;
     }
 
+    //***** Metodo para agregar el saldo a favor a las facturas de un dia de creacion especifico ***** //
+    public static function pagarFacturasSaldoFavor(){
+
+        $facturas = Factura::
+        leftJoin('contactos as c','c.id','factura.cliente')
+        ->select('factura.*')
+        ->where('factura.created_at','lIKE','%2026-01-07%')
+        ->where('factura.facturacion_automatica',1)
+        ->where('factura.estatus',1)
+        ->where('c.saldo_favor','>',0)
+        ->get();
+
+        $empresa = Empresa::Find(1);
+
+        if($empresa->aplicar_saldofavor == 1){
+            foreach($facturas as $factura){
+                self::pagoFacturaAutomatico($factura);
+            }
+        }else{
+            return "empresa no tiene la opcion habilitada.";
+        }
+
+        return "pagos generados correctamente.";
+
+    }
+
     public static function CrearFactura(){
 
         $fecha = Carbon::now()->format('Y-m-d');
@@ -807,6 +833,8 @@ class CronController extends Controller
         $precio = $factura->totalAPI($empresa)->total;
         $contacto = Contacto::Find($factura->cliente);
 
+        if($contacto->saldo_favor >= $factura->totalAPI($empresa)->total){
+
         //obtencion de numeración de el recibo de caja.
         $nro = Numeracion::where('empresa', $empresa)->first();
         $caja = $nro->caja;
@@ -844,6 +872,8 @@ class CronController extends Controller
         $items->factura = $factura->id;
         $items->puc_factura = $factura->cuenta_id;
 
+        $saldoAntes = $contacto->saldo_favor;
+
         if($contacto->saldo_favor >= $precio){
             $items->pagado = $precio; //asi exista mas dinero del  pagado ese se debe usar.
             $items->pago = self::precisionAPI($precio, $empresa);
@@ -868,11 +898,26 @@ class CronController extends Controller
             $contacto->save();
         }
 
+        $descripcion = 'Se creo un ingreso de factura con el recibo de caja nro ' . $ingreso->nro . ' por un total de $' . number_format($precio, 0, ',', '.');
+        $descripcion .= ' <br>Antes de aplicar el saldo a favor tenia: ' . round($saldoAntes);
+        $descripcion .= ' <br>Despues de aplicar el saldo a favor tiene: ' . round($contacto->saldo_favor);
+
+        //registro de que se creo un ingreso de factura
+        $movimiento = new MovimientoLOG();
+        $movimiento->contrato    = $factura->id;
+        $movimiento->modulo      = 8;
+        $movimiento->descripcion = $descripcion;
+        $movimiento->created_by  = 1;
+        $movimiento->empresa     = $factura->empresa;
+        $movimiento->save();
+
+
         //No vamos a regisrtrar por el momento un movimiento del puc ya que no sabemos esta informacion.
         // $ingreso->puc_banco = $request->forma_pago; //cuenta de forma de pago genérico del ingreso. (en memoria)
         // PucMovimiento::ingreso($ingreso,1,2,$request);
 
         self::up_transaccion_(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $precio, $ingreso->fecha, "Uso de saldo a favor automatico.",null,$empresa);
+     }
     }
 
     public static function cortarFacturasDiaEspecifico(){
