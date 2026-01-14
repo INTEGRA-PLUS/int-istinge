@@ -225,7 +225,7 @@ class FacturaspController extends Controller
             DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
             ->where('empresa',Auth::user()->empresa)
             ->where('status', 1)
-            ->where('type', '<>', 'PLAN')
+            // ->where('type', '<>', 'PLAN')
             ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
             ->get();
 
@@ -514,7 +514,7 @@ class FacturaspController extends Controller
             $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
                 ->where('empresa',Auth::user()->empresa)
                 ->where('status', 1)
-                ->where('type', '<>', 'PLAN')
+                // ->where('type', '<>', 'PLAN')
                 ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
                 ->get();
             $extras = CamposExtra::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
