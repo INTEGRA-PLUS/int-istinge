@@ -5239,6 +5239,23 @@ class ContratosController extends Controller
                 $error->simple_queue = "El campo Simple Queue es obligatorio para DHCP";
             }
 
+            // Validación condicional para PPPoE: Si simple_queue es "dinamica", ciertos campos no son obligatorios
+            $isPPPoE = ($request->conexion == 1);
+            $simpleQueueEsDinamica = !empty($request->simple_queue) && strtolower(trim((string) $request->simple_queue)) == 'dinamica';
+
+            // Si es PPPoE y simple_queue NO es "dinamica", entonces estos campos son obligatorios
+            if ($isPPPoE && !$simpleQueueEsDinamica) {
+                if (empty($request->interfaz)) {
+                    $error->interfaz = "El campo Interfaz es obligatorio para PPPoE cuando Simple Queue no es 'dinamica'";
+                }
+                if (empty($request->local_address_pppoe)) {
+                    $error->local_address_pppoe = "El campo IP Local Address es obligatorio para PPPoE cuando Simple Queue no es 'dinamica'";
+                }
+                if (empty($request->local_address)) {
+                    $error->local_address = "El campo Local Address / Segmento es obligatorio para PPPoE cuando Simple Queue no es 'dinamica'";
+                }
+            }
+
             if ($request->grupo_corte != "") {
                 // Buscar en minúsculas
                 if (GrupoCorte::whereRaw('LOWER(nombre) = ?', [strtolower($request->grupo_corte)])->where('status', 1)->count() == 0) {
