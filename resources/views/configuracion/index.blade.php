@@ -360,6 +360,12 @@
                         Enviar a siigo al crear pago
                     </a>
                     <input type="hidden" id="pagosiigo" value="{{ Auth::user()->empresa()->pago_siigo }}">
+
+                @elseif($empresa->pago_siigo == 1)
+                <a href="javascript:pagoSiigo()">
+                    {{ Auth::user()->empresa()->pago_siigo == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                    Enviar a siigo al crear pago
+                </a>
                 @endif
             @endif
         </div>

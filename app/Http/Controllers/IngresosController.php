@@ -413,7 +413,22 @@ class IngresosController extends Controller
                                 $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
                                 Log::info($response);
                                 if(isset($response['success']) && $response['success'] == false){
-                                    return back()->with('danger', "No se ha podido establecer conexión con siigo y no se ha generado el pago")->withInput();
+                                    // Intentar refrescar la conexión a Siigo
+                                    Log::info("Error de conexión con Siigo, intentando refrescar token...");
+                                    $refreshResult = $siigo->configurarSiigo(null, true);
+
+                                    if($refreshResult == 1){
+                                        // Si el refresh fue exitoso, intentar nuevamente el envío
+                                        Log::info("Token de Siigo refrescado exitosamente, reintentando envío...");
+                                        $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
+                                        Log::info("Respuesta después del refresh: " . json_encode($response));
+
+                                        if(isset($response['success']) && $response['success'] == false){
+                                            return back()->with('danger', "No se ha podido establecer conexión con siigo después de refrescar el token y no se ha generado el pago")->withInput();
+                                        }
+                                    } else {
+                                        return back()->with('danger', "No se ha podido establecer conexión con siigo, no se pudo refrescar el token y no se ha generado el pago")->withInput();
+                                    }
                                 }
                             }
                         }
