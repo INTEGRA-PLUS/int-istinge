@@ -816,10 +816,36 @@ class SiigoController extends Controller
 
                 if($factura->siigo_id == null || $factura->siigo_id == ""){
                     $tiposPago = collect($this->getPaymentTypes());
+
+                    $tipoPagoCredito = $tiposPago->firstWhere('name', 'Crédito');
+                    $tipoPagoEfectivo = $tiposPago->firstWhere('name', 'Efectivo');
+
                     if($ingreso){
-                        $credito = $tiposPago->firstWhere('name', 'Efectivo')['id'];
+                        // Si es ingreso, usar Efectivo, pero si no existe, usar Crédito
+                        if($tipoPagoEfectivo){
+                            $credito = $tipoPagoEfectivo['id'];
+                        } elseif($tipoPagoCredito){
+                            $credito = $tipoPagoCredito['id'];
+                        } else {
+                            return response()->json([
+                                'success' => false,
+                                'text' => 'Error: No se encontró el tipo de pago "Efectivo" ni "Crédito" en Siigo. Por favor verifique la configuración de tipos de pago.',
+                                'resultados' => []
+                            ]);
+                        }
                     }else{
-                        $credito = $tiposPago->firstWhere('name', 'Crédito')['id'];
+                        // Si no es ingreso, usar Crédito, pero si no existe, usar Efectivo
+                        if($tipoPagoCredito){
+                            $credito = $tipoPagoCredito['id'];
+                        } elseif($tipoPagoEfectivo){
+                            $credito = $tipoPagoEfectivo['id'];
+                        } else {
+                            return response()->json([
+                                'success' => false,
+                                'text' => 'Error: No se encontró el tipo de pago "Crédito" ni "Efectivo" en Siigo. Por favor verifique la configuración de tipos de pago.',
+                                'resultados' => []
+                            ]);
+                        }
                     }
                     $servidor = $factura->servidor();
                     $sellerData = $this->getSeller();
