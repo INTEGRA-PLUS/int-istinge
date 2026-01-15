@@ -999,6 +999,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
 
 		Route::get('xml/{id}', 'NotascreditoController@xmlNotaCredito')->name('xml.notacredito');
+		Route::get('emisionmasivaxml/{notas}', 'NotascreditoController@emisionMasivaXml');
 		Route::get('descargar/{nro}', 'NotascreditoController@xml')->name('notascredito.xml');
 
 		Route::get('/{id}/imprimir', 'NotascreditoController@Imprimir')->name('notascredito.imprimir');

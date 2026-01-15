@@ -99,6 +99,16 @@
     			@if(isset($_SESSION['permisos']['750']))
     			<a href="{{route('campos.organizar', 18)}}" class="btn btn-warning btn-sm my-1"><i class="fas fa-table"></i> Organizar Tabla</a>
     			@endif
+    			@if(isset($_SESSION['permisos']['830']))
+    			<div class="dropdown d-inline-block">
+                    <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Acciones en Lote
+                    </button>
+                    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Emitir Notas de Crédito en Lote</a>
+                    </div>
+                </div>
+                @endif
     	</div>
     </div>
 
@@ -162,6 +172,29 @@
 			headers: {
 				'X-CSRF-TOKEN': '{{csrf_token()}}'
 			},
+			@if(isset($_SESSION['permisos']['830']))
+			select: true,
+            select: {
+                style: 'multi',
+            },
+            dom: 'Blfrtip',
+            buttons: [{
+                text: '<i class="fas fa-check"></i> Seleccionar todos',
+                action: function() {
+                    $('#tabla-notac').DataTable().rows({
+                        page: 'current'
+                    }).select();
+                }
+            },
+            {
+                text: '<i class="fas fa-times"></i> Deseleccionar todos',
+                action: function() {
+                    $('#tabla-notac').DataTable().rows({
+                        page: 'current'
+                    }).deselect();
+                }
+            }],
+            @endif
 			columns: [
 			    @foreach($tabla as $campo)
                     {data: '{{$campo->campo}}'},
@@ -170,9 +203,9 @@
 			]
 		});
 
-        tabla = $('#tabla-notac');
+        tabla = $('#tabla-notac').DataTable();
 
-        tabla.on('preXhr.dt', function(e, settings, data) {
+        $('#tabla-notac').on('preXhr.dt', function(e, settings, data) {
 			data.nro     = $('#nro').val();
 			data.nombre  = $('#nombre').val();
 			data.fecha   = $('#fecha').val();
@@ -203,10 +236,93 @@
             getDataTable();
             return false;
         });
+
+        $('#tabla-notac tbody').on('click', 'tr', function () {
+			var table = $('#tabla-notac').DataTable();
+			var nro = table.rows('.selected').data().length;
+
+			if(table.rows('.selected').data().length >= 0){
+				$("#btn_emitir").removeClass('disabled d-none');
+			}else{
+				$("#btn_emitir").addClass('disabled d-none');
+			}
+        });
+
+        $('#btn_emitir').on('click', function(e) {
+            var table = $('#tabla-notac').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if (nro <= 0) {
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una nota de crédito',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var notas = [];
+            for (i = 0; i < nro; i++) {
+                notas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '¿Desea realizar la emisión de ' + nro + ' notas de crédito electrónicas?',
+                text: 'Esto puede demorar unos minutos. Al Aceptar, no podrá cancelar el proceso',
+                type: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00ce68',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/notascredito/emisionmasivaxml/` + notas :
+                        `/empresa/notascredito/emisionmasivaxml/` + notas;
+
+                    $.ajax({
+                        url: url,
+                        method: 'GET',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+                            swal({
+                                title: 'PROCESO REALIZADO',
+                                html: data.text,
+                                type: 'success',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#1A59A1',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            if (xhr.status === 500) {
+                                swal({
+                                    title: 'INFO',
+                                    html: 'Se han emitido algunas notas de crédito, vuelve a emitir otro lote si quedan notas pendientes.',
+                                    type: 'info',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'Recargar Página',
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+            console.log(notas);
+        });
     });
 
 	function getDataTable() {
-		tabla.DataTable().ajax.reload();
+		$('#tabla-notac').DataTable().ajax.reload();
 	}
 
 	function abrirFiltrador() {
