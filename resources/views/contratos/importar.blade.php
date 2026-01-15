@@ -5,17 +5,15 @@
         <p>Esta opción permite crear nuevos contratos y/o modificarlos por el nro de identificación que posea el cliente que ya se encuentre registrado en el sistema.</p>
         <h4>Tome en cuenta las siguientes reglas para cargar la data</h4>
         <ul>
-            <li class="ml-3"> <form action="{{ route('contratos.ejemplo') }}" method="post" style="display: flex;flex-direction: row;align-items: center;">
-                @csrf
-                <label for="conexion">Selecciona tipo de conexión para descargar archivo Excel de ejemplo.:</label>
-                <select name="conexion" id="conexion" style="padding-left:10px;">
-                    <option value="1">PPPoE</option>
-                    <option value="0">IP Estática</option>
-                    <option value="2">DHCP</option>
-                </select>
-                <br><br>
-                <input type="submit" value="Click Aqui!" style="border:1px solid #305498;background-color: #305498 !important; color: #fff;">
-            </form></li>
+            <li class="ml-3">
+                <form action="{{ route('contratos.ejemplo') }}" method="post" style="display: inline;">
+                    @csrf
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-download"></i> Descargar Archivo Excel de Ejemplo
+                    </button>
+                </form>
+                <small class="text-muted ml-2">El archivo incluye todos los campos unificados para cualquier tipo de conexión</small>
+            </li>
 
             {{-- <li class="ml-3">Verifique que el orden de las columnas en su documento sea correcto. <small>Si no lo conoce haga clic <a href="{{ route('contratos.ejemplo') }}"><b>aqui</b></a> para descargar archivo Excel de ejemplo.</small></li> --}}
             <li class="ml-3">Verifique que el comienzo de la data sea a partir de la fila 4.</li>
@@ -121,37 +119,146 @@
             <li class="ml-3">El archivo debe ser extensión <b>.xlsx</b></li>
         </ul>
 
-        <form method="POST" action="{{ route('contratos.importar_cargando') }}" role="form" enctype="multipart/form-data">
-            @csrf
-            <div class="row">
-                <div class="form-group col-md-6 offset-md-3">
-                    <label class="control-label">Archivo <span class="text-danger">*</span></label>
-                    <input type="file" class="form-control" name="archivo" required="" accept=".xlsx, .XLSX">
-                    <span class="help-block">
-                        <strong>{{ $errors->first('archivo') }}</strong>
-                    </span>
-                </div>
+        <div class="card mt-4">
+            <div class="card-header" style="background-color: {{Auth::user()->empresa()->color}} !important; color: #fff;">
+                <h5 class="mb-0"><i class="fas fa-file-upload"></i> Cargar Archivo Excel</h5>
             </div>
-            <div class="row">
-                <div class="col-md-12">
-                    @if(count($errors) > 0)
-                    <div class="alert alert-danger">
-                        <ul>
-                            @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
+            <div class="card-body">
+                <form id="importForm" method="POST" action="{{ route('contratos.importar_cargando') }}" role="form" enctype="multipart/form-data">
+                    @csrf
+                    <div class="row">
+                        <div class="form-group col-md-8 offset-md-2">
+                            <label class="control-label"><i class="fas fa-file-excel"></i> Seleccione el archivo Excel <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="archivo" name="archivo" required accept=".xlsx, .XLSX">
+                                    <label class="custom-file-label" for="archivo">Seleccionar archivo...</label>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Solo se aceptan archivos con extensión .xlsx</small>
+                            @if($errors->has('archivo'))
+                                <span class="help-block text-danger">
+                                    <strong>{{ $errors->first('archivo') }}</strong>
+                                </span>
+                            @endif
+                        </div>
                     </div>
-                    @endif
-                </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            @if(count($errors) > 0)
+                            <div class="alert alert-danger">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Errores encontrados:</h6>
+                                <ul class="mb-0">
+                                    @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-12 text-right">
+                            <a href="{{route('contratos.index')}}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success" id="submitBtn">
+                                <i class="fas fa-upload"></i> Cargar Archivo
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
-            <hr>
-            <div class="row">
-                <div class="col-md-12 text-right">
-                    <a href="{{route('contratos.index')}}" class="btn btn-outline-light" >Cancelar</a>
-                    <button type="submit" class="btn btn-success">Guardar</button>
-                </div>
-            </div>
-        </form>
+        </div>
     </div>
+
+    <!-- Preloader con progreso -->
+    <div id="preloader" style="display: none;">
+        <div class="preloader-overlay">
+            <div class="preloader-content">
+                <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+                <h5>Procesando archivo...</h5>
+                <div class="progress mt-3" style="width: 300px; height: 25px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+                <p class="mt-3 mb-0" id="progressMessage">Iniciando procesamiento...</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .preloader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .preloader-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .progress-bar {
+            font-weight: bold;
+            color: #fff;
+        }
+    </style>
+
+    <script>
+        // Actualizar label del input file
+        document.getElementById('archivo').addEventListener('change', function(e) {
+            var fileName = e.target.files[0].name;
+            var nextSibling = e.target.nextElementSibling;
+            nextSibling.innerText = fileName;
+        });
+
+        // Manejar envío del formulario
+        document.getElementById('importForm').addEventListener('submit', function(e) {
+            var form = this;
+            var preloader = document.getElementById('preloader');
+            var progressBar = document.getElementById('progressBar');
+            var progressText = document.getElementById('progressText');
+            var progressMessage = document.getElementById('progressMessage');
+            var submitBtn = document.getElementById('submitBtn');
+
+            // Mostrar preloader
+            preloader.style.display = 'block';
+            submitBtn.disabled = true;
+
+            // Simular progreso (ya que el procesamiento es síncrono)
+            var progress = 0;
+            var interval = setInterval(function() {
+                progress += Math.random() * 15;
+                if (progress > 90) {
+                    progress = 90; // Dejar espacio para la finalización
+                }
+                progressBar.style.width = progress + '%';
+                progressText.textContent = Math.round(progress) + '%';
+                
+                if (progress < 30) {
+                    progressMessage.textContent = 'Leyendo archivo...';
+                } else if (progress < 60) {
+                    progressMessage.textContent = 'Validando datos...';
+                } else if (progress < 90) {
+                    progressMessage.textContent = 'Procesando registros...';
+                }
+            }, 300);
+
+            // El formulario se enviará normalmente
+            // Si hay un error, el preloader se ocultará al recargar la página
+        });
+    </script>
 @endsection
