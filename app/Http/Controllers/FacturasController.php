@@ -4512,7 +4512,6 @@ class FacturasController extends Controller{
             'hora_pago' => 'required',
         ]);
 
-
         $factura = Factura::where('id', $request->id)->first();
         $empresa = Empresa::find($factura->empresa);
 
@@ -4609,89 +4608,95 @@ class FacturasController extends Controller{
                 /* * * API CATV * * */
 
 
-                $mikrotik = Mikrotik::find($contrato->server_configuration_id);
-                $API = new RouterosAPI();
-                $API->port = $mikrotik->puerto_api;
+                // Validar que el contrato tenga server_configuration_id antes de conectar a Mikrotik
+                if($contrato->server_configuration_id != null) {
+                    $mikrotik = Mikrotik::find($contrato->server_configuration_id);
 
-                if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-                    $API->write('/ip/firewall/address-list/print', TRUE);
-                    $ARRAYS = $API->read();
+                    if($mikrotik) {
+                        $API = new RouterosAPI();
+                        $API->port = $mikrotik->puerto_api;
 
-                    #HABILITACION DEL SECRET#
-                    if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
-
-                        if($contrato->conexion == 1 && $contrato->usuario != null){
-                                            // Buscar el ID interno del secret
-                        $API->write('/ppp/secret/print', false);
-                        $API->write('?name=' . $contrato->usuario, true);
-                        $ARRAYS = $API->read();
-
-                        if (count($ARRAYS) > 0) {
-                            $id = $ARRAYS[0]['.id'];
-                            // Habilitar el secret
-                            $API->write('/ppp/secret/enable', false);
-                            $API->write('=numbers=' . $id, true);
-                            $response = $API->read();
-                        }
-                        }
-                        #HABILITACION DEL SECRET#
-
-                    }else{
-
-                        $API->write('/ip/firewall/address-list/print', false);
-                        $API->write('?address=' . $contrato->ip, false);
-                        $API->write('?list=morosos', true);
-                        $result = $API->read();
-
-                        if (!empty($result)) {
-
-                            #ELIMINAMOS DE MOROSOS#
-                            $API->write('/ip/firewall/address-list/print', false);
-                            $API->write('?address='.$contrato->ip, false);
-                            $API->write("?list=morosos",false);
-                            $API->write('=.proplist=.id');
+                        if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                            $API->write('/ip/firewall/address-list/print', TRUE);
                             $ARRAYS = $API->read();
 
-                            if(count($ARRAYS)>0){
-                                $API->write('/ip/firewall/address-list/remove', false);
-                                $API->write('=.id='.$ARRAYS[0]['.id']);
-                                $READ = $API->read();
+                            #HABILITACION DEL SECRET#
+                            if(isset($empresa->activeconn_secret) && $empresa->activeconn_secret == 1){
 
+                                if($contrato->conexion == 1 && $contrato->usuario != null){
+                                    // Buscar el ID interno del secret
+                                    $API->write('/ppp/secret/print', false);
+                                    $API->write('?name=' . $contrato->usuario, true);
+                                    $ARRAYS = $API->read();
 
-                                #AGREGAMOS A IP_AUTORIZADAS#
-                                $API->comm("/ip/firewall/address-list/add", array(
-                                    "address" => $contrato->ip,
-                                    "list" => 'ips_autorizadas'
-                                    )
-                                );
-                                #AGREGAMOS A IP_AUTORIZADAS#
-
-
-                                $mensaje = "- Se ha sacado la ip de morosos.";
-                                $contrato->state = 'enabled';
-                                $contrato->save();
+                                    if (count($ARRAYS) > 0) {
+                                        $id = $ARRAYS[0]['.id'];
+                                        // Habilitar el secret
+                                        $API->write('/ppp/secret/enable', false);
+                                        $API->write('=numbers=' . $id, true);
+                                        $response = $API->read();
+                                    }
+                                }
+                                #HABILITACION DEL SECRET#
 
                             }else{
-                                Log::info('Contrato nro:' . $contrato->nro . ' no se pudo sacar de morosos desde promesa de pago');
+
+                                $API->write('/ip/firewall/address-list/print', false);
+                                $API->write('?address=' . $contrato->ip, false);
+                                $API->write('?list=morosos', true);
+                                $result = $API->read();
+
+                                if (!empty($result)) {
+
+                                    #ELIMINAMOS DE MOROSOS#
+                                    $API->write('/ip/firewall/address-list/print', false);
+                                    $API->write('?address='.$contrato->ip, false);
+                                    $API->write("?list=morosos",false);
+                                    $API->write('=.proplist=.id');
+                                    $ARRAYS = $API->read();
+
+                                    if(count($ARRAYS)>0){
+                                        $API->write('/ip/firewall/address-list/remove', false);
+                                        $API->write('=.id='.$ARRAYS[0]['.id']);
+                                        $READ = $API->read();
+
+
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+                                        $API->comm("/ip/firewall/address-list/add", array(
+                                            "address" => $contrato->ip,
+                                            "list" => 'ips_autorizadas'
+                                            )
+                                        );
+                                        #AGREGAMOS A IP_AUTORIZADAS#
+
+
+                                        $mensaje = "- Se ha sacado la ip de morosos.";
+                                        $contrato->state = 'enabled';
+                                        $contrato->save();
+
+                                    }else{
+                                        Log::info('Contrato nro:' . $contrato->nro . ' no se pudo sacar de morosos desde promesa de pago');
+                                    }
+                                    #ELIMINAMOS DE MOROSOS#
+                                }else{
+                                    Log::info('Contrato nro:' . $contrato->nro . ' no estaba en morosos desde promesa de pago');
+                                }
+                                #ELIMINAMOS DE MOROSOS#
                             }
-                            #ELIMINAMOS DE MOROSOS#
-                        }else{
-                            Log::info('Contrato nro:' . $contrato->nro . ' no estaba en morosos desde promesa de pago');
+
+                            #AGREGAMOS A IP_AUTORIZADAS#
+                            $API->comm("/ip/firewall/address-list/add", array(
+                                "address" => $contrato->ip,
+                                "list" => 'ips_autorizadas'
+                                )
+                            );
+                            #AGREGAMOS A IP_AUTORIZADAS#
+
+                            $contrato->state = 'enabled';
+                            $contrato->save();
+                            $API->disconnect();
                         }
-                    #ELIMINAMOS DE MOROSOS#
                     }
-
-                    #AGREGAMOS A IP_AUTORIZADAS#
-                        $API->comm("/ip/firewall/address-list/add", array(
-                            "address" => $contrato->ip,
-                            "list" => 'ips_autorizadas'
-                            )
-                        );
-                    #AGREGAMOS A IP_AUTORIZADAS#
-
-                    $contrato->state = 'enabled';
-                    $contrato->save();
-                    $API->disconnect();
                 }
             }
 
@@ -5689,7 +5694,7 @@ class FacturasController extends Controller{
             ];
 
             $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-            
+
             $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
             $responseData = json_decode($responseOriginal, true);
 
