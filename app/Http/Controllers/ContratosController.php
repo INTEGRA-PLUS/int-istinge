@@ -2364,7 +2364,7 @@ class ContratosController extends Controller
         $inventario = false;
 
         // Buscar por id o por nro según el parámetro recibido
-        $query = Contrato::
+        $baseQuery = Contrato::
         join('contactos as c', 'c.id', '=', 'contracts.client_id')
         ->select('contracts.*', 'contracts.status as cs_status', 'c.nombre', 'c.apellido1', 'c.apellido2', 'c.nit', 'c.celular', 'c.telefono1', 'c.direccion', 'c.barrio', 'c.email', 'c.id as id_cliente', 'contracts.marca_router', 'contracts.modelo_router', 'contracts.marca_antena', 'contracts.modelo_antena', 'contracts.ip',
          'contracts.grupo_corte', 'contracts.adjunto_a', 'contracts.referencia_a', 'contracts.adjunto_b', 'contracts.referencia_b', 'contracts.adjunto_c', 'contracts.referencia_c', 'contracts.adjunto_d', 'contracts.referencia_d', 'contracts.simple_queue', 'contracts.latitude', 'contracts.longitude', 'contracts.servicio_tv', 'contracts.contrato_permanencia', 'contracts.contrato_permanencia_meses',
@@ -2373,14 +2373,14 @@ class ContratosController extends Controller
 
         // Si el parámetro es numérico, intentar buscar por id primero
         if (is_numeric($id)) {
-            $contrato = $query->where('contracts.id', $id)->first();
+            $contrato = (clone $baseQuery)->where('contracts.id', $id)->first();
             // Si no se encuentra por id, buscar por nro
             if (!$contrato) {
-                $contrato = $query->where('contracts.nro', $id)->first();
+                $contrato = (clone $baseQuery)->where('contracts.nro', $id)->first();
             }
         } else {
             // Si no es numérico, buscar directamente por nro
-            $contrato = $query->where('contracts.nro', $id)->first();
+            $contrato = (clone $baseQuery)->where('contracts.nro', $id)->first();
         }
 
         if ($contrato) {
@@ -2395,7 +2395,7 @@ class ContratosController extends Controller
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Detalles Contrato: ' . $contrato->nro]);
             return view('contratos.show')->with(compact('contrato', 'inventario', 'servicio_otro'));
         }
-        return redirect('empresa/contratos')->with('danger', 'EL CONTRATO DE SERVICIOS NO HA ENCONTRADO');
+        return redirect('empresa/contratos')->with('danger', 'EL CONTRATO DE SERVICIOS NO HA SIDO ENCONTRADO');
     }
 
     public function destroy($id)
