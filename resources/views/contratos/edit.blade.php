@@ -312,14 +312,14 @@
                                 </select>
                                 <input type="hidden" name="amarre_mac" id="amarre_mac">
                             </div>
-                            <div class="col-md-4 form-group {{$contrato->conexion==2?'':'d-none'}}" id="div_dhcp">
+                            <div class="col-md-4 form-group {{$contrato->conexion==1 || $contrato->conexion==2 ? '' : 'd-none'}}" id="div_simple_queue">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" id="simple_queue" name="simple_queue"  required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
                                     <option value="dinamica" {{$contrato->simple_queue == 'dinamica' ? 'selected':''}}>Dinámica</option>
                                     <option value="estatica" {{$contrato->simple_queue == 'estatica' ? 'selected':''}}>Estática</option>
                                 </select>
                             </div>
-                            <div class="col-md-4 form-group {{$contrato->conexion==3?'':'d-none'}}" id="div_interfaz">
+                            <div class="col-md-4 form-group {{ ($contrato->conexion==3 || (($contrato->conexion==1 || $contrato->conexion==2) && $contrato->simple_queue != 'dinamica')) ? '' : 'd-none' }}" id="div_interfaz">
                                 <label class="control-label">Interfaz de Conexión <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="hidden" id="interfaz_bd" value="{{ $contrato->interfaz }}">
@@ -333,7 +333,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group" id="div_segmento_ip">
+                            <div class="col-md-4 form-group {{ ($contrato->conexion == 1 || $contrato->conexion == 2) && $contrato->simple_queue == 'dinamica' ? 'd-none' : '' }}" id="div_segmento_ip">
                                 <label class="control-label" id="div_local_address">Segmento de IP</label>
                                   <div class="input-group">
                                     <input type="hidden" id="segmento_bd" value="{{ $contrato->local_address }}">
@@ -345,7 +345,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group" id="div_direccion_ip">
+                            <div class="col-md-4 form-group {{ ($contrato->conexion == 1 || $contrato->conexion == 2) && $contrato->simple_queue == 'dinamica' ? 'd-none' : '' }}" id="div_direccion_ip">
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address) <span class="text-danger">*</span></label>
                                   <div class="input-group">
                                     <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46"
@@ -377,9 +377,9 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4 form-group  {{$contrato->conexion==1?'':'d-none'}}" id="local_adress" {{$contrato->local_adress_pppoe ? '': 'd-none'}}>
+                            <div class="col-md-4 form-group {{ ($contrato->conexion==1 && $contrato->simple_queue != 'dinamica' && $contrato->local_adress_pppoe) ? '' : 'd-none' }}" id="local_adress">
                                 <label class="control-label">Dirección IP (Local Address)</label>
-                                <input type="text" class="form-control" name="direccion_local_address" id="local_address" value="{{$contrato->local_adress_pppoe}}" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46 || event.charCode==47">
+                                <input type="text" class="form-control" name="direccion_local_address" id="direccion_local_address" value="{{$contrato->local_adress_pppoe}}" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46 || event.charCode==47">
                             </div>
 
                             <div class="col-md-4 form-group  {{$contrato->conexion==1?'':'d-none'}}" id="div_profile" {{$contrato->profile ? '':'d-none'}}>

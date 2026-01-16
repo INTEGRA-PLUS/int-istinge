@@ -415,7 +415,7 @@
                                     value="{{ old('conexion') }}">
                             </div>
 
-                            <div class="col-md-4 form-group d-none" id="div_dhcp">
+                            <div class="col-md-4 form-group d-none" id="div_simple_queue">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" id="simple_queue" name="simple_queue"
                                     required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">

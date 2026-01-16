@@ -4486,7 +4486,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 4){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4511,7 +4512,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 2){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4526,24 +4528,13 @@ function interfazChange(){
         document.getElementById("div_mac").classList.remove('d-none');
         document.getElementById("mac_address").setAttribute('required', true);
 
-        document.getElementById("div_dhcp").classList.remove('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
 
         // Llamar a la función para ocultar/mostrar campos según Simple Queue
         toggleCamposDHCP();
     }else if(document.getElementById("conexion").value == 1){
-
-      //  document.getElementById("usuario").value = '';
-      //  document.getElementById("password").value = '';
-     //   document.getElementById("div_usuario").classList.remove('d-none');
-     //   document.getElementById("usuario").setAttribute('required', true);
-     //   document.getElementById("div_password").classList.remove('d-none');
-     //   document.getElementById("password").setAttribute('required', true);
-
-    //    document.getElementById("div_mac").classList.add('d-none');
-     //   document.getElementById("mac_address").removeAttribute('required');
-     //   document.getElementById("div_dhcp").classList.add('d-none');
-     //   document.getElementById("simple_queue").removeAttribute('required');
         document.getElementById("usuario").value = '';
         document.getElementById("password").value = '';
         document.getElementById("div_usuario").classList.remove('d-none');
@@ -4553,12 +4544,21 @@ function interfazChange(){
 
         document.getElementById("div_mac").classList.add('d-none');
         document.getElementById("mac_address").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
-        document.getElementById("simple_queue").removeAttribute('required');
-         // Campo que se activa nada mas cuando es pppoe
+        
+        // Mostrar Simple Queue para PPPOE
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) {
+            divSimpleQueue.classList.remove('d-none');
+            document.getElementById("simple_queue").setAttribute('required', true);
+        }
+        
+        // Campo que se activa nada mas cuando es pppoe
         document.getElementById("local_adress").classList.remove('d-none');
         document.getElementById("local_adress").setAttribute('required', true);
         document.getElementById("div_profile").classList.remove('d-none');
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
 
     }else{
         document.getElementById("div_interfaz").classList.add('d-none');
@@ -4588,7 +4588,8 @@ function interfazChange(){
 
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }
     document.getElementById("interfaz").value = '';
@@ -4620,14 +4621,15 @@ function toggleCamposDHCP(){
     // Verificar si los elementos existen (pueden no existir en todas las páginas)
     if(!conexion || !simpleQueue) return;
 
-    // Solo aplicar la lógica si el tipo de conexión es DHCP (valor 2)
-    if(conexion.value == 2){
-        var divInterfaz = document.getElementById("div_interfaz");
-        var divSegmentoIp = document.getElementById("div_segmento_ip");
-        var divDireccionIp = document.getElementById("div_direccion_ip");
-        var localAddress = document.getElementById("local_address");
-        var ip = document.getElementById("ip");
+    var divInterfaz = document.getElementById("div_interfaz");
+    var divSegmentoIp = document.getElementById("div_segmento_ip");
+    var divDireccionIp = document.getElementById("div_direccion_ip");
+    var localAddress = document.getElementById("local_address");
+    var ip = document.getElementById("ip");
+    var localAdress = document.getElementById("local_adress"); // Campo Dirección IP (Local Address) para PPPOE
 
+    // Aplicar la lógica si el tipo de conexión es DHCP (valor 2) o PPPOE (valor 1)
+    if(conexion.value == 2 || conexion.value == 1){
         // Si Simple Queue es dinámica, ocultar los campos
         if(simpleQueue.value == 'dinamica'){
             if(divInterfaz) {
@@ -4642,12 +4644,17 @@ function toggleCamposDHCP(){
             if(divDireccionIp) {
                 divDireccionIp.classList.add('d-none');
                 if(ip) ip.removeAttribute('required');
-                // Remover el asterisco del label cuando es DHCP con simple_queue dinámico
+                // Remover el asterisco del label cuando es dinámico
                 var labelIp = document.getElementById("div_ip");
                 if(labelIp) {
                     // Remover cualquier asterisco que pueda existir
                     labelIp.innerHTML = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
                 }
+            }
+            // Ocultar Local Address para PPPOE cuando es dinámico
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.add('d-none');
+                localAdress.removeAttribute('required');
             }
         } else {
             // Si Simple Queue es estática, mostrar los campos
@@ -4663,7 +4670,7 @@ function toggleCamposDHCP(){
             if(divDireccionIp) {
                 divDireccionIp.classList.remove('d-none');
                 if(ip) ip.setAttribute('required', true);
-                // Agregar el asterisco del label cuando es DHCP con simple_queue estático
+                // Agregar el asterisco del label cuando es estático
                 var labelIp = document.getElementById("div_ip");
                 if(labelIp) {
                     // Remover asteriscos existentes primero para evitar duplicados
@@ -4673,6 +4680,11 @@ function toggleCamposDHCP(){
                         labelIp.innerHTML = labelText.replace(/(Dirección IP \(Remote Address\))/, '$1 <span class="text-danger">*</span>');
                     }
                 }
+            }
+            // Mostrar Local Address para PPPOE cuando es estático
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.remove('d-none');
+                localAdress.setAttribute('required', true);
             }
         }
 

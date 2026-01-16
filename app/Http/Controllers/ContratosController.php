@@ -857,14 +857,20 @@ class ContratosController extends Controller
                             "name"           => $request->usuario,
                             "password"       => $request->password,
                             "profile"        => $request->profile,
-                            "remote-address" => $request->ip,
                             "service"        => 'pppoe',
                             "comment"        => $this->normaliza($servicio) . '-' . $nro_contrato
                         ];
 
-                        // Solo agregar si viene con valor válido
-                        if (!empty($request->direccion_local_address)) {
-                            $data["local-address"] = $request->direccion_local_address;
+                        // Solo agregar remote-address y local-address si Simple Queue es estática
+                        // Si Simple Queue es dinámica, no se incluyen estos campos (la IP se asigna automáticamente)
+                        if ($request->simple_queue != 'dinamica') {
+                            if (!empty($request->ip)) {
+                                $data["remote-address"] = $request->ip;
+                            }
+                            // Solo agregar si viene con valor válido
+                            if (!empty($request->direccion_local_address)) {
+                                $data["local-address"] = $request->direccion_local_address;
+                            }
                         }
 
                         $error = $API->comm("/ppp/secret/add", $data);
@@ -1767,14 +1773,20 @@ class ContratosController extends Controller
                             "name"           => $request->usuario,
                             "password"       => $request->password,
                             "profile"        => $request->profile,
-                            "remote-address" => $request->ip,
                             "service"        => 'pppoe',
                             "comment"        => $this->normaliza($servicio) . '-' . $contrato->nro
                         ];
 
-                        // Solo agregar si viene con valor válido
-                        if (!empty($request->direccion_local_address)) {
-                            $data["local-address"] = $request->direccion_local_address;
+                        // Solo agregar remote-address y local-address si Simple Queue es estática
+                        // Si Simple Queue es dinámica, no se incluyen estos campos (la IP se asigna automáticamente)
+                        if ($request->simple_queue != 'dinamica') {
+                            if (!empty($request->ip)) {
+                                $data["remote-address"] = $request->ip;
+                            }
+                            // Solo agregar si viene con valor válido
+                            if (!empty($request->direccion_local_address)) {
+                                $data["local-address"] = $request->direccion_local_address;
+                            }
                         }
 
                         $error = $API->comm("/ppp/secret/add", $data);
