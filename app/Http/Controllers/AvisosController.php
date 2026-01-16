@@ -342,6 +342,7 @@ class AvisosController extends Controller
                         // Buscar instancia activa
                         $instance = Instance::where('company_id', $empresa->id)
                                             ->where('activo', 1)
+                                            ->where('meta',0)
                                             ->first();
 
                         // Validar instancia solo una vez
