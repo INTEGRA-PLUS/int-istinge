@@ -1,5 +1,39 @@
 @extends('layouts.app')
 @section('content')
+  @if (Session::has('danger'))
+    <div class="alert alert-danger">
+      {{ Session::get('danger') }}
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
+  @if (Session::has('error'))
+    <div class="alert alert-danger">
+      {{ Session::get('error') }}
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
+  @if ($errors->any())
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach ($errors->all() as $error)
+          <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
   <form method="POST" action="{{ route('notasdebito.store') }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-factura" >
     {{ csrf_field() }}
     {{--<input type="hidden" value="1" name="cotizacion" id="cotizacion_si">
@@ -72,13 +106,16 @@
           </div>
         </div>
         <div class="form-group row">
-          <label class="col-sm-4 col-form-label">Factura<a>
+          <label class="col-sm-4 col-form-label">Factura <span class="text-danger">*</span><a>
               <i data-tippy-content="Lista de facturas de venta asociadas al lciente" class="icono far fa-question-circle"></i></a></label>
           <div class="col-sm-8">
             <select name="factura" id="lista_factura" required class="form-control form-control-sm  selectpicker" onchange="itemsFactura(this.value);" title="Seleccione Factura" data-live-search="true" data-size="5">
 
             </select>
           </div>
+          <span class="help-block error">
+            <strong>{{ $errors->first('factura') }}</strong>
+          </span>
         </div>
       </div>
     </div>
@@ -227,6 +264,7 @@
                         <td>{{Auth::user()->empresa()->moneda}} <span id="total">0</span></td>
                     </tr>
                 </table>
+                <input type="hidden" id="total_value" name="total_value" value="0">
             </div>
         </div>
     <div class="alert alert-danger  alert-view-show" style="display: none;" id="error-cliente"></div>
@@ -418,12 +456,20 @@
                       if (value.id_impuesto == null ) {
                           value.id_impuesto = '';
                       }
+                      if (value.tipo_item == null) {
+                          value.tipo_item = '';
+                      }
                       i++;
+                      // Determinar el tipo de item basándome en tipo_item
+                      // Si tipo_item es 1, es inventario; si es 2 o no existe, es categoría
+                      var typeValue = (value.tipo_item == 1) ? 'inv' : 'cat';
+
                       $('#table-form').append(
                           '<tr id="' + i + '">' +
                           '<td class="no-padding">' +
                           '<div class="resp-item">' +
                           '<input type="hidden" name="item[]" value="' + value.producto + '">' +
+                          '<input type="hidden" name="type[]" value="' + typeValue + '">' +
                           '<input type="text" class="form-control form-control-sm" disabled value="' + value.nombre + ' - ' + value.refer + '">' +
                           '</div>' +
                           '</td>' +

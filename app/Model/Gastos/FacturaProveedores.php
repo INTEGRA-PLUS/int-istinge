@@ -13,7 +13,7 @@ use App\Funcion;
 use Auth; use App\Model\Inventario\Bodega;
 use App\Retencion;
 use App\Model\Gastos\Ordenes_Compra;
-use App\Model\Gastos\NotaDeditoFactura;
+use App\Model\Gastos\NotaDebitoFactura;
 
 use Carbon\Carbon;
 use App\FormaPago;
@@ -244,11 +244,11 @@ class FacturaProveedores extends Model
     }
 
     public function devoluciones(){
-        return NotaDeditoFactura::where('factura',$this->id)->sum('pago');
+        return NotaDebitoFactura::where('factura',$this->id)->sum('pago');
     }
 
     public function notas_debito($cont=false){
-        $notas=NotaDeditoFactura::where('factura', $this->id);
+        $notas=NotaDebitoFactura::where('factura', $this->id);
         if ($cont) {
             return $notas->count();
         }
@@ -424,6 +424,11 @@ class FacturaProveedores extends Model
     public function clienteObj()
     {
         return $this->belongsTo(Contacto::class, 'proveedor');
+    }
+
+    public function compradorObj()
+    {
+        return $this->belongsTo(Vendedor::class, 'comprador');
     }
 
     public function forma_pago()

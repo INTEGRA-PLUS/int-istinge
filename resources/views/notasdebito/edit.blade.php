@@ -1,5 +1,39 @@
 @extends('layouts.app')
 @section('content')
+  @if (Session::has('danger'))
+    <div class="alert alert-danger">
+      {{ Session::get('danger') }}
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
+  @if (Session::has('error'))
+    <div class="alert alert-danger">
+      {{ Session::get('error') }}
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
+  @if ($errors->any())
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach ($errors->all() as $error)
+          <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
+    <script type="text/javascript">
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+    </script>
+  @endif
   <form method="POST" action="{{ route('notasdebito.update', $nota->id) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-factura" >
     {{ csrf_field() }}
     {{--<input name="_method" type="hidden" value="PATCH">
@@ -23,7 +57,7 @@
         <div class="form-group row">
           <label class="col-sm-4 col-form-label">Proveedor <span class="text-danger">*</span></label>
           <div class="col-sm-8">
-            <select class="form-control form-control-sm selectpicker" name="proveedor" id="cliente" title="Seleccione" data-live-search="true" data-size="5" required="" onchange="contacto(this.value); onchangecliente(this.value)">
+            <select class="form-control form-control-sm selectpicker" name="proveedor" id="cliente" title="Seleccione" data-live-search="true" data-size="5" required="" onchange="contacto(this.value); getFacturas(this.value)">
               @foreach($proveedores as $proveedor)
                 <option {{$nota->proveedor==$proveedor->id?'selected':''}} value="{{$proveedor->id}}">{{$proveedor->nombre}} - {{$proveedor->nit}}</option>
               @endforeach
@@ -71,6 +105,20 @@
               @endforeach
             </select>
           </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-4 col-form-label">Factura <span class="text-danger">*</span><a>
+              <i data-tippy-content="Lista de facturas de venta asociadas al proveedor" class="icono far fa-question-circle"></i></a></label>
+          <div class="col-sm-8">
+            <select name="factura" id="lista_factura" required class="form-control form-control-sm  selectpicker" onchange="itemsFactura(this.value);" title="Seleccione Factura" data-live-search="true" data-size="5">
+              @foreach($facturas as $fact)
+                <option value="{{$fact->id}}" {{$cod_factura==$fact->id?'selected':''}}>{{$fact->codigo}}</option>
+              @endforeach
+            </select>
+          </div>
+          <span class="help-block error">
+            <strong>{{ $errors->first('factura') }}</strong>
+          </span>
         </div>
       </div>
     </div>
@@ -410,4 +458,137 @@
 @endforeach
 </optgroup>
 @endforeach'>
+  <input type="hidden" id="retenciones" value="{{json_encode($retenciones)}}">
+@endsection
+
+@section('scripts')
+  <script>
+      function getFacturas(id){
+          // $('#error-cliente').hide();
+          var url = $('#url').val()+'/empresa/facturasp/proveedor/'+id;
+          $.ajax({
+              url: url,
+              complete: function(data){
+                  console.log(data.responseText);
+                  // $('#json-facturas').val(data.responseText);
+                  data = JSON.parse(data.responseText);
+                  $('#lista_factura').find('option').remove();
+                  $('#table-retencion tbody tr').remove();
+                  $.each(data,function(key, value)
+                  {
+                      $('#lista_factura').append('<option value=' + value.id + '>' + value.codigo + '</option>');
+                  });
+                  $('#lista_factura').selectpicker('refresh');
+              },
+              error: function(data){
+                  alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
+              }
+          });
+
+      }
+
+      function itemsFactura(id) {
+
+          var url = $('#url').val() + '/empresa/notasdebito/items/' + id;
+          $.ajax({
+              url: url,
+              /* beforeSend: function(){
+                   cargando(true);
+               },*/
+              complete: function (data) {
+                  console.log(data.responseText);
+                  data = JSON.parse(data.responseText);
+
+                  $('#table-form tbody tr').remove();
+                  $('#table-retencion tbody tr').remove();
+                  var i = 0;
+                  $.each(data, function (key, value) {
+
+                      if (value.desc == null) {
+                          value.desc = '';
+                      }
+                      if (value.impuesto == null ) {
+                          value.impuesto = '';
+                      }
+                      if (value.descripcion == null) {
+                          value.descripcion = '';
+                      }
+                      if (value.id_impuesto == null ) {
+                          value.id_impuesto = '';
+                      }
+                      if (value.tipo_item == null) {
+                          value.tipo_item = '';
+                      }
+                      i++;
+                      // Determinar el tipo de item basándome en tipo_item
+                      // Si tipo_item es 1, es inventario; si es 2 o no existe, es categoría
+                      var typeValue = (value.tipo_item == 1) ? 'inv' : 'cat';
+
+                      $('#table-form').append(
+                          '<tr id="' + i + '">' +
+                          '<td class="no-padding">' +
+                          '<div class="resp-item">' +
+                          '<input type="hidden" name="item[]" value="' + value.producto + '">' +
+                          '<input type="hidden" name="type[]" value="' + typeValue + '">' +
+                          '<input type="text" class="form-control form-control-sm" disabled value="' + value.nombre + ' - ' + value.refer + '">' +
+                          '</div>' +
+                          '</td>' +
+                          '<td class="monetario">' +
+                          '<div class="resp-precio">' +
+                          '<input type="number" class="form-control form-control-sm "  id="precio' + i + '" name="precio[]" placeholder="Precio Unitario" onkeyup="total(' + i + ')" required maxlength="24" min="0" value="' + value.precio + '">' +
+                          '</div>' +
+                          '</td>' +
+                          '<td>' +
+                          '<div class="resp-item">' +
+                          '<input type="hidden" name="descuento[]" value="' + value.desc + '" >' +
+                          '<input type="text" class="form-control form-control-sm nro "  id="desc' + i + '" name="desc[]" placeholder="%" value="' + value.desc + '" disabled>' +
+                          '</div>' +
+                          '</td>' +
+                          '<td class="no-padding">' +
+                          '<div class="resp-item">' +
+                          '<input type="hidden" name="impuesto[]" value="' + value.id_impuesto + '" porc="' + value.impuesto + '"  id="impuesto' + i + '">' +
+                          '<input type="text"  class="form-control form-control-sm" disabled value="' + value.impuesto + '">' +
+                          '</div>' +
+                          '</td>' +
+                          '<td  style="padding-top: 1% !important;">' +
+                          '<div class="resp-descripcion">' +
+                          '<textarea  class="form-control form-control-sm" id="descripcion' + i + '" name="descripcion[]" placeholder="Descripción" >' + value.descripcion + '</textarea>' +
+                          '</div>' +
+                          '</td>' +
+                          '<td>' +
+                          '<input type="number" class="form-control form-control-sm cantidades" id="cant' + i + '" name="cant[]" placeholder="Cantidad" onkeyup="total(' + i + ')" onclick="total(' + i + ');" min="1" value="' + value.cant + '" required="">' +
+                          '<p class="text-danger nomargin" id="pcant' + i + '"></p>' +
+                          '</td>' +
+                          '<td>' +
+                          '<div class="resp-total">' +
+                          '<input type="text" class="form-control form-control-sm text-right " name="total[]" id="total' + i + '" value="" disabled>' +
+                          '</div>' +
+                          '</td>' +
+                          '<td>' +
+                          '<button type="button" class="btn btn-outline-secondary btn-icons" onclick="Eliminar(' + i + ');">X</button>' +
+                          '</td>' +
+                          '</tr>'
+                      );
+                      $('.cantidades').trigger('click');
+                  });
+
+
+              },
+              error: function (data) {
+
+                  alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
+              }
+          });
+      }
+
+      // Cargar facturas al cambiar el proveedor
+      $(document).ready(function() {
+          $('#cliente').on('change', function() {
+              var proveedorId = $(this).val();
+              if (proveedorId) {
+                  getFacturas(proveedorId);
+              }
+          });
+      });
+  </script>
 @endsection
