@@ -376,6 +376,7 @@
             <a href="#" data-toggle="modal" data-target="#config_whatsapp_meta">Ingresar whatsapp business id</a><br>
             <a href="javascript:obtenerPlantillasWhatsapp()">Obtener plantillas whatsapp meta</a><br>
             <a href="#" data-toggle="modal" data-target="#config_plantilla_factura_whatsapp">Configurar plantilla por defecto para facturas</a><br>
+            <a href="{{ route('instances.index') }}">Instancia</a><br>
         </div>
 
 

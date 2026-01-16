@@ -1320,6 +1320,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		});
 		Route::resource('integracion-whatsapp', 'IntegracionWhatsAppController');
 
+		//INSTANCIAS WHATSAPP META
+		Route::resource('instances', 'InstancesController')->only(['index', 'store', 'destroy']);
+
 		//INTEGRACION PASARELAS DE PAGO
 		Route::group(['prefix' => 'integracion-pasarelas'], function () {
 			Route::post('/{id}/act_desc', 'IntegracionPasarelaController@act_desc')->name('integracion-pasarelas.act_desc');
