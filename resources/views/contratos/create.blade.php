@@ -1428,6 +1428,10 @@
                 },
             });
 
+            // Ejecutar toggleCamposDHCP al cargar la página para manejar el estado inicial
+            if(typeof toggleCamposDHCP === 'function') {
+                toggleCamposDHCP();
+            }
         });
     </script>
 @endsection

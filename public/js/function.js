@@ -4635,15 +4635,30 @@ function toggleCamposDHCP(){
             if(divInterfaz) {
                 divInterfaz.classList.add('d-none');
                 var interfaz = document.getElementById("interfaz");
-                if(interfaz) interfaz.removeAttribute('required');
+                if(interfaz) {
+                    interfaz.removeAttribute('required');
+                    interfaz.required = false;
+                    // También remover el atributo required del HTML
+                    $(interfaz).removeAttr('required');
+                }
             }
             if(divSegmentoIp) {
                 divSegmentoIp.classList.add('d-none');
-                if(localAddress) localAddress.removeAttribute('required');
+                if(localAddress) {
+                    localAddress.removeAttribute('required');
+                    localAddress.required = false;
+                    // También remover el atributo required del HTML
+                    $(localAddress).removeAttr('required');
+                }
             }
             if(divDireccionIp) {
                 divDireccionIp.classList.add('d-none');
-                if(ip) ip.removeAttribute('required');
+                if(ip) {
+                    ip.removeAttribute('required');
+                    ip.required = false;
+                    // También remover el atributo required del HTML
+                    $(ip).removeAttr('required');
+                }
                 // Remover el asterisco del label cuando es dinámico
                 var labelIp = document.getElementById("div_ip");
                 if(labelIp) {
@@ -4654,7 +4669,19 @@ function toggleCamposDHCP(){
             // Ocultar Local Address para PPPOE cuando es dinámico
             if(conexion.value == 1 && localAdress) {
                 localAdress.classList.add('d-none');
-                localAdress.removeAttribute('required');
+                var direccionLocalAddress = document.getElementById("direccion_local_address");
+                if(direccionLocalAddress) {
+                    direccionLocalAddress.removeAttribute('required');
+                    direccionLocalAddress.required = false;
+                    $(direccionLocalAddress).removeAttr('required');
+                }
+                // También buscar por el ID local_address que puede estar en el input
+                var localAddressInput = document.getElementById("local_address");
+                if(localAddressInput && localAddressInput.tagName === 'INPUT') {
+                    localAddressInput.removeAttribute('required');
+                    localAddressInput.required = false;
+                    $(localAddressInput).removeAttr('required');
+                }
             }
         } else {
             // Si Simple Queue es estática, mostrar los campos

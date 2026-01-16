@@ -323,7 +323,7 @@
                                 <label class="control-label">Interfaz de Conexión <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="hidden" id="interfaz_bd" value="{{ $contrato->interfaz }}">
-                                    <select class="form-control selectpicker" name="interfaz" id="interfaz" required="" title="Seleccione" data-live-search="true" data-size="5">
+                                    <select class="form-control selectpicker" name="interfaz" id="interfaz" {{ ($contrato->conexion==3 || (($contrato->conexion==1 || $contrato->conexion==2) && $contrato->simple_queue != 'dinamica')) ? 'required' : '' }} title="Seleccione" data-live-search="true" data-size="5">
                                         @foreach($interfaces as $interfaz)
                                         <option value="{{$interfaz->name}}" {{$interfaz->name==$contrato->interfaz?'selected':''}}>{{$interfaz->name}}</option>
                                         @endforeach
@@ -337,7 +337,7 @@
                                 <label class="control-label" id="div_local_address">Segmento de IP</label>
                                   <div class="input-group">
                                     <input type="hidden" id="segmento_bd" value="{{ $contrato->local_address }}">
-                                    <select class="form-control selectpicker" name="local_address" id="local_address" required="" title="Seleccione" data-live-search="true" data-size="5">
+                                    <select class="form-control selectpicker" name="local_address" id="local_address" {{ ($contrato->conexion == 1 || $contrato->conexion == 2) && $contrato->simple_queue == 'dinamica' ? '' : 'required' }} title="Seleccione" data-live-search="true" data-size="5">
 
                                     </select>
                                     <span class="help-block error">
@@ -349,7 +349,7 @@
                                 <label class="control-label" id="div_ip">Dirección IP (Remote Address) <span class="text-danger">*</span></label>
                                   <div class="input-group">
                                     <input type="text" class="form-control" name="ip" value="{{$contrato->ip}}" id="ip" onkeypress="return event.charCode >= 48 && event.charCode <=57 || event.charCode==46"
-                                    >
+                                    {{ ($contrato->conexion == 1 || $contrato->conexion == 2) && $contrato->simple_queue == 'dinamica' ? '' : 'required' }}>
                                     <div class="input-group-append">
                                         <button class="btn btn-outline-success btn-sm" type="button" id="searchIP" style="border-radius: 0 5px 5px 0;"><i class="fa fa-search" style="margin: 2px;"></i></button>
                                     </div>

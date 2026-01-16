@@ -757,8 +757,8 @@ class ContratosController extends Controller
                 'conexion' => 'required',
             ];
 
-            // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
-            if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
+            // El campo IP no es obligatorio cuando la conexión es DHCP o PPPOE y simple_queue es dinámico
+            if (!(($request->conexion == 2 || $request->conexion == 1) && $request->simple_queue == 'dinamica')) {
                 $rules['ip'] = 'required';
             }
 
@@ -1612,8 +1612,8 @@ class ContratosController extends Controller
                 'conexion' => 'required',
             ];
 
-            // El campo IP no es obligatorio cuando la conexión es DHCP y simple_queue es dinámico
-            if (!($request->conexion == 2 && $request->simple_queue == 'dinamica')) {
+            // El campo IP no es obligatorio cuando la conexión es DHCP o PPPOE y simple_queue es dinámico
+            if (!(($request->conexion == 2 || $request->conexion == 1) && $request->simple_queue == 'dinamica')) {
                 $rules['ip'] = 'required';
             }
 
