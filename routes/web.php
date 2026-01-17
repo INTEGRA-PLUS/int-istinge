@@ -671,6 +671,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('conversionmasiva/{facturas}', 'FacturasController@conversionmasivaElectronica');
 		Route::get('enviomasivosiigo/{facturas}', 'SiigoController@envioMasivoSiigo')->name('facturas.enviomasivosiigo');
 		Route::get('impresionmasiva/{facturas}', 'FacturasController@ImprimirMultiple');
+		Route::delete('eliminarmasiva/{facturas}', 'FacturasController@eliminarMasivaFacturas')->name('facturas.eliminarmasiva');
 		Route::get('exportar', 'FacturasController@exportar')->name('facturas.exportar');
 		Route::get('facturas_electronica/exportar', 'FacturasController@exportar');
 

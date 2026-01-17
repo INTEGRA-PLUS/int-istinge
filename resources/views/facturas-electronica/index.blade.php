@@ -235,6 +235,9 @@
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Emitir Facturas en Lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_siigo"><i class="fas fa-server"></i> Enviar a Siigo en lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_imp_fac"><i class="fas fa-file-excel"></i> Imprimir facturas</a>
+                        @if(isset($_SESSION['permisos']['44']))
+                        <a class="dropdown-item text-danger" href="javascript:void(0)" id="btn_eliminar"><i class="fas fa-trash"></i> Eliminar facturas en lote</a>
+                        @endif
                     </div>
                 </div>
 			</div>
@@ -625,6 +628,101 @@
 				}
 			})
 		});
+
+        $('#btn_eliminar').on('click', function(e) {
+            var table = $('#tabla-facturas').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if(nro <= 0){
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una factura.',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var facturas = [];
+            for (i = 0; i < nro; i++) {
+                facturas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '⚠️ ACCIÓN PELIGROSA',
+                html: '¿Desea eliminar ' + nro + ' facturas electrónicas?<br><br>' +
+                      '<strong style="color: #d33;">Esta acción es irreversible y no se puede retroceder.</strong><br><br>' +
+                      '<strong>IMPORTANTE:</strong> Recuerde que después de eliminar estas facturas, debe acomodar el siguiente número de facturación en numeraciones para que no queden saltos de facturas.',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/facturas/eliminarmasiva/` + facturas.join(',') :
+                        `/empresa/facturas/eliminarmasiva/` + facturas.join(',');
+
+                    $.ajax({
+                        url: url,
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+
+                            if(data.success == false){
+                                swal({
+                                    title: 'ERROR',
+                                    html: data.message || data.text || 'Ocurrió un error al eliminar las facturas',
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                                return false;
+                            }else{
+                                let html = data.text || 'Proceso de eliminación masiva terminado';
+                                if(data.errores && data.errores.length > 0){
+                                    html += '<br><br><strong>Facturas que no pudieron eliminarse:</strong><ul>';
+                                    data.errores.forEach(function(error) {
+                                        html += '<li>' + error + '</li>';
+                                    });
+                                    html += '</ul>';
+                                }
+
+                                swal({
+                                    title: 'PROCESO REALIZADO',
+                                    html: html,
+                                    type: 'success',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#1A59A1',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            }
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            let errorMessage = 'No se pudo eliminar las facturas. Por favor, inténtelo de nuevo más tarde.';
+                            if(xhr.responseJSON && xhr.responseJSON.message){
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            swal({
+                                title: 'ERROR',
+                                html: errorMessage,
+                                type: 'error',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#d33',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                        }
+                    });
+                }
+            });
+        });
 
 	});
 

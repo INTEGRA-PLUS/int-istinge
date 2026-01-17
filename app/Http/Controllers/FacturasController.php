@@ -21,6 +21,7 @@ use App\Model\Inventario\ProductosBodega;
 use App\Model\Ingresos\Remision;
 use App\Model\Ingresos\ItemsRemision;
 use App\Model\Ingresos\IngresosFactura;
+use App\Model\Ingresos\NotaCreditoFactura;
 use Illuminate\Support\Facades\Hash;
 use Session;
 use Response;
@@ -6407,6 +6408,108 @@ class FacturasController extends Controller{
         }
 
         return redirect('empresa/factura-index')->with('danger', 'LA FACTURA DE SERVICIOS NO HA ENCONTRADO');
+    }
+
+    public function eliminarMasivaFacturas($facturas){
+        try {
+            // Validar permiso 44
+            $this->getAllPermissions(Auth::user()->id);
+            if(!isset($_SESSION['permisos']['44'])){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tiene permisos para eliminar facturas'
+                ], 403);
+            }
+
+            $empresa = Auth::user()->empresaObj;
+            $facturas = explode(",", $facturas);
+            $eliminadas = 0;
+            $errores = [];
+
+            DB::beginTransaction();
+
+            for ($i = 0; $i < count($facturas); $i++) {
+                $factura = Factura::where('empresa', $empresa->id)->where('id', $facturas[$i])->first();
+
+                if(!$factura){
+                    $errores[] = "Factura ID {$facturas[$i]}: No encontrada";
+                    continue;
+                }
+
+                // Validar que no tenga pagos ni abonos
+                $tienePagos = IngresosFactura::where('factura', $factura->id)->exists();
+                if($tienePagos){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene pagos registrados";
+                    continue;
+                }
+
+                // Validar que no tenga notas de crédito asociadas
+                $tieneNotasCredito = NotaCreditoFactura::where('factura', $factura->id)->exists();
+                if($tieneNotasCredito){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene notas de crédito asociadas";
+                    continue;
+                }
+
+                // Para facturas tipo 2 (electrónicas), validar que no esté emitida
+                if($factura->tipo == 2 && $factura->emitida == 1){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque está emitida";
+                    continue;
+                }
+
+                // Si pasa todas las validaciones, eliminar factura y registros relacionados
+                try {
+                    // Eliminar items_factura (esto también elimina los impuestos asociados que están en la misma tabla)
+                    ItemsFactura::where('factura', $factura->id)->delete();
+
+                    // Eliminar factura_retenciones (retenciones asociadas a la factura)
+                    DB::table('factura_retenciones')->where('factura', $factura->id)->delete();
+
+                    // Eliminar ingresos_retenciones relacionados con esta factura
+                    DB::table('ingresos_retenciones')->where('factura', $factura->id)->delete();
+
+                    // Eliminar la relación en facturas_contratos por factura_id
+                    DB::table('facturas_contratos')->where('factura_id', $factura->id)->delete();
+
+                    // Eliminar descuentos relacionados
+                    Descuento::where('factura', $factura->id)->delete();
+
+                    // Eliminar notas_factura relacionadas
+                    DB::table('notas_factura')->where('factura', $factura->id)->delete();
+
+                    // Eliminar promesas de pago asociadas a la factura
+                    PromesaPago::where('factura', $factura->id)->delete();
+
+                    // Eliminar la factura misma
+                    $factura->delete();
+                    $eliminadas++;
+
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $errores[] = "Factura {$factura->codigo}: Error al eliminar - " . $e->getMessage();
+                }
+            }
+
+            DB::commit();
+
+            $text = "Se eliminaron exitosamente {$eliminadas} factura(s)";
+            if(count($errores) > 0){
+                $text .= ". " . count($errores) . " factura(s) no pudieron eliminarse";
+            }
+
+            return response()->json([
+                'success' => true,
+                'text' => $text,
+                'eliminadas' => $eliminadas,
+                'errores' => $errores
+            ]);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar facturas: ' . $th->getMessage()
+            ], 500);
+        }
     }
 
 

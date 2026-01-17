@@ -59,6 +59,8 @@
 	    				<center><img src="{{ asset('images/wompi_b.png') }}" class="img-fluid mb-3 border-dark border"></center>
 	    				<p class="text-justify">- En la sección de <strong>Secretos para integración técnica</strong>, dar clic en mostrar y copiar Eventos y pegarlo acá en la configuración</p>
 	    				<center><img src="{{ asset('images/wompi_c.png') }}" class="img-fluid mb-3 border-dark border"></center>
+                        <p class="text-justify">- En la sección de <strong>Secretos para integración técnica</strong>, dar clic en mostrar y copiar <strong>INTEGRIDAD</strong> y pegarlo acá en la configuración</p>
+
 	    			</div>
 	    			<div class="modal-footer">
 	    				<button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
