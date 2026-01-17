@@ -228,6 +228,22 @@ class ContratosController extends Controller
                     ->groupBy('contracts.id');
             }
 
+            // Filtro para contratos cuya última factura creada esté vencida
+            if ($request->otra_opcion && $request->otra_opcion == "opcion_6") {
+                $contratos->join('facturas_contratos as fc_ultima', function($join) {
+                    $join->on('fc_ultima.contrato_nro', '=', 'contracts.nro')
+                         ->whereRaw('fc_ultima.factura_id = (
+                             SELECT MAX(fc2.factura_id)
+                             FROM facturas_contratos as fc2
+                             WHERE fc2.contrato_nro = contracts.nro
+                         )');
+                })
+                ->join('factura as f_ultima', 'f_ultima.id', '=', 'fc_ultima.factura_id')
+                ->where('f_ultima.vencimiento', '<=', Carbon::now()->format('Y-m-d'))
+                ->where('f_ultima.estatus', '=', 1)
+                ->groupBy('contracts.id');
+            }
+
             // Aplica el filtro de facturas si el usuario lo selecciona
             if ($request->otra_opcion && $request->otra_opcion == "opcion_4") {
                 $contratos->join('facturas_contratos as fc', 'fc.contrato_nro', '=', 'contracts.nro')
