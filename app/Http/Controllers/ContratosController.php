@@ -564,6 +564,14 @@ class ContratosController extends Controller
             ->editColumn('state', function (Contrato $contrato) {
                 return '<span class="text-' . $contrato->status('true') . ' font-weight-bold">' . $contrato->status() . '</span>';
             })
+            ->editColumn('state_olt_catv', function (Contrato $contrato) {
+                if ($contrato->olt_sn_mac) {
+                    $estado = $contrato->state_olt_catv == 1 ? 'Habilitado' : 'Deshabilitado';
+                    $color = $contrato->state_olt_catv == 1 ? 'success' : 'danger';
+                    return '<span class="text-' . $color . ' font-weight-bold">' . $estado . '</span>';
+                }
+                return 'N/A';
+            })
             ->editColumn('pago', function (Contrato $contrato) {
                 return ($contrato->pago($contrato->c_id)) ? '<a href=' . route('ingresos.show', $contrato->pago($contrato->c_id)->id) . ' target="_blank">Nro. ' . $contrato->pago($contrato->c_id)->nro . ' | ' . date('d-m-Y', strtotime($contrato->pago($contrato->c_id)->fecha)) . '</a>' : 'N/A';
             })
@@ -640,7 +648,7 @@ class ContratosController extends Controller
                 return ($contrato->observaciones) ? $contrato->observaciones : 'N/A';
             })
             ->editColumn('acciones', $modoLectura ?  "" : "contratos.acciones")
-            ->rawColumns(['nro', 'client_id', 'nit', 'telefono', 'email', 'barrio', 'plan', 'mac', 'ipformat', 'grupo_corte', 'state', 'pago', 'servicio', 'factura', 'servicio_tv', 'acciones', 'vendedor', 'canal', 'tecnologia', 'observaciones', 'created_at'])
+            ->rawColumns(['nro', 'client_id', 'nit', 'telefono', 'email', 'barrio', 'plan', 'mac', 'ipformat', 'grupo_corte', 'state', 'state_olt_catv', 'pago', 'servicio', 'factura', 'servicio_tv', 'acciones', 'vendedor', 'canal', 'tecnologia', 'observaciones', 'created_at'])
             ->toJson();
     }
 
@@ -4229,6 +4237,83 @@ class ContratosController extends Controller
 
                     $succ++;
                 } else {
+                    $fail++;
+                }
+            }
+        }
+
+        return response()->json([
+            'success'   => true,
+            'fallidos'  => $fail,
+            'correctos' => $succ,
+            'state'     => $state
+        ]);
+    }
+
+    public function state_oltcatv_lote($contratos, $state)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+
+        $succ = 0;
+        $fail = 0;
+
+        $contratos = explode(",", $contratos);
+        $empresa = Auth::user()->empresa();
+
+        for ($i = 0; $i < count($contratos); $i++) {
+            $contrato = Contrato::find($contratos[$i]);
+
+            if ($contrato && $contrato->olt_sn_mac && $empresa->adminOLT != null) {
+                $curl = curl_init();
+
+                if ($state == 'enabled') {
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT . '/api/onu/enable_catv/' . $contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: ' . $empresa->smartOLT
+                        ),
+                    ));
+                } else if ($state == 'disabled') {
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => $empresa->adminOLT . '/api/onu/disable_catv/' . $contrato->olt_sn_mac,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_HTTPHEADER => array(
+                            'X-token: ' . $empresa->smartOLT
+                        ),
+                    ));
+                }
+
+                $response = curl_exec($curl);
+                $response = json_decode($response);
+
+                if (isset($response->status) && $response->status == true) {
+                    if ($state == 'disabled') {
+                        $contrato->state_olt_catv = 0;
+                    } else {
+                        $contrato->state_olt_catv = 1;
+                    }
+                    $contrato->save();
+                    $succ++;
+                } else {
+                    $fail++;
+                }
+
+                curl_close($curl);
+            } else {
+                if (!$contrato || !$contrato->olt_sn_mac || $empresa->adminOLT == null) {
                     $fail++;
                 }
             }
