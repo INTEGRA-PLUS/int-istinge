@@ -40,6 +40,7 @@
 <a href="{{route('factura.create.cliente', $c_id)}}" class="btn btn-outline-warning btn-icons" title="Crear una factura" target="_blank"><i class="fas fa-file-invoice-dollar"></i></a>
 
 @if($olt_sn_mac != null || $serial_onu != null)
+@php $olt_sn_mac = $olt_sn_mac != null ? $olt_sn_mac : $serial_onu; @endphp
 <a href="#" class="btn {{$state_olt_catv == true ? 'btn-outline-success' : 'btn-outline-danger'}} btn-icons" title="{{$state_olt_catv == true ? 'Deshabilitar Catv?' : 'Habilitar Catv?'}}'"
 onclick="confirmar('cambiar-statecatv{{$id}}',
 '¿Está seguro que desea cambiar el estado del catv a {{$state_olt_catv == true ? 'deshabilitado?' : 'habilitado?'}}',
