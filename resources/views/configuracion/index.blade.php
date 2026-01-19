@@ -376,6 +376,7 @@
             <a href="#" data-toggle="modal" data-target="#config_whatsapp_meta">Ingresar whatsapp business id</a><br>
             <a href="javascript:obtenerPlantillasWhatsapp()">Obtener plantillas whatsapp meta</a><br>
             <a href="#" data-toggle="modal" data-target="#config_plantilla_factura_whatsapp">Configurar plantilla por defecto para facturas</a><br>
+            <a href="javascript:registrarNumeroWhatsappMeta()">Registrar número de teléfono WhatsApp</a><br>
             <a href="{{ route('instances.index') }}">Instancia</a><br>
         </div>
 
@@ -2242,6 +2243,69 @@
                 },
                 error: function(xhr) {
                     var errorMessage = 'Error al obtener las plantillas';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    } else if (xhr.responseText) {
+                        try {
+                            var errorData = JSON.parse(xhr.responseText);
+                            if (errorData.message) {
+                                errorMessage = errorData.message;
+                            }
+                        } catch(e) {
+                            // Mantener el mensaje por defecto
+                        }
+                    }
+                    Swal.fire({
+                        type: 'error',
+                        title: 'Error',
+                        text: errorMessage
+                    })
+                }
+            });
+        }
+
+        function registrarNumeroWhatsappMeta() {
+            Swal.fire({
+                title: 'Registrando número...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion/registrar-numero-whatsapp-meta';
+            } else {
+                var url = '/configuracion/registrar-numero-whatsapp-meta';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'post',
+                success: function(data) {
+                    if (data.success == 1) {
+                        Swal.fire({
+                            type: 'success',
+                            title: 'Éxito',
+                            text: data.message || 'El numero de teléfono ha sido habilitado',
+                            showConfirmButton: true
+                        })
+                    } else {
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error al registrar el número',
+                            text: data.message || 'Por favor verifica la configuración e intenta nuevamente'
+                        })
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = 'Error al registrar el número';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
                     } else if (xhr.responseText) {

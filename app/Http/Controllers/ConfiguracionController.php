@@ -31,6 +31,7 @@ use App\Model\Inventario\Inventario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use App\Plantilla;
+use App\Instance;
 
 include_once(app_path() .'/../public/routeros_api.class.php');
 include_once(app_path() .'/../public/api_mt_include2.php');
@@ -3069,6 +3070,117 @@ class ConfiguracionController extends Controller
             return response()->json([
                 'success' => 0,
                 'message' => 'Error al guardar la configuración: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function registrarNumeroWhatsappMeta(Request $request)
+    {
+        try {
+            // Buscar instancia con meta=0
+            $instance = Instance::where('meta', 0)->first();
+
+            if (!$instance) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'No se encontró una instancia con meta=0'
+                ], 400);
+            }
+
+            // Validar que tenga phone_number_id
+            if (empty($instance->phone_number_id)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La instancia no tiene phone_number_id configurado'
+                ], 400);
+            }
+
+            // Obtener ACCESS_TOKEN_META del .env
+            $accessToken = env('ACCESS_TOKEN_META');
+            if (empty($accessToken)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'ACCESS_TOKEN_META no está configurado en el archivo .env'
+                ], 400);
+            }
+
+            // Construir URL de la API
+            $url = 'https://graph.facebook.com/v24.0/' . $instance->phone_number_id . '/register';
+
+            // Body de la petición
+            $body = json_encode([
+                'messaging_product' => 'whatsapp',
+                'pin' => '123456'
+            ]);
+
+            // Hacer petición POST a Facebook Graph API
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => $body,
+                CURLOPT_HTTPHEADER => array(
+                    'Authorization: Bearer ' . $accessToken,
+                    'Content-Type: application/json'
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            curl_close($curl);
+
+            if ($curlError) {
+                Log::error('Error cURL al registrar número WhatsApp: ' . $curlError);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error al conectar con la API de Facebook: ' . $curlError
+                ], 400);
+            }
+
+            if ($httpCode != 200) {
+                Log::error('Error HTTP al registrar número WhatsApp: ' . $httpCode . ' - ' . $response);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'
+                ], 400);
+            }
+
+            $responseData = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error al procesar la respuesta de la API'
+                ], 400);
+            }
+
+            // Verificar si la respuesta tiene success: true
+            if (isset($responseData['success']) && $responseData['success'] === true) {
+                return response()->json([
+                    'success' => 1,
+                    'message' => 'El numero de teléfono ha sido habilitado'
+                ]);
+            } else {
+                Log::error('Respuesta de API sin success: ' . $response);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La API no retornó success: true. Respuesta: ' . json_encode($responseData)
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Error al registrar número WhatsApp: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al registrar el número: ' . $e->getMessage()
             ], 500);
         }
     }

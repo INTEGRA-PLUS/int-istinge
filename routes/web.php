@@ -260,6 +260,7 @@ Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache'
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
 Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
 Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
+Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionController@registrarNumeroWhatsappMeta');
 Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
 Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
 Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
