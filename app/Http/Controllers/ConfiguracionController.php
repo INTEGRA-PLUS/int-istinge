@@ -3078,7 +3078,7 @@ class ConfiguracionController extends Controller
     {
         try {
             // Buscar instancia con meta=0
-            $instance = Instance::where('meta', 0)->first();
+            $instance = Instance::where('meta', 0)->where('activo', 1)->first();
 
             if (!$instance) {
                 return response()->json([
