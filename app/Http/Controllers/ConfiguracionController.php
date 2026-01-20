@@ -369,6 +369,7 @@ class ConfiguracionController extends Controller
         'remision' => 'required|numeric',
         'cotizacion' => 'required|numeric',
         'orden' => 'required|numeric',
+        'contrato' => 'required|numeric',
       ]);
 
 
@@ -380,6 +381,7 @@ class ConfiguracionController extends Controller
       $numeracion->remision=$request->remision;
       $numeracion->cotizacion=$request->cotizacion;
       $numeracion->orden=$request->orden;
+      $numeracion->contrato=$request->contrato;
       $numeracion->save();
     }
     else{
