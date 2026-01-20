@@ -39,11 +39,6 @@ class Empresa extends Model
         return $usuario;
     }
 
-    public function tipoIdentificacion()
-    {
-        return $this->belongsTo(TipoIdentificacion::class, 'tip_iden');
-    }
-
     public function tip_iden($tipo='completa'){
         if ($tipo=='completa') {
             return TipoIdentificacion::where('id',$this->tip_iden)->first()->identificacion;
