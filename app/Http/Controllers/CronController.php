@@ -4425,6 +4425,7 @@ class CronController extends Controller
             $instance = Instance::where('company_id', $empresa->id)
                 ->where('type', 1)
                 ->where('activo', 1)
+                ->where('meta', 0)
                 ->first();
 
             if (!$instance) {

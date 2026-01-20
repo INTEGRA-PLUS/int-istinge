@@ -5373,6 +5373,7 @@ class FacturasController extends Controller{
         // 1️⃣ Buscar instancia activa y factura base
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
+                            ->where('meta', 0)
                             ->first();
         $factura = Factura::findOrFail($id);
 
