@@ -8,13 +8,15 @@
 <p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
-	    @if($ingreso->tipo==1)
-	        {{-- @if($ingreso->ingresofactura()->factura()->estatus == 0) --}}
+	    @if($ingreso->tipo==1 || $ingreso->tipo==2)
+
+
+	            @php $nombre = $ingreso->tipo ==1  ? "Factura No. ".$ingreso->ingresofactura()->factura()->id.".pdf" : "Ingreso Nro." . $ingreso->nro . ".pdf" @endphp
+
+	            <a href="{{route('ingresos.tirilla', ['id' => $ingreso->nro, 'name' => $nombre])}}" class="btn btn-outline-warning @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" target="_blank" id="btn_tirilla"><i class="fas fa-print"></i>Imprimir tirilla</a>
 	        @if($ingreso->ingresofactura())
-	            <a href="{{route('ingresos.tirilla', ['id' => $ingreso->nro, 'name' => "Factura No. ".$ingreso->ingresofactura()->factura()->id.".pdf"])}}" class="btn btn-outline-warning @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" target="_blank" id="btn_tirilla"><i class="fas fa-print"></i>Imprimir tirilla</a>
 	            <a href="{{ route('ingresos.tirillawpp', ['id' => $ingreso->nro]) }}" class="btn btn-success @if(Auth::user()->rol==47) btn-xl @else btn-xs @endif" title="Tirilla" id="btn_tirilla"><i class="fab fa-whatsapp"></i>Enviar tirilla por Whatsapp</a>
 	        @endif
-	        {{-- @endif --}}
 	    @endif
 
 	    @if($ingreso->tipo!=3)
@@ -166,7 +168,6 @@
 								<tr>
 									<td><a href="{{route('facturas.show', $item->factura()->id)}}" target="_blank">{{$item->factura()->codigo}}</a></td>
 									<td>{{date('d-m-Y', strtotime($item->factura()->fecha))}}</td>
-
 									<td>{{date('d-m-Y', strtotime($item->factura()->vencimiento))}}</td>
 									<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->factura()->total()->total)}}</td>
 									<td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->factura()->pagado())}}</td>
@@ -287,7 +288,15 @@
 						</thead>
 						<tfoot>
 							<tr>
-								<td class="text-left"><a href="{{route('notasdebito.show',$ingreso->notas()->nro)}}" >{{$ingreso->notas()->nro}}</a> </td>
+								@if(isset($ingreso->notas->nro))
+									<td class="text-left">
+										<a href="{{ route('notasdebito.show', $ingreso->notas->nro) }}">
+											{{ $ingreso->notas->nro }}
+										</a>
+									</td>
+								@else
+									<td class="text-left">-</td>
+								@endif
 								<td class="text-left">{{date('d-m-Y', strtotime($ingreso->fecha))}}</td>
 								<td class="text-right">{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($ingreso->total_debito)}}</td>
 							</tr>

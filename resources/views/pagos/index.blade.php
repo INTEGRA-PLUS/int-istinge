@@ -4,7 +4,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
 	<button type="button" @if($busqueda) style="display: none;" @endif class="btn btn-info btn-sm " id="boto_filtrar" onclick="showdiv('filtro_tabla'); hidediv('boto_filtrar');"><i class="fas fa-search"></i> Filtrar</button>
@@ -12,18 +12,35 @@
 	@endif
 @endsection
 @section('content')
-	@if(Session::has('success'))
+
+    @if(Session::has('success'))
 		<div class="alert alert-success" >
 			{{Session::get('success')}}
 		</div>
 
 		<script type="text/javascript">
-			setTimeout(function(){ 
+			setTimeout(function(){
 			    $('.alert').hide();
 			    $('.active_table').attr('class', ' ');
 			}, 5000);
 		</script>
 	@endif
+
+    @if(Session::has('error'))
+        <div class="alert alert-danger" >
+            {{Session::get('error')}}
+        </div>
+
+        <script type="text/javascript">
+            setTimeout(function(){
+                $('.alert').hide();
+                $('.active_table').attr('class', ' ');
+            }, 8000);
+        </script>
+    @endif
+
+
+
 	<div class="row card-description">
 		<div class="col-md-12 mb-5 table-responsive">
 		    <form action="{{route('pagos.index')}}">
@@ -63,7 +80,7 @@
                     @endif
                 </div>
             </form>
-            
+
             <table class="table table-striped table-hover nowrap" id="table-facturas">
                 <thead class="thead-dark">
                     <tr>
@@ -90,7 +107,7 @@
     						<td>
     							<a  href="{{route('pagos.show',$gasto->id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
     							@if(Auth::user()->modo_lectura())
-    
+
     							@else
     								<a   href="{{route('pagos.imprimir.nombre',['id' => $gasto->id, 'name'=> 'Pago No. '.$gasto->nro.'.pdf'])}}" target="_black" class="btn btn-outline-primary btn-icons" title="Imprimir"><i class="fas fa-print"></i></a>
     								@if($gasto->tipo!=3)
@@ -106,18 +123,18 @@
     									@endif
     								@endif
     							@endif
-    							
-    
+
+
     							<form action="{{ route('pagos.destroy',$gasto->id) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-gasto{{$gasto->id}}">
         						{{ csrf_field() }}
     							<input name="_method" type="hidden" value="DELETE">
     							</form>
     							<button class="btn btn-outline-danger  btn-icons negative_paging" type="submit" title="Eliminar" onclick="confirmar('eliminar-gasto{{$gasto->id}}', '¿Estas seguro que deseas eliminar el gasto?', 'Se borrara de forma permanente');"><i class="fas fa-times"></i></button>
-    							@endif 
-    
-    						</td>  
-    					</tr> 
-    				@endforeach			
+    							@endif
+
+    						</td>
+    					</tr>
+    				@endforeach
     			</tbody>
     		</table>
     		{{$gastos->render()}}

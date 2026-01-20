@@ -100,7 +100,13 @@ class DescuentosController extends Controller
                 return "<span class='text-{$descuento->estado("true")}'><strong>{$descuento->estado()}</strong></span>";
             })
             ->editColumn('created_by', function (Descuento $descuento) {
-                return $descuento->created_by()->nombres;
+                $usuario = $descuento->created_by();
+                if ($usuario) {
+                    return $usuario->nombres;
+                } else {
+                    $primerUsuario = User::where('user_status', 1)->where('empresa', Auth::user()->empresa)->first();
+                    return $primerUsuario ? $primerUsuario->nombres : '- - - -';
+                }
             })
             ->editColumn('updated_by', function (Descuento $descuento) {
                 return $descuento->updated_by();

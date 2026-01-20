@@ -377,7 +377,7 @@
             </tr>
             <tr>
                 <th class="right smalltd" width="10%">BARRIO</th>
-                <td colspan="">{{isset($factura->contract()->barrio) ? $factura->contract()->barrio : $factura->cliente()->barrio}}</td>
+                <td colspan="">{{isset($factura->contract()->barrio) ? $factura->contract()->barrio : $factura->cliente()->barrio()->nombre}}</td>
             </tr>
             <tr>
                 <th class="right smalltd">CIUDAD/DEP</th>
@@ -764,7 +764,11 @@
 
     <div class="nota-content">
         <p>
+            @if($factura->term_cond != '')
+            {{ $factura->term_cond }}
+            @else
             {{ $empresa->terminos_cond }}
+            @endif
         </p>
     </div>
 

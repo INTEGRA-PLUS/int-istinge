@@ -1,7 +1,10 @@
 @extends('layouts.pdf')
 
 @section('content')
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
     <style type="text/css">
+
         /**
         * Define the width, height, margins and position of the watermark.
         **/#watermark {
@@ -16,8 +19,8 @@
         }
 
         body{
-            font-family: Helvetica, sans-serif;
-            font-size: 12px;
+            font-family: "DejaVu Sans", sans-serif;
+            font-size: 11px;
             color: #000;
         }
         h4{
@@ -26,13 +29,13 @@
             margin: 0;font-size: 14px;
         }
         .small{
-            font-size: 10px;line-height: 12px;    margin: 0;
+            font-size: 10px;line-height: 8px;    margin: 0;
         }
         .smalltd{
-            font-size: 10px;line-height: 12px; padding-right: 2px;
+            font-size: 10px;line-height: 8px; padding-right: 2px;
         }
         .medium{
-            font-size: 17px;line-height: 14px;    margin: 0;
+            font-size: 17px;line-height: 10px;    margin: 0;
         }
         a{
             color: #000;
@@ -86,12 +89,12 @@
             border-right: 2px solid #ccc;
         }
         .foot td{
-            padding-top: 3px;
+            padding-top: 1px;
             border: 1px solid #fff;
             padding-right: 1%;
         }
         .foot th{
-            padding: 2px;
+            padding: 1px;
             border-radius: unset;
         }
         .border_left{
@@ -168,47 +171,56 @@
                         - {{$factura->cliente()->dv }}
                     @endif</td>
                 <td class="center" style="border-right: 2px solid #ccc;">{{--{{date('d/m/Y', strtotime($factura->fecha))}}--}}{{Carbon\Carbon::parse($factura->fecha)->format('d/m/Y')}}</td>
-
+            </tr>
 
             <tr>
-                <th class="right smalltd" width="10%">DIRECCION</th>
-                <td colspan="">
-                    @if(isset($data['Contrato']['direccion_instalacion']))
-                        {{$data['Contrato']['direccion_instalacion']}}
-                    @else
-                        {{$factura->cliente()->direccion}}
-                    @endif
+                <th rowspan="2" class="right smalltd">CIUDAD</th>
+                <td rowspan="2">{{$factura->cliente()->municipio()->nombre}}</td>
+
+                <th rowspan="2" class="right" style="font-size:9px">CORREO</th>
+                <td rowspan="2" style="border-bottom:2px solid #ccc;">
+                    {{$factura->cliente()->email}}
                 </td>
-                <th class="right smalltd" width="15%" style="padding-right: 2px;">{{$factura->cliente()->tip_iden('mini')}}</th>
-                <td style="border-bottom: 2px solid #ccc;" width="20%" >{{$factura->cliente()->nit }}
-                    @if($factura->cliente()->dv != null)
-                        - {{$factura->cliente()->dv }}
-                    @endif</td>
-                <td class="center" style="border-right: 2px solid #ccc;">{{Carbon\Carbon::parse($factura->fecha)->format('d/m/Y')}}</td>
+
+                <th class="center" style="font-size:8px">
+                    <b>FECHA DE VENCIMIENTO (DD/MM/AA)</b>
+                </th>
+            </tr>
+
+            <tr>
+                <td class="center" style="border-bottom:2px solid #ccc;">
+                    {{ date('d/m/Y', strtotime($factura->vencimiento)) }}
+                </td>
             </tr>
             <tr>
-                <th class="right smalltd">CIUDAD</th>
-                <td colspan="">{{$factura->cliente()->municipio()->nombre}}</td>
-                <th class="right" style="padding-right: 2px; font-size: 9px">FECHA DE SUSPENSIÓN</th>
-                <td style="border-bottom: 2px solid #ccc;" >{{date('d/m/Y', strtotime($factura->suspension))}}</td>
-                <th class="center" style="font-size: 8px"><b>FECHA DE VENCIMIENTO (DD/MM/AA)</b></th>
+                <th width="10%" class="right smalltd">CELULAR</th>
+                <td colspan="4" style="border-top: 2px solid #ccc;">
+                    {{$factura->cliente()->celular}}
+                </td>
             </tr>
-
-
         </table>
     </div>
 
 
     <div style="margin-top: 2%;">
         <table border="0" class="desgloce" >
+            <colgroup>
+                <col style="width: 35%">
+                <col style="width: 14%">
+                <col style="width: 10%">
+                <col style="width: 14%">
+                <col style="width: 12%">
+                <col style="width: 15%">
+            </colgroup>
+
             <thead>
                 <tr>
-                    <th style="padding: 3px;"  width="40%" class="center smalltd">Ítem</th>
-                    <th style="padding: 3px;" width="14%"class="center smalltd">Referencia</th>
-                    <th style="padding: 3px;" width="10%" class="center smalltd">Cantidad</th>
-                    <th style="padding: 3px;" width="14%" class="center smalltd">Precio</th>
-                    <th style="padding: 3px;" width="14%" class="center smalltd">Descuento</th>
-                    <th style="padding: 3px;" width="15%" class="center smalltd">Total</th>
+                    <th class="center smalltd">Ítem</th>
+                    <th class="center smalltd">Referencia</th>
+                    <th class="center smalltd">Cantidad</th>
+                    <th class="center smalltd">Precio</th>
+                    <th class="center smalltd">Descuento</th>
+                    <th class="center smalltd">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -218,8 +230,8 @@
                 @php $cont++; @endphp
                     <tr>
                         {{-- <td class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$item->producto()}} @if($item->descripcion) ({{$item->descripcion}}) @endif</td> --}}
-                        <td class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">{{ strtolower($item->producto()) }} @if($item->descripcion) ({{ strtolower($item->descripcion) }}) @endif</td>
-                        <td class="center @if($cont==$itemscount && $cont>6) border_bottom @endif">{{strtolower($item->ref)}}</td>
+                        <td class="left padding-left border_left @if($cont==$itemscount && $cont>6) border_bottom @endif">{{ $item->producto()}} @if($item->descripcion) ({{ $item->descripcion}}) @endif</td>
+                        <td class="center @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$item->ref}}</td>
                         <td class="center  @if($cont==$itemscount && $cont>6) border_bottom @endif">{{round($item->cant)}}</td>
                         <td class="center padding-right  @if($cont==$itemscount && $cont>6) border_bottom @endif">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($item->precio)}}</td>
                         <td class="center  @if($cont==$itemscount && $cont>6) border_bottom @endif">{{$item->desc == 0 ? '' :  $item->desc . "%"}}</td>
@@ -246,57 +258,78 @@
 
             <tfoot>
                 <tr class="foot">
-                    <th colspan="4" class="smalltd">{{$factura->facnotas}}</th>
+                    <td colspan="4" class="smalltd border_left">{{$factura->facnotas}}</td>
                     <td class="right">SubTotal</td>
-                    <td class="center padding-right">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->subtotal)}}</td>
+                    <td class="right padding-right border_right">
+                        {{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->subtotal)}}
+                    </td>
                 </tr>
+
                 @if($factura->total()->descuento>0)
-                    <tr class="foot">
-                        <td colspan="4" class="smalltd"></td>
-                        <td class="right">Descuento</td>
-                        <td class="center padding-right">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->descuento)}} </td>
-                    </tr>
-                    <tr class="foot">
-                        <td colspan="4" class="smalltd"></td>
-                        <td class="right">SubTotal</td>
-                        <td class="center padding-right">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->resul)}}</td>
-                    </tr>
+                <tr class="foot">
+                    <td colspan="4" class="smalltd border_left"></td>
+                    <td class="right">Descuento</td>
+                    <td class="right padding-right border_right">
+                        {{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->descuento)}}
+                    </td>
+                </tr>
+
+                <tr class="foot">
+                    <td colspan="4" class="smalltd border_left"></td>
+                    <td class="right">SubTotal</td>
+                    <td class="right padding-right border_right">
+                        {{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->resul)}}
+                    </td>
+                </tr>
                 @endif
+
                 @if($factura->total()->imp)
                     @foreach($factura->total()->imp as $imp)
                         @if(isset($imp->total))
-                            <tr class="foot">
-                                <td colspan="4" class="smalltd"></td>
-                                <td class="right">{{$imp->nombre}} ({{$imp->porcentaje}}%)</td>
-                                <td class="center padding-right">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($imp->total)}}</td>
-                            </tr>
+                        <tr class="foot">
+                            <td colspan="4" class="smalltd border_left"></td>
+                            <td class="right">{{$imp->nombre}} ({{$imp->porcentaje}}%)</td>
+                            <td class="right padding-right border_right">
+                                {{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($imp->total)}}
+                            </td>
+                        </tr>
                         @endif
                     @endforeach
                 @endif
-                @foreach($retenciones as $retencion)
 
-                    <tr class="foot">
-                        <td colspan="4" class="smalltd"></td>
-                        <td class="right">{{$retencion->retencion()->nombre}} ({{$retencion->retencion()->porcentaje}}%)</td>
-                        <td class="center padding-right">{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($retencion->valor)}}</td>
-                    </tr>
-                @endforeach
+                @foreach($retenciones as $retencion)
                 <tr class="foot">
-                    <td colspan="4"> </td>
-                    <th class="right padding-right">Total</th>
-                    <th class="center padding-right">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total)}} </th>
+                    <td colspan="4" class="smalltd border_left"></td>
+                    <td class="right">{{$retencion->retencion()->nombre}} ({{$retencion->retencion()->porcentaje}}%)</td>
+                    <td class="right padding-right border_right">
+                        {{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($retencion->valor)}}
+                    </td>
+                </tr>
+                @endforeach
+
+                <tr class="foot">
+                    <td colspan="4" class="border_left border_bottom"></td>
+                    <td class="right border_bottom"><b>Total</b></td>
+                    <td class="right padding-right border_right border_bottom">
+                        <b>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total)}}</b>
+                    </td>
                 </tr>
             </tfoot>
         </table>
-
+    <br>
+    <br>
         @if(isset($codqr))
     <p style="font-size:7px;margin-top:-20px;"><strong>cufe: </strong>{{$CUFEvr}}</p>
     @endif
-
-        <p style="text-align: justify;" class="small">{{$resolucion->resolucion}}</p>
     </div>
     <div style="width: 70%; margin-top: 1%">
+
+        @if($factura->term_cond != "")
         <p style="text-align: justify;" class="small">{{$factura->term_cond}}</p>
+        @else
+        <p style="text-align: justify;" class="small">{{$resolucion->resolucion}}</p>
+        @endif
+
         @if(isset($codqr))
         <div>
             <img src="data:image/png;base64, {!! base64_encode(QrCode::format('png')->size(200)->generate($codqr)) !!} ">

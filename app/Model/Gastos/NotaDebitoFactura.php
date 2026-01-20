@@ -3,8 +3,8 @@
 namespace App\Model\Gastos;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Model\Gastos\FacturaProveedores; use App\Model\Gastos\NotaDedito; 
-class NotaDeditoFactura extends Model 
+use App\Model\Gastos\FacturaProveedores; use App\Model\Gastos\NotaDebito;
+class NotaDebitoFactura extends Model
 {
     protected $table = "notas_factura_debito";
     protected $primaryKey = 'id';
@@ -17,18 +17,22 @@ class NotaDeditoFactura extends Model
         'nota', 'factura', 'pago', 'created_at', 'updated_at'
     ];
 
-    
+
     public function factura(){
          return FacturaProveedores::where('id',$this->factura)->first();
     }
 
     public function nota(){
-        return NotaDedito::where('id',$this->nota)->first();
+        return NotaDebito::where('id',$this->nota)->first();
     }
 
     public function pago(){
         return $this->pago+$this->retencion();
     }
 
+    public function facturaObj()
+    {
+        return $this->belongsTo(FacturaProveedores::class, 'factura');
+    }
+
 }
- 

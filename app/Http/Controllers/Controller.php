@@ -8,7 +8,7 @@ use App\Contacto;
 use App\Cotizacion;
 use App\Model\Gastos\FacturaProveedores;
 use App\Model\Gastos\Gastos;
-use App\Model\Gastos\NotaDedito;
+use App\Model\Gastos\NotaDebito;
 use App\Model\Gastos\Ordenes_Compra;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\Ingreso;
@@ -202,10 +202,7 @@ class Controller extends BaseController
                     $contacto->saldo_favor = $contacto->saldo_favor - $MovimientoSaldoFavor->saldo;
                     $ingreso->valor_anticipo = $ingreso->valor_anticipo - $MovimientoSaldoFavor->saldo;
                 }
-                //Tambien debe sumar sobre el recibo de caja que tenia el saldo a favor.
-                // PucMovimiento::where('consecutivo_comprobante',$ingreso->nro)->update([
-                //     ''
-                // ]);
+
 
             }else{
                 if($MovimientoSaldoFavor->tipo == 2){
@@ -407,7 +404,7 @@ class Controller extends BaseController
 
     private function getAllDebit($empresa, $request)
     {
-        return NotaDedito::leftjoin('contactos as c', 'c.id', '=', 'notas_debito.proveedor')->select('notas_debito.*',
+        return NotaDebito::leftjoin('contactos as c', 'c.id', '=', 'notas_debito.proveedor')->select('notas_debito.*',
             'c.nombre as nombrecliente')
             ->where('notas_debito.empresa', $empresa)
             ->where(function ($query) use ($request){
@@ -516,7 +513,7 @@ class Controller extends BaseController
                 "Content-Type: application/json",
                 "Postman-Token: 13e97781-32ef-49b7-ad05-3461f465d410",
                 "cache-control: no-cache",
-                "efacturaAuthorizationToken:OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB"
+                "efacturaAuthorizationToken:AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB"
             ),
         ));
         $response = curl_exec($curl);
@@ -597,7 +594,7 @@ class Controller extends BaseController
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => "GET",
                 CURLOPT_HTTPHEADER => array(
-                    "efacturaAuthorizationToken: OhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
+                    "efacturaAuthorizationToken: AOhtRSpXG-QHqV-nW5G-04NH-xPG7rHXSR2CB",
                     "Content-Type: text/plain",
                     "Partnership-Id: 1128464945"
                 ),
@@ -1458,16 +1455,19 @@ class Controller extends BaseController
         $registro = false;
         $getall = '';
         $profile = $API->port;
+        $connectionError = false;
 
         if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
             $API->write('/ppp/profile/getall');
             $READ = $API->read(false);
             $profile = $API->parseResponse($READ);
             $API->disconnect();
-           }
+        } else {
+            $connectionError = true;
+        }
 
         //   return "";
-        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotik,'profile' => $profile]);
+        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotik,'profile' => $profile, 'connection_error' => $connectionError]);
     }
 
     public function logsMK($mikrotik){
@@ -2100,7 +2100,7 @@ if ($mikrotik) {
         CURLOPT_HTTPHEADER => array(
             'Content-Type: application/json',
             'Partnership-Id: 1128464945',
-            'efacturaAuthorizationToken: 62808bf1-d446-46ee-8120-00162e95c059'
+            'efacturaAuthorizationToken: A62808bf1-d446-46ee-8120-00162e95c059'
         ),
         ));
 

@@ -44,7 +44,12 @@ class Movimiento extends Model
             return route($this->modulo()->modulo.'.show', IngresoR::find($this->id_modulo)->id);
         }
         else if ($this->modulo==3) {
-            return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return route($this->modulo()->modulo.'.show', Gastos::find($this->id_modulo)->id);
+            }else{
+                return route('pagos.show', $this->id_modulo);
+            }
         }
     }
 
@@ -78,24 +83,36 @@ class Movimiento extends Model
 
     public function categoria(){
         if ($this->modulo==1) {
-            if(Ingreso::find($this->id_modulo)){
-                return Ingreso::find($this->id_modulo)->detalle();
+            $ingreso = Ingreso::find($this->id_modulo);
+            if($ingreso){
+                return $ingreso->detalle();
             }
         }
         else if ($this->modulo==2) {
-            return IngresoR::find($this->id_modulo)->detalle();
+            $ingresoR = IngresoR::find($this->id_modulo);
+            if($ingresoR){
+                return $ingresoR->detalle();
+            }
         }
         else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->detalle();
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return $gasto->detalle();
+            }else{
+                return "Pago a documento";
+            }
         }
         else if($this->modulo==6){
-            if(Ingreso::find($this->id_modulo)){
-                return "saldo a favor en " . Ingreso::find($this->id_modulo)->detalle();
+            $ingreso = Ingreso::find($this->id_modulo);
+            if($ingreso){
+                return "saldo a favor en " . $ingreso->detalle();
             }
         }
-        if (GastosRecurrentes::find($this->id_modulo)) {
-                return GastosRecurrentes::find($this->id_modulo)->detalle();
-            }
+        $gastoRecurrente = GastosRecurrentes::find($this->id_modulo);
+        if ($gastoRecurrente) {
+            return $gastoRecurrente->detalle();
+        }
+        return '';
     }
 
     public function cliente(){
@@ -191,7 +208,13 @@ class Movimiento extends Model
                 return $obs->observaciones;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->observaciones;
+            $gasto = Gastos::find($this->id_modulo);
+
+            if($gasto){
+                return Gastos::find($this->id_modulo)->observaciones;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 
@@ -202,7 +225,12 @@ class Movimiento extends Model
                 return $notas->notas;
             }
         }else if ($this->modulo==3) {
-            return Gastos::find($this->id_modulo)->notas;
+            $gasto = Gastos::find($this->id_modulo);
+            if($gasto){
+                return Gastos::find($this->id_modulo)->notas;
+            }else{
+                return "Pago a documento";
+            }
         }
     }
 

@@ -25,6 +25,7 @@ use App\Services\WapiService;
 use Illuminate\Support\Facades\Auth as Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
+use App\WhatsappMetaLog;
 
 class AvisosController extends Controller
 {
@@ -97,7 +98,7 @@ class AvisosController extends Controller
         $opcion = 'SMS';
 
         view()->share(['title' => 'Envío de Notificaciones por '.$opcion, 'icon' => 'fas fa-paper-plane']);
-        $plantillas = Plantilla::where('status', 1)->where('tipo', 0)->get();
+        $plantillas = Plantilla::where('status', 1)->whereIn('tipo', [0, 2, 3])->get();
         $contratos = Contrato::select('contracts.*', 'contactos.id as c_id', 'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1', 'contactos.apellido2 as c_apellido2', 'contactos.nit as c_nit', 'contactos.telefono1 as c_telefono', 'contactos.email as c_email', 'contactos.barrio as c_barrio')
 			->join('contactos', 'contracts.client_id', '=', 'contactos.id')
             ->where('contracts.empresa', Auth::user()->empresa)
@@ -128,7 +129,7 @@ class AvisosController extends Controller
         $opcion = 'whatsapp';
 
         view()->share(['title' => 'Envío de Notificaciones por '.$opcion, 'icon' => 'fas fa-paper-plane']);
-        $plantillas = Plantilla::where('status', 1)->where('tipo', 2)->get();
+        $plantillas = Plantilla::where('status', 1)->whereIn('tipo', [0, 2, 3])->get();
 
         $contratos = Contrato::select('contracts.*', 'contactos.id as c_id',
         'contactos.nombre as c_nombre', 'contactos.apellido1 as c_apellido1',
@@ -209,12 +210,46 @@ class AvisosController extends Controller
             }
         }
 
+        $isFiberNet = false;
+
+        $empresa = Auth::user()->empresa(); // si en tu proyecto empresa() retorna el modelo (no la relación)
+        if ($empresa && isset($empresa->nombre)) {
+            $isFiberNet = trim($empresa->nombre) === 'FiberNet Colombia';
+        }
+
         $servidores = Mikrotik::where('empresa', auth()->user()->empresa)->get();
         $gruposCorte = GrupoCorte::where('empresa', Auth::user()->empresa)->get();
 
-        return view('avisos.envio')->with(compact('plantillas','contratos','opcion','id', 'servidores', 'gruposCorte'));
+        return view('avisos.envio')->with(compact('plantillas','contratos','opcion','id', 'servidores', 'gruposCorte', 'isFiberNet'));
     }
 
+    /**
+     * Obtiene los datos de una plantilla Meta para ser usada en la vista
+     */
+    public function getPlantillaMeta($id)
+    {
+        $plantilla = Plantilla::find($id);
+        if (!$plantilla || $plantilla->tipo != 3) {
+            return response()->json(['error' => 'Plantilla no encontrada o no es de tipo Meta'], 404);
+        }
+
+        // Parsear body_dinamic si existe (viene como JSON string)
+        $bodyDinamic = null;
+        if ($plantilla->body_dinamic) {
+            $decoded = json_decode($plantilla->body_dinamic, true);
+            $bodyDinamic = $decoded !== null ? $decoded : $plantilla->body_dinamic;
+        }
+
+        return response()->json([
+            'id' => $plantilla->id,
+            'title' => $plantilla->title,
+            'contenido' => $plantilla->contenido,
+            'body_text' => json_decode($plantilla->body_text, true),
+            'language' => $plantilla->language,
+            'body_dinamic' => $bodyDinamic,
+            'body_header' => $plantilla->body_header
+        ]);
+    }
 
     public function email($id = false)
     {
@@ -244,8 +279,9 @@ class AvisosController extends Controller
 
     public function envio_aviso(Request $request){
         Ini_set ('max_execution_time', 500);
+
         $empresa = Empresa::find(1);
-        $type = ''; 
+        $type = '';
         $mensaje = '';
         $fail = 0;
         $succ = 0;
@@ -257,11 +293,22 @@ class AvisosController extends Controller
         $enviadosExito = 0;
         $enviadosFallidos = 0;
 
-        $enviarConMeta = $request->has('enviarConMeta') && $request->enviarConMeta == 'true';
+        $enviarConMeta = 1; // Siempre usar Meta
 
         // Validar que se hayan seleccionado contratos
         if (!$request->contrato || count($request->contrato) == 0) {
             return back()->with('danger', 'Debe seleccionar al menos un cliente para enviar notificaciones');
+        }
+
+        // Si la plantilla es de tipo Meta, guardar la configuración de body_dinamic primero
+        $plantilla = Plantilla::find($request->plantilla);
+        if ($plantilla && $plantilla->tipo == 3 && $request->type == 'whatsapp') {
+            $bodyDinamic = $request->input('body_dinamic_params', null);
+            if ($bodyDinamic && is_array($bodyDinamic)) {
+                // Guardar como JSON string con formato [["[campo1]", "[campo2]", ...]]
+                $plantilla->body_dinamic = json_encode([$bodyDinamic]);
+                $plantilla->save();
+            }
         }
 
         for ($i = 0; $i < count($request->contrato); $i++) {
@@ -276,38 +323,73 @@ class AvisosController extends Controller
             }
 
             if ($contrato) {
-                $plantilla = Plantilla::find($request->plantilla);
+                // La plantilla ya se obtuvo antes del loop para guardar body_dinamic
+                // Si no existe (para otros tipos), obtenerla aquí
+                if (!isset($plantilla) || !$plantilla) {
+                    $plantilla = Plantilla::find($request->plantilla);
+                }
 
                 // ===================================
                 // SECCIÓN DE WHATSAPP
                 // ===================================
                 if($request->type == 'whatsapp'){
-                    
-                    // Si el envío es con Meta
+
+                    // Si el envío es con Meta (siempre activo)
                     if($enviarConMeta){
-                        
+
                         $wapiService = new WapiService();
+
+                        // Buscar instancia activa
                         $instance = Instance::where('company_id', $empresa->id)
                                             ->where('activo', 1)
-                                            ->where('meta', 0)
+                                            ->where('meta',0)
                                             ->first();
-                        
+
                         // Validar instancia solo una vez
-                        if($i == 0 && (is_null($instance) || empty($instance))){
-                            return back()->with('danger','Instancia no está creada o no está activa');
+                        if($i == 0){
+                            if(is_null($instance) || empty($instance)){
+                                return back()->with('danger','Instancia no está creada o no está activa');
+                            }
+
+                            // Validar que sea canal waba - obtener tipo de canal desde la API
+                            $wapiServiceCheck = new WapiService();
+                            $canalResponse = (object) $wapiServiceCheck->getWabaChannel($instance->uuid);
+                            $canalData = json_decode($canalResponse->scalar ?? '{}', true);
+
+                            $tipoCanal = isset($canalData['data']['channel']['type'])
+                                ? $canalData['data']['channel']['type']
+                                : null;
+
+                            if($tipoCanal !== "waba"){
+                                return back()->with('danger','Solo se permite el canal WhatsApp Business API (waba). Canal actual: ' . ($tipoCanal ?? 'desconocido'));
+                            }
                         }
-                        
+
                         $contacto = $contrato->cliente();
-                        
+
                         // Validar que el contacto tenga celular
                         if(!$contacto->celular || empty($contacto->celular)){
                             $enviadosFallidos++;
                             \Log::warning('Contrato ' . $contrato->id . ': Sin número de celular');
                             continue;
                         }
-                        
+
+                        // Validar que la plantilla sea de tipo Meta (tipo=3)
+                        if (!$plantilla || $plantilla->tipo != 3) {
+                            $enviadosFallidos++;
+                            \Log::warning('Plantilla no es de tipo Meta o no existe. ID: ' . ($request->plantilla ?? 'null'));
+                            continue;
+                        }
+
+                        // Validar que tenga language configurado
+                        if (empty($plantilla->language)) {
+                            $enviadosFallidos++;
+                            \Log::warning('Plantilla sin language configurado. ID: ' . $plantilla->id);
+                            continue;
+                        }
+
                         $nameEmpresa = $empresa->nombre;
-                        
+
                         // Obtener prefijo dinámico
                         $prefijo = '57'; // valor por defecto (Colombia)
                         if (!empty($contacto->fk_idpais)) {
@@ -318,376 +400,236 @@ class AvisosController extends Controller
                                 $prefijo = $prefijoData->phone_code;
                             }
                         }
-                        
+
                         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-                        $tipoPlantilla = is_numeric($request->plantilla) ? strtolower($plantilla->title) : $request->plantilla;
-                        
+
                         try {
-                            // Lógica según el tipo de plantilla
-                            if($tipoPlantilla == 'suspension' || str_contains($tipoPlantilla, 'suspension de servicio') || str_contains($tipoPlantilla, 'suspensión de servicio') || str_contains($tipoPlantilla, 'suspension')){
-                                // ========================================
-                                // CASO: SUSPENSIÓN DE SERVICIO
-                                // ========================================
-                                
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "suspensionservicios",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
-                                            ]
-                                        ]
-                                    ]
-                                ];
-                                
-                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                                
-                                // ========================================
-                                // VALIDACIÓN CORRECTA DE RESPUESTA
-                                // ========================================
-                                if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true);
-                                    
-                                    $esExitoso = false;
-                                    
-                                    // Validar respuesta de Meta/WhatsApp Business API
-                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
-                                        if (isset($responseData['data']['messages'][0]['id']) || 
-                                            isset($responseData['data']['messages'][0]['message_status'])) {
-                                            $esExitoso = true;
+                            // Obtener factura del contrato para los campos dinámicos
+                            $factura = Factura::where('contrato_id', $contrato->id)->latest()->first();
+
+                            // Obtener body_dinamic del request o usar body_text_params como fallback
+                            $bodyDinamic = $request->input('body_dinamic_params', null);
+                            $bodyTextParams = [];
+
+                            if ($bodyDinamic) {
+                                // body_dinamic_params viene como array directo: ["[campo1]", "[campo2]", ...]
+                                $bodyDinamicArray = $bodyDinamic;
+
+                                if (is_array($bodyDinamicArray)) {
+                                    // Procesar cada parámetro reemplazando los placeholders
+                                    foreach ($bodyDinamicArray as $paramTemplate) {
+                                        $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+
+                                        // Reemplazar campos de contacto
+                                        $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
+                                        $paramValue = str_replace('[contacto.apellido1]', $contacto->apellido1 ?? '', $paramValue);
+                                        $paramValue = str_replace('[contacto.apellido2]', $contacto->apellido2 ?? '', $paramValue);
+
+                                        // Reemplazar campos de factura
+                                        if ($factura) {
+                                            $paramValue = str_replace('[factura.fecha]', $factura->fecha ?? '', $paramValue);
+                                            $paramValue = str_replace('[factura.vencimiento]', $factura->vencimiento ?? '', $paramValue);
+
+                                            // Obtener total de la factura
+                                            $facturaTotal = 0;
+                                            try {
+                                                $totalObj = $factura->total();
+                                                if ($totalObj && isset($totalObj->total)) {
+                                                    $facturaTotal = $totalObj->total;
+                                                }
+                                            } catch (\Exception $e) {
+                                                \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
+                                            }
+                                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
+
+                                            // Obtener porpagar de la factura
+                                            $facturaPorpagar = 0;
+                                            try {
+                                                $facturaPorpagar = $factura->porpagar();
+                                            } catch (\Exception $e) {
+                                                \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
+                                            }
+                                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
+                                        } else {
+                                            $paramValue = str_replace('[factura.fecha]', '', $paramValue);
+                                            $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
+                                            $paramValue = str_replace('[factura.total]', '0,00', $paramValue);
+                                            $paramValue = str_replace('[factura.porpagar]', '0,00', $paramValue);
+                                        }
+
+                                        // Reemplazar campos de empresa
+                                        $paramValue = str_replace('[empresa.nombre]', $empresa->nombre ?? '', $paramValue);
+                                        $paramValue = str_replace('[empresa.nit]', $empresa->nit ?? '', $paramValue);
+
+                                        $bodyTextParams[] = $paramValue;
+                                    }
+                                }
+                            } else {
+                                // Fallback al método anterior si no hay body_dinamic
+                                $bodyTextParams = $request->input('body_text_params', []);
+                            }
+
+                            // Construir parámetros dinámicamente
+                            $parameters = [];
+                            foreach ($bodyTextParams as $paramValue) {
+                                $parameters[] = ["type" => "text", "text" => $paramValue];
+                            }
+
+                            // Construir componentes
+                            $components = [
+                                [
+                                    "type" => "body",
+                                    "parameters" => $parameters
+                                ]
+                            ];
+
+                            // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
+                            if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                                // Generar PDF temporal de la factura
+                                try {
+                                    $fileName = "Factura_{$factura->codigo}.pdf";
+                                    $storagePath = storage_path("app/public/temp/{$fileName}");
+
+                                    // Si no existe, generarlo
+                                    if (!file_exists($storagePath)) {
+                                        $cronController = new \App\Http\Controllers\CronController();
+                                        $cronController->getFacturaTemp($factura->id, config('app.key'));
+
+                                        // Esperar a que se genere el PDF (máximo 5 intentos)
+                                        $attempts = 0;
+                                        while (!file_exists($storagePath) && $attempts < 5) {
+                                            usleep(300000); // 0.3 segundos
+                                            $attempts++;
                                         }
                                     }
-                                    
-                                    // Respuesta directa con message_id
-                                    if (isset($responseData['messages'][0]['id']) || 
-                                        isset($responseData['message_id']) || 
-                                        isset($responseData['messageId'])) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    // Verificar que NO haya errores reales
-                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
-                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
-                                        $esExitoso = false;
-                                    }
-                                    
-                                    // Si "error" es un string con mensaje de éxito
-                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
-                                        (str_contains(strtolower($responseData['error']), 'success') || 
-                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if ($esExitoso) {
-                                        $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Suspensión');
-                                    } else {
-                                        $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
-                                    }
-                                } else {
-                                    $enviadosFallidos++;
-                                    \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto);
-                                }
-                                
-                            } elseif($tipoPlantilla == 'corte' || str_contains($tipoPlantilla, 'corte')){
-                                // ========================================
-                                // CASO: CORTE
-                                // ========================================
-                                
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "cortes",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
-                                            ]
-                                        ]
-                                    ]
-                                ];
-                                
-                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                                
-                                if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true);
-                                    $esExitoso = false;
-                                    
-                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
-                                        if (isset($responseData['data']['messages'][0]['id']) || 
-                                            isset($responseData['data']['messages'][0]['message_status'])) {
-                                            $esExitoso = true;
-                                        }
-                                    }
-                                    
-                                    if (isset($responseData['messages'][0]['id']) || 
-                                        isset($responseData['message_id']) || 
-                                        isset($responseData['messageId'])) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
-                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
-                                        $esExitoso = false;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
-                                        (str_contains(strtolower($responseData['error']), 'success') || 
-                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if ($esExitoso) {
-                                        $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Corte');
-                                    } else {
-                                        $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
-                                    }
-                                } else {
-                                    $enviadosFallidos++;
-                                }
-                                
-                            } elseif($tipoPlantilla == 'recordatorio' || str_contains($tipoPlantilla, 'recordatorio')){
-                                // ========================================
-                                // CASO: RECORDATORIO
-                                // ========================================
-                                
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "recordatorios",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $nameEmpresa]
-                                            ]
-                                        ]
-                                    ]
-                                ];
-                                
-                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                                
-                                if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true);
-                                    $esExitoso = false;
-                                    
-                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
-                                        if (isset($responseData['data']['messages'][0]['id']) || 
-                                            isset($responseData['data']['messages'][0]['message_status'])) {
-                                            $esExitoso = true;
-                                        }
-                                    }
-                                    
-                                    if (isset($responseData['messages'][0]['id']) || 
-                                        isset($responseData['message_id']) || 
-                                        isset($responseData['messageId'])) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
-                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
-                                        $esExitoso = false;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
-                                        (str_contains(strtolower($responseData['error']), 'success') || 
-                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if ($esExitoso) {
-                                        $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Recordatorio');
-                                    } else {
-                                        $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
-                                    }
-                                } else {
-                                    $enviadosFallidos++;
-                                }
-                                
-                            } elseif($tipoPlantilla == 'factura' || str_contains($tipoPlantilla, 'factura')){
-                                // ========================================
-                                // CASO: FACTURA
-                                // ========================================
-                                
-                                $factura = Factura::where('contrato_id', $contrato->id)
-                                                ->latest()
-                                                ->first();
-                                
-                                if(!$factura){
-                                    $enviadosFallidos++;
-                                    \Log::warning('Contrato ' . $contrato->id . ': Sin factura');
-                                    continue;
-                                }
-                                
-                                // Generar PDF temporal
-                                $token = config('app.key');
-                                $fileName = 'Factura_' . $factura->codigo . '.pdf';
-                                $relativePath = 'temp/' . $fileName;
-                                $storagePath = storage_path('app/public/' . $relativePath);
-                                
-                                if (!file_exists($storagePath)) {
-                                    $facturaPDF = $this->getPdfFactura($factura->id);
-                                    
-                                    if (!Storage::disk('public')->exists('temp')) {
-                                        Storage::disk('public')->makeDirectory('temp');
-                                    }
-                                    
-                                    Storage::disk('public')->put($relativePath, $facturaPDF);
-                                    
-                                    $attempts = 0;
-                                    while (!file_exists($storagePath) && $attempts < 5) {
-                                        usleep(300000);
-                                        $attempts++;
-                                    }
-                                }
-                                
-                                if (!file_exists($storagePath)) {
-                                    $enviadosFallidos++;
-                                    \Log::error('No se pudo generar PDF para factura: ' . $factura->codigo);
-                                    continue;
-                                }
-                                
-                                $urlFactura = url('storage/temp/' . $fileName);
-                                
-                                $estadoCuenta = $factura->estadoCuenta();
-                                $total = $factura->total()->total;
-                                $saldo = $estadoCuenta->saldoMesAnterior > 0
-                                    ? $estadoCuenta->saldoMesAnterior + $total
-                                    : $total;
-                                
-                                $body = [
-                                    "phone" => $telefonoCompleto,
-                                    "templateName" => "facturas",
-                                    "languageCode" => "en",
-                                    "components" => [
-                                        [
+
+                                    if (file_exists($storagePath)) {
+                                        $urlFactura = url("storage/temp/{$fileName}");
+
+                                        // Agregar header al inicio de components
+                                        array_unshift($components, [
                                             "type" => "header",
                                             "parameters" => [
                                                 [
                                                     "type" => "document",
                                                     "document" => [
                                                         "link" => $urlFactura,
-                                                        "filename" => "Factura_{$factura->codigo}.pdf"
+                                                        "filename" => $fileName
                                                     ]
                                                 ]
                                             ]
-                                        ],
-                                        [
-                                            "type" => "body",
-                                            "parameters" => [
-                                                ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
-                                                ["type" => "text", "text" => $nameEmpresa],
-                                                ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
-                                            ]
-                                        ]
-                                    ]
-                                ];
-                                
-                                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                                
-                                if (isset($response->scalar)) {
-                                    $responseData = json_decode($response->scalar ?? '{}', true);
-                                    $esExitoso = false;
-                                    
-                                    if (isset($responseData['status']) && $responseData['status'] === "success") {
-                                        if (isset($responseData['data']['messages'][0]['id']) || 
-                                            isset($responseData['data']['messages'][0]['message_status'])) {
-                                            $esExitoso = true;
-                                        }
-                                    }
-                                    
-                                    if (isset($responseData['messages'][0]['id']) || 
-                                        isset($responseData['message_id']) || 
-                                        isset($responseData['messageId'])) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_array($responseData['error']) && 
-                                        (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
-                                        $esExitoso = false;
-                                    }
-                                    
-                                    if (isset($responseData['error']) && is_string($responseData['error']) &&
-                                        (str_contains(strtolower($responseData['error']), 'success') || 
-                                        str_contains(strtolower($responseData['error']), 'sent successfully'))) {
-                                        $esExitoso = true;
-                                    }
-                                    
-                                    if ($esExitoso) {
-                                        $enviadosExito++;
-                                        \Log::info('WhatsApp enviado a: ' . $telefonoCompleto . ' | Factura: ' . $factura->codigo);
+                                        ]);
                                     } else {
-                                        $enviadosFallidos++;
-                                        \Log::error('Error WhatsApp a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                                        \Log::warning("Factura {$factura->codigo}: PDF no encontrado después de generar. Se enviará sin documento.");
                                     }
+                                } catch (\Exception $e) {
+                                    \Log::error("Error al generar PDF de factura {$factura->codigo}: " . $e->getMessage());
+                                }
+                            }
+
+                            // Construir body dinámicamente
+                            $body = [
+                                "phone" => $telefonoCompleto,
+                                "templateName" => $plantilla->title,  // Usar title como templateName
+                                "languageCode" => $plantilla->language,  // Usar language guardado
+                                "components" => $components
+                            ];
+
+                            // Construir mensaje enviado para el log
+                            $mensajeEnviado = '';
+                            if ($plantilla && isset($plantilla->contenido)) {
+                                $mensajeEnviado = $plantilla->contenido;
+                                // Reemplazar placeholders con valores reales
+                                foreach ($bodyTextParams as $index => $paramValue) {
+                                    $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                                }
+                                if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                                    $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                                }
+                            }
+
+                            // Enviar template
+                            $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+                            $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
+
+                            // Validar respuesta
+                            if (isset($response->scalar)) {
+                                $responseData = json_decode($response->scalar ?? '{}', true);
+
+                                $esExitoso = false;
+
+                                // Validar respuesta de Meta/WhatsApp Business API
+                                if (isset($responseData['status']) && $responseData['status'] === "success") {
+                                    if (isset($responseData['data']['messages'][0]['id']) ||
+                                        isset($responseData['data']['messages'][0]['message_status'])) {
+                                        $esExitoso = true;
+                                    }
+                                }
+
+                                // Respuesta directa con message_id
+                                if (isset($responseData['messages'][0]['id']) ||
+                                    isset($responseData['message_id']) ||
+                                    isset($responseData['messageId'])) {
+                                    $esExitoso = true;
+                                }
+
+                                // Verificar que NO haya errores reales
+                                if (isset($responseData['error']) && is_array($responseData['error']) &&
+                                    (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
+                                    $esExitoso = false;
+                                }
+
+                                // Si "error" es un string con mensaje de éxito
+                                if (isset($responseData['error']) && is_string($responseData['error']) &&
+                                    (str_contains(strtolower($responseData['error']), 'success') ||
+                                    str_contains(strtolower($responseData['error']), 'sent successfully'))) {
+                                    $esExitoso = true;
+                                }
+
+                                // Registrar log
+                                WhatsappMetaLog::create([
+                                    'status' => $esExitoso ? 'success' : 'error',
+                                    'response' => $responseOriginal,
+                                    'factura_id' => $factura ? $factura->id : null,
+                                    'contacto_id' => $contacto->id,
+                                    'empresa' => Auth::user()->empresa,
+                                    'mensaje_enviado' => $mensajeEnviado,
+                                    'plantilla_id' => $plantilla->id,
+                                    'enviado_por' => Auth::user()->id
+                                ]);
+
+                                if ($esExitoso) {
+                                    $enviadosExito++;
+                                    \Log::info('WhatsApp Meta enviado a: ' . $telefonoCompleto . ' | Plantilla: ' . $plantilla->title);
                                 } else {
                                     $enviadosFallidos++;
+                                    \Log::error('Error WhatsApp Meta a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
                                 }
-                                
                             } else {
+                                // Registrar log para error sin respuesta
+                                WhatsappMetaLog::create([
+                                    'status' => 'error',
+                                    'response' => $responseOriginal,
+                                    'factura_id' => $factura ? $factura->id : null,
+                                    'contacto_id' => $contacto->id,
+                                    'empresa' => Auth::user()->empresa,
+                                    'mensaje_enviado' => $mensajeEnviado,
+                                    'plantilla_id' => $plantilla->id,
+                                    'enviado_por' => Auth::user()->id
+                                ]);
+
                                 $enviadosFallidos++;
-                                \Log::warning('Plantilla no reconocida: ' . $tipoPlantilla);
+                                \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto);
                             }
-                            
-                            usleep(100000); // 0.1 segundos entre envíos
-                            
+
                         } catch (\Exception $e) {
                             $enviadosFallidos++;
                             \Log::error('Excepción WhatsApp Meta contrato ' . $contrato->id . ': ' . $e->getMessage());
                         }
-                        
                     } else {
-                        // ========================================
-                        // ENVÍO NORMAL DE WHATSAPP (SIN META)
-                        // ========================================
-                        
-                        $wapiService = new WapiService();
-                        $instance = Instance::where('company_id', $empresa->id)
-                        ->where('activo', 1)
-                        ->where('meta', 1)
-                        ->first();
-                        
-                        if($i == 0 && (is_null($instance) || empty($instance))){
-                            return back()->with('danger','Instancia no está creada');
-                        }
-                        
-                        if($i == 0 && $instance->status !== "PAIRED") {
-                            return back()->with('danger','La instancia de whatsapp no está conectada, por favor conectese a whatsapp y vuelva a intentarlo.');
-                        }
-                        
-                        $contacto = $contrato->cliente();
-
-                        $contact = [
-                            "phone" => "57" . $contacto->celular,
-                            "name" => $contacto->nombre . " " . $contacto->apellido1
-                        ];
-
-                        $nameEmpresa = $empresa->nombre;
-
-                        $contenido = $plantilla->contenido;
-                        $contenido = str_replace('{{$name}}', $contacto->nombre, $contenido);
-                        $contenido = str_replace('{{$company}}', $nameEmpresa, $contenido);
-                        $contenido = str_replace('{{$nit}}', $empresa->nit, $contenido);
-                        $contenido = str_replace('{{$date}}', date('Y-m-d'), $contenido);
-
-                        $message = $plantilla->title . "\r\n" . $contenido;
-
-                        $body = [
-                            "contact" => $contact,
-                            "message" => $message,
-                            "media" => ''
-                        ];
-
-                        $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+                        // Ya no se usa envío sin Meta, siempre es Meta
+                        $enviadosFallidos++;
+                        \Log::warning('Intento de envío sin Meta deshabilitado');
                     }
 
                 }
@@ -751,7 +693,7 @@ class AvisosController extends Controller
         // ===================================
         // RESPUESTAS SEGÚN EL TIPO DE ENVÍO
         // ===================================
-        
+
         if($request->type == 'whatsapp'){
             if($enviarConMeta){
                 $totalEnviados = $enviadosExito + $enviadosFallidos;
@@ -759,7 +701,7 @@ class AvisosController extends Controller
                 $mensaje .= "Total procesados: {$totalEnviados} | ";
                 $mensaje .= "Enviados exitosamente: {$enviadosExito} | ";
                 $mensaje .= "Fallidos: {$enviadosFallidos}";
-                
+
                 if($enviadosFallidos > 0 && $enviadosExito > 0){
                     return redirect('empresa/avisos')->with('warning', $mensaje);
                 } elseif($enviadosFallidos > 0 && $enviadosExito == 0){

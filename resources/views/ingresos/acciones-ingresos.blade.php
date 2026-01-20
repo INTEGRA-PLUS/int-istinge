@@ -19,7 +19,7 @@
             @endif
         @endif
     @endif
-    <form action="{{ route('ingresos.destroy',$nro) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-ingreso{{$id}}">
+    <form action="{{ route('ingresos.destroy',$id) }}" method="post" class="delete_form" style="margin:  0;display: inline-block;" id="eliminar-ingreso{{$id}}">
     	{{ csrf_field() }}
         <input name="_method" type="hidden" value="DELETE">
     </form>

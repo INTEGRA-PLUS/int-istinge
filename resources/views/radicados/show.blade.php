@@ -15,7 +15,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
         <a href="javascript:abrirAcciones()" class="btn btn-dark btn-sm my-1" id="boton-acciones">Acciones del Radicado&nbsp;&nbsp;<i class="fas fa-caret-down"></i></a>
@@ -82,7 +82,10 @@
                             @endif
 
                             @if($radicado->estatus==0 || $radicado->estatus==2)
-                                <a href="#" onclick="confirmar('proceder{{$radicado->id}}', '¿Está seguro de que desea @if($radicado->tiempo_ini == null) iniciar @else finalizar @endif  el radicado?');" class="btn btn-outline-success btn-sm "title="@if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado"><i class="fas fa-stopwatch"></i> @if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado</a>
+								@if($radicado->tiempo_fin == null)
+									<a href="#" onclick="confirmar('proceder{{$radicado->id}}', '¿Está seguro de que desea @if($radicado->tiempo_ini == null) iniciar @else finalizar @endif  el radicado?');" class="btn btn-outline-success btn-sm "title="@if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado"><i class="fas fa-stopwatch"></i> @if($radicado->tiempo_ini == null) Iniciar @else Finalizar @endif Radicado</a>
+								@endif
+
                                 @if(isset($_SESSION['permisos']['203']))
                                     <a href="{{route('radicados.edit',$radicado->id)}}" class="btn btn-outline-primary btn-sm" title="Editar"><i class="fas fa-edit"></i> Editar Caso</a>
                                 @endif
@@ -114,38 +117,34 @@
 
                             @if (!$radicado->adjunto)
                                 <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 1</a>
-                                {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
-
                             @endif
 
                             @if (!$radicado->adjunto_1)
                             <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto1" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 2</a>
-                            {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
-
                             @endif
 
                             @if (!$radicado->adjunto_2)
                             <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto2" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 3</a>
-                            {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
-
                             @endif
 
                             @if (!$radicado->adjunto_3)
                             <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto3" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 4</a>
-                            {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
-
                             @endif
 
                             @if (!$radicado->adjunto_4)
                             <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto4" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 5</a>
-                            {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
+                            @endif
 
+                            @if (!$radicado->adjunto_5)
+                            <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto5" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 6</a>
+                            @endif
+
+                            @if (!$radicado->adjunto_6)
+                            <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto6" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo 7</a>
                             @endif
 
                             @if (!$radicado->adjunto_audio)
                             <a href="javascript:void" data-toggle="modal" data-target="#modalaudio" class="btn btn-outline-info btn-sm" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar audio</a>
-                            {{-- <a href="javascript:void" data-toggle="modal" data-target="#modalAdjunto" class="btn btn-outline-info btn-sm {{ $radicado->adjunto ? 'd-none' : '' }}" id="btn_adjunto"><i class="fas fa-file-upload"></i> Adjuntar Archivo</a> --}}
-
                             @endif
 
                             @if(isset($_SESSION['permisos']['843']))
@@ -173,16 +172,20 @@
     					</tr>
                         <tr>
                             <th>Fecha</th>
-                            <td>{{date('d-m-Y g:i:s A', strtotime($radicado->created_at))}}</td>
+                            <td>{{date('d-m-Y', strtotime($radicado->created_at))}}</td>
+                        </tr>
+                        <tr>
+                            <th>Hora</th>
+                            @if($radicado->hora)
+                                <td>{{date('H:i', strtotime($radicado->hora))}}</td>
+                            @else
+                                <td>No seleccionada</td>
+                            @endif
                         </tr>
     					<tr>
     						<th>Cliente</th>
     						<td><a href="{{ route('contactos.show', $radicado->cliente)}}">{{$radicado->nombre}}</a></td>
     					</tr>
-                        <tr>
-                            <th>Nit</th>
-                            <td><a href="{{ route('contactos.show', $radicado->cliente)}}">{{$radicado->cliente()->nit}}</a></td>
-                        </tr>
     					<tr>
     						<th>N° Telefónico</th>
     						<td>{{$radicado->telefono}}</td>
@@ -191,12 +194,12 @@
     						<th>Correo</th>
     						<td>{{$radicado->correo}}</td>
     					</tr>
-                        @if($radicado->barrio)
+                        @if($radicado->barrio != null)
     					<tr>
                             <th>Barrio</th>
                             <td>{{$radicado->barrio}}</td>
                         </tr>
-                        @else
+                        @elseif($radicado->cliente() != null)
                         <tr>
                             <th>Barrio</th>
                             <td>{{$radicado->cliente()->barrio()->nombre}}</td>
@@ -240,11 +243,11 @@
                             <th>Final</th>
                             <td>{{date('d-m-Y g:i:s A', strtotime($radicado->tiempo_fin))}}</td>
                         </tr>
-                        <tr>
-                            <th>Duración</th>
-                            <td>{{ $duracion }} minuto(s)</td>
-                        </tr>
                         @endif
+						<tr>
+							<th>Duración</th>
+							<td>{{ $duracion }} minuto(s)</td>
+						</tr>
                         @if($radicado->contrato)
                         <tr>
                             <th>Contrato</th>
@@ -297,13 +300,35 @@
     						<th>Estatus</th>
     						<td>
     							@if ($radicado->estatus == 0)
-    							    <span class="text-danger font-weight-bold">Pendiente</span>
+									@switch($radicado->temp_status)
+										@case(1)
+											<span class="text-warning font-weight-bold">Iniciado</span>
+											@break
+
+										@case(2)
+											<span class="text-warning font-weight-bold">Finalizado</span>
+											@break
+
+										@default
+											<span class="text-danger font-weight-bold">Pendiente</span>
+									@endswitch
     							@endif
     							@if ($radicado->estatus == 1)
     							    <span class="text-success font-weight-bold">Resuelto</span>
     							@endif
     							@if ($radicado->estatus == 2)
-    							    <span class="text-danger font-weight-bold">Escalado / Pendiente</span>
+									@switch($radicado->temp_status)
+										@case(1)
+											<span class="text-warning font-weight-bold">Escalado / Iniciado</span>
+											@break
+
+										@case(2)
+											<span class="text-warning font-weight-bold">Escalado / Finalizado</span>
+											@break
+
+										@default
+											<span class="text-danger font-weight-bold">Escalado / Pendiente</span>
+									@endswitch
     							@endif
     							@if ($radicado->estatus == 3)
     							    <span class="text-success font-weight-bold">Escalado / Resuelto</span>
@@ -319,14 +344,14 @@
     					@if ($radicado->reporte)
     						<tr>
     							<th>Reporte del Técnico</th>
-                                <td style="white-space: normal;word-wrap: break-word;max-width: 400px;">@php echo($radicado->reporte); @endphp</td>
+                                <td>@php echo($radicado->reporte); @endphp</td>
     						</tr>
     					@endif
     					@if ($radicado->firma)
     						<tr>
     							<th>Firma Cliente</th>
     							<td>
-    								<img src="data:image/png;base64,{{substr($radicado->firma,1)}}" class="img-fluid" style="width: 25%;height: auto;">
+    								<img src="data:image/png;base64,{{substr($radicado->firma,1)}}" class="img-fluid" style="width: 100%;height: auto;">
     	                        </td>
     						</tr>
     					@endif
@@ -367,6 +392,14 @@
                                         <a href="{{asset('adjuntos/documentos/'.$radicado->adjunto_4)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons" style="border-radius: 50%;" title="Ver Adjunto 4"><i class="fas fa-eye"></i>
                                         <a href="javascript:eliminar('{{$radicado->id}},{{5}}')" class="btn btn-outline-danger btn-sm btn-icons ml-1" style="border-radius: 50%;" title="Eliminar Adjunto 4"><i class="fas fa-times"></i></a>
                                     @endif
+                                    @if ($radicado->adjunto_5)
+                                        <a href="{{asset('adjuntos/documentos/'.$radicado->adjunto_5)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons" style="border-radius: 50%;" title="Ver Adjunto 5"><i class="fas fa-eye"></i>
+                                        <a href="javascript:eliminar('{{$radicado->id}},{{6}}')" class="btn btn-outline-danger btn-sm btn-icons ml-1" style="border-radius: 50%;" title="Eliminar Adjunto 5"><i class="fas fa-times"></i></a>
+                                    @endif
+                                    @if ($radicado->adjunto_6)
+                                        <a href="{{asset('adjuntos/documentos/'.$radicado->adjunto_6)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons" style="border-radius: 50%;" title="Ver Adjunto 6"><i class="fas fa-eye"></i>
+                                        <a href="javascript:eliminar('{{$radicado->id}},{{7}}')" class="btn btn-outline-danger btn-sm btn-icons ml-1" style="border-radius: 50%;" title="Eliminar Adjunto 6"><i class="fas fa-times"></i></a>
+                                    @endif
                                     {{-- @if ($radicado->adjunto_audio)
                                         <a href="{{asset('adjuntos/documentos/'.$radicado->adjunto_audio)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons" style="border-radius: 50%;" title="Ver Adjunto 4"><i class="fas fa-eye"></i>
                                         <a href="javascript:eliminar('{{$radicado->id}},{{6}}')" class="btn btn-outline-danger btn-sm btn-icons ml-1" style="border-radius: 50%;" title="Eliminar Adjunto 4"><i class="fas fa-times"></i></a>
@@ -378,7 +411,7 @@
     				</tbody>
     			</table>
     		</div>
-    		@if($radicado->reporte=='' && $radicado->estatus > 1)
+    		@if($radicado->estatus > 1)
     			@if(isset($_SESSION['permisos']['210']))
     				<form method="POST" action="{{ route('radicados.update', $radicado->id ) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-radicado" >
     					@csrf
@@ -553,6 +586,68 @@
     		</div>
     	</div>
     </div>
+
+        {{-- modal archivo 5 --}}
+        <div class="modal fade" id="modalAdjunto5" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">ADJUNTAR ARCHIVO AL RADICADO</h4>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <form method="post" action="{{ route('radicados.update', $radicado->id ) }}" style="padding: 0;" role="form" class="forms-sample"  id="form_radicado" enctype="multipart/form-data">@csrf
+                    <div class="modal-body">
+                        <input name="_method" type="hidden" value="PATCH">
+                        <input name="id" type="hidden" value="{{ $radicado->id }}">
+                        <div class="row">
+                            <div class="col-md-12 form-group">
+                                <label class="control-label"></label>
+                                <input type="file" class="form-control"  id="adjunto" name="adjunto5" value="{{$radicado->adjunto}}" accept=".jpg, .jpeg, .png, .pdf, .JPG, .JPEG, .PNG, .PDF" required>
+                                <span style="color: red;">
+                                    <strong>{{ $errors->first('adjunto') }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Subir Adjunto</button>
+                    </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- modal archivo 6 --}}
+        <div class="modal fade" id="modalAdjunto6" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">ADJUNTAR ARCHIVO AL RADICADO</h4>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <form method="post" action="{{ route('radicados.update', $radicado->id ) }}" style="padding: 0;" role="form" class="forms-sample"  id="form_radicado" enctype="multipart/form-data">@csrf
+                    <div class="modal-body">
+                        <input name="_method" type="hidden" value="PATCH">
+                        <input name="id" type="hidden" value="{{ $radicado->id }}">
+                        <div class="row">
+                            <div class="col-md-12 form-group">
+                                <label class="control-label"></label>
+                                <input type="file" class="form-control"  id="adjunto" name="adjunto6" value="{{$radicado->adjunto}}" accept=".jpg, .jpeg, .png, .pdf, .JPG, .JPEG, .PNG, .PDF" required>
+                                <span style="color: red;">
+                                    <strong>{{ $errors->first('adjunto') }}</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Subir Adjunto</button>
+                    </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
     {{-- modal audio --}}
     <div class="modal fade" id="modalaudio" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">

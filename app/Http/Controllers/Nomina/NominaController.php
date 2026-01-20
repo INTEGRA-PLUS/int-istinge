@@ -2306,6 +2306,7 @@ class NominaController extends Controller
         }
     }
 
+
     public function update_deducciones(Request $request)
     { //dd($request->all());
         $this->getAllPermissions(Auth::user()->id);

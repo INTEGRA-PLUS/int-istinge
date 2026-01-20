@@ -7,7 +7,7 @@
 		</div>
 
 		<script type="text/javascript">
-			setTimeout(function(){ 
+			setTimeout(function(){
 			    $('.alert').hide();
 			}, 5000);
 		</script>
@@ -34,23 +34,23 @@
 	      		<div class="row">
 		      		<div class="col-sm-5">
 		      			@if($categoria->hijos()>0)
-		      				<a class="btn btn-link colapsea" data-toggle="collapse" data-target="#collapse{{$categoria->nro}}" 
-                                aria-expanded="true" aria-controls="{{$categoria->nro}}" 
+		      				<a class="btn btn-link colapsea" data-toggle="collapse" data-target="#collapse{{$categoria->nro}}"
+                                aria-expanded="true" aria-controls="{{$categoria->nro}}"
                                 onclick="showCategory({{$categoria->codigo}})"
                             >
-			          		{{$categoria->nombre}} 
+			          		{{$categoria->nombre}}
 			        	</a>
 
 		      			@else
-		      				<p style="padding-left: 15%;">{{$categoria->nombre}}</p> 
+		      				<p style="padding-left: 15%;">{{$categoria->nombre}}</p>
 						@endif
-			        	
+
 		    		</div>
 	      			<div class="col-sm-5"><p>{{$categoria->codigo}}</p></div>
 		      		<div class="col-sm-2">
 		      			<a href="#" onclick="modal_show('{{route('puc.create_id',$categoria->nro)}}', 'small');" class="btn btn-outline-primary btn-icons" title="Agregar sub-categoría"><i class="fas fa-plus"></i></a>
 		      			<a href="#" onclick="modal_show('{{route('categorias.edit',$categoria->nro)}}', 'small');" class="btn btn-outline-primary btn-icons" title="Modificar"><i class="far fa-edit"></i></a>
-		      			<form action="{{ route('categorias.act_desc',$categoria->nro) }}" method="POST" class="delete_form" style="margin:  0;display: inline-block;" id="act_desc-{{$categoria->nro}}">
+		      			<form action="{{ route('puc.act_desc',$categoria->nro) }}" method="POST" class="delete_form" style="margin:  0;display: inline-block;" id="act_desc-{{$categoria->nro}}">
 		                    {{ csrf_field() }}
 		                </form>
 
@@ -63,11 +63,11 @@
 
 
 
-					</div> 
+					</div>
 	      		</div>
 	      	</h5>
 	    </div>
-        <div id="collapse{{$categoria->nro}}" class="collapse" aria-labelledby="heading{{$categoria->nro}}" 
+        <div id="collapse{{$categoria->nro}}" class="collapse" aria-labelledby="heading{{$categoria->nro}}"
             data-parent="#accordion{{$categoria->nro}}" estado="0"
         >
         </div>
@@ -75,7 +75,7 @@
 	@endforeach
 
   </div>
-@endsection	
+@endsection
 
 @section('scripts')
   <script>
@@ -100,7 +100,7 @@
                     let idCollapse = document.getElementById("collapse"+codigo);
                     let estadoCollapse = $("#collapse"+codigo).attr('estado');
 
-                    
+
                     //Construcción del acrodeón
 
                     if(categories.length > 0){
@@ -110,15 +110,15 @@
                             <h5 class="mx-${cat.nivel}">
                                 <div class="row">
                                     <div class="col-sm-5">
-                                        <a class="btn btn-link" data-toggle="collapse" 
-                                        data-target="#collapse${cat.nro}" 
+                                        <a class="btn btn-link" data-toggle="collapse"
+                                        data-target="#collapse${cat.nro}"
                                         aria-expanded="true" aria-controls="${cat.nro}"
                                             onclick="showCategory(${cat.codigo})"
                                         >
                                         <i class="fas fa-plus" id="iplus${cat.nro}"></i>
                                         <i class="fas fa-minus" id="iminus${cat.nro}" style="display:none;"></i>
                                         </a>
-                                        <p class='btn nopadding' style="padding-left: ${cat.nivel*5}% !important;">${cat.nombre}</p>				
+                                        <p class='btn nopadding' style="padding-left: ${cat.nivel*5}% !important;">${cat.nombre}</p>
                                     </div>
                                     <div class="col-sm-4">${cat.codigo}</div>
                                         <div class="col-sm-3">
@@ -140,9 +140,9 @@
                                 </div>
                             </h5>
                             </div>
-                            
-                            <div id="collapse${cat.nro}" class="collapse" 
-                                aria-labelledby="heading${cat.nro}" 
+
+                            <div id="collapse${cat.nro}" class="collapse"
+                                aria-labelledby="heading${cat.nro}"
                                 data-parent="#accordion${cat.nro}"
                                 estado="0"
                             >

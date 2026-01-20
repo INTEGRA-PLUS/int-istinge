@@ -498,7 +498,7 @@
 <div class="alert alert-warning text-left" role="alert">
     <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
     <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-    <p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+    <p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 </div>
 @endif
 
@@ -916,6 +916,35 @@
             console.error('Morris.js no está cargado');
             return;
         }
+
+        @php
+            $hoy = \Carbon\Carbon::now('America/Bogota');
+        @endphp
+
+        // @if ($hoy->day >= 4 && $hoy->day <= 10)
+        //     const Toast = Swal.mixin({
+        //         toast: true,
+        //         position: "bottom-end",
+        //         showConfirmButton: false,
+        //         timer: 10000,
+        //         timerProgressBar: true,
+
+        //         background: "#fff3cd",   // Amarillo tipo alerta (similar a Bootstrap warning)
+        //         color: "#856404",        // Texto café oscuro
+        //         iconColor: "#856404",    // Color del ícono de warning
+
+        //         didOpen: (toast) => {
+        //             toast.onmouseenter = Swal.stopTimer;
+        //             toast.onmouseleave = Swal.resumeTimer;
+        //         }
+        //     });
+
+        //     Toast.fire({
+        //         icon: "warning",
+        //         html: "⚠️Estimada empresa, te recordamos que la fecha límite es el <b>10 de diciembre</b> para realizar el pago, evita cortes ⚠️<br>" +
+        //               "Reporta tu pago al <b>3206909290</b>. Si ya pagaste, haz caso omiso."
+        //     });
+        // @endif
 
         // Estado de Contratos
         new Morris.Donut({

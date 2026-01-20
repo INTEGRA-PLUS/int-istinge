@@ -76,13 +76,19 @@
                 <div class="input-group">
                     <select class="form-control selectpicker" name="contratos_json" id="contratos_json"
                     title="Seleccione un contrato" data-live-search="true" data-size="5"
-                    onchange="rowItemsContrato(this.value), opcionFacturaMes(this.value)"
+                    onchange="rowItemsContrato(this.value), opcionFacturaMes(this.value), toggleBotonEliminarContrato(this.value)"
                     >
+                        <option value="">-- Sin contrato --</option>
                         @foreach($contratos as $co)
                             <option value="{{$co->id}}" {{isset($contratosFacturas) && $contratosFacturas->contrato_nro==$co->nro?'selected':''}}
                                 >{{$co->nro}}</option>
                         @endforeach
                     </select>
+                    <div class="input-group-append" id="btn-eliminar-contrato" style="{{isset($contratosFacturas) && $contratosFacturas->contrato_nro ? '' : 'display:none;'}}">
+                        <button class="btn btn-outline-danger" type="button" onclick="eliminarContrato();" title="Eliminar contrato seleccionado">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
 
                         </div>
@@ -262,7 +268,7 @@
 
 <div>
     <p id="contratos_nombres"></p>
-    <input type="hidden" name="contratos_asociados" id="contratos_asociados">
+    <input type="hidden" name="contratos_asociados" id="contratos_asociados" value="{{ $contratosFacturas->contrato_nro ?? '' }}">
 </div>
 
             <!-- Desgloce -->
@@ -592,6 +598,30 @@
     function opcionFacturaMes(id){
         $("#div-fact-mes").removeClass("d-none");
     }
+
+    function toggleBotonEliminarContrato(value){
+        if(value && value !== ''){
+            $('#btn-eliminar-contrato').show();
+        } else {
+            $('#btn-eliminar-contrato').hide();
+        }
+    }
+
+    function eliminarContrato(){
+        if(confirm('¿Está seguro que desea eliminar la relación del contrato con esta factura?')){
+            $('#contratos_json').val('').selectpicker('refresh');
+            // También limpiar el campo hidden de contratos asociados si existe
+            $('#contratos_asociados').val('');
+            // Ocultar el botón de eliminar
+            $('#btn-eliminar-contrato').hide();
+        }
+    }
+
+    // Ejecutar al cargar la página para verificar el estado inicial
+    $(document).ready(function(){
+        var contratoSeleccionado = $('#contratos_json').val();
+        toggleBotonEliminarContrato(contratoSeleccionado);
+    });
     </script>
 
 @endsection

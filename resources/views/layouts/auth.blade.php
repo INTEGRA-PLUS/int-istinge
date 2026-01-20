@@ -205,7 +205,8 @@ iframe {
   height: 100%;
   top: 0;
   left: 0;
-  opacity: 0.7;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 20, 40, 0.85) 100%);
+  opacity: 1;
 }
 
 .wrap-login100 {

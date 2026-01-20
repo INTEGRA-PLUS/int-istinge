@@ -23,17 +23,28 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+            <p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
+        @php $empresa = Auth::user()->empresa(); @endphp
         @if(auth()->user()->rol <> 8)
             <div class="row" style="margin: -2% 0 0 2%;">
                 <div class="col-md-12">
-                        @if(Auth::user()->empresa()->form_fe == 1 && $factura->emitida == 0 && Auth::user()->empresa()->estado_dian == 1 && Auth::user()->empresa()->technicalkey != null && $factura->tipo == 2)
-                            <a  href="#"  class="btn btn-outline-primary btn-sm"title="Emitir Factura" onclick="validateDian({{ $factura->id }}, '{{route('xml.factura',$factura->id)}}', '{{ ($factura->codigo ? $factura->codigo : null) }}')" ><i class="fas fa-sitemap"></i>Emitir</a>
-                        @endif
+                    @if ($factura->emitida == 0 && $empresa->estado_dian == 1)
+                    @if($empresa->proveedor == 1 || $empresa->proveedor == null)
+                    <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta. {{ $factura->codigo }}"
+                        onclick="validateDian({{ $factura->id }}, '{{ route('xml.factura', $factura->id) }}', '{{ $factura->codigo }}')">
+                        <i class="fas fa-sitemap"></i>
+                    </a>
+                    @elseif($empresa->proveedor == 2)
+                    <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta {{ $factura->codigo }}"
+                        onclick="validateDian({{ $factura->id }}, '{{ route('json.dian-factura', $factura->id) }}', '{{ $factura->codigo }}')">
+                        <i class="fas fa-sitemap"></i>
+                    </a>
+                    @endif
+                @endif
                         <a href="{{route('facturas.imprimir',['id' => $factura->id, 'name'=> 'Factura No. '.$factura->codigo.'.pdf'])}}" class="btn btn-outline-primary btn-sm "title="Imprimir" target="_blank"><i class="fas fa-print"></i> Imprimir</a>
-                        @if(Auth::user()->empresa()->tirilla == 1 && $factura->estatus==0 && $factura->total()->total == $factura->pagado())
+                        @if($empresa->tirilla == 1 && $factura->estatus==0 && $factura->total()->total == $factura->pagado())
                             <a href="{{route('facturas.tirilla', ['id' => $factura->id, 'name' => "Factura No. $factura->id.pdf"])}}" class="btn btn-outline-warning btn-sm "title="Tirilla" target="_blank"><i class="fas fa-print"></i>Imprimir tirilla</a>
                         @endif
                         <a href="{{route('facturas.pdf',$factura->id)}}" class="btn btn-outline-info btn-sm "title="Descargar"><i class="fas fa-download"></i> Descargar</a>
@@ -50,7 +61,7 @@
                         @if($factura->emitida != 1 && isset($_SESSION['permisos']['43']))
                             <a class="btn btn-outline-primary btn-sm" href="{{route('facturas.edit',$factura->id)}}" target="_blank"><i class="fas fa-edit"></i> Editar</a>
                         @endif
-                        @if(Auth::user()->empresa()->estado_dian != 1)
+                        @if($empresa->estado_dian != 1)
                             <form action="{{ route('factura.anular',$factura->id) }}" method="POST" class="delete_form" style="display: none;" id="anular-factura{{$factura->id}}">
                                 {{ csrf_field() }}
                             </form>
@@ -79,8 +90,12 @@
                                     @if($factura->tipo == 1 && isset($contrato) && $contrato->opciones_dian == 1)
                                     <a class="dropdown-item" href="{{route('facturas.convertirelectronica',$factura->id)}}">Convertir a factura electrónica</a>
                                     @endif
-                                    @if($factura->emitida == 1)
-                                        <a class="dropdown-item" href="{{route('facturas.xml',$factura->id)}}" target="_blank">Descargar xml</a>
+                                    @if ($factura->uuid != '' && $factura->emitida == 1)
+                                    <a class="dropdown-item" href="{{ route('facturas.download-xml', $factura->id) }}"
+                                        target="_blank">Descargar xml</a>
+                                    @elseif($factura->emitida == 1)
+                                    <a class="dropdown-item" href="{{ route('facturas.xml', $factura->id) }}"
+                                        target="_blank">Descargar xml</a>
                                     @endif
                                 </div>
                             </div>
@@ -99,7 +114,7 @@
                         <div class="float-center">
                             <p class="mb-0 text-center">Valor total</p>
                             <div class="fluid-container">
-                                <h4 class="font-weight-medium text-center mb-0">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->total()->total)}}</h4>
+                                <h4 class="font-weight-medium text-center mb-0">{{$empresa->moneda}}{{App\Funcion::Parsear($factura->total()->total)}}</h4>
                             </div>
                         </div>
                     </div>
@@ -111,7 +126,7 @@
                         <div class="float-center">
                             <p class="mb-0 text-center">Retenido</p>
                             <div class="fluid-container">
-                                <h4 class="font-weight-medium text-center mb-0">{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($factura->retenido(true))}}</h4>
+                                <h4 class="font-weight-medium text-center mb-0">{{$empresa->moneda}}{{App\Funcion::Parsear($factura->retenido(true))}}</h4>
                             </div>
                         </div>
                     </div>
@@ -123,7 +138,7 @@
             <div class="float-center">
               <p class="mb-0 text-center">Devoluciones</p>
               <div class="fluid-container">
-                <h4 class="font-weight-medium text-center mb-0">{{Auth::user()->empresa()->moneda}}                   {{App\Funcion::Parsear($factura->devoluciones())}}</h4>
+                <h4 class="font-weight-medium text-center mb-0">{{$empresa->moneda}}                   {{App\Funcion::Parsear($factura->devoluciones())}}</h4>
               </div>
             </div>
           </div>
@@ -135,7 +150,7 @@
             <div class="float-center">
               <p class="mb-0 text-center">Cobrado</p>
               <div class="fluid-container">
-                <h4 class="font-weight-medium text-center mb-0 text-success">{{Auth::user()->empresa()->moneda}}
+                <h4 class="font-weight-medium text-center mb-0 text-success">{{$empresa->moneda}}
                 {{App\Funcion::Parsear($factura->pagado())}}</h4>
               </div>
             </div>
@@ -148,7 +163,7 @@
             <div class="float-center">
               <p class="mb-0 text-center">Por cobrar</p>
               <div class="fluid-container">
-                <h4 class="font-weight-medium text-center mb-0 text-danger">{{Auth::user()->empresa()->moneda}}
+                <h4 class="font-weight-medium text-center mb-0 text-danger">{{$empresa->moneda}}
                 {{App\Funcion::Parsear($factura->porpagar())}}</h4>
               </div>
             </div>
@@ -207,11 +222,11 @@
         <!-- Membrete -->
         <div class="row">
             <div class="col-md-4 text-center">
-                <img class="img-responsive" src="{{asset('images/Empresas/Empresa'.Auth::user()->empresa.'/'.Auth::user()->empresa()->logo)}}" alt="" width="50%">
+                <img class="img-responsive" src="{{asset('images/Empresas/Empresa'.Auth::user()->empresa.'/'.$empresa->logo)}}" alt="" width="50%">
             </div>
             <div class="col-md-4 text-center padding1">
-                <h4>{{Auth::user()->empresa()->nombre}}</h4>
-                <p>{{Auth::user()->empresa()->tip_iden('mini')}} {{Auth::user()->empresa()->nit}}  @if(Auth::user()->empresa()->dv != null || Auth::user()->empresa()->dv == 0) - {{Auth::user()->empresa()->dv}} @endif<br> {{Auth::user()->empresa()->email}}</p>
+                <h4>{{$empresa->nombre}}</h4>
+                <p>{{$empresa->tip_iden('mini')}} {{$empresa->nit}}  @if($empresa->dv != null || $empresa->dv == 0) - {{$empresa->dv}} @endif<br> {{$empresa->email}}</p>
             </div>
             <div class="col-md-4 text-center padding1" >
                 <h4><b class="text-primary">No. </b> {{$factura->codigo}}</h4>  @if(isset($factura->nro_remision))<h4><b class="text-primary">No. Remision </b> {{$factura->nro_remision}}</h4> @endif
@@ -281,12 +296,12 @@
                 <tr>
                     <td><div class="elipsis-short-item">@if(auth()->user()->rol == 8) {{$item->producto()}} @else <a href="{{route('inventario.show',$item->producto)}}" target="_blank">{{$item->producto()}}</a>@endif</div></td>
                     <td><div class="elipsis-short">{{$item->ref}}</div></td>
-                    <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->precio)}}</td>
+                    <td>{{$empresa->moneda}} {{App\Funcion::Parsear($item->precio)}}</td>
                     <td>{{$item->desc?$item->desc:0}}%</td>
                     <td>{{$item->impuesto()}}</td>
                     <td><div class="elipsis-short">{{$item->descripcion}}</div></td>
                     <td>{{round($item->cant)}}</td>
-                    <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($item->total())}}</td>
+                    <td>{{$empresa->moneda}} {{App\Funcion::Parsear($item->total())}}</td>
                 </tr>
 
             @endforeach
@@ -312,21 +327,21 @@
         <table class="text-right widthtotal" id="totales">
           <tr>
             <td width="40%">Subtotal</td>
-            <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($factura->total()->subtotal)}}</td>
+            <td>{{$empresa->moneda}} {{App\Funcion::Parsear($factura->total()->subtotal)}}</td>
           </tr>
           <tr>
-            <td>Descuento</td><td id="descuento">{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($factura->total()->descuento)}}</td>
+            <td>Descuento</td><td id="descuento">{{$empresa->moneda}} {{App\Funcion::Parsear($factura->total()->descuento)}}</td>
           </tr>
           <tr>
             <td width="40%">Subtotal</td>
-            <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($factura->total()->resul)}}</td>
+            <td>{{$empresa->moneda}} {{App\Funcion::Parsear($factura->total()->resul)}}</td>
           </tr>
           @if($factura->total()->imp)
             @foreach($factura->total()->imp as $imp)
                 @if(isset($imp->total))
                   <tr>
                     <td>{{$imp->nombre}} ({{$imp->porcentaje}}%)</td>
-                    <td>{{Auth::user()->empresa()->moneda}}{{App\Funcion::Parsear($imp->total)}}</td>
+                    <td>{{$empresa->moneda}}{{App\Funcion::Parsear($imp->total)}}</td>
                   </tr>
                 @endif
             @endforeach
@@ -336,7 +351,7 @@
               <!--<td>RF </td>
               <td>{{$retencion->retencion()->porcentaje}}%</td>-->
               <td>RF {{$retencion->retencion()->porcentaje}}%</td>
-              <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($retencion->valor)}}</td>
+              <td>{{$empresa->moneda}} {{App\Funcion::Parsear($retencion->valor)}}</td>
             </tr>
           @endforeach
         </table>
@@ -344,7 +359,7 @@
         <table class="text-right widthtotal" style="font-size: 24px !important;">
           <tr>
             <td width="40%">TOTAL A PAGAR</td>
-            <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($factura->total()->total)}}</td>
+            <td>{{$empresa->moneda}} {{App\Funcion::Parsear($factura->total()->total)}}</td>
           </tr>
         </table>
       </div>
@@ -451,7 +466,7 @@
                             <td>@if(auth()->user()->rol == 8){{$pago->nro_seguro()}}@else<a href="{{route('ingresos.show',$pago->ingreso()->id)}}">{{$pago->nro_seguro()}}</a>@endif</td>
                             <td></td>
                             <td>{{$pago->metodo_pago_seguro()}}</td>
-                            <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($pago->pago())}}</td>
+                            <td>{{$empresa->moneda}} {{App\Funcion::Parsear($pago->pago())}}</td>
                             <td>{{$pago->observaciones_seguras()}}</td>
                         </tr>
                         @endif
@@ -489,7 +504,7 @@
                 <tr>
                   <td> <a href="{{route('notascredito.show',$notas->nota_nro_seguro())}}">{{$notas->nota_fecha_segura()}}</a> </td>
                   <td>{{$notas->nota_nro_seguro()}}</td>
-                  <td>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($notas->pago)}}</td>
+                  <td>{{$empresa->moneda}} {{App\Funcion::Parsear($notas->pago)}}</td>
                   <td>{{$notas->observaciones_nota_seguras()}}</td>
                 </tr>
                 @endif

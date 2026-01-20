@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Instance extends Model
 {
-    protected $fillable = ['uuid', 'company_id', 'api_key', 'addr', 'uuid_whatsapp', 'status','type'];
+    protected $fillable = ['uuid', 'company_id', 'api_key', 'addr', 'uuid_whatsapp', 'status', 'type', 'meta', 'activo', 'phone_number_id', 'waba_id'];
 
     public function isPaired(): bool
     {

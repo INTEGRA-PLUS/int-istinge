@@ -170,32 +170,8 @@
                                 <tr>
                                     <td style="font-size: 9px;">Valor</td>
                                     <td style="font-size: 9px;"><b>{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</b></td>
-                                    <td style="font-size: 9px;">Total + IVA</td>
-                                    {{-- @php
-                                    if (isset($contract->server_configuration_id) && $contract->iva_factura){
-                                        <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) + App\Funcion::Parsear(($contractDetails->plan()->price *19)/100).'.'.'000' : '________' }}</td>
-
-                                    }else{
-                                        <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</td>
-                                    }
-                                    @endphp --}}
-                                    @php
-                                        $moneda = Auth::user()->empresa()->moneda;
-                                        $priceWithIva = isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) + App\Funcion::Parsear(($contractDetails->plan()->price * 19) / 100) : null;
-                                        $priceWithoutIva = isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : null;
-                                    @endphp
-
-                                    @if (isset($contract->server_configuration_id) && $contract->iva_factura)
-                                        <td style="font-size: 9px;">
-                                            {{ $moneda }}
-                                            {{ $priceWithIva !== null ? number_format($priceWithIva, 3, '.', '') : '________' }}
-                                        </td>
-                                    @else
-                                        <td style="font-size: 9px;">
-                                            {{ $moneda }}
-                                            {{ $priceWithoutIva !== null ? number_format($priceWithoutIva, 3, '.', '') : '________' }}
-                                        </td>
-                                    @endif
+                                    <td style="font-size: 9px;">Total</td>
+                                    <td style="font-size: 9px;">{{Auth::user()->empresa()->moneda}} {{ isset($contractDetails->server_configuration_id) ? App\Funcion::Parsear($contractDetails->plan()->price) : '________' }}</td>
                                 </tr>
                             </table>
 
@@ -227,8 +203,8 @@
                                     if (isset($contract->servicio_tv)){
                                         $total_tv = (($contract->plan('true')->precio * $contract->plan('true')->impuesto)/100)+$contract->plan('true')->precio;
                                     }
-                                    if (isset($contract->server_configuration_id) && $contract->iva_factura){
-                                        $total_internet = $contract->plan()->price + (($contract->plan()->price *19)/100);
+                                    if (isset($contract->server_configuration_id)){
+                                        $total_internet = $contract->plan()->price;
                                     }
                                     @endphp
                                 </tr>
@@ -344,7 +320,7 @@
 
                         <table width="100%" style="font-size: 10px">
                             <tbody>
-                                 <tr>
+                                <tr>
                                     <th style="background-color:{{Auth::user()->empresa()->color}}; color: white; text-align: left; font-size: 10px;" width="65%">Fecha de inicio de la permanencia mínima</th>
                                     <td style="border: 1px solid {{Auth::user()->empresa()->color}}; font-size: 10px" width="35%">
                                         <p style="padding: 0;margin:0;">{{Carbon\Carbon::parse($contractDetails->created_at)->format('d-m-Y')}}</p>
@@ -355,7 +331,7 @@
 
                         <table width="100%" style="font-size: 10px">
                             <tbody>
-                                 <tr>
+                                <tr>
                                     <th style="background-color:{{Auth::user()->empresa()->color}}; color: white; text-align: left; font-size: 10px;" width="65%">Fecha de finalización de la permanencia mínima</th>
                                     <td style="border: 1px solid {{Auth::user()->empresa()->color}}; font-size: 10px" width="35%">
                                         <p style="padding: 0;margin:0;">{{Carbon\Carbon::parse($contractDetails->created_at)->addYear()->format('d-m-Y')}}</p>
@@ -365,14 +341,14 @@
                         </table>
 
                         <table width="100%" style="font-size: 10px;">
-                             <thead>
+                            <thead>
                                 <tr>
                                     <th style="background-color: {{Auth::user()->empresa()->color}}; color: white; text-align: center; font-size: 10px; padding: 0;margin:0;">Valor a pagar si termina el contrato anticipadamente según el mes</th>
                                 </tr>
                             </thead>
                         </table>
 
-                         <table width="100%">
+                        <table width="100%">
                             <tbody>
                                 <tr style="background-color: {{Auth::user()->empresa()->color}}; border: solid 1px {{Auth::user()->empresa()->color}}; color: #fff; text-align: center;">
                                     @for ($i = 1; $i <= 6; $i++)
@@ -648,158 +624,4 @@
             </tbody>
         </table>
     </div>
-    @if($contact->documento)
-        @php
-            $path = public_path('adjuntos/documentos/' . $contact->documento);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">Documento del Contacto</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-    {{-- Adjunto A --}}
-    @if($contract->adjunto_a)
-        @php
-            $path = public_path('adjuntos/documentos/' . $contract->adjunto_a);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">{{ $contract->referencia_a }}</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-    {{-- Adjunto B --}}
-    @if($contract->adjunto_b)
-        @php
-            $path = public_path('adjuntos/documentos/' . $contract->adjunto_b);
-            $type = pathinfo($path, PATHINFO_EXTENSION);
-            $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-        @endphp
-
-        @if($data)
-            <div style="page-break-before: always;">
-                <h3 style="text-align: center;">{{ $contract->referencia_b }}</h3>
-                <div style="text-align: center; margin-top: 20px;">
-                    <img src="data:image/{{ $type }};base64,{{ $data }}"
-                         alt="Documento del Contacto"
-                         style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-                </div>
-            </div>
-        @else
-            <p>No se pudo cargar el documento.</p>
-        @endif
-    @endif
-
-     {{-- Adjunto C --}}
-     @if($contract->adjunto_c)
-     @php
-         $path = public_path('adjuntos/documentos/' . $contract->adjunto_c);
-         $type = pathinfo($path, PATHINFO_EXTENSION);
-         $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
-     @endphp
-
-     @if($data)
-         <div style="page-break-before: always;">
-             <h3 style="text-align: center;">{{ $contract->referencia_c }}</h3>
-             <div style="text-align: center; margin-top: 20px;">
-                 <img src="data:image/{{ $type }};base64,{{ $data }}"
-                      alt="Documento del Contacto"
-                      style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-             </div>
-         </div>
-     @else
-         <p>No se pudo cargar el documento.</p>
-     @endif
- @endif
-
- {{-- contacto Adjunto A --}}
- @if($contact->imgA)
- @php
-     $path = public_path('adjuntos/documentos/' . $contact->imgA);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $contact->imgA }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
- {{-- contacto Adjunto B --}}
- @if($contact->imgB)
- @php
-     $path = public_path('adjuntos/documentos/' . $contact->imgB);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $contact->imgB }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
- {{-- contacto Adjunto B --}}
- @if($contact->imgC)
- @php
-     $path = public_path('adjuntos/documentos/' . $contact->imgC);
-     $type = pathinfo($path, PATHINFO_EXTENSION);
-     $data = file_exists($path) ? base64_encode(file_get_contents($path)) : null;
- @endphp
-
- @if($data)
-     <div style="page-break-before: always;">
-         <h3 style="text-align: center;">{{ $contact->imgC }}</h3>
-         <div style="text-align: center; margin-top: 20px;">
-             <img src="data:image/{{ $type }};base64,{{ $data }}"
-                  alt="Documento del Contacto"
-                  style="max-width: 100%; max-height: 700px; width: auto; height: auto;">
-         </div>
-     </div>
- @else
-     <p>No se pudo cargar el documento.</p>
- @endif
-@endif
-
-
 @endsection

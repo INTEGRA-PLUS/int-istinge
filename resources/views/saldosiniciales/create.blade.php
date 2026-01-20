@@ -21,8 +21,8 @@
     }
 
     .not-active-a{
-        pointer-events: none; 
-            cursor: default; 
+        pointer-events: none;
+            cursor: default;
     }
 </style>
 
@@ -80,7 +80,7 @@
             <label class="form-control-label">Fecha de elaboración:</label>
             <input type="text" class="form-control datepicker" id="fecha" name="fecha" value="{{Carbon\Carbon::now()->parse()->format('d-m-Y')}}">
         </div>
-    </div> 
+    </div>
 
     <table class="table-forma1 table table-striped table-hover w-100 dtr-inline collapsed" style="margin:10px 0px" id="table-saldoinicial">
     <thead class="thead-dark">
@@ -97,7 +97,7 @@
     </thead>
     {{-- @foreach($productos as $producto) --}}
         <tr id="saldoini1" fila="1">
-            <td>1</td> 
+            <td>1</td>
             <td>
                 <select name="puc_cuenta[]" id="puc_cuenta1" class="form-control form-control-sm selectpicker p-0" onchange="validateDetalleCartera(this.value,1)" data-live-search="true" data-size="5" required>
                     <option value="0" selected disabled>Seleccione una opción</option>
@@ -110,7 +110,7 @@
                 <select name="contacto[]" id="contacto1" class="form-control form-control-sm selectpicker p-0" data-live-search="true" data-size="5" required>
                     <option value="0" selected disabled>Seleccione una opción</option>
                     @foreach($contactos as $contacto)
-                        <option value="{{$contacto->id}}">{{$contacto->nombre}}</option>
+                        <option value="{{$contacto->id}}">{{$contacto->nombre}} {{$contacto->apellidos()}}</option>
                     @endforeach
                 </select>
             </td>
@@ -149,7 +149,7 @@
             <th></th>
         </tfoot>
     {{-- @endforeach --}}
-    
+
     {{-- Totales--}}
   </table>
   <div class="w-100" style="text-align:right;">
@@ -169,9 +169,9 @@
 
 </form>
 
-  {{-- Modal Detalle de Comprbantes contables --}}    
+  {{-- Modal Detalle de Comprbantes contables --}}
   <div class="modal fade" id="editModalComprobante" tabindex="-1" role="dialog" aria-labelledby="editModalComprobante" aria-hidden="true">
-    
+
   </div>
   {{-- End Section Detalle de cartera  --}}
 

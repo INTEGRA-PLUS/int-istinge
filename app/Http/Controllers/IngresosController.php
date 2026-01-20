@@ -11,6 +11,7 @@ use App\Numeracion;
 use App\Model\Inventario\Inventario;
 use App\Model\Ingresos\Factura;
 use App\Model\Ingresos\ItemsFactura;
+use Illuminate\Support\Facades\Schema;
 use App\Model\Ingresos\Ingreso;
 use App\Model\Ingresos\IngresosFactura;
 use App\Model\Ingresos\IngresosCategoria;
@@ -401,6 +402,37 @@ class IngresosController extends Controller
                         $montoPago = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
 
+                        if ($factura->contratos() != false &&
+                            $factura->contratos()->first()->contrato_nro) {
+
+                                $contrato = $factura->contratos()->first()->contrato_nro;
+                                $contrato = Contrato::where('nro',$contrato)->first();
+
+                            if($empresa->pago_siigo == 1 || ($contrato && $contrato->pago_siigo_contrato == 1)){
+                                $siigo = new SiigoController();
+                                $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
+                                Log::info($response);
+                                if(isset($response['success']) && $response['success'] == false){
+                                    // Intentar refrescar la conexión a Siigo
+                                    Log::info("Error de conexión con Siigo, intentando refrescar token...");
+                                    $refreshResult = $siigo->configurarSiigo(null, true);
+
+                                    if($refreshResult == 1){
+                                        // Si el refresh fue exitoso, intentar nuevamente el envío
+                                        Log::info("Token de Siigo refrescado exitosamente, reintentando envío...");
+                                        $response = $siigo->envioMasivoSiigo($factura->id,true)->getData(true);
+                                        Log::info("Respuesta después del refresh: " . json_encode($response));
+
+                                        if(isset($response['success']) && $response['success'] == false){
+                                            return back()->with('danger', "No se ha podido establecer conexión con siigo después de refrescar el token y no se ha generado el pago")->withInput();
+                                        }
+                                    } else {
+                                        return back()->with('danger', "No se ha podido establecer conexión con siigo, no se pudo refrescar el token y no se ha generado el pago")->withInput();
+                                    }
+                                }
+                            }
+                        }
+
                         $pagoRepetido = IngresosFactura::where('factura', $factura_id)
                             ->where('pagado', $montoPago)
                             ->whereHas('ingresoRelation', function ($query) {
@@ -471,7 +503,12 @@ class IngresosController extends Controller
                                         $conversion = app(FacturasController::class)->convertirelEctronica($factura->id,0,1);
                                     }
 
-                                    $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
+                                    if(isset($empresa->proveedor) && $empresa->proveedor == 2){
+                                        $emision = app(FacturasController::class)->jsonDianFacturaVenta($factura->id);
+                                    }else{
+                                        $emision = app(FacturasController::class)->xmlFacturaVentaMasivo($factura->id);
+                                    }
+
                                 }
                         }
                     }
@@ -549,10 +586,31 @@ class IngresosController extends Controller
                 $saldoFavorUsado = 0;
                 foreach ($request->factura_pendiente as $key => $value) {
 
-
                     if ($request->precio[$key]) {
                         $totalIngreso+=$precio = $this->precision($request->precio[$key]);
                         $factura = Factura::find($request->factura_pendiente[$key]);
+
+
+                        //registro de que se creo un ingreso de factura
+                        $movimiento = new MovimientoLOG();
+                        $movimiento->contrato    = $factura->id;
+                        $movimiento->modulo      = 8;
+                        $movimiento->descripcion = 'Se creo un ingreso de factura con el recibo de caja nro ' . $ingreso->nro . ' por un total de $' . number_format($request->precio[$key], 0, ',', '.');
+                        $movimiento->created_by  = Auth::user()->id;
+                        $movimiento->empresa     = $factura->empresa;
+                        $movimiento->save();
+
+                        //Registro el Movimiento de ingreso de saldo a favor
+                        if($request->saldofavor > 0){
+                            $descripcion = '<i class="fas fa-check text-success"></i> <b>Ingreso de saldo a favor con el recibo de caja nro ' . $ingreso->nro . '</b> por un total de $' . number_format($request->saldofavor, 0, ',', '.') . '<br>';
+                            $movimiento = new MovimientoLOG();
+                            $movimiento->contrato    = $factura->id;
+                            $movimiento->modulo      = 8;
+                            $movimiento->descripcion = $descripcion;
+                            $movimiento->created_by  = Auth::user()->id;
+                            $movimiento->empresa     = $factura->empresa;
+                            $movimiento->save();
+                        }
 
                         $contrato = Contrato::join('facturas_contratos as fc', 'fc.contrato_nro', '=', 'contracts.nro')
                                 ->where('fc.factura_id', $factura->id)
@@ -563,9 +621,14 @@ class IngresosController extends Controller
                            $contrato = Contrato::where('id',$factura->contrato_id)->first();
                         }
 
+
                         if($contrato){
-                            if($empresa->consultas_mk == 1){
-                                $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                            $ultimaFactura =$contrato->facturas->last();
+                            //validacion de que solo haga las funciones mikrotik si se trata de la ultima factura.
+                            if($ultimaFactura){
+                                if($empresa->consultas_mk == 1 && $ultimaFactura->id == $factura->id){
+                                    $morosos = $this->funcionesPagoMK($contrato,$empresa,$ingreso);
+                                }
                             }
                         }
 
@@ -1091,19 +1154,20 @@ class IngresosController extends Controller
                     #AGREGAMOS A IP_AUTORIZADAS#
 
                     $mensaje = "- Se ha habilitado el secret.";
-
                     // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
                     DB::reconnect();
-                    $ingreso = Ingreso::find($ingreso->id);
+
                     $ingreso->revalidacion_enable_internet = 1;
                     $ingreso->save();
 
-                    $contrato = Contrato::find($contrato->id);
                     $contrato->state = 'enabled';
                     $contrato->save();
 
 
                 }else{
+
+                // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
+                DB::reconnect();
 
                     $API->write('/ip/firewall/address-list/print', false);
                     $API->write('?address=' . $contrato->ip, false);
@@ -1134,14 +1198,12 @@ class IngresosController extends Controller
 
 
                             $mensaje = "- Se ha sacado la ip de morosos.";
-
                             // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
                             DB::reconnect();
-                            $ingreso = Ingreso::find($ingreso->id);
+
                             $ingreso->revalidacion_enable_internet = 1;
                             $ingreso->save();
 
-                            $contrato = Contrato::find($contrato->id);
                             $contrato->state = 'enabled';
                             $contrato->save();
 
@@ -1156,9 +1218,6 @@ class IngresosController extends Controller
                 $API->disconnect();
             }
         }else{
-            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
-            DB::reconnect();
-            $ingreso = Ingreso::find($ingreso->id);
             $ingreso->revalidacion_enable_internet = 1;
             $ingreso->save();
         }
@@ -1187,20 +1246,13 @@ class IngresosController extends Controller
 
             if(isset($response->status) && $response->status == true){
 
-                // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
-                DB::reconnect();
-                $ingreso = Ingreso::find($ingreso->id);
                 $ingreso->revalidacion_enable_tv = 1;
                 $ingreso->save();
 
-                $contrato = Contrato::find($contrato->id);
                 $contrato->state_olt_catv = 1;
                 $contrato->save();
             }
         }else{
-            // Recargar el modelo para evitar "Server has gone away" después de operaciones largas
-            DB::reconnect();
-            $ingreso = Ingreso::find($ingreso->id);
             $ingreso->revalidacion_enable_tv = 1;
             $ingreso->save();
         }
@@ -1208,7 +1260,6 @@ class IngresosController extends Controller
 
         return $mensaje;
     }
-
 
     public function storeIngresoPucCategoria($request){
 
@@ -1345,6 +1396,7 @@ class IngresosController extends Controller
         // ============================================================
         $instance = Instance::where('company_id', auth()->user()->empresa)
             ->where('activo', 1)
+            ->where('type', 1)
             ->first();
 
         if (is_null($instance) || empty($instance)) {
@@ -1435,11 +1487,19 @@ class IngresosController extends Controller
             // ============================================================
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
+            $languageCode = 'en';
 
+            if (trim($nameEmpresa) === 'FiberNet Colombia') {
+                $languageCode = 'es';
+            }
+
+            // ==================================================
+            // BODY WHATSAPP
+            // ==================================================
             $body = [
                 "phone" => $telefonoCompleto,
                 "templateName" => "tirillas",
-                "languageCode" => "en",
+                "languageCode" => $languageCode,
                 "components" => [
                     [
                         "type" => "header",
@@ -1547,7 +1607,7 @@ class IngresosController extends Controller
             ];
             $nameEmpresa = auth()->user()->empresa()->nombre;
             $total = $ingreso->total()->total;
-            $message = "$nameEmpresa le informa que su soporte de pago ha sido generado bajo el número $ingreso->nro por un monto de $$total pesos.";
+            $message = "Estimado cliente. $nameEmpresa le informa que se ha procesado su pago por un monto de $$total pesos. Verifica el pago en el siguiente documento.";
             $body = [
                 "contact" => $contact,
                 "message" => $message,
@@ -1668,6 +1728,10 @@ class IngresosController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
 
+        if(!$ingreso){
+            return redirect('empresa/ingresos')->with('danger', 'no existe un pago con ese número');
+        }
+
         //tomamos las formas de pago cuando no es un recibo de caja por anticipo
         $formas = FormaPago::where('relacion',1)->orWhere('relacion',3)->get();
 
@@ -1676,10 +1740,10 @@ class IngresosController extends Controller
         if ($ingreso) {
             view()->share(['icon' =>'', 'title' => 'Modificar Ingreso (Recibo de Caja) #'.$ingreso->nro]);
             if ($ingreso->tipo==3) {
-                return redirect('empresa/ingresos')->with('error', 'No puede editar un pago de nota de débito');
+                return redirect('empresa/ingresos')->with('danger', 'No puede editar un pago de nota de débito');
             }
             if ($ingreso->tipo==4) {
-                return redirect('empresa/ingresos')->with('error', 'No puede editar una transferencia');
+                return redirect('empresa/ingresos')->with('danger', 'No puede editar una transferencia');
             }
             $bancos = Banco::where('empresa',Auth::user()->empresa)->where('estatus', 1)->get();
             $clientes = (Auth::user()->empresa()->oficina) ? Contacto::where('status', 1)->whereIn('tipo_contacto',[0,2])->where('empresa', Auth::user()->empresa)->where('oficina', Auth::user()->oficina)->orderBy('nombre','asc')->get() : Contacto::where('status', 1)->whereIn('tipo_contacto',[0,2])->where('empresa', Auth::user()->empresa)->orderBy('nombre','asc')->get();
@@ -1778,11 +1842,11 @@ class IngresosController extends Controller
                 IngresosRetenciones::where('ingreso',$ingreso->id)->delete();
             }
 
-
             // Actualizar el número solo si ha cambiado
             if ($ingreso->nro != $request->nro) {
                 $ingreso->nro = $request->nro;
             }
+
 
             $ingreso->cliente=$request->cliente;
             $ingreso->cuenta=$request->cuenta;
@@ -1997,17 +2061,54 @@ class IngresosController extends Controller
                                         ->first();
             $empresa = Empresa::find($ingreso->empresa);
 
-            $contratoNro = Contrato::where('client_id', $ingreso->cliente)->value('nro') ?? null;
+            // Obtener el contrato correcto desde la factura asociada al ingreso
+            $contratoNro = null;
+            $direccionMostrar = null; // NUEVA VARIABLE
+
+            if ($ingreso->tipo == 1) {
+                $primeraFactura = IngresosFactura::where('ingreso', $ingreso->id)->first();
+
+                if ($primeraFactura) {
+                    // Opción 1: Buscar en la tabla facturas_contratos
+                    $contratoRelacion = DB::table('facturas_contratos')
+                        ->where('factura_id', $primeraFactura->factura)
+                        ->first();
+
+                    if ($contratoRelacion) {
+                        $contratoNro = $contratoRelacion->contrato_nro;
+                        // Obtener la dirección del contrato
+                        $contratoObj = Contrato::where('nro', $contratoNro)->first();
+                        if ($contratoObj) {
+                            $direccionMostrar = $contratoObj->address_street ?? $contratoObj->direccion_instalacion ?? null;
+                        }
+                    } else {
+                        // Opción 2: Buscar desde el contrato_id directo de la factura
+                        $factura = Factura::find($primeraFactura->factura);
+                        if ($factura && $factura->contrato_id) {
+                            $contrato = Contrato::find($factura->contrato_id);
+                            if ($contrato) {
+                                $contratoNro = $contrato->nro;
+                                $direccionMostrar = $contrato->address_street ?? $contrato->direccion_instalacion ?? null;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Si no hay dirección del contrato, usar la del cliente como fallback
+            if (!$direccionMostrar) {
+                $direccionMostrar = $ingreso->cliente()->direccion;
+            }
 
             $paper_size = [0, 0, 270, 580];
 
             if ($ingreso->valor_anticipo > 0) {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla_anticipo', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             } else {
                 $pdf = PDF::loadView('pdf.plantillas.ingreso_tirilla', compact(
-                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro'
+                    'ingreso', 'items', 'retenciones', 'itemscount', 'empresa', 'resolucion', 'contratoNro', 'direccionMostrar'
                 ));
             }
 
@@ -2152,9 +2253,10 @@ class IngresosController extends Controller
         return back()->with('error', 'No existe un registro con ese id');
     }
 
+
     public function destroy($id)
     {
-        $ingreso = Ingreso::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
+        $ingreso = Ingreso::Find($id);
         if ($ingreso) {
 
             if ($ingreso->tipo == 3) {

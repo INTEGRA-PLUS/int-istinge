@@ -10,13 +10,13 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
-
+use App\Http\Controllers\AdminOLTController;
 use App\Http\Controllers\TecnicoController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\ACSController;
-
+use App\Http\Controllers\PlanesVelocidadController;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 
@@ -147,6 +147,7 @@ Route::get('/generarfactura', 'CronController@CrearFactura')->name('CrearFactura
 Route::get('/deleteAll', 'CronController@deleteFactura');
 Route::get('/aplicateProrrateo', 'CronController@aplicateProrrateo');
 Route::get('/cortarfacturas', 'CronController@CortarFacturas')->name('CortarFacturas');
+Route::get('/cortarfacturasdiaespecifico', 'CronController@CortarFacturasDiaEspecifico')->name('CortarFacturasDiaEspecifico');
 Route::get('/cortartelevision', 'CronController@CortarTelevision');
 Route::get('/enviarsms', 'CronController@EnviarSMS')->name('EnviarSMS');
 Route::get('/migrarCRM', 'CronController@migrarCRM')->name('migrarCRM');
@@ -242,6 +243,7 @@ Route::get('qrcode', function () {
 });
 Route::post('configuracion_separacion_numero_contrato', 'ConfiguracionController@contratoNumeracion')->name('configuracion.contrato_numeracion');
 Route::post('configuracion_facturas_contratos_off', 'ConfiguracionController@facturaContratoOff');
+Route::post('configuracion_facturas_prorrateo', 'ConfiguracionController@facturaProrrateo');
 Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consultasMikrotik')->name('configuracion.consultas_mikrotik');
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
@@ -250,11 +252,18 @@ Route::post('configuracion_reconexiongenerica', 'ConfiguracionController@reconex
 Route::post('updatereconexiongenerica', 'ConfiguracionController@updateReconexionGenerica')->name('configuracion.updatereconexiongenerica');
 Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@aplicacionSaldosFavor');
 Route::post('configuracion_factcronabiertas', 'ConfiguracionController@factCronAbiertas');
+Route::post('configuracion_activeconnection_secret', 'ConfiguracionController@activeconnectionSecret');
 Route::post('configuracion_facturacionSmsAutomatica', 'ConfiguracionController@facturacionSmsAutomatica');
 Route::post('configuracion_periodo_tirilla', 'ConfiguracionController@periodoTirilla');
 Route::post('configuracion_envio_wpp_ingreso', 'ConfiguracionController@envioWppIngreso');
 Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache');
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
+Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
+Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
+Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionController@registrarNumeroWhatsappMeta');
+Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -273,9 +282,9 @@ Route::get('/emitirjson/{nominaId}', 'Nomina\NominaController@emitirJson');
 Route::get('/nomina-json/{nomina}', 'Nomina\NominaController@emitirJson')->name('nomina.json');
 Route::post('/validatetechnicalkeydian', 'FacturasController@validate_technicalkey_dian');
 Route::get('/{id}/xml', 'FacturasController@xml')->name('facturas.xml');
+Route::get('/{id}/download-xml', 'FacturasController@downloadXML')->name('facturas.download-xml');
 
 //Route::get('', 'HomeController@inicio')->name('Inicio');
-
 Route::get('', 'Auth\LoginController@showLoginForm')->name('login');
 Route::get('/home', 'HomeController@home')->name('home');
 Route::post('/archivo', 'HomeController@subirArchivo')->name('subir-archivo');
@@ -410,6 +419,7 @@ Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], functio
 	Route::group(['prefix' => 'empresas'], function () {
 		Route::post('desactivar/{id}', 'EmpresasController@desactivar')->name('empresas.desactivar');
 		Route::post('activar/{id}', 'EmpresasController@activar')->name('empresas.activar');
+		Route::post('cambiar-estado-suscripcion/{id}', 'EmpresasController@cambiarEstadoSuscripcion')->name('empresas.cambiar_estado_suscripcion');
 		Route::get('inactivas', 'EmpresasController@inactivas')->name('empresas.inactivas');
 		Route::get('ingresar/{email}', 'EmpresasController@ingresar')->name('empresas.ingresar');
 		Route::get('{id}/nomina', 'EmpresasController@nomina')->name('empresas.nomina');
@@ -433,6 +443,9 @@ Route::group(['prefix' => 'tecnico', 'middleware' => ['auth']], function () {
 });
 
 Route::group(['prefix' => 'Olt'], function () {
+	Route::get('unconfigured-adminolt', 'OltAdminController@unconfigured')->name('olt.unconfiguredAdminOLT');
+	Route::get('form-authorized-onuAdminOLT', 'OltAdminController@formAuthorizeOnu')->name('olt.form-authorized-onuAdminOlt');
+	Route::post('authorized-onuAdmin', 'OltAdminController@authorizeOnu')->name('olt.authorized-onuAdmin');
 	Route::get('unconfigured-onus/{olt?}', 'OltController@unConfiguredOnus_view')->name('olt.unconfigured');
 	Route::post('authorized-onus', 'OltController@authorizedOnus')->name('olt.authorized-onus');
 	Route::get('form-authorized-onu', 'OltController@formAuthorizeOnu')->name('olt.form-authorized-onus');
@@ -457,7 +470,7 @@ Route::group(['prefix' => 'Olt'], function () {
 });
 
 Route::group(['prefix' => 'siigo'], function () {
-	Route::post('configuracion_siigo', 'SiigoController@configurarSiigo');
+	Route::get('configuracion_siigo', 'SiigoController@configurarSiigo');
 	Route::post('create_invoice', 'SiigoController@createInvoice')->name('siigo.create_invoice');
 	Route::get('get_modal_invoice', 'SiigoController@getModalInvoice');
 	Route::get('send_invoice', 'SiigoController@sendInvoice');
@@ -659,7 +672,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('conversionmasiva/{facturas}', 'FacturasController@conversionmasivaElectronica');
 		Route::get('enviomasivosiigo/{facturas}', 'SiigoController@envioMasivoSiigo')->name('facturas.enviomasivosiigo');
 		Route::get('impresionmasiva/{facturas}', 'FacturasController@ImprimirMultiple');
-		Route::get('exportar', 'FacturasController@exportar');
+		Route::delete('eliminarmasiva/{facturas}', 'FacturasController@eliminarMasivaFacturas')->name('facturas.eliminarmasiva');
+		Route::get('exportar', 'FacturasController@exportar')->name('facturas.exportar');
 		Route::get('facturas_electronica/exportar', 'FacturasController@exportar');
 
 		Route::get('facturas-whatsapp-index', 'FacturasController@facturasWhatsappIndex')->name('cronjob.whatsapp-facturas-index');
@@ -704,7 +718,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//NOMINA
 	Route::group(['namespace' => 'Nomina', 'prefix' => 'nomina', 'middleware' => ['nomina']], function () {
 
-		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina');
+		Route::get('/refrescar/periodo-individual/liquidacion/{idNominaPeriodo}', 'NominaController@refrescarNomina')->name('nomina.refrescar.periodo.individual');
 		Route::get('get-costos-periodo/{year}/{periodo}/{tipo}', 'NominaController@getCostoPeriodo')->name('nomina.get.costo.periodo');
 
 		Route::get('/agrupadas/{periodo?}/{year?}/{tipo?}', 'NominaController@nominasAgrupadas')->name('nomina.agrupadas');
@@ -890,7 +904,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		//->observaciones de nomina
 
-		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo');
+		Route::post('/agregar-observacion-periodo', 'NominaController@agregarObservacionPeriodo')->name('nomina.periodo.observacion.agregar');
 		Route::post('/agregar-observacion', 'NominaController@agregarObservacion')->name('nomina.agregar.observacion');
 	});
 
@@ -987,6 +1001,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
 
 		Route::get('xml/{id}', 'NotascreditoController@xmlNotaCredito')->name('xml.notacredito');
+		Route::get('emisionmasivaxml/{notas}', 'NotascreditoController@emisionMasivaXml');
 		Route::get('descargar/{nro}', 'NotascreditoController@xml')->name('notascredito.xml');
 
 		Route::get('/{id}/imprimir', 'NotascreditoController@Imprimir')->name('notascredito.imprimir');
@@ -1307,6 +1322,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		});
 		Route::resource('integracion-whatsapp', 'IntegracionWhatsAppController');
 
+		//INSTANCIAS WHATSAPP META
+		Route::resource('instances', 'InstancesController')->only(['index', 'store', 'destroy']);
+
 		//INTEGRACION PASARELAS DE PAGO
 		Route::group(['prefix' => 'integracion-pasarelas'], function () {
 			Route::post('/{id}/act_desc', 'IntegracionPasarelaController@act_desc')->name('integracion-pasarelas.act_desc');
@@ -1352,6 +1370,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 			'/numeracion_equivalente/{id}/act_desc',
 			'ConfiguracionController@numeraciones_equivalente_act_desc'
 		)->name('numeraciones_equivalente.act_desc');
+
+		// Configuración plantilla WhatsApp Meta para facturas
+		Route::get('/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+		Route::get('/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+		Route::post('/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 	});
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
@@ -1483,6 +1506,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		Route::get('/{radicados}/{state}/state_lote', 'RadicadosController@state_lote')->name('radicados.state_lote');
 		Route::get('/{radicados}/destroy_lote', 'RadicadosController@destroy_lote')->name('radicados.destroy_lote');
+		Route::get('/{radicados}/destroy_tecnicos_asociados', 'RadicadosController@destroy_tecnicos_asociados')->name('radicados.destroy_tecnicos_asociados');
 		Route::get('{id}/log', 'RadicadosController@log')->name('radicados.log');
 		Route::post('/asignacion-tecnico', 'RadicadosController@asignacionTecnico')->name('radicados.asignaciontecnico');
 	});
@@ -1512,6 +1536,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/pings', 'ContratosController@conexion')->name('contratos.ping');
 		Route::get('{id}/ping_nuevo', 'ContratosController@ping_nuevo')->name('contratos.ping_nuevo');
 		Route::get('{id}/grafica-consumo', 'ContratosController@grafica_consumo')->name('contratos.grafica_consumo');
+		Route::get('{id}/grafica-proxy/{tipo}', 'ContratosController@grafica_proxy')->name('contratos.grafica_proxy');
 		Route::get('{cliente}/create', 'ContratosController@create')->name('contratos.create_cliente');
 		Route::get('deshabilitados', 'ContratosController@disabled')->name('contratos.disabled');
 		Route::get('habilitados', 'ContratosController@enabled')->name('contratos.enabled');
@@ -1519,6 +1544,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('{id}/enviar_mk', 'ContratosController@enviar_mk')->name('contratos.enviar_mk');
 		Route::post('{id}/carga_adjuntos', 'ContratosController@carga_adjuntos')->name('contratos.carga_adjuntos');
 		Route::get('{contratos}/{state}/state_lote', 'ContratosController@state_lote')->name('contratos.state_lote');
+		Route::get('{contratos}/{state}/state_oltcatv_lote', 'ContratosController@state_oltcatv_lote')->name('contratos.state_oltcatv_lote');
 		Route::get('{contratos}/enviar_mk_lote', 'ContratosController@enviar_mk_lote')->name('contratos.enviar_mk_lote');
 		Route::get('{contratos}/{server_configuration_id}/{plan_id}/planes_lote', 'ContratosController@planes_lote')->name('contratos.planes_lote');
 		Route::get('{cliente}/json', 'ContratosController@json')->name('contratos.json');
@@ -1633,6 +1659,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// AVISOS
 	Route::group(['prefix' => 'avisos'], function () {
+		// Ruta específica debe ir ANTES de las rutas con parámetros dinámicos para evitar conflictos
+		Route::get('/get-plantilla-meta/{id}', 'AvisosController@getPlantillaMeta')->name('avisos.get-plantilla-meta')->where('id', '[0-9]+');
 		Route::get('/envio/sms', 'AvisosController@sms')->name('avisos.envio.sms');
 		Route::get('/envio/email', 'AvisosController@email')->name('avisos.envio.email');
 		Route::get('/envio/whatsapp', 'AvisosController@whatsapp')->name('avisos.envio_whatsapp');
@@ -1705,14 +1733,20 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::resource('tipos-gastos', 'TiposGastosController');
 
+
+	//---------------------------------------------------------------
 	// ACS
 	// RUTAS PARA EL ACS (Auto Configuration Server)
 	Route::get('/acs', 'ACSController@index')->name('acs.index');
+	//---------------------------------------------------------------
+
+
 
 	//CRM
 	Route::group(['prefix' => 'crm'], function () {
 		Route::get('/cartera', 'CRMController@whatsapp')->name('crm.cartera');
 		Route::get('/cartera2', 'CRMController@whatsapp2')->name('crm.cartera2');
+		Route::post('/chat-ia/chatIaWebhook', 'chatboxIntegraController@chatIaWebhook')->name('chatia.chatIaWebhook');
 		Route::match(['get', 'post'], '/chatboxIA', 'CRMController@chatbox')->name('crm.chatboxIA');		//Route::get('/cartera', 'CRMController@whatsapp')->name('crm.whatsapp.post');
 		//Route::post('/cartera/{action?}', 'CRMController@whatsappActions')->name('crm.whatsapp.api');
 		Route::get('/cartera/whatsapp/action', 'CRMController@whatsappActions')->name('crm.whatsapp');
@@ -1725,6 +1759,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/etiquetas', 'EtiquetaController@index')->name('crm.etiquetas');
 		Route::get('/cambiar-etiqueta/{etiqueta}/{crm}', 'CRMController@cambiarEtiqueta')->name('crm.cambiar.etiqueta');
 		Route::get('/chat-ia', 'CRMController@chatIA')->name('crm.chat_IA');
+		Route::get('/chat-ia/{uuid}/messages', 'CRMController@chatIAMessages')->name('crm.chatIA.messages');
+		Route::get('/chat-ia/contacts/load-more', 'CRMController@chatIALoadMore')->name('crm.chatIA.loadMore');
+		Route::get('/chat-ia/search', 'CRMController@chatIASearch')->name('crm.chatIA.search');
+		Route::post('/chat-ia/send', 'CRMController@chatIASendMessage')->name('crm.chatIA.send');
 		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
 		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
 		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
@@ -1785,6 +1823,15 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('auditoria', 'AuditoriaController');
 	Route::resource('barrios', 'BarriosController');
 	Route::post('/delete-barrio/{id}', 'BarriosController@delete');
+
+	// Logs de WhatsApp Meta
+	Route::group(['prefix' => 'whatsapp-meta-logs'], function () {
+		Route::get('/', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
+		Route::get('/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
+		Route::get('/contactos', 'WhatsappMetaLogController@getContactos')->name('whatsapp-meta-logs.contactos');
+		Route::get('/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
+		Route::post('/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
+	});
 });
 
 
@@ -1832,3 +1879,24 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 // RUTAS PÚBLICAS PARA MARCACIÓN QR (sin middleware auth)
 Route::get('/marcar-asistencia/{token}', 'AsistenciasController@paginaMarcar')->name('asistencias.marcar');
 Route::post('/marcar-asistencia/{token}', 'AsistenciasController@marcar')->name('asistencias.marcar.post');
+
+//Rutas agregadas Spliter
+Route::get('/spliter/index', 'SpliterController@index')->name('spliter.index');
+Route::get('/spliter/create', 'SpliterController@create')->name('spliter.create');
+Route::post('/spliter/store', 'SpliterController@store')->name('spliter.store');
+Route::get('/spliter/datatable', 'SpliterController@spliter')->name('spliter.datatable');
+Route::get('/spliter/{id}', 'SpliterController@show')->name('spliter.show');
+Route::get('/spliter/{id}/edit', 'SpliterController@edit')->name('spliter.edit');
+Route::patch('/spliter/{id}', 'SpliterController@update')->name('spliter.update');
+Route::delete('/spliter/{id}', 'SpliterController@destroy')->name('spliter.destroy');
+
+//Rutas agregadas para cajas naps
+Route::get('/caja-naps/', 'CajaNapController@index')->name('caja.naps.index');
+Route::get('/caja-naps/datatable', 'CajaNapController@cajasNaps')->name('caja.naps.datatable');
+Route::get('/caja-naps/create', 'CajaNapController@create')->name('caja.naps.create');
+Route::post('/caja-naps/store', 'CajaNapController@store')->name('caja.naps.store');
+Route::get('/caja-naps/{id}', 'CajaNapController@show')->name('caja.naps.show');
+Route::get('/caja-naps/{id}/edit', 'CajaNapController@edit')->name('caja.naps.edit');
+Route::patch('/caja-naps/{id}', 'CajaNapController@update')->name('caja.naps.update');
+Route::delete('/caja-naps/{id}', 'CajaNapController@destroy')->name('caja.naps.destroy');
+Route::get('/caja-naps/{id}/puertos-disponibles/{contratoId?}', 'CajaNapController@getPuertosDisponibles')->name('caja.naps.puertos.disponibles');

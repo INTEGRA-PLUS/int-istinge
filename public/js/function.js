@@ -1451,7 +1451,7 @@ function rellenar(id, selected, producto = false) {
 
             if (pathname.split("/")[3] === "facturasp" || pathname.split("/")[3] === "notasdebito") {
                 if (data.costo_unidad <= 0) {
-                    $('#precio' + id).val('1');
+                    $('#precio' + id).val(data.precio);
                 } else {
                     $('#precio' + id).val(data.costo_unidad);
                 }
@@ -4319,6 +4319,12 @@ function getPlanes(mikrotik) {
         success: function(data) {
             cargando(false);
 
+            // Verificar si hay error de conexión a la Mikrotik
+            if (data.connection_error === true) {
+                alert('Esta fallando la conexión a la mikrotik, revisa porfavor su conexión');
+                return;
+            }
+
             $("#plan_id").empty();
 
             var $select = $('#plan_id');
@@ -4339,32 +4345,126 @@ function getPlanes(mikrotik) {
             getInterfaces(mikrotik);
             $("#amarre_mac").val(data.mikrotik.amarre_mac);
             $('#conexion').val('').selectpicker('refresh');
-            // Vaciar el select para evitar duplicados
-            $("#div_profile_select").empty();
 
-            // Asegurarnos de que profile sea un array
-            var profiles = data.profile;
-            if (typeof profiles === "number" || typeof profiles === "string") {
-                profiles = [ { name: profiles } ];
-            } else if (!Array.isArray(profiles)) {
-                profiles = []; // fallback a vacío
+            // Vaciar el select de profiles para evitar duplicados
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            // Normalizar data.profile a un arreglo de objetos { name: 'PROFILE' }
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                // Array: puede ser de strings/números u objetos
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object") {
+                        if (value.name) {
+                            normalizedProfiles.push({ name: value.name });
+                        }
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                // Un solo valor simple
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                // Objeto: iterar sus propiedades
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
             }
 
-            // Iterar sobre los perfiles y agregar cada uno como una opción al select
-            $.each(profiles, function(key, value) {
-                $("#div_profile_select").append($('<option>', {
-                    value: value.name,
-                    text: value.name
+            // Agregar opciones al select
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
                 }));
             });
 
             // Refrescar el selectpicker después de agregar las opciones
-            $('#div_profile_select').selectpicker('refresh');
+            $profileSelect.selectpicker('refresh');
+
+            // Si hay un profile previo guardado, seleccionarlo
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
         },
         error: function(data) {
             cargando(false);
         }
     })
+}
+
+/**
+ * Carga únicamente los profiles del Mikrotik sin tocar planes ni conexión.
+ * Útil para el formulario de edición al cargar por primera vez.
+ */
+function getProfiles(mikrotik) {
+    if (!mikrotik) {
+        return;
+    }
+
+    if (window.location.pathname.split("/")[1] === "software") {
+        var url = '/software/api/getPlanes/' + mikrotik;
+    } else {
+        var url = '/api/getPlanes/' + mikrotik;
+    }
+
+    $.ajax({
+        url: url,
+        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+        method: 'get',
+        success: function(data) {
+            var $profileSelect = $("#div_profile_select");
+            $profileSelect.empty();
+
+            var rawProfiles = data.profile;
+            var normalizedProfiles = [];
+
+            if (Array.isArray(rawProfiles)) {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
+                normalizedProfiles.push({ name: rawProfiles });
+            } else if (rawProfiles && typeof rawProfiles === "object") {
+                $.each(rawProfiles, function(_, value) {
+                    if (typeof value === "string" || typeof value === "number") {
+                        normalizedProfiles.push({ name: value });
+                    } else if (value && typeof value === "object" && value.name) {
+                        normalizedProfiles.push({ name: value.name });
+                    }
+                });
+            }
+
+            $.each(normalizedProfiles, function(_, profile) {
+                $profileSelect.append($('<option>', {
+                    value: profile.name,
+                    text: profile.name
+                }));
+            });
+
+            $profileSelect.selectpicker('refresh');
+
+            var currentProfile = $('#profile_bd').val();
+            if (currentProfile) {
+                currentProfile = String(currentProfile).replace(/^"+|"+$/g, '').trim();
+                $profileSelect.val(currentProfile).selectpicker('refresh');
+            }
+        }
+    });
 }
 
 function interfazChange(){
@@ -4388,7 +4488,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 4){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4413,7 +4514,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 2){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4428,21 +4530,13 @@ function interfazChange(){
         document.getElementById("div_mac").classList.remove('d-none');
         document.getElementById("mac_address").setAttribute('required', true);
 
-        document.getElementById("div_dhcp").classList.remove('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
     }else if(document.getElementById("conexion").value == 1){
-
-      //  document.getElementById("usuario").value = '';
-      //  document.getElementById("password").value = '';
-     //   document.getElementById("div_usuario").classList.remove('d-none');
-     //   document.getElementById("usuario").setAttribute('required', true);
-     //   document.getElementById("div_password").classList.remove('d-none');
-     //   document.getElementById("password").setAttribute('required', true);
-
-    //    document.getElementById("div_mac").classList.add('d-none');
-     //   document.getElementById("mac_address").removeAttribute('required');
-     //   document.getElementById("div_dhcp").classList.add('d-none');
-     //   document.getElementById("simple_queue").removeAttribute('required');
         document.getElementById("usuario").value = '';
         document.getElementById("password").value = '';
         document.getElementById("div_usuario").classList.remove('d-none');
@@ -4452,12 +4546,21 @@ function interfazChange(){
 
         document.getElementById("div_mac").classList.add('d-none');
         document.getElementById("mac_address").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
-        document.getElementById("simple_queue").removeAttribute('required');
-         // Campo que se activa nada mas cuando es pppoe
+        
+        // Mostrar Simple Queue para PPPOE
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) {
+            divSimpleQueue.classList.remove('d-none');
+            document.getElementById("simple_queue").setAttribute('required', true);
+        }
+        
+        // Campo que se activa nada mas cuando es pppoe
         document.getElementById("local_adress").classList.remove('d-none');
         document.getElementById("local_adress").setAttribute('required', true);
         document.getElementById("div_profile").classList.remove('d-none');
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
 
     }else{
         document.getElementById("div_interfaz").classList.add('d-none');
@@ -4470,14 +4573,25 @@ function interfazChange(){
         document.getElementById("id_vlan").removeAttribute('required');
         document.getElementById("local_address").removeAttribute('required');
         document.getElementById("div_local_address").innerHTML = "Local Address";
-        document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
+        document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address) <span class='text-danger'>*</span>";
+
+        // Asegurar que los campos de segmento e IP se muestren cuando no es DHCP
+        var divSegmentoIp = document.getElementById("div_segmento_ip");
+        var divDireccionIp = document.getElementById("div_direccion_ip");
+        if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
+        if(divDireccionIp) divDireccionIp.classList.remove('d-none');
+
+        // Restaurar el atributo required en el campo IP cuando no es DHCP
+        var ip = document.getElementById("ip");
+        if(ip) ip.setAttribute('required', true);
 
         document.getElementById("div_usuario").classList.remove('d-none');
         document.getElementById("div_password").classList.remove('d-none');
 
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }
     document.getElementById("interfaz").value = '';
@@ -4502,6 +4616,114 @@ function interfazChange(){
     $("#conexion_bd").val(document.getElementById("conexion").value);
 }
 
+function toggleCamposDHCP(){
+    var conexion = document.getElementById("conexion");
+    var simpleQueue = document.getElementById("simple_queue");
+
+    // Verificar si los elementos existen (pueden no existir en todas las páginas)
+    if(!conexion || !simpleQueue) return;
+
+    var divInterfaz = document.getElementById("div_interfaz");
+    var divSegmentoIp = document.getElementById("div_segmento_ip");
+    var divDireccionIp = document.getElementById("div_direccion_ip");
+    var localAddress = document.getElementById("local_address");
+    var ip = document.getElementById("ip");
+    var localAdress = document.getElementById("local_adress"); // Campo Dirección IP (Local Address) para PPPOE
+
+    // Aplicar la lógica si el tipo de conexión es DHCP (valor 2) o PPPOE (valor 1)
+    if(conexion.value == 2 || conexion.value == 1){
+        // Si Simple Queue es dinámica, ocultar los campos
+        if(simpleQueue.value == 'dinamica'){
+            if(divInterfaz) {
+                divInterfaz.classList.add('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) {
+                    interfaz.removeAttribute('required');
+                    interfaz.required = false;
+                    // También remover el atributo required del HTML
+                    $(interfaz).removeAttr('required');
+                }
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.add('d-none');
+                if(localAddress) {
+                    localAddress.removeAttribute('required');
+                    localAddress.required = false;
+                    // También remover el atributo required del HTML
+                    $(localAddress).removeAttr('required');
+                }
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.add('d-none');
+                if(ip) {
+                    ip.removeAttribute('required');
+                    ip.required = false;
+                    // También remover el atributo required del HTML
+                    $(ip).removeAttr('required');
+                }
+                // Remover el asterisco del label cuando es dinámico
+                var labelIp = document.getElementById("div_ip");
+                if(labelIp) {
+                    // Remover cualquier asterisco que pueda existir
+                    labelIp.innerHTML = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
+                }
+            }
+            // Ocultar Local Address para PPPOE cuando es dinámico
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.add('d-none');
+                var direccionLocalAddress = document.getElementById("direccion_local_address");
+                if(direccionLocalAddress) {
+                    direccionLocalAddress.removeAttribute('required');
+                    direccionLocalAddress.required = false;
+                    $(direccionLocalAddress).removeAttr('required');
+                }
+                // También buscar por el ID local_address que puede estar en el input
+                var localAddressInput = document.getElementById("local_address");
+                if(localAddressInput && localAddressInput.tagName === 'INPUT') {
+                    localAddressInput.removeAttribute('required');
+                    localAddressInput.required = false;
+                    $(localAddressInput).removeAttr('required');
+                }
+            }
+        } else {
+            // Si Simple Queue es estática, mostrar los campos
+            if(divInterfaz) {
+                divInterfaz.classList.remove('d-none');
+                var interfaz = document.getElementById("interfaz");
+                if(interfaz) interfaz.setAttribute('required', true);
+            }
+            if(divSegmentoIp) {
+                divSegmentoIp.classList.remove('d-none');
+                if(localAddress) localAddress.setAttribute('required', true);
+            }
+            if(divDireccionIp) {
+                divDireccionIp.classList.remove('d-none');
+                if(ip) ip.setAttribute('required', true);
+                // Agregar el asterisco del label cuando es estático
+                var labelIp = document.getElementById("div_ip");
+                if(labelIp) {
+                    // Remover asteriscos existentes primero para evitar duplicados
+                    var labelText = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
+                    // Agregar el asterisco si no existe
+                    if(!labelText.includes('<span class="text-danger">*</span>')) {
+                        labelIp.innerHTML = labelText.replace(/(Dirección IP \(Remote Address\))/, '$1 <span class="text-danger">*</span>');
+                    }
+                }
+            }
+            // Mostrar Local Address para PPPOE cuando es estático
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.remove('d-none');
+                localAdress.setAttribute('required', true);
+            }
+        }
+
+        // Refrescar selectpicker si está disponible
+        if(typeof $ !== 'undefined' && $.fn.selectpicker) {
+            if(simpleQueue) $("#simple_queue").selectpicker('refresh');
+        }
+    }
+}
+
 function modificarPromesa(id) {
     cargando(true);
     var observaciones;
@@ -4521,7 +4743,8 @@ function modificarPromesa(id) {
         success: function(response) {
             cargando(false);
             if (response) {
-                promesa_pago = response.promesa_pago;
+                var data = typeof response === 'string' ? JSON.parse(response) : response;
+                promesa_pago = data.promesa_pago;
                 id = parseInt(id);
 
                 let date = new Date();
@@ -4534,26 +4757,42 @@ function modificarPromesa(id) {
                     var fecha = `${day}-${month}-${year}`;
                 }
 
+                // Obtener valores existentes si hay una promesa
+                var fechaPromesa = '';
+                var horaPromesa = '';
+                var esEdicion = false;
+                if (data.promesa_existente) {
+                    fechaPromesa = data.promesa_existente.vencimiento || '';
+                    horaPromesa = data.promesa_existente.hora_pago || '';
+                    esEdicion = true;
+                } else if (data.promesa_pago) {
+                    fechaPromesa = data.promesa_pago;
+                }
+
+                // Cambiar el título del modal según si es edición o creación
+                var tituloModal = esEdicion ? 'EDITAR PROMESA DE PAGO' : 'GENERAR PROMESA DE PAGO';
+                $('#exampleModalLabel').text(tituloModal);
+
                 $('#div_promesa').html('');
                 $('#div_promesa').append(`
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6 form-group">
                                 <label class="control-label">Día máximo de Pago <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control datepickeronly" id="promesa_pago-${id}" name="promesa_pago" required="">
+                                <input type="text" class="form-control datepickeronly" id="promesa_pago-${id}" name="promesa_pago" value="${fechaPromesa}" required="">
                             </div>
                             <div class="col-md-6 form-group">
                                 <label class="control-label">Hora máxima de Pago <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" title="Seleccione" name="hora_pago" id="hora_pago-${id}" required="">
-                                    <option value="00:00">12:00 AM</option>
-                                    <option value="03:00">3:00 AM</option>
-                                    <option value="06:00">6:00 AM</option>
-                                    <option value="09:00">9:00 AM</option>
-                                    <option value="12:00">12:00 PM</option>
-                                    <option value="15:00">3:00 PM</option>
-                                    <option value="18:00">6:00 PM</option>
-                                    <option value="21:00">9:00 PM</option>
-                                    <option value="23:00">11:00 PM</option>
+                                    <option value="00:00" ${horaPromesa === '00:00' ? 'selected' : ''}>12:00 AM</option>
+                                    <option value="03:00" ${horaPromesa === '03:00' ? 'selected' : ''}>3:00 AM</option>
+                                    <option value="06:00" ${horaPromesa === '06:00' ? 'selected' : ''}>6:00 AM</option>
+                                    <option value="09:00" ${horaPromesa === '09:00' ? 'selected' : ''}>9:00 AM</option>
+                                    <option value="12:00" ${horaPromesa === '12:00' ? 'selected' : ''}>12:00 PM</option>
+                                    <option value="15:00" ${horaPromesa === '15:00' ? 'selected' : ''}>3:00 PM</option>
+                                    <option value="18:00" ${horaPromesa === '18:00' ? 'selected' : ''}>6:00 PM</option>
+                                    <option value="21:00" ${horaPromesa === '21:00' ? 'selected' : ''}>9:00 PM</option>
+                                    <option value="23:00" ${horaPromesa === '23:00' ? 'selected' : ''}>11:00 PM</option>
                                 </select>
                             </div>
                         </div>
@@ -4627,6 +4866,7 @@ function storePromesa(id) {
                 confirmButtonColor: '#1A59A1',
                 confirmButtonText: 'ACEPTAR',
             });
+            location.reload();
         }
     });
 }

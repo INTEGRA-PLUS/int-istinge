@@ -37,7 +37,7 @@ class Contrato extends Model
         'usuario', 'password', 'interfaz', 'conexion', 'status', 'id_vlan', 'name_vlan', 'grupo_corte', 'created_at',
         'updated_at', 'puerto_conexion', 'factura_individual', 'contrato_permanencia', 'contrato_permanencia_meses',
         'costo_reconexion', 'tipo_contrato', 'observaciones','tipo_nosuspension','fecha_hasta_nosuspension','fecha_desde_nosuspension',
-        'serial_moden','tipo_moden','descuento_pesos','rd_item_vencimiento','dt_item_hasta'
+        'serial_moden','tipo_moden','descuento_pesos','rd_item_vencimiento','dt_item_hasta','fecha_hasta_desc','cajanap_id','cajanap_puerto','estrato','olt_sn_mac'
     ];
 
     protected $appends = ['status'];
@@ -52,6 +52,13 @@ class Contrato extends Model
             return $this->state == 'enabled' ? 'success' : 'danger';
         }
         return $this->state == 'enabled' ? 'Habilitado' : 'Deshabilitado';
+    }
+
+    public function statusTV($class=false){
+        if($class){
+            return $this->state_olt_catv == '1' ? 'success' : 'danger';
+        }
+        return $this->state_olt_catv == '1' ? 'Habilitado' : 'Deshabilitado';
     }
 
     public function cliente(){
@@ -109,6 +116,38 @@ class Contrato extends Model
 
     public function pago($id){
         return Ingreso::where('cliente', $id)->where('tipo', 1)->get()->last();
+    }
+
+    public function fechaUltimoPago(){
+
+        if(Contrato::where('client_id',$this->client_id)->count() <= 1){
+            $ingreso = Ingreso::where('cliente', $this->client_id)
+            ->where('tipo', 1)
+            ->where('estatus',1)
+            ->select('fecha')
+            ->get()->last();
+
+            if($ingreso){
+                return $ingreso->fecha;
+            }
+        }
+        else{
+
+            $factura = FacturaContratos::where('contrato_nro' , $this->nro)->get()->last();
+            if($factura){
+                $factura = Factura::where('id', $factura->factura_id)->first();
+                if($factura){
+                    $ingreso_factura = IngresosFactura::where('factura', $factura->id)->get()->last();
+                    if($ingreso_factura){
+                        $ingreso = Ingreso::where('id', $ingreso_factura->ingreso)->select('fecha')->first()->fecha;
+                    }
+                }
+            }
+
+
+
+        }
+
     }
 
     public static function tipos()

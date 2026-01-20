@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Empresa; use App\Categoria; use Carbon\Carbon; 
-use Validator; use Illuminate\Validation\Rule;  use Auth; 
+use App\Empresa; use App\Categoria; use Carbon\Carbon;
+use Validator; use Illuminate\Validation\Rule;  use Auth;
 use Session;
 
 class CategoriasController extends Controller
@@ -30,7 +30,7 @@ class CategoriasController extends Controller
  		$categorias = Categoria::where('empresa',Auth::user()->empresa)->whereNull('asociado')->orderBy('codigo','ASC')->paginate(10);
     view()->share(['title' => 'Categorías ']);
 
- 		return view('categorias.index')->with(compact('categorias', 'default'));   		
+ 		return view('categorias.index')->with(compact('categorias', 'default'));
  	}
 
   /**
@@ -40,7 +40,7 @@ class CategoriasController extends Controller
   public function create($id){
       $this->getAllPermissions(Auth::user()->id);
     $categoria = Categoria::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-    return view('categorias.create')->with(compact('categoria')); 
+    return view('categorias.create')->with(compact('categoria'));
   }
 
   /**
@@ -49,7 +49,7 @@ class CategoriasController extends Controller
   * @return redirect
   */
   public function store(Request $request){
-      
+
       //Tomamos el tiempo en el que se crea el registro
     Session::put('posttimer', Categoria::where('empresa',auth()->user()->empresa)->get()->last()->created_at);
     $sw = 1;
@@ -70,14 +70,14 @@ class CategoriasController extends Controller
       $mensaje = "El formulario ya ha sido enviado.";
     return redirect('empresa/categorias')->with('success', $mensaje);
     }
-      
+
     $request->validate([
       'nombre' => 'required|max:200',
       'asociado' => 'required|numeric',
     ]);
 
     $nro = Categoria::where('empresa',Auth::user()->empresa)->get()->last()->nro;
-    
+
     $categoria = new Categoria;
     $categoria->empresa=Auth::user()->empresa;
     $categoria->nro = $nro+1;
@@ -98,7 +98,7 @@ class CategoriasController extends Controller
   public function edit($id){
       $this->getAllPermissions(Auth::user()->id);
     $categoria = Categoria::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-    if ($categoria) {        
+    if ($categoria) {
       return view('categorias.edit')->with(compact('categoria'));
     }
     return 'No existe un registro con ese id';
@@ -131,16 +131,16 @@ class CategoriasController extends Controller
   * @param int $id
   * @return redirect
   */
-  public function destroy($id){      
+  public function destroy($id){
     $categoria = Categoria::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-   
-    if ($categoria) {        
+
+    if ($categoria) {
       if ($categoria->usado() == 0 && $categoria->catUsadaEnPago()== 0) {
              $categoria->delete();
       }else{
           return redirect('empresa/categorias')->with('info', 'Esta Categoria esta Siendo Usada en Factura!');
       }
-    }    
+    }
     return redirect('empresa/categorias')->with('success', 'Se ha eliminado la categoría');
   }
 
@@ -153,7 +153,7 @@ class CategoriasController extends Controller
       $this->getAllPermissions(Auth::user()->id);
 
     $banco = Banco::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
-    if ($banco) {        
+    if ($banco) {
       view()->share(['title' => 'Ver Cuenta: '.$banco->nombre]);
       return view('bancos.show')->with(compact('banco'));
     }
@@ -168,7 +168,7 @@ class CategoriasController extends Controller
   */
   public function act_desc($id){
     $categoria = Categoria::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-    if ($categoria) {        
+    if ($categoria) {
         if ($categoria->estatus==1) {
           $mensaje='Se ha desactivado la categoría';
           $categoria->estatus=0;
@@ -191,7 +191,7 @@ class CategoriasController extends Controller
   */
   public function default($id){
     $categoria = Categoria::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
-    if ($categoria) {        
+    if ($categoria) {
       $empresa=  Auth::user()->empresa();
       $empresa->categoria_default=$categoria->id;
       $empresa->save();
@@ -202,7 +202,7 @@ class CategoriasController extends Controller
     return redirect('empresa/categorias')->with('success', 'No existe un registro con ese id');
   }
 
-  
+
 
   public function quitar(){
     $empresa=  Auth::user()->empresa();

@@ -70,7 +70,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
 	    <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
@@ -371,9 +371,17 @@
 								@endif
 								@if($contrato->state)
 								<tr>
-									<th width="20%">Estado del Contrato</th>
+									<th width="20%">Estado del Contrato <i class="fas fa-wifi"></i></th>
 									<td>
 									    <strong class="text-{{$contrato->status('true')}}">{{$contrato->status()}}</strong>
+									</td>
+								</tr>
+								@endif
+								@if($contrato->olt_sn_mac != null)
+								<tr>
+									<th width="20%">Estado del Contrato <i class="fas fa-tv"></i></th>
+									<td>
+									    <strong class="text-{{$contrato->statusTV('true')}}">{{$contrato->statusTV()}}</strong>
 									</td>
 								</tr>
 								@endif
@@ -529,10 +537,8 @@
 		    				<table class="text-center table table-light table-striped table-hover" id="table-show-facturas" style="width: 100%; border: 1px solid #e9ecef;">
 		    					<thead class="thead-light">
 		    						<tr>
-		    							<th>Factura</th>
+                                        <th>Factura</th>
 		    							<th>Cliente</th>
-		    							<th>Contrato(s)</th>
-		    							<th>Dirección</th>
 		    							<th>Creación</th>
 		    							<th>Vencimiento</th>
 		    							<th>Fecha Pago</th>
@@ -540,6 +546,8 @@
 		    							<th>Pagado</th>
 		    							<th>Por Pagar</th>
 		    							<th>Estado</th>
+		    							<th>Contrato(s)</th>
+		    							<th>Dirección</th>
 		    							<th>Acciones</th>
 		    						</tr>
 		    					</thead>

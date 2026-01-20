@@ -69,7 +69,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
     @if(isset($_SESSION['permisos']['5']))
@@ -579,9 +579,14 @@
                                 <label class="control-label">Hora máxima de Pago <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" title="Seleccione" name="hora_pago" id="hora_pago" required="">
                                     <option value="00:00">12:00 AM</option>
+                                    <option value="03:00">3:00 AM</option>
                                     <option value="06:00">6:00 AM</option>
+                                    <option value="09:00">9:00 AM</option>
                                     <option value="12:00">12:00 PM</option>
+                                    <option value="15:00">3:00 PM</option>
                                     <option value="18:00">6:00 PM</option>
+                                    <option value="21:00">9:00 PM</option>
+                                    <option value="23:00">11:00 PM</option>
                                 </select>
                             </div>
 

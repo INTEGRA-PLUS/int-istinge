@@ -33,13 +33,13 @@ class PucController extends Controller
     public function index()
     {
         $this->getAllPermissions(Auth::user()->id);
-     
-        
+
+
         $categorias = Puc::where('empresa',Auth::user()->empresa)->whereNull('asociado')->orderBy('codigo','ASC')->get();
-        
+
         view()->share(['title' => 'PUC ']);
 
- 		return view('puc.index')->with(compact('categorias'));   	
+ 		return view('puc.index')->with(compact('categorias'));
     }
 
     public function create($id){
@@ -128,7 +128,7 @@ class PucController extends Controller
         $grupos = DB::table('puc_grupo')->get();
         $tipos = DB::table('puc_tipo')->get();
         $balances = DB::table('puc_balance')->get();
-        if ($categoria) {        
+        if ($categoria) {
           return view('puc.edit')->with(compact('categoria','grupos','tipos','balances'));
         }
         return 'No existe un registro con ese id';
@@ -154,7 +154,7 @@ class PucController extends Controller
         return response()->json([
             'categories' => $hijos
         ]);
-        
+
     }
 
     /**
@@ -268,7 +268,7 @@ class PucController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function import_puc(Request $request){
-        
+
         $request->validate([
             'archivo' => 'required|mimes:xlsx',
         ],[
@@ -312,7 +312,7 @@ class PucController extends Controller
             $request->tipo=$sheet->getCell("F".$row)->getValue();
             $request->axi=$sheet->getCell("G".$row)->getValue();
             $request->balance=$sheet->getCell("H".$row)->getValue();
-            
+
             $error=(object) array();
 
             //Validaciones que no necesitamos por el momento.$row
@@ -323,7 +323,7 @@ class PucController extends Controller
             if (!$request->telefono1) {
                 $error->telefono1="El campo Teléfono es obligatorio";
             }
-      
+
             if (count((array) $error)>0) {
                 $fila["error"]='FILA '.$row;
                 $error=(array) $error;
@@ -345,7 +345,7 @@ class PucController extends Controller
             if (empty($codigo)) {
                 break;
             }
-            
+
             $request->nro=$sheet->getCell("A".$row)->getValue();
             $request->nombre=$sheet->getCell("B".$row)->getValue();
             $request->asociado = $sheet->getCell("C".$row)->getValue();
@@ -397,9 +397,9 @@ class PucController extends Controller
         if ($modf>0) {
             $mensaje.=' Modificados: '.$modf;
         }
-        return "importacion hecha, creados: " . $create; 
+        return "importacion hecha, creados: " . $create;
         return redirect('empresa/contactos')->with('success', $mensaje);
     }
 
- 
+
 }

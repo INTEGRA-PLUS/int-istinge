@@ -3,7 +3,9 @@
 namespace App\Model\Gastos;
 use App\TerminosPago;
 use Illuminate\Database\Eloquent\Model;
-use App\Contacto; use App\Impuesto;
+use App\Contacto;
+use App\Empresa;
+use App\Impuesto;
 use App\Model\Gastos\ItemsFacturaProv;
 use App\Model\Gastos\FacturaProveedoresRetenciones;
 use App\Model\Gastos\GastosFactura;
@@ -11,7 +13,8 @@ use App\Funcion;
 use Auth; use App\Model\Inventario\Bodega;
 use App\Retencion;
 use App\Model\Gastos\Ordenes_Compra;
-use App\Model\Gastos\NotaDeditoFactura;
+use App\Model\Gastos\NotaDebitoFactura;
+
 use Carbon\Carbon;
 use App\FormaPago;
 use App\Model\Ingresos\ItemsFactura;
@@ -241,12 +244,11 @@ class FacturaProveedores extends Model
     }
 
     public function devoluciones(){
-        return NotaDeditoFactura::where('factura',$this->id)->sum('pago');
-
+        return NotaDebitoFactura::where('factura',$this->id)->sum('pago');
     }
 
     public function notas_debito($cont=false){
-        $notas=NotaDeditoFactura::where('factura', $this->id);
+        $notas=NotaDebitoFactura::where('factura', $this->id);
         if ($cont) {
             return $notas->count();
         }
@@ -353,6 +355,11 @@ class FacturaProveedores extends Model
         }
     }
 
+    public function items()
+    {
+        return $this->hasMany(ItemsFacturaProv::class, 'factura', 'id');
+    }
+
     public function itemsFactura()
     {
         return $this->hasMany(ItemsFacturaProv::class,'factura');
@@ -419,6 +426,11 @@ class FacturaProveedores extends Model
         return $this->belongsTo(Contacto::class, 'proveedor');
     }
 
+    public function compradorObj()
+    {
+        return $this->belongsTo(Vendedor::class, 'comprador');
+    }
+
     public function forma_pago()
     {
         $terminos = TerminosPago::find($this->plazo);
@@ -476,5 +488,10 @@ class FacturaProveedores extends Model
             $text.= $item->producto . $separator;
         }
         return $text;
+    }
+
+    public function empresaObj()
+    {
+        return Empresa::where('id', $this->empresa)->first();
     }
 }

@@ -5,7 +5,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
 	    @if($contrato->cs_status==1)
@@ -124,6 +124,10 @@
 							<td>{{ $contrato->linea }}</td>
 						</tr>
 						@endif
+						<tr>
+							<th>Estrato</th>
+							<td>{{ $contrato->estrato ?? 'N/A' }}</td>
+						</tr>
 						@if($contrato->tecnologia)
 						<tr>
 							<th>Tecnología</th>

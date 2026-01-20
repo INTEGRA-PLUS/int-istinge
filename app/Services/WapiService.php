@@ -16,7 +16,7 @@ class WapiService
 
     public function __construct()
     {
-        $this->baseUri = env('WAPI_URL', 'https://api.vibiocrm.com');
+        $this->baseUri = env('WAPI_URL', 'http://127.0.0.1:8080');
         $this->secretToken = strval(env('WAPI_TOKEN'));
         $this->headers = [
             'cache-control' => 'no-cache',
@@ -27,14 +27,12 @@ class WapiService
 
     public function resolveAuthorization(&$queryParams, &$formParams, &$headers)
     {
-        // En lugar de meterlo en query param, lo ponemos en el header
-        $headers['Authorization'] = 'Bearer ' . $this->secretToken;
+        $queryParams['token'] = $this->secretToken;
     }
-
 
     public function getInstance(string $uuid)
     {
-        $response = $this->makeRequest(
+        return $this->makeRequest(
             "GET",
             $this->baseUri . "/api/v1/channel/wbot/" . $uuid,
             [],
@@ -42,16 +40,7 @@ class WapiService
             $this->headers,
             true
         );
-
-        // Si viene como array, conviértelo a JSON
-        if (is_array($response)) {
-            return json_encode($response);
-        }
-
-        // Si ya es string lo devuelves igual
-        return $response;
     }
-
 
     public function initSession(string $uuid)
     {
@@ -71,7 +60,7 @@ class WapiService
             "POST",
             $this->baseUri . "/api/v1/send/" . $uuid,
             [],
-            $body, // 👈 mandas el body limpio
+            $body,
             $this->headers,
             true
         );
@@ -101,23 +90,39 @@ class WapiService
         );
     }
 
-    public function getContacts(int $page = 1, int $perPage = 20)
-    {
+    public function getContacts(
+        int $page = 1,
+        int $perPage = 20,
+        ?string $channelId = null,
+        ?string $q = null
+    ) {
+        // Query string que se enviará al endpoint /api/v1/contacts
         $query = [
             'page'    => $page,
             'perPage' => $perPage,
         ];
-
+    
+        // Filtro de canal (uuid del canal Meta)
+        if (!is_null($channelId) && trim($channelId) !== '') {
+            $query['channelId'] = trim($channelId);
+        }
+    
+        // Filtro de búsqueda (nombre / número)
+        if (!is_null($q) && trim($q) !== '') {
+            $query['q'] = trim($q);
+        }
+    
+        \Log::info('[WAPI] getContacts() con query', $query);
+    
         return $this->makeRequest(
-            "GET",
-            $this->baseUri . "/api/v1/contacts",
-            $query, // 👈 query string con page/perPage
+            'GET',
+            $this->baseUri . '/api/v1/contacts',
+            $query,  
             [],
             $this->headers,
             true
         );
     }
-
 
     public function getContactMessages(string $contactId)
     {

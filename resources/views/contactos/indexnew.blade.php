@@ -9,7 +9,7 @@
         <div class="alert alert-warning text-left" role="alert">
             <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
            <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
         </div>
     @else
         @if(isset($tipo_usuario) && $tipo_usuario == 0)
@@ -130,16 +130,6 @@
 								<option value="1" >Sin contratos</option>
 							</select>
 						</div>
-						<div class="col-md-3 pl-1 pt-1">
-							<select title="Estrato" class="form-control rounded selectpicker" id="estrato" data-size="5" data-live-search="true">
-								<option value="1">1</option>
-								<option value="2">2</option>
-								<option value="3">3</option>
-								<option value="4">4</option>
-								<option value="5">5</option>
-								<option value="6">6</option>
-							</select>
-						</div>
 						@endif
                         @if(isset($etiquetas))
                             <div class="col-md-2 pl-1 pt-1">
@@ -245,7 +235,6 @@
             data.t_contrato = $('#t_contrato').val();
             data.serial_onu = $('#serial_onu').val();
             data.otra_opcion = $("#otra_opcion").val();
-            data.estrato = $('#estrato').val();
             data.filtro = true;
         });
 
@@ -268,7 +257,7 @@
         	}
         });
 
-        $('#t_contrato, #etiqueta, #estrato, #otra_opcion, #barrio').on('change',function() {
+        $('#t_contrato, #etiqueta, #otra_opcion, #barrio').on('change',function() {
         	getDataTable();
         	return false;
         });
@@ -302,7 +291,6 @@
 		$('#t_contrato').val('').selectpicker('refresh');
 		$('#serial_onu').val('');
         $("#otra_opcion").val('');
-		$('#estrato').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();

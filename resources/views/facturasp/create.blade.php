@@ -4,14 +4,14 @@
         @php($new = \App\Model\Inventario\Inventario::where('id', htmlspecialchars($_GET['pro']))->get())
         <input type="hidden" id="impuestosId" value="{{$new[0]['id_impuesto']}}">
     @endif
-    
+
     @if(Session::has('success-newcontact'))
 <div class="alert alert-success" style="text-align: center;">
   {{Session::get('success-newcontact')}}
 </div>
 
 <script type="text/javascript">
-  setTimeout(function(){ 
+  setTimeout(function(){
     $('.alert').hide();
     $('.active_table').attr('class', ' ');
   }, 5000);
@@ -23,7 +23,7 @@
    {{-- <input type="hidden" value="1" name="cotizacion" id="cotizacion_si">--}}
     <input type="hidden" value="1" name="orden_si" id="orden_si">
     <input type="hidden" value="1" name="fact_prov" id="fact_prov">
-    
+
     <div class="row text-right">
       <div class="col-md-5">
         <div class="form-group row">
@@ -42,7 +42,7 @@
           <span class="help-block error">
             <strong>{{ $errors->first('productor') }}</strong>
           </span>
-        </div>    
+        </div>
         <div class="form-group row">
           <label class="col-sm-4  col-form-label">Observaciones <br> <small>(No visible en el documento impreso)</small></label>
           <div class="col-sm-8">
@@ -60,20 +60,20 @@
       <div class="col-md-6 offset-md-1">
         @if(auth()->user()->empresaObj->equivalente == 1)
         <div class="form-group row">
-  
+
           <style>
             .form-check .form-check-label .input-helper:before {
               left: 3px;
             }
           </style>
-  
+
           <label class="col-sm-4 col-form-label">¿Documento Soporte?<span class="text-danger">*</span></label>
           <div class="form-check form-check-flat">
             <label class="form-check-label">
               <input type="checkbox" class="form-check-input" name="equivalente" id="equivalente" value="1">
               <i class="input-helper"></i><i class="input-helper"></i></label>
           </div>
-  
+
         </div>
         @endif
         <div class="form-group row" id="cod_dian" style="display: none">
@@ -114,7 +114,7 @@
           <label class="col-sm-4 col-form-label">Bodega <span class="text-danger">*</span></label>
           <div class="col-sm-8">
             <select name="bodega" id="bodega" class="form-control"  required="">
-              @foreach($bodegas as $bodega)  
+              @foreach($bodegas as $bodega)
                 <option value="{{$bodega->id}}" {{old('bodega')==$bodega->id?'selected':''}}>{{$bodega->bodega}}</option>
               @endforeach
             </select>
@@ -179,14 +179,14 @@
               <td>
                 <input type="text" class="form-control form-control-sm" id="desc1" name="desc[]" placeholder="%" onkeyup="total(1)" >
               </td>
-              <td>        
+              <td>
                 <select class="form-control form-control-sm selectpicker" name="impuesto[]" id="impuesto1" title="Impuesto" onchange="totalall();" required="">
                   @foreach($impuestos as $impuesto)
                     <option value="{{$impuesto->id}}" porc="{{$impuesto->porcentaje}}">{{$impuesto->nombre}} - {{$impuesto->porcentaje}}%</option>
                   @endforeach
                 </select>
               </td>
-              <td  style="padding-top: 1% !important;">     
+              <td  style="padding-top: 1% !important;">
               <div class="resp-descripcion">
                 <textarea  class="form-control form-control-sm" id="descripcion1" name="descripcion[]" placeholder="Descripción" ></textarea>
               </div>
@@ -241,7 +241,7 @@
                 </div>
                 <div class="col-md-6 d-flex justify-content-between pt-3">
                   <h5>Total:</h5>
-                  <span>$</span><span id="anticipototal">0</span>  
+                  <span>$</span><span id="anticipototal">0</span>
                 </div>
                 <div class="col-md-12">
                   <span class="text-danger" style="font-size:12px"><strong>El total de las formas de pago debe coincidir con el total neto</strong></span>
@@ -249,8 +249,8 @@
               </div>
           </div>
     </div>
-    <!-- Totales 
-            
+    <!-- Totales
+
           </tr> -->
      <!-- Totales -->
           <div class="row" style="margin-top: 10%;">
@@ -294,7 +294,7 @@
       </div>
       <hr>
       <div class="row" >
-        
+
         <div class="col-sm-2 float-right" style=" padding-top: 1%;">
             <a href="{{route('facturasp.index')}}" class="btn btn-outline-secondary">Cancelar</a>
         </div>
@@ -349,7 +349,7 @@
   <optgroup label="Puc">
                           @foreach($categorias as $categoria)
                                   <option {{old('categoria')==$categoria->id?'selected':''}} value="cat_{{$categoria->id}}" {{$categoria->estatus==0?'disabled':''}}>{{$categoria->nombre}}-{{$categoria->codigo}}</option>
-                          @endforeach 
+                          @endforeach
                         </optgroup>'>
   <input type="hidden" id="retenciones" value="{{json_encode($retenciones)}}">
   <!-- Modal -->
@@ -369,7 +369,7 @@
             </div>
         </div>
     </div>
-  
+
      {{-- Modal Editar Direccion Contacto--}}
     <div class="modal fade" id="modaleditDirection" role="dialog"  data-backdrop="static" data-keyboard="false">
       <div class="modal-dialog modal-lg">
@@ -422,7 +422,7 @@
 
 
       $(document).ready(function(){
-          
+
           $('.buscar').select2();
 
           let lastRegis = new URLSearchParams(window.location.search);
@@ -516,7 +516,7 @@
           }else{
             var url = '/empresa';
           }
-        
+
         if( $('#equivalente').prop('checked') ) {
           $(".loader").show();
           $.ajax({
@@ -526,7 +526,7 @@
           // data:{status:$("#docEquivalente").val()},
           success: function(data)
           {
-              
+
             if(data != 0)
             {
                 if(data.error){
@@ -539,7 +539,7 @@
                 $("#equivalente").prop("checked", false);
                 alert("Debe escoger una numeracion como preferida o activarala");
             }
-            
+
             $(".loader").hide();
           }
         });
@@ -547,11 +547,11 @@
         $("#cod_dian").hide();
       }
     });
-    
+
     if($("#dian").val())
     {
         $("#cod_dian").show();
-        $("#equivalente").prop("checked", true);  
+        $("#equivalente").prop("checked", true);
         $("#codigo_dian").val($("#dian").val());
     }
   </script>

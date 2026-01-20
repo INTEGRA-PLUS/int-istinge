@@ -5,7 +5,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
     @if(isset($_SESSION['permisos']['52']))
@@ -36,25 +36,29 @@
 
 @if (Session::has('message_denied'))
 <div class="alert alert-danger" role="alert">
-	@if (Session::get('statusCode') == 400)
-		{{ 'La Dian está presentando problemas en este momento.' }}
-	@else
-		{{ Session::get('message_denied') }}
-		@if (Session::get('errorReason'))<br> <strong>Razon(es): <br></strong>
-			@if (count(Session::get('errorReason')) > 0)
-				@php $cont = 0 @endphp
-				@foreach (Session::get('errorReason') as $error)
-					@php $cont = $cont + 1; @endphp
-					{{ $cont }} - {{ $error }} <br>
-				@endforeach
-				{{-- @else
-{{ Session::get('errorReason') }} --}}
-			@endif
-		@endif
-	@endif
-	<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-		<span aria-hidden="true">&times;</span>
-	</button>
+    @if (Session::get('statusCode') == 400)
+        {{ 'La Dian está presentando problemas en este momento. Por favor intenta más tarde' }}
+    @else
+        {{ Session::get('message_denied') }}
+        @if (Session::has('errorReason'))
+            <br> <strong>Razon(es): <br></strong>
+            @php
+                $errorReason = Session::get('errorReason');
+            @endphp
+            @if (is_array($errorReason) && count($errorReason) > 0)
+                @php $cont = 0 @endphp
+                @foreach ($errorReason as $error)
+                    @php $cont = $cont + 1; @endphp
+                    {{ $cont }} - {{ $error }} <br>
+                @endforeach
+            @else
+                {{ $errorReason }}
+            @endif
+        @endif
+    @endif
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 @endif
 
@@ -95,6 +99,16 @@
     			@if(isset($_SESSION['permisos']['750']))
     			<a href="{{route('campos.organizar', 18)}}" class="btn btn-warning btn-sm my-1"><i class="fas fa-table"></i> Organizar Tabla</a>
     			@endif
+    			@if(isset($_SESSION['permisos']['830']))
+    			<div class="dropdown d-inline-block">
+                    <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Acciones en Lote
+                    </button>
+                    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Emitir Notas de Crédito en Lote</a>
+                    </div>
+                </div>
+                @endif
     	</div>
     </div>
 
@@ -158,6 +172,29 @@
 			headers: {
 				'X-CSRF-TOKEN': '{{csrf_token()}}'
 			},
+			@if(isset($_SESSION['permisos']['830']))
+			select: true,
+            select: {
+                style: 'multi',
+            },
+            dom: 'Blfrtip',
+            buttons: [{
+                text: '<i class="fas fa-check"></i> Seleccionar todos',
+                action: function() {
+                    $('#tabla-notac').DataTable().rows({
+                        page: 'current'
+                    }).select();
+                }
+            },
+            {
+                text: '<i class="fas fa-times"></i> Deseleccionar todos',
+                action: function() {
+                    $('#tabla-notac').DataTable().rows({
+                        page: 'current'
+                    }).deselect();
+                }
+            }],
+            @endif
 			columns: [
 			    @foreach($tabla as $campo)
                     {data: '{{$campo->campo}}'},
@@ -166,9 +203,9 @@
 			]
 		});
 
-        tabla = $('#tabla-notac');
+        tabla = $('#tabla-notac').DataTable();
 
-        tabla.on('preXhr.dt', function(e, settings, data) {
+        $('#tabla-notac').on('preXhr.dt', function(e, settings, data) {
 			data.nro     = $('#nro').val();
 			data.nombre  = $('#nombre').val();
 			data.fecha   = $('#fecha').val();
@@ -199,10 +236,93 @@
             getDataTable();
             return false;
         });
+
+        $('#tabla-notac tbody').on('click', 'tr', function () {
+			var table = $('#tabla-notac').DataTable();
+			var nro = table.rows('.selected').data().length;
+
+			if(table.rows('.selected').data().length >= 0){
+				$("#btn_emitir").removeClass('disabled d-none');
+			}else{
+				$("#btn_emitir").addClass('disabled d-none');
+			}
+        });
+
+        $('#btn_emitir').on('click', function(e) {
+            var table = $('#tabla-notac').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if (nro <= 0) {
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una nota de crédito',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var notas = [];
+            for (i = 0; i < nro; i++) {
+                notas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '¿Desea realizar la emisión de ' + nro + ' notas de crédito electrónicas?',
+                text: 'Esto puede demorar unos minutos. Al Aceptar, no podrá cancelar el proceso',
+                type: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00ce68',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/notascredito/emisionmasivaxml/` + notas :
+                        `/empresa/notascredito/emisionmasivaxml/` + notas;
+
+                    $.ajax({
+                        url: url,
+                        method: 'GET',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+                            swal({
+                                title: 'PROCESO REALIZADO',
+                                html: data.text,
+                                type: 'success',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#1A59A1',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            if (xhr.status === 500) {
+                                swal({
+                                    title: 'INFO',
+                                    html: 'Se han emitido algunas notas de crédito, vuelve a emitir otro lote si quedan notas pendientes.',
+                                    type: 'info',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'Recargar Página',
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+            console.log(notas);
+        });
     });
 
 	function getDataTable() {
-		tabla.DataTable().ajax.reload();
+		$('#tabla-notac').DataTable().ajax.reload();
 	}
 
 	function abrirFiltrador() {

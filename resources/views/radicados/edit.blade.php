@@ -62,7 +62,7 @@
       </span>
     </div>
 
-    <div class="col-md-12 form-group">
+    <div class="col-md-9 form-group">
       <label class="control-label">Dirección <span class="text-danger">*</span></label>
       <input type="text" class="form-control"  id="direccion" name="direccion"  value="{{$radicado->direccion}}" maxlength="200" required="">
       <span class="help-block error">
@@ -71,11 +71,27 @@
     </div>
 
     <div class="col-md-3 form-group">
+        <label class="control-label">Barrio</label>
+        <input type="text" class="form-control" id="barrio" name="barrio" value="{{ $radicado->barrio }}" maxlength="200">
+        <span class="help-block error">
+            <strong>{{ $errors->first('barrio') }}</strong>
+        </span>
+    </div>
+
+    <div class="col-md-3 form-group">
       <label class="control-label">Fecha <span class="text-danger">*</span></label>
       <input type="text" class="form-control datepicker"  id="fecha" name="fecha" required="" value="{{ date('d-m-Y', strtotime($radicado->fecha))}}" required="">
       <span class="help-block error">
         <strong>{{ $errors->first('fecha') }}</strong>
       </span>
+    </div>
+
+    <div class="col-md-3 form-group">
+        <label class="control-label">Hora</label>
+        <input type="time" class="form-control"  id="hora" name="hora" value="{{ date('H:i', strtotime($radicado->hora ?? '00:00')) }}" >
+        <span class="help-block error">
+            <strong>{{ $errors->first('hora') }}</strong>
+        </span>
     </div>
 
     <div class="col-md-3 form-group">
@@ -124,7 +140,7 @@
     </div>
     <div class="col-md-3 form-group">
         <label class="control-label">Medio de atencion </span></label>
-        <select class="form-control selectpicker" name="medio" id="prioridad" required="" title="Seleccione">
+        <select class="form-control selectpicker" name="medio" id="medio" required="" title="Seleccione">
             <option value="Oficina" {{ old('medio', $radicado->medio) == 'Oficina' ? 'selected' : '' }}>Oficina</option>
             <option value="Línea Telefónica" {{ old('medio', $radicado->medio) == 'Línea Telefónica' ? 'selected' : '' }}>Línea Telefónica</option>
             <option value="Página Web" {{ old('medio', $radicado->medio) == 'Página Web' ? 'selected' : '' }}>Página Web</option>
@@ -134,12 +150,12 @@
             <option value="Servicios de mensajería instantánea" {{ old('medio', $radicado->medio) == 'Servicios de mensajería instantánea' ? 'selected' : '' }}>Servicios de mensajería instantánea</option>
         </select>
         <span class="help-block error">
-            <strong>{{ $errors->first('prioridad') }}</strong>
+            <strong>{{ $errors->first('medio') }}</strong>
         </span>
     </div>
     <div class="col-md-3 form-group">
         <label class="control-label">Grado de satifacción </span></label>
-        <select class="form-control selectpicker" name="grado" id="prioridad" required="" title="Seleccione">
+        <select class="form-control selectpicker" name="grado" id="grado" required="" title="Seleccione">
             <option value="USUARIOS_NS_MUY_INSATISFECHO" {{ old('medio', $radicado->grado) == 'USUARIOS_NS_MUY_INSATISFECHO' ? 'selected' : '' }}>USUARIOS_NS_MUY_INSATISFECHO</option>
             <option value="USUARIOS_NS_INSATISFECHO" {{ old('medio', $radicado->grado) == 'USUARIOS_NS_INSATISFECHO' ? 'selected' : '' }}>USUARIOS_NS_INSATISFECHO</option>
             <option value="USUAR_NS_NI_INSATISF_NI_SATISF" {{ old('medio', $radicado->grado) == 'USUAR_NS_NI_INSATISF_NI_SATISF' ? 'selected' : '' }}>USUAR_NS_NI_INSATISF_NI_SATISF</option>
@@ -148,7 +164,7 @@
 
         </select>
         <span class="help-block error">
-            <strong>{{ $errors->first('prioridad') }}</strong>
+            <strong>{{ $errors->first('grado') }}</strong>
         </span>
     </div>
     <div class="col-md-3 form-group">
@@ -159,7 +175,7 @@
                     <option value="Aprobado" {{ $radicado->revision == "Aprobado" ? 'selected': '' }}>Aprobado</option>
                 </select>
                 <span class="help-block error">
-                    <strong>{{ $errors->first('prevision') }}</strong>
+                    <strong>{{ $errors->first('revision') }}</strong>
                 </span>
             </div>
     @if(Auth::user()->empresa()->oficina)

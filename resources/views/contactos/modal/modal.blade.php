@@ -6,7 +6,7 @@
             <hr>
         </div>
     </div>
-    
+
     <div style="padding: 1% 3%;">
         <div class="row">
       		<div class="form-group col-md-3">
@@ -57,7 +57,7 @@
                 </span>
             </div>
       	</div>
-    
+
       	<div class="row">
       		<div class="form-group col-md-3">
       			<label class="control-label">País</label>
@@ -79,7 +79,7 @@
       		<div class="form-group col-md-3" id="validatec2">
       			<label class="control-label">Municipio <span class="text-danger">*</span></label>
       			<select class="form-control   selectpicker" name="municipio" id="municipio" required="" title="Seleccione" data-live-search="true" data-size="5">
-      				
+
       			</select>
       		</div>
       		<div class="form-group col-md-3" id="validatec3">
@@ -117,7 +117,7 @@
       			</span>
       		</div>
       	</div>
-    
+
       	<div class="row">
       		<div class="form-group col-md-3">
       			<label class="control-label">Celular <span class="text-danger">*</span></label>
@@ -148,22 +148,8 @@
       			</span>
       		</div>
       	</div>
-    
+
       	<div class="row">
-            <div class="form-group col-md-3">
-                <label class="control-label">Estrato</label>
-                <select class="form-control selectpicker" id="estrato" name="estrato"  title="Seleccione" data-live-search="true" data-size="5">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                </select>
-                <span class="help-block error">
-                    <strong>{{ $errors->first('estato') }}</strong>
-                </span>
-            </div>
       	    <div class="form-group col-md-3">
     			<label class="control-label">Tipo de Contacto <span class="text-danger">*</span></label>
     			<div class="form-check form-check-flat">
@@ -196,10 +182,10 @@
       			</span>
       		</div>
       	</div>
-      	
+
       	<small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
   	</div>
-  	
+
   	<div class="row" style="text-align: right;">
   	    <div class="col-md-12">
   	        <hr>

@@ -30,6 +30,8 @@ use App\Http\Controllers\Nomina\PersonasController;
 use App\Model\Inventario\Inventario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Plantilla;
+use App\Instance;
 
 include_once(app_path() .'/../public/routeros_api.class.php');
 include_once(app_path() .'/../public/api_mt_include2.php');
@@ -406,10 +408,10 @@ class ConfiguracionController extends Controller
       $numeracion->inicioverdadero = $request->inicio;
       $numeracion->final=$request->final;
       if ($request->desde) {
-        $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');
+        $numeracion->desde=$this->parseDate($request->desde);
       }
       if ($request->hasta) {
-        $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d');
+        $numeracion->hasta=$this->parseDate($request->hasta);
       }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -484,9 +486,9 @@ class ConfiguracionController extends Controller
       $numeracion->inicio=$request->inicio;
       $numeracion->final=$request->final;
 
-      if ($request->desde) { $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');  }
+      if ($request->desde) { $numeracion->desde=$this->parseDate($request->desde);  }
       else{ $numeracion->desde=null; }
-      if ($request->hasta) { $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d'); }
+      if ($request->hasta) { $numeracion->hasta=$this->parseDate($request->hasta); }
       else{ $numeracion->hasta=null; }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -532,10 +534,10 @@ class ConfiguracionController extends Controller
       $numeracion->inicioverdadero = $request->inicio;
       $numeracion->final=$request->final;
       if ($request->desde) {
-        $numeracion->desde=Carbon::parse($request->desde)->format('Y-m-d');
+        $numeracion->desde=$this->parseDate($request->desde);
       }
       if ($request->hasta) {
-        $numeracion->hasta=Carbon::parse($request->hasta)->format('Y-m-d');
+        $numeracion->hasta=$this->parseDate($request->hasta);
       }
       $numeracion->preferida=$request->preferida;
       $numeracion->nroresolucion=$request->nroresolucion;
@@ -1918,6 +1920,21 @@ class ConfiguracionController extends Controller
     }
   }
 
+  public function facturaProrrateo(Request $request)
+  {
+    $empresa = Empresa::find(auth()->user()->empresa);
+
+    if ($request->contrato_factura_pro == 0) {
+      $empresa->contrato_factura_pro = 1;
+      $empresa->save();
+      return 1;
+    } else {
+      $empresa->contrato_factura_pro = 0;
+      $empresa->save();
+      return 0;
+    }
+  }
+
   public function reconexionGenerica(Request $request){
     $empresa = Empresa::find(auth()->user()->empresa);
 
@@ -2561,10 +2578,10 @@ class ConfiguracionController extends Controller
         $numeracion->inicioverdadero = $request->inicio;
         $numeracion->final = $request->final;
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
@@ -2621,10 +2638,10 @@ class ConfiguracionController extends Controller
         $numeracion->final = $request->final;
 
         if ($request->desde) {
-            $numeracion->desde = Carbon::parse($request->desde)->format('Y-m-d');
+            $numeracion->desde = $this->parseDate($request->desde);
         }
         if ($request->hasta) {
-            $numeracion->hasta = Carbon::parse($request->hasta)->format('Y-m-d');
+            $numeracion->hasta = $this->parseDate($request->hasta);
         }
         $numeracion->preferida = $request->preferida;
         $numeracion->nroresolucion = $request->nroresolucion;
@@ -2708,6 +2725,463 @@ class ConfiguracionController extends Controller
           $empresa->pago_siigo = 0;
           $empresa->save();
           return 0;
+        }
+    }
+
+    /**
+     * Parsea una fecha en diferentes formatos y la convierte a Y-m-d
+     * @param string $dateString Fecha en cualquier formato común
+     * @return string Fecha en formato Y-m-d
+     */
+    private function parseDate($dateString)
+    {
+        if (empty($dateString)) {
+            return null;
+        }
+
+        // Formatos comunes a intentar
+        $formats = [
+            'd/m/Y',      // 13/11/2025
+            'd-m-Y',      // 13-11-2025
+            'Y-m-d',      // 2025-11-13
+            'Y/m/d',      // 2025/11/13
+            'm/d/Y',      // 11/13/2025 (formato US)
+            'd.m.Y',      // 13.11.2025
+        ];
+
+        // Intentar parsear con cada formato
+        foreach ($formats as $format) {
+            try {
+                $date = Carbon::createFromFormat($format, $dateString);
+                return $date->format('Y-m-d');
+            } catch (\Exception $e) {
+                // Continuar con el siguiente formato
+                continue;
+            }
+        }
+
+        // Si ningún formato funciona, intentar parse automático de Carbon
+        try {
+            return Carbon::parse($dateString)->format('Y-m-d');
+        } catch (\Exception $e) {
+            // Si todo falla, lanzar excepción con mensaje claro
+            throw new \Exception("No se pudo parsear la fecha: {$dateString}. Formatos soportados: DD/MM/YYYY, YYYY-MM-DD, etc.");
+        }
+    }
+
+    /**
+     * Guarda el WhatsApp Business Account ID en la empresa
+     */
+    public function guardarWhatsappBusinessId(Request $request)
+    {
+        $request->validate([
+            'whatsapp_business_account_id' => 'required|string|max:200'
+        ]);
+
+        try {
+            $empresa = Empresa::find(Auth::user()->empresa);
+            if (!$empresa) {
+                return response()->json(0);
+            }
+
+            $empresa->whatsapp_business_account_id = $request->whatsapp_business_account_id;
+            $empresa->wppNuevo = 1;
+            $empresa->save();
+
+            return response()->json(1);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar WhatsApp Business ID: ' . $e->getMessage());
+            return response()->json(0);
+        }
+    }
+
+    /**
+     * Obtiene las plantillas de WhatsApp Meta desde la API de Facebook Graph
+     */
+    public function obtenerPlantillasWhatsappMeta(Request $request)
+    {
+        try {
+            $empresa = Empresa::find(Auth::user()->empresa);
+
+            if (!$empresa) {
+                return response()->json(['success' => 0, 'message' => 'Empresa no encontrada'], 400);
+            }
+
+            // Validar que tenga whatsapp_business_account_id configurado
+            if (empty($empresa->whatsapp_business_account_id)) {
+                return response()->json(['success' => 0, 'message' => 'Debe configurar el WhatsApp Business Account ID primero'], 400);
+            }
+
+            // Obtener ACCESS_TOKEN_META del .env
+            $accessToken = env('ACCESS_TOKEN_META');
+            if (empty($accessToken)) {
+                return response()->json(['success' => 0, 'message' => 'ACCESS_TOKEN_META no está configurado en el archivo .env'], 400);
+            }
+
+            // Hacer petición cURL a Facebook Graph API
+            $url = 'https://graph.facebook.com/v23.0/' . $empresa->whatsapp_business_account_id . '/message_templates';
+
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => array(
+                    'Authorization: Bearer ' . $accessToken
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            curl_close($curl);
+
+            if ($curlError) {
+                Log::error('Error cURL al obtener plantillas WhatsApp: ' . $curlError);
+                return response()->json(['success' => 0, 'message' => 'Error al conectar con la API de Facebook: ' . $curlError], 400);
+            }
+
+            if ($httpCode != 200) {
+                Log::error('Error HTTP al obtener plantillas WhatsApp: ' . $httpCode . ' - ' . $response);
+                return response()->json(['success' => 0, 'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'], 400);
+            }
+
+            $responseData = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
+                return response()->json(['success' => 0, 'message' => 'Error al procesar la respuesta de la API'], 400);
+            }
+
+            if (!isset($responseData['data']) || !is_array($responseData['data'])) {
+                Log::error('Respuesta de API sin campo data: ' . $response);
+                return response()->json(['success' => 0, 'message' => 'La respuesta de la API no contiene plantillas'], 400);
+            }
+
+            // Obtener el número siguiente para las plantillas de la empresa
+            $lastPlantilla = \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->orderBy('nro', 'desc')
+                ->first();
+            $nro = $lastPlantilla ? ($lastPlantilla->nro + 1) : 1;
+
+            $plantillasGuardadas = 0;
+            $plantillasActualizadas = 0;
+
+            // Procesar cada plantilla
+            foreach ($responseData['data'] as $template) {
+                if (!isset($template['name']) || !isset($template['components'])) {
+                    continue;
+                }
+
+                // Buscar componente con type: "BODY"
+                $bodyComponent = null;
+                $headerComponent = null;
+                foreach ($template['components'] as $component) {
+                    if (isset($component['type']) && $component['type'] === 'BODY') {
+                        $bodyComponent = $component;
+                    }
+                    if (isset($component['type']) && ($component['type'] === 'HEADER' || $component['type'] === 'header')) {
+                        $headerComponent = $component;
+                    }
+                }
+
+                // Si no hay componente BODY, saltar esta plantilla
+                if (!$bodyComponent || !isset($bodyComponent['text'])) {
+                    continue;
+                }
+
+                // Extraer text y body_text
+                $text = $bodyComponent['text'];
+                $bodyText = isset($bodyComponent['example']['body_text'][0])
+                    ? $bodyComponent['example']['body_text'][0]
+                    : [];
+
+                // Extraer body_header si existe componente HEADER con format DOCUMENT
+                $bodyHeader = null;
+                if ($headerComponent && isset($headerComponent['format']) && $headerComponent['format'] === 'DOCUMENT') {
+                    $bodyHeader = 'DOCUMENT';
+                }
+
+                // Verificar si ya existe una plantilla con el mismo título para esta empresa
+                $plantillaExistente = \App\Plantilla::where('empresa', Auth::user()->empresa)
+                    ->where('title', $template['name'])
+                    ->where('lectura', 1)
+                    ->first();
+
+                // Extraer language de la plantilla
+                $language = isset($template['language']) ? $template['language'] : 'en';
+
+                if ($plantillaExistente) {
+                    // Actualizar plantilla existente
+                    $plantillaExistente->contenido = $text;
+                    $plantillaExistente->body_text = json_encode([$bodyText]);
+                    $plantillaExistente->body_header = $bodyHeader;
+                    $plantillaExistente->tipo = 3;
+                    $plantillaExistente->status = 1;
+                    $plantillaExistente->clasificacion = 'Notificación';
+                    $plantillaExistente->lectura = 1;
+                    $plantillaExistente->language = $language;
+                    $plantillaExistente->updated_by = Auth::user()->id;
+                    $plantillaExistente->save();
+                    $plantillasActualizadas++;
+                } else {
+                    // Crear nueva plantilla
+                    $plantilla = new \App\Plantilla();
+                    $plantilla->nro = $nro++;
+                    $plantilla->tipo = 3;
+                    $plantilla->clasificacion = 'Notificación';
+                    $plantilla->title = $template['name'];
+                    $plantilla->contenido = $text;
+                    $plantilla->body_text = json_encode([$bodyText]);
+                    $plantilla->body_header = $bodyHeader;
+                    $plantilla->status = 1;
+                    $plantilla->empresa = Auth::user()->empresa;
+                    $plantilla->lectura = 1;
+                    $plantilla->language = $language;
+                    $plantilla->created_by = Auth::user()->id;
+                    $plantilla->save();
+                    $plantillasGuardadas++;
+                }
+            }
+
+            $mensaje = "Plantillas procesadas correctamente. Nuevas: {$plantillasGuardadas}, Actualizadas: {$plantillasActualizadas}";
+            return response()->json(['success' => 1, 'message' => $mensaje]);
+
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas WhatsApp Meta: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json(['success' => 0, 'message' => 'Error inesperado: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Obtiene las plantillas Meta disponibles para configurar como preferida para facturas
+     */
+    public function getPlantillasMetaFactura()
+    {
+        try {
+            $plantillas = \App\Plantilla::where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', Auth::user()->empresa)
+                ->select('id', 'title', 'preferida_cron_factura')
+                ->orderBy('title', 'ASC')
+                ->get();
+
+            return response()->json([
+                'success' => 1,
+                'plantillas' => $plantillas
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas Meta para facturas: ' . $e->getMessage());
+            return response()->json(['success' => 0, 'message' => 'Error al obtener plantillas'], 500);
+        }
+    }
+
+    /**
+     * Obtiene los datos de una plantilla Meta específica para facturas
+     */
+    public function getPlantillaMetaFactura($id)
+    {
+        try {
+            $plantilla = \App\Plantilla::where('id', $id)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json(['error' => 'Plantilla no encontrada o no es de tipo Meta'], 404);
+            }
+
+            // Parsear body_dinamic si existe
+            $bodyDinamic = null;
+            if ($plantilla->body_dinamic) {
+                $decoded = json_decode($plantilla->body_dinamic, true);
+                $bodyDinamic = $decoded !== null ? $decoded : $plantilla->body_dinamic;
+            }
+
+            return response()->json([
+                'id' => $plantilla->id,
+                'title' => $plantilla->title,
+                'contenido' => $plantilla->contenido,
+                'body_text' => json_decode($plantilla->body_text, true),
+                'language' => $plantilla->language,
+                'body_dinamic' => $bodyDinamic,
+                'body_header' => $plantilla->body_header
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantilla Meta para facturas: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener plantilla'], 500);
+        }
+    }
+
+    /**
+     * Guarda la configuración de plantilla preferida para facturas
+     */
+    public function guardarPlantillaFacturaWhatsapp(Request $request)
+    {
+        try {
+            $request->validate([
+                'plantilla_id' => 'required|exists:plantillas,id'
+            ]);
+
+            $plantillaId = $request->plantilla_id;
+            $bodyDinamicParams = $request->input('body_dinamic_params', []);
+
+            // Verificar que la plantilla sea de tipo Meta y pertenezca a la empresa
+            $plantilla = \App\Plantilla::where('id', $plantillaId)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La plantilla seleccionada no es válida'
+                ], 400);
+            }
+
+            // Desmarcar todas las plantillas como preferidas para esta empresa
+            \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->where('tipo', 3)
+                ->update(['preferida_cron_factura' => 0]);
+
+            // Marcar la plantilla seleccionada como preferida
+            $plantilla->preferida_cron_factura = 1;
+
+            // Guardar body_dinamic si se proporciona
+            if (!empty($bodyDinamicParams) && is_array($bodyDinamicParams)) {
+                $plantilla->body_dinamic = json_encode([$bodyDinamicParams]);
+            }
+
+            $plantilla->updated_by = Auth::user()->id;
+            $plantilla->save();
+
+            return response()->json([
+                'success' => 1,
+                'message' => 'Plantilla configurada correctamente como preferida para el envío de facturas'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar plantilla preferida para facturas: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al guardar la configuración: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function registrarNumeroWhatsappMeta(Request $request)
+    {
+        try {
+            // Buscar instancia con meta=0
+            $instance = Instance::where('meta', 0)->where('activo', 1)->first();
+
+            if (!$instance) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'No se encontró una instancia con meta=0'
+                ], 400);
+            }
+
+            // Validar que tenga phone_number_id
+            if (empty($instance->phone_number_id)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La instancia no tiene phone_number_id configurado'
+                ], 400);
+            }
+
+            // Obtener ACCESS_TOKEN_META del .env
+            $accessToken = env('ACCESS_TOKEN_META');
+            if (empty($accessToken)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'ACCESS_TOKEN_META no está configurado en el archivo .env'
+                ], 400);
+            }
+
+            // Construir URL de la API
+            $url = 'https://graph.facebook.com/v24.0/' . $instance->phone_number_id . '/register';
+
+            // Body de la petición
+            $body = json_encode([
+                'messaging_product' => 'whatsapp',
+                'pin' => '123456'
+            ]);
+
+            // Hacer petición POST a Facebook Graph API
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => $body,
+                CURLOPT_HTTPHEADER => array(
+                    'Authorization: Bearer ' . $accessToken,
+                    'Content-Type: application/json'
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            curl_close($curl);
+
+            if ($curlError) {
+                Log::error('Error cURL al registrar número WhatsApp: ' . $curlError);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error al conectar con la API de Facebook: ' . $curlError
+                ], 400);
+            }
+
+            if ($httpCode != 200) {
+                Log::error('Error HTTP al registrar número WhatsApp: ' . $httpCode . ' - ' . $response);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'
+                ], 400);
+            }
+
+            $responseData = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'Error al procesar la respuesta de la API'
+                ], 400);
+            }
+
+            // Verificar si la respuesta tiene success: true
+            if (isset($responseData['success']) && $responseData['success'] === true) {
+                return response()->json([
+                    'success' => 1,
+                    'message' => 'El numero de teléfono ha sido habilitado'
+                ]);
+            } else {
+                Log::error('Respuesta de API sin success: ' . $response);
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La API no retornó success: true. Respuesta: ' . json_encode($responseData)
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Error al registrar número WhatsApp: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al registrar el número: ' . $e->getMessage()
+            ], 500);
         }
     }
 

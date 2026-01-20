@@ -4,8 +4,8 @@ namespace App\Model\Gastos;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Model\Inventario\Inventario; use App\Impuesto;
-use DB; use Auth; use App\Categoria; 
-class ItemsNotaDedito extends Model
+use DB; use Auth; use App\Categoria;
+class ItemsNotaDebito extends Model
 {
     protected $table = "items_notas_debito";
     protected $primaryKey = 'id';
@@ -16,14 +16,14 @@ class ItemsNotaDedito extends Model
      */
     protected $fillable = [
         'nota', 'producto', 'ref', 'precio', 'descripcion', 'impuesto', 'id_impuesto', 'cant', 'desc', 'tipo_item', 'created_at', 'updated_at', 'tipo_item'
-    ]; 
+    ];
 
     public function total(){
 
         $result=$this->precio*$this->cant;
         //SACAR EL DESCUENTO
         if ($this->desc>0) {
-            $desc=($result*$this->desc)/100; 
+            $desc=($result*$this->desc)/100;
         }
         else{ $desc=0; }
 
@@ -39,7 +39,7 @@ class ItemsNotaDedito extends Model
             return Categoria::where('id',$this->producto)->first()->nombre;
 
         }
-        
+
     }
 
     public function impuesto(){
@@ -48,9 +48,9 @@ class ItemsNotaDedito extends Model
             return $impuesto->nombre."(".$impuesto->porcentaje."%)";
         }
         return '';
-        
+
     }
-    
+
     public function itemImpuesto(){
         if($this->impuesto > 0 ){
             $imp = ($this->precio*$this->impuesto)/100;
@@ -59,7 +59,7 @@ class ItemsNotaDedito extends Model
         }
         return $imp;
     }
-    
+
     public function itemImpDescuento(){
        return $imp = $this->total() * $this->impuesto / 100;
     }

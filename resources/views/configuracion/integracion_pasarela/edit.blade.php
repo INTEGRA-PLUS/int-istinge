@@ -59,6 +59,8 @@
 	    				<center><img src="{{ asset('images/wompi_b.png') }}" class="img-fluid mb-3 border-dark border"></center>
 	    				<p class="text-justify">- En la sección de <strong>Secretos para integración técnica</strong>, dar clic en mostrar y copiar Eventos y pegarlo acá en la configuración</p>
 	    				<center><img src="{{ asset('images/wompi_c.png') }}" class="img-fluid mb-3 border-dark border"></center>
+                        <p class="text-justify">- En la sección de <strong>Secretos para integración técnica</strong>, dar clic en mostrar y copiar <strong>INTEGRIDAD</strong> y pegarlo acá en la configuración</p>
+
 	    			</div>
 	    			<div class="modal-footer">
 	    				<button type="button" class="btn btn-danger" data-dismiss="modal">Cerrar</button>
@@ -209,6 +211,14 @@
 	            <input type="text" class="form-control" id="merchantId" name="merchantId"  required="" value="{{$servicio->merchantId}}" maxlength="200">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('merchantId') }}</strong>
+	            </span>
+	        </div>
+
+            <div class="col-md-6 form-group {{ $servicio->nombre !== 'WOMPI' ? 'd-none' : ''}}">
+	            <label class="control-label">Secreto Integridad<span class="text-danger">*</span></label>
+	            <input type="text" class="form-control" id="integrity" name="integrity"  required="" value="{{$servicio->integrity}}" maxlength="200">
+	            <span class="help-block error">
+	                <strong>{{ $errors->first('integrity') }}</strong>
 	            </span>
 	        </div>
 

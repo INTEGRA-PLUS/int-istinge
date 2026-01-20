@@ -39,21 +39,16 @@
 
 <a href="{{route('factura.create.cliente', $c_id)}}" class="btn btn-outline-warning btn-icons" title="Crear una factura" target="_blank"><i class="fas fa-file-invoice-dollar"></i></a>
 
-@if($olt_sn_mac != null)
+@if($olt_sn_mac != null || $serial_onu != null)
+@php $olt_sn_mac = $olt_sn_mac != null ? $olt_sn_mac : $serial_onu; @endphp
 <a href="#" class="btn {{$state_olt_catv == true ? 'btn-outline-success' : 'btn-outline-danger'}} btn-icons" title="{{$state_olt_catv == true ? 'Deshabilitar Catv?' : 'Habilitar Catv?'}}'"
 onclick="confirmar('cambiar-statecatv{{$id}}',
 '¿Está seguro que desea cambiar el estado del catv a {{$state_olt_catv == true ? 'deshabilitado?' : 'habilitado?'}}',
 'Se actualizará su estado');"><i class="fas fa-tv"></i></a>
 
-@if(isset($_SESSION['permisos']['859']))
-<a class="btn btn-icons btn-outline-primary" title="ver configuracion olt" href="{{ route('olt.view-onu',$olt_sn_mac) }}">
-    <i class="fas fa-wrench"></i>
-</a>
-@endif
-@endif
-
-@if($serial_onu != null && isset($_SESSION['permisos']['859']) && Auth::user()->empresa()->eatado_olt == 1 && $olt_sn_mac == null)
-<a class="btn btn-icons btn-outline-primary" title="ver configuracion olt" href="{{ route('olt.view-onu',$serial_onu) }}">
-    <i class="fas fa-wrench"></i>
-</a>
+    @if(isset($_SESSION['permisos']['859']))
+    <a class="btn btn-icons btn-outline-primary" title="ver configuracion olt" href="{{ route('olt.view-onu',$olt_sn_mac) }}">
+        <i class="fas fa-wrench"></i>
+    </a>
+    @endif
 @endif

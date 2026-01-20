@@ -224,7 +224,8 @@ class User extends Authenticatable
             }
         }else{
             if($this->rol){
-                return Roles::find($this->rol)->rol;
+                $rolObj = Roles::find($this->rol);
+                return $rolObj ? $rolObj->rol : "N/A";
             }
             else return "N/A";
         }

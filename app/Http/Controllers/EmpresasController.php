@@ -115,6 +115,9 @@ class EmpresasController extends Controller
         $empresa->updated_at  = Carbon::now();
         $empresa->carrito = $request->carrito;
         $empresa->web = $request->web;
+        $empresa->proveedor = $request->proveedor;
+        $empresa->estado_dian = $request->estado_dian;
+        $empresa->btw_login = $request->btw_login;
         $empresa->save();
 
         $numeracion = new Numeracion;
@@ -415,6 +418,9 @@ class EmpresasController extends Controller
             $empresa->carrito = $request->carrito;
             $empresa->web = $request->web;
             $empresa->p_personalizado = $request->p_personalizado;
+            $empresa->proveedor = $request->proveedor;
+            $empresa->estado_dian = $request->estado_dian;
+            $empresa->btw_login = $request->btw_login;
             $empresa->save();
             $usuario->nombres = $request->nombre;
             if ($request->changepass) {
@@ -547,5 +553,80 @@ class EmpresasController extends Controller
                 'message' => 'Ha ocurrido un error, intente de nuevo',
             ]);
         }
+    }
+
+    /**
+     * Cambiar el estado de suscripción de una empresa
+     * Solo accesible para usuarios con rol = 1
+     * Requiere contraseña desde .env (STATUS_COMPANY_PASS)
+     *
+     * @param Request $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cambiarEstadoSuscripcion(Request $request, $id)
+    {
+        // Validar que el usuario tenga rol = 1
+        if (Auth::user()->rol != 1) {
+            return response()->json([
+                'success' => false,
+                'type'    => 'error',
+                'message' => 'No tienes permisos para realizar esta acción'
+            ], 403);
+        }
+
+        // Validar que se proporcione la contraseña
+        $request->validate([
+            'password' => 'required|string',
+            'estado'   => 'required|in:0,1'
+        ], [
+            'password.required' => 'La contraseña es obligatoria',
+            'estado.required'   => 'El estado es obligatorio',
+            'estado.in'         => 'El estado debe ser 0 o 1'
+        ]);
+
+        // Convertir estado a booleano
+        $estadoBooleano = (bool) $request->estado;
+
+        // Validar la contraseña con la del .env
+        $passwordEnv = env('STATUS_COMPANY_PASS');
+        if (empty($passwordEnv)) {
+            return response()->json([
+                'success' => false,
+                'type'    => 'error',
+                'message' => 'Error de configuración del sistema'
+            ], 500);
+        }
+
+        if ($request->password !== $passwordEnv) {
+            return response()->json([
+                'success' => false,
+                'type'    => 'error',
+                'message' => 'Contraseña incorrecta'
+            ], 401);
+        }
+
+        // Buscar la empresa
+        $empresa = Empresa::find($id);
+        if (!$empresa) {
+            return response()->json([
+                'success' => false,
+                'type'    => 'error',
+                'message' => 'Empresa no encontrada'
+            ], 404);
+        }
+
+        // Actualizar el estado de suscripción
+        $empresa->is_subscription_active = $estadoBooleano;
+        $empresa->save();
+
+        $estadoTexto = $estadoBooleano ? 'habilitada' : 'suspendida';
+
+        return response()->json([
+            'success' => true,
+            'type'    => 'success',
+            'message' => 'Empresa ' . $empresa->nombre . ' ha sido ' . $estadoTexto . ' exitosamente',
+            'estado'  => $estadoBooleano
+        ]);
     }
 }

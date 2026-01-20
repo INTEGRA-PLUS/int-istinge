@@ -6,7 +6,7 @@
 	    <div class="alert alert-warning text-left" role="alert">
 	        <h4 class="alert-heading text-uppercase">Integra Colombia: Suscripción Vencida</h4>
 	       <p>Si desea seguir disfrutando de nuestros servicios adquiera alguno de nuestros planes.</p>
-<p>Medios de pago Nequi: 3026003360 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
+<p>Medios de pago Nequi: 3206909290 Cuenta de ahorros Bancolombia 42081411021 CC 1001912928 Ximena Herrera representante legal. Adjunte su pago para reactivar su membresía</p>
 	    </div>
 	@else
         <a href="javascript:abrirFiltrador()" class="btn btn-info btn-sm my-1" id="boton-filtrar"><i class="fas fa-search"></i>Filtrar</a>
@@ -118,13 +118,21 @@
 								@endforeach
 							</select>
                         </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
                             <label for="creacion" class="placeholder">Creación</label>
-                        </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                        </div> --}}
+                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
                             <label for="vencimiento" class="placeholder">Vencimiento</label>
+                        </div> --}}
+                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                            <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
+                            <label for="desde" class="placeholder">Desde</label>
+                        </div>
+                        <div class="col-md-2 pl-1 pt-1 position-relative">
+                            <input type="date" id="hasta" name="hasta" class="form-control rounded" autocomplete="off">
+                            <label for="hasta" class="placeholder">Hasta</label>
                         </div>
 						<div class="col-md-2 pl-1 pt-1">
 							<select title="Servidor" class="form-control rounded selectpicker" id="servidor">
@@ -203,6 +211,9 @@
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Convertir a facturas electrónicas en Lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_siigo"><i class="fas fa-server"></i> Enviar a Siigo en lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_imp_fac"><i class="fas fa-file-excel"></i> Imprimir facturas</a>
+                        @if(isset($_SESSION['permisos']['44']))
+                        <a class="dropdown-item text-danger" href="javascript:void(0)" id="btn_eliminar"><i class="fas fa-trash"></i> Eliminar facturas en lote</a>
+                        @endif
                     </div>
 
                 </div>
@@ -709,6 +720,10 @@
 		// Variable global para controlar si se ha hecho clic en filtrar
 		var filtroClickeado = false;
 
+		// Establecer valores por defecto para desde y hasta (2025-2026)
+		$('#desde').val('2025-01-01');
+		$('#hasta').val('2026-12-31');
+
 		tabla.on('preXhr.dt', function(e, settings, data) {
 			data.codigo = $('#codigo').val();
 			data.corte = $('#corte').val();
@@ -718,6 +733,8 @@
 			data.barrio = $('#barrio').val();
 			data.creacion = $('#creacion').val();
 			data.vencimiento = $('#vencimiento').val();
+			data.desde = $('#desde').val();
+			data.hasta = $('#hasta').val();
 			data.comparador = $('#comparador').val();
 			data.total = $('#total').val();
 			data.servidor = $('#servidor').val();
@@ -756,7 +773,7 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #barrio, #state_contrato, #grupos_corte, #fact_siigo').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo').on('change',function() {
             filtroClickeado = true; // Marcar que se aplicó un filtro por cambio de dropdown
             getDataTable();
             return false;
@@ -1011,6 +1028,101 @@
                 }
             })
         });
+
+        $('#btn_eliminar').on('click', function(e) {
+            var table = $('#tabla-facturas').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if(nro <= 0){
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una factura.',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var facturas = [];
+            for (i = 0; i < nro; i++) {
+                facturas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '⚠️ ACCIÓN PELIGROSA',
+                html: '¿Desea eliminar ' + nro + ' facturas?<br><br>' +
+                      '<strong style="color: #d33;">Esta acción es irreversible y no se puede retroceder.</strong><br><br>' +
+                      '<strong>IMPORTANTE:</strong> Recuerde que después de eliminar estas facturas, debe acomodar el siguiente número de facturación en numeraciones para que no queden saltos de facturas.',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/facturas/eliminarmasiva/` + facturas.join(',') :
+                        `/empresa/facturas/eliminarmasiva/` + facturas.join(',');
+
+                    $.ajax({
+                        url: url,
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+
+                            if(data.success == false){
+                                swal({
+                                    title: 'ERROR',
+                                    html: data.message || data.text || 'Ocurrió un error al eliminar las facturas',
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                                return false;
+                            }else{
+                                let html = data.text || 'Proceso de eliminación masiva terminado';
+                                if(data.errores && data.errores.length > 0){
+                                    html += '<br><br><strong>Facturas que no pudieron eliminarse:</strong><ul>';
+                                    data.errores.forEach(function(error) {
+                                        html += '<li>' + error + '</li>';
+                                    });
+                                    html += '</ul>';
+                                }
+
+                                swal({
+                                    title: 'PROCESO REALIZADO',
+                                    html: html,
+                                    type: 'success',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#1A59A1',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            }
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            let errorMessage = 'No se pudo eliminar las facturas. Por favor, inténtelo de nuevo más tarde.';
+                            if(xhr.responseJSON && xhr.responseJSON.message){
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            swal({
+                                title: 'ERROR',
+                                html: errorMessage,
+                                type: 'error',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#d33',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                        }
+                    });
+                }
+            });
+        });
 	});
 
 	function getDataTable() {
@@ -1036,6 +1148,8 @@
 		$('#vendedor').val('').selectpicker('refresh');
 		$('#creacion').val('');
 		$('#vencimiento').val('');
+		$('#desde').val('2025-01-01');
+		$('#hasta').val('2026-12-31');
 		$('#comparador').val('').selectpicker('refresh');
 		$('#total').val('');
 		$('#estado').val('').selectpicker('refresh');
@@ -1049,9 +1163,28 @@
 	}
 
 	function exportar() {
-		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&state_contrato='+$('#state_contrato').val()+'&tipo=1';
-	}
+        $("#estado").selectpicker('refresh');
+
+        let baseUrl = "{{ route('facturas.exportar') }}";
+
+        let params = [
+            'codigo=' + encodeURIComponent($('#codigo').val() || ''),
+            'cliente=' + encodeURIComponent($('#cliente').val() || ''),
+            'municipio=' + encodeURIComponent($('#municipio').val() || ''),
+            'barrio=' + encodeURIComponent($('#barrio').val() || ''),
+            'creacion=' + encodeURIComponent($('#creacion').val() || ''),
+            'vencimiento=' + encodeURIComponent($('#vencimiento').val() || ''),
+            'desde=' + encodeURIComponent($('#desde').val() || ''),
+            'hasta=' + encodeURIComponent($('#hasta').val() || ''),
+            'estado=' + encodeURIComponent($('#estado').val() || ''),
+            'grupos_corte=' + encodeURIComponent($('#grupos_corte').val() || ''),
+            'fact_siigo=' + encodeURIComponent($('#fact_siigo').val() || ''),
+            'state_contrato=' + encodeURIComponent($('#state_contrato').val() || ''),
+            'tipo=1'
+        ].join('&');
+
+        window.location.href = baseUrl + '?' + params;
+    }
 
 	@if($tipo)
 	    $('#estado').val('{{ $tipo }}').selectpicker('refresh');
