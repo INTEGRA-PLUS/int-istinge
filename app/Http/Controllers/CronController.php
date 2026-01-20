@@ -1274,7 +1274,10 @@ class CronController extends Controller
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
-                where('cs.fecha_suspension', null)->
+                where(function($sub){
+                    $sub->whereNull('cs.fecha_suspension')
+                    ->orWhere('cs.fecha_suspension',0);
+                })->
                 where('cs.server_configuration_id','!=',null)->
                 whereDate('f.vencimiento', '<=', now())->
                 where('f.id', function ($subquery) {
