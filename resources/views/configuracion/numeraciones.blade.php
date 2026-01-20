@@ -60,6 +60,13 @@
   				<input type="text" class="form-control form-control-sm"  id="orden" name="orden"  required="" value="{{$numeracion->orden}}" maxlength="10" disabled>
   			</div>
   		</div>
+
+  		<div class="row">
+  			<label class="col-sm-8 col-form-label" style="text-align: right;">Siguiente número de contratos <span class="text-danger">*</span></label>
+  			<div class="col-sm-4">
+  				<input type="text" class="form-control form-control-sm"  id="contrato" name="contrato"  required="" value="{{$numeracion->contrato ?? 1}}" maxlength="10" disabled>
+  			</div>
+  		</div>
   	</div>
   </div>
 
