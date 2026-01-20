@@ -139,15 +139,16 @@ class Contrato extends Model
                 if($factura){
                     $ingreso_factura = IngresosFactura::where('factura', $factura->id)->get()->last();
                     if($ingreso_factura){
-                        $ingreso = Ingreso::where('id', $ingreso_factura->ingreso)->select('fecha')->first()->fecha;
+                        $ingreso = Ingreso::where('id', $ingreso_factura->ingreso)->select('fecha')->first();
+                        if($ingreso){
+                            return $ingreso->fecha;
+                        }
                     }
                 }
             }
-
-
-
         }
 
+        return null;
     }
 
     public static function tipos()
@@ -426,34 +427,6 @@ class Contrato extends Model
             ->first();
 
         return $registro ? Carbon::parse($registro->created_at)->format('Y-m-d H:i:s') : null;
-    }
-
-    public function fechaUltimoPago(){
-
-        if(Contrato::where('client_id',$this->client_id)->count() <= 1){
-            $ingreso = Ingreso::where('cliente', $this->client_id)
-            ->where('tipo', 1)
-            ->where('estatus',1)
-            ->select('fecha')
-            ->get()->last();
-
-            if($ingreso){
-                return $ingreso->fecha;
-            }
-        }
-        else{
-
-            $factura = FacturaContratos::where('contrato_nro' , $this->nro)->get()->last();
-            if($factura){
-                $factura = Factura::where('id', $factura->factura_id)->first();
-                if($factura){
-                    $ingreso_factura = IngresosFactura::where('factura', $factura->id)->get()->last();
-                    if($ingreso_factura){
-                        $ingreso = Ingreso::where('id', $ingreso_factura->ingreso)->select('fecha')->first()->fecha;
-                    }
-                }
-            }
-        }
     }
 
     public function cantidadFacturasVencidas (){
