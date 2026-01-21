@@ -5408,11 +5408,11 @@ class ContratosController extends Controller
 
         // Al final del primer bucle, verificar si hay identificaciones no encontradas
         if (count($identificacionesNoEncontradas) > 0) {
-            $mensajeErrores = "Las siguientes identificaciones no se encuentran registradas en el sistema:\n\n";
+            $mensajeErrores = "<strong>Las siguientes identificaciones no se encuentran registradas en el sistema:</strong><br><br><ul>";
             foreach ($identificacionesNoEncontradas as $item) {
-                $mensajeErrores .= "Fila {$item['fila']}: {$item['identificacion']}\n";
+                $mensajeErrores .= "<li>Fila {$item['fila']}: <strong>{$item['identificacion']}</strong></li>";
             }
-            $mensajeErrores .= "\nPor favor, verifique estas identificaciones en el archivo Excel y asegúrese de que los contactos estén creados antes de importar los contratos.";
+            $mensajeErrores .= "</ul><br>Por favor, verifique estas identificaciones en el archivo Excel y asegúrese de que los contactos estén creados antes de importar los contratos.";
 
             return back()->withErrors(['identificaciones' => $mensajeErrores])->withInput();
         }
