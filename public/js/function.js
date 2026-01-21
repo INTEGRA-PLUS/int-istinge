@@ -754,8 +754,10 @@ function contratos_facturas(contacto){
 
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/empresa/contratos/' + contacto + '/json';
+        var urlContacto = '/software/empresa/contactos/' + contacto + '/json';
     } else {
         var url = '/empresa/contratos/' + contacto + '/json';
+        var urlContacto = '/empresa/contactos/' + contacto + '/json';
     }
 
     $.ajax({
@@ -770,6 +772,7 @@ function contratos_facturas(contacto){
 
             if(data.data.length == 0){
                 $("#divcontratos").addClass('d-none')
+                cargando(false)
                 return;
             }
 
@@ -784,7 +787,35 @@ function contratos_facturas(contacto){
 
             $("#contratos_json").selectpicker('refresh')
             $("#divcontratos").removeClass('d-none')
-            cargando(false)
+
+            // Verificar si el cliente tiene factura_est_elec = 1 para quitar required
+            $.ajax({
+                url: urlContacto,
+                success: function(contactoData) {
+                    contactoData = JSON.parse(contactoData);
+                    if (contactoData[0]) {
+                        contactoData = contactoData[0];
+                    }
+
+                    if (contactoData.factura_est_elec == 1) {
+                        // Quitar required del campo contrato
+                        $('#contratos_json').removeAttr('required');
+                        // Quitar asterisco del label si existe
+                        $('#divcontratos label').find('.text-danger').remove();
+                    } else {
+                        // Restaurar required si no está habilitado
+                        $('#contratos_json').attr('required', '');
+                        // Restaurar asterisco si no existe
+                        if ($('#divcontratos label').find('.text-danger').length == 0) {
+                            $('#divcontratos label').append(' <span class="text-danger">*</span>');
+                        }
+                    }
+                    cargando(false)
+                },
+                error: function() {
+                    cargando(false)
+                }
+            });
 
         },
         error: function(data) {
@@ -848,7 +879,7 @@ function contacto(selected, modificar = false, type = 1) {
 
                 //Validación de cuando es una factura estandar normal pero no tiene ningun contrato sale alerta.
                 if(window.location.pathname.split("/")[3] != "ordenes"){
-                     if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0) {
+                     if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0 && data.factura_est_elec != 1) {
                     if ($("#dian").val() == null) {
                         Swal.fire({
                             position: 'top-center',
@@ -863,7 +894,7 @@ function contacto(selected, modificar = false, type = 1) {
                         return;
                     }
                     //referencia a que el cliente tiene un contrato por facturacion electrónica y no por estandar
-                } else if (type == 1 && data.facturacion == 3 && modulo == 0) {
+                } else if (type == 1 && data.facturacion == 3 && modulo == 0 && (data.factura_est_elec != 1)) {
                     Swal.fire({
                         position: 'top-center',
                         type: 'error',
@@ -879,6 +910,23 @@ function contacto(selected, modificar = false, type = 1) {
             }
 
 
+            // Manejar campo contrato cuando factura_est_elec = 1
+            if (data.factura_est_elec == 1) {
+                // Quitar required del campo contrato
+                $('#contratos_json').removeAttr('required');
+                // Quitar asterisco del label si existe
+                $('#divcontratos label').find('.text-danger').remove();
+            } else {
+                // Restaurar required si no está habilitado
+                if ($('#divcontratos').is(':visible') && $('#divcontratos').hasClass('d-none') == false) {
+                    $('#contratos_json').attr('required', '');
+                    // Restaurar asterisco si no existe
+                    if ($('#divcontratos label').find('.text-danger').length == 0) {
+                        $('#divcontratos label').append(' <span class="text-danger">*</span>');
+                    }
+                }
+            }
+
             if ($('#ident').length > 0) {
                 $('#ident').val(data.nit);
                 if (data.celular == '') { $('#telefono').val(data.telefono1); } else { $('#telefono').val(data.celular); }
@@ -890,7 +938,7 @@ function contacto(selected, modificar = false, type = 1) {
                         if (data.plan) {
                             it++;
                             $('#item1').val(data.plan).selectpicker('refresh');
-                            rellenar(1, data.plan);
+                            rellenar(it, data.plan);
                         }
                         if (data.servicio_tv) {
                             createRow();
@@ -4544,14 +4592,14 @@ function interfazChange(){
 
         document.getElementById("div_mac").classList.add('d-none');
         document.getElementById("mac_address").removeAttribute('required');
-        
+
         // Mostrar Simple Queue para PPPOE
         var divSimpleQueue = document.getElementById("div_simple_queue");
         if(divSimpleQueue) {
             divSimpleQueue.classList.remove('d-none');
             document.getElementById("simple_queue").setAttribute('required', true);
         }
-        
+
         // Campo que se activa nada mas cuando es pppoe
         document.getElementById("local_adress").classList.remove('d-none');
         document.getElementById("local_adress").setAttribute('required', true);

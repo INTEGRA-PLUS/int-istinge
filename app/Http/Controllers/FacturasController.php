@@ -1586,8 +1586,12 @@ class FacturasController extends Controller{
             if($request->contratos_json != ''){
                 $contrato = Contrato::where('id', $request->contratos_json)->first();
             }else{
-                $mensaje='Debes seleccionar un contrato para el tipo de facturacion estandar.';
-                return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
+                // Verificar si el cliente tiene factura_est_elec = 1 para permitir crear sin contrato
+                $cliente = Contacto::where('id', $request->cliente)->where('empresa', $user->empresa)->first();
+                if(!$cliente || $cliente->factura_est_elec != 1){
+                    $mensaje='Debes seleccionar un contrato para el tipo de facturacion estandar.';
+                    return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
+                }
             }
 
         }else{
