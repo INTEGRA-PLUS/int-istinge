@@ -5129,6 +5129,9 @@ class ContratosController extends Controller
         //obtiene el tamaño de columnas
         $highestColumn = $sheet->getHighestColumn();
 
+        // Array para recopilar todas las identificaciones no encontradas
+        $identificacionesNoEncontradas = [];
+
         for ($row = 4; $row <= $highestRow; $row++) {
             $request = (object) array();
             //obtengo el A4 desde donde empieza la data
@@ -5310,9 +5313,14 @@ class ContratosController extends Controller
 
             $error = (object) array();
 
+            // Validar identificación y agregar al array de no encontradas si aplica
             if ($nit != "") {
                 if (Contacto::where('nit', $nit)->where('status', 1)->count() == 0) {
-                    $error->nit = "La identificación indicada no se encuentra registrada para ningún cliente en el sistema";
+                    // Agregar a la lista de identificaciones no encontradas en lugar de error inmediato
+                    $identificacionesNoEncontradas[] = [
+                        'fila' => $row,
+                        'identificacion' => $nit
+                    ];
                 }
             }
             if (!$request->servicio) {
@@ -5396,6 +5404,17 @@ class ContratosController extends Controller
                 $result = (object) $error;
                 return back()->withErrors($result)->withInput();
             }
+        }
+
+        // Al final del primer bucle, verificar si hay identificaciones no encontradas
+        if (count($identificacionesNoEncontradas) > 0) {
+            $mensajeErrores = "Las siguientes identificaciones no se encuentran registradas en el sistema:\n\n";
+            foreach ($identificacionesNoEncontradas as $item) {
+                $mensajeErrores .= "Fila {$item['fila']}: {$item['identificacion']}\n";
+            }
+            $mensajeErrores .= "\nPor favor, verifique estas identificaciones en el archivo Excel y asegúrese de que los contactos estén creados antes de importar los contratos.";
+
+            return back()->withErrors(['identificaciones' => $mensajeErrores])->withInput();
         }
 
         for ($row = 4; $row <= $highestRow; $row++) {
@@ -5837,6 +5856,9 @@ class ContratosController extends Controller
         $highestRow = $sheet->getHighestRow();
         //obtiene el tamaño de columnas
         $highestColumn = $sheet->getHighestColumn();
+
+        // Array para recopilar todas las identificaciones no encontradas
+        $identificacionesNoEncontradas = [];
 
         for ($row = 4; $row <= $highestRow; $row++) {
             $request = (object) array();
