@@ -218,6 +218,7 @@ Route::get('lcotizaciones', 'CotizacionesController@cotizaciones');
 Route::get('lremisiones', 'RemisionesController@remisiones');
 Route::get('lproductos', 'ProductosController@productos');
 Route::get('auditoria_contratos', 'AuditoriaController@auditoria_contratos');
+Route::get('auditoria_facturas', 'AuditoriaController@auditoria_facturas');
 Route::get('gruposopcionesmasivas', 'GruposCorteController@gruposOpcionesMasivas');
 /*DATATABLE ORACLE*/
 
@@ -703,6 +704,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// Eliminar factura
 	Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
+
+	// Validar y actualizar código de factura
+	Route::post('facturas/validar-codigo', 'FacturasController@validarCodigoFactura')->name('facturas.validar-codigo');
+	Route::post('facturas/actualizar-codigo', 'FacturasController@actualizarCodigoFactura')->name('facturas.actualizar-codigo');
+	Route::get('facturas/numeracion-prefijo/{id}', 'FacturasController@getNumeracionPrefijo')->name('facturas.numeracion-prefijo');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
@@ -1819,6 +1825,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//AUDITORIA
 	Route::group(['prefix' => 'auditoria'], function () {
 		Route::get('contratos', 'AuditoriaController@contratos')->name('auditoria.contratos');
+		Route::get('facturas', 'AuditoriaController@facturas')->name('auditoria.facturas');
 	});
 	Route::resource('auditoria', 'AuditoriaController');
 	Route::resource('barrios', 'BarriosController');

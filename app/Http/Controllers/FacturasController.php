@@ -1606,12 +1606,29 @@ class FacturasController extends Controller{
 
         //Actualiza el nro de inicio para la numeracion seleccionada
         $inicio = $nro->inicio;
+        $codigoEditado = $request->codigo_editado;
 
-        // Validacion para que solo asigne numero consecutivo si no existe.
-        while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
-            $nro->save();
-            $inicio=$nro->inicio;
-            $nro->inicio += 1;
+        // Si hay un código editado, validarlo y usarlo
+        if ($codigoEditado && !empty($codigoEditado)) {
+            // Validar que el código no exista
+            $existe = Factura::where('numeracion', $nro->id)
+                ->where('codigo', $codigoEditado)
+                ->exists();
+
+            if ($existe) {
+                $mensaje = 'El código editado ya existe en otra factura.';
+                return redirect()->back()->with('error', $mensaje)->withInput();
+            }
+
+            $codigoFinal = $codigoEditado;
+        } else {
+            // Validacion para que solo asigne numero consecutivo si no existe.
+            while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
+                $nro->save();
+                $inicio=$nro->inicio;
+                $nro->inicio += 1;
+            }
+            $codigoFinal = $nro->prefijo.$inicio;
         }
 
         if($request->nro_remision){
@@ -1653,7 +1670,7 @@ class FacturasController extends Controller{
         $factura = new Factura;
         $factura->nonkey = $key;
         $factura->nro = $numero;
-        $factura->codigo=$nro->prefijo.$inicio;
+        $factura->codigo = $codigoFinal;
         $factura->numeracion=$nro->id;
         $factura->plazo=$request->plazo;
         $factura->term_cond=$request->term_cond;
@@ -1878,8 +1895,17 @@ class FacturasController extends Controller{
                 ->get();
                 $contratosFacturas = DB::table('facturas_contratos')->where('factura_id',$factura->id)->first();
 
+                // Obtener el prefijo de la numeración para el modal de edición
+                $numeracionPrefijo = null;
+                if ($factura->numeracion) {
+                    $numeracionObj = NumeracionFactura::find($factura->numeracion);
+                    if ($numeracionObj) {
+                        $numeracionPrefijo = $numeracionObj->prefijo;
+                    }
+                }
+
                 return view('facturas.edit')->with(compact('clientes', 'inventario', 'vendedores', 'terminos', 'impuestos', 'factura', 'items', 'listas', 'bodegas', 'retencionesFacturas', 'retenciones', 'tipo_documento', 'categorias', 'medidas', 'unidades', 'prefijos', 'tipos_empresa', 'identificaciones', 'extras','relaciones','formasPago',
-                'contratos','contratosFacturas'
+                'contratos','contratosFacturas', 'numeracionPrefijo'
             ));
             }
             return redirect('empresa/factura-index')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
@@ -5883,6 +5909,9 @@ class FacturasController extends Controller{
                 ];
             }
 
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+            
             // Actualizar y guardar datos
             $inicio = $nro->inicio;
             $nro->inicio += 1;
@@ -5911,11 +5940,27 @@ class FacturasController extends Controller{
             }
 
 
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+            
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 2;
             $factura->fecha = Carbon::now()->format('Y-m-d');
             $factura->save();
+
+            // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
+            if (!$masivo) {
+                $codigoNuevo = $factura->codigo;
+                $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a electrónica por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato    = $factura->id;
+                $movimiento->modulo      = 8;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+            }
 
             if (!$masivo) {
                 return back()->with('success', 'Factura con el nuevo código: ' . $factura->codigo . ' convertida correctamente.');
@@ -5946,7 +5991,27 @@ class FacturasController extends Controller{
     public function conversionmasivaElectronica($facturas){
         $facturas = explode(",", $facturas);
         for ($i=0; $i < count($facturas) ; $i++) {
+            // Obtener el código anterior antes de la conversión
+            $facturaAntes = Factura::find($facturas[$i]);
+            $codigoAnterior = $facturaAntes ? $facturaAntes->codigo : null;
+            
             $response = $this->convertirelEctronica($facturas[$i],1);
+            
+            // Crear log para cada conversión exitosa
+            if(isset($response['success']) && $response['success'] == true){
+                $factura = Factura::find($facturas[$i]);
+                if($factura){
+                    $codigoNuevo = $factura->codigo;
+                    $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a electrónica por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = Auth::user()->empresa;
+                    $movimiento->save();
+                }
+            }
         }
 
         if(isset($response['success']) && $response['success'] == false){
@@ -6517,6 +6582,159 @@ class FacturasController extends Controller{
         }
     }
 
+    /**
+     * Validar si un código de factura está disponible
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function validarCodigoFactura(Request $request)
+    {
+        $request->validate([
+            'numeracion_id' => 'required|integer',
+            'codigo' => 'required|string',
+            'factura_id' => 'nullable|integer'
+        ]);
 
+        $numeracionId = $request->numeracion_id;
+        $codigo = $request->codigo;
+        $facturaId = $request->factura_id;
+
+        // Verificar que la numeración existe
+        $numeracion = NumeracionFactura::find($numeracionId);
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 400);
+        }
+
+        // Verificar que el código no exista en otra factura con la misma numeración
+        $query = Factura::where('numeracion', $numeracionId)
+            ->where('codigo', $codigo);
+
+        // Si es edición, excluir la factura actual
+        if ($facturaId) {
+            $query->where('id', '!=', $facturaId);
+        }
+
+        $existe = $query->exists();
+
+        if ($existe) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ya existe otra factura con ese número en esta numeración'
+            ], 200);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'El código está disponible'
+        ], 200);
+    }
+
+    /**
+     * Actualizar el código de una factura
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function actualizarCodigoFactura(Request $request)
+    {
+        // Verificar permiso 43
+        $this->getAllPermissions(Auth::user()->id);
+        if (!isset($_SESSION['permisos']['43'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para realizar esta acción'
+            ], 403);
+        }
+
+        $request->validate([
+            'factura_id' => 'nullable|integer',
+            'codigo' => 'required|string',
+            'numeracion_id' => 'required|integer'
+        ]);
+
+        $codigo = $request->codigo;
+        $numeracionId = $request->numeracion_id;
+        $facturaId = $request->factura_id;
+
+        // Verificar que la numeración existe
+        $numeracion = NumeracionFactura::find($numeracionId);
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 400);
+        }
+
+        // Validar que el código no exista en otra factura con la misma numeración
+        $query = Factura::where('numeracion', $numeracionId)
+            ->where('codigo', $codigo);
+
+        if ($facturaId) {
+            $query->where('id', '!=', $facturaId);
+        }
+
+        $existe = $query->exists();
+
+        if ($existe) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ya existe otra factura con ese número en esta numeración'
+            ], 200);
+        }
+
+        // Si es edición, actualizar la factura existente
+        if ($facturaId) {
+            $factura = Factura::find($facturaId);
+            if (!$factura) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La factura no existe'
+                ], 404);
+            }
+
+            $factura->codigo = $codigo;
+            $factura->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Código actualizado correctamente',
+                'codigo' => $codigo
+            ], 200);
+        }
+
+        // Si es creación, solo retornar el código validado
+        // El código se asignará cuando se guarde la factura
+        // Si es creación, solo retornar el código validado
+        // El código se asignará cuando se guarde la factura
+        return response()->json([
+            'success' => true,
+            'message' => 'Código validado correctamente',
+            'codigo' => $codigo
+        ], 200);
+    }
+
+    /**
+     * Obtener el prefijo de una numeración
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getNumeracionPrefijo($id)
+    {
+        $numeracion = NumeracionFactura::find($id);
+
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'prefijo' => $numeracion->prefijo
+        ], 200);
+    }
 
 }

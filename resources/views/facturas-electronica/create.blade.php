@@ -58,7 +58,13 @@
       <p>{{Auth::user()->empresa()->tip_iden('mini')}} {{Auth::user()->empresa()->nit}} @if(Auth::user()->empresa()->dv != null || Auth::user()->empresa()->dv == 0) - {{Auth::user()->empresa()->dv}} @endif<br> {{Auth::user()->empresa()->email}}</p>
     </div>
     <div class="col-md-4 text-center align-self-center" >
-      <h4><b class="text-primary">No. </b> {{$nro->prefijo}}{{$nro->inicio}}</h4>
+      <h4><b class="text-primary">No. </b> <span id="codigo-factura-display">{{$nro->prefijo}}{{$nro->inicio}}</span>
+        @if(isset($_SESSION['permisos']['43']))
+          <a href="#" onclick="abrirModalEditarCodigo({{$nro->id}}, '{{$nro->prefijo}}{{$nro->inicio}}', null, '{{$nro->prefijo}}'); return false;" class="btn btn-sm btn-outline-secondary ml-2" title="Editar código">
+            <i class="fas fa-edit"></i>
+          </a>
+        @endif
+      </h4>
     </div>
 	</div>
 	<hr>
@@ -67,6 +73,7 @@
 		{{ csrf_field() }}
 
         <input type="hidden" value="1" name="electronica" id="electronica">
+        <input type="hidden" name="codigo_editado" id="codigo-editado" value="">
         {{-- <input type="hidden" value="1" name="fact_prov" id="fact_prov"> --}}
 		<div class="row text-right">
 			<div class="col-md-5">
@@ -583,9 +590,211 @@
   </div>
   {{--/Modal Nuevo producto  --}}
 
+  {{-- Modal Editar Código Factura  --}}
+  <div class="modal fade" id="modalEditarCodigo" role="dialog" data-backdrop="static" data-keyboard="false">
+      <div class="modal-dialog">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <button type="button" class="close" data-dismiss="modal">&times;</button>
+                  <h4 class="modal-title">Editar Código de Factura</h4>
+              </div>
+              <div class="modal-body">
+                  <form id="form-editar-codigo">
+                      <div class="form-group">
+                          <label>Prefijo (no editable)</label>
+                          <input type="text" class="form-control" id="prefijo-codigo" readonly>
+                          <input type="hidden" id="numeracion-id-codigo">
+                          <input type="hidden" id="factura-id-codigo">
+                      </div>
+                      <div class="form-group">
+                          <label>Número <span class="text-danger">*</span></label>
+                          <input type="text" class="form-control" id="numero-codigo" required>
+                      </div>
+                      <div class="form-group">
+                          <label>Código completo</label>
+                          <input type="text" class="form-control" id="codigo-completo" readonly>
+                      </div>
+                      <div id="error-codigo" class="alert alert-danger" style="display:none;"></div>
+                  </form>
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-success" onclick="guardarCodigoFactura()">Guardar</button>
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+              </div>
+          </div>
+      </div>
+  </div>
+  {{--/Modal Editar Código Factura  --}}
+
     <script>
     function opcionFacturaMes(id){
         $("#div-fact-mes").removeClass("d-none");
+    }
+
+    var facturaIdCodigo = null;
+    var numeracionIdCodigo = null;
+
+    function abrirModalEditarCodigo(numeracionId, codigoActual, facturaId, prefijo) {
+        facturaIdCodigo = facturaId;
+        numeracionIdCodigo = numeracionId;
+
+        // Si no tenemos el prefijo, obtenerlo mediante AJAX
+        if (!prefijo) {
+            obtenerPrefijoNumeracion(numeracionId, codigoActual);
+            return;
+        }
+
+        // Extraer el número del código actual (remover el prefijo)
+        var numero = codigoActual.replace(prefijo, '');
+
+        // Llenar el modal
+        $('#numeracion-id-codigo').val(numeracionId);
+        $('#factura-id-codigo').val(facturaId || '');
+        $('#prefijo-codigo').val(prefijo);
+        $('#numero-codigo').val(numero);
+        $('#codigo-completo').val(prefijo + numero);
+        $('#error-codigo').hide().text('');
+
+        // Abrir el modal
+        $('#modalEditarCodigo').modal('show');
+    }
+
+    function obtenerPrefijoNumeracion(numeracionId, codigoActual) {
+        var url = '{{ route("facturas.numeracion-prefijo", ":id") }}';
+        url = url.replace(':id', numeracionId);
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    var prefijo = data.prefijo;
+                    var numero = codigoActual.replace(prefijo, '');
+
+                    $('#numeracion-id-codigo').val(numeracionId);
+                    $('#factura-id-codigo').val(facturaIdCodigo || '');
+                    $('#prefijo-codigo').val(prefijo);
+                    $('#numero-codigo').val(numero);
+                    $('#codigo-completo').val(prefijo + numero);
+                    $('#error-codigo').hide().text('');
+
+                    $('#modalEditarCodigo').modal('show');
+                } else {
+                    Swal.fire({
+                        position: 'top-center',
+                        type: 'error',
+                        title: 'Error al obtener el prefijo de la numeración',
+                        showConfirmButton: true
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    position: 'top-center',
+                    type: 'error',
+                    title: 'Error al obtener el prefijo de la numeración',
+                    showConfirmButton: true
+                });
+            }
+        });
+    }
+
+    // Actualizar código completo cuando cambia el número
+    $(document).ready(function() {
+        $('#numero-codigo').on('input', function() {
+            var prefijo = $('#prefijo-codigo').val();
+            var numero = $(this).val();
+            $('#codigo-completo').val(prefijo + numero);
+        });
+    });
+
+    function guardarCodigoFactura() {
+        var numeracionId = $('#numeracion-id-codigo').val();
+        var facturaId = $('#factura-id-codigo').val();
+        var prefijo = $('#prefijo-codigo').val();
+        var numero = $('#numero-codigo').val();
+        var codigo = prefijo + numero;
+
+        // Validar que el número no esté vacío
+        if (!numero || numero.trim() === '') {
+            $('#error-codigo').text('El número es obligatorio').show();
+            return;
+        }
+
+        // Ocultar error anterior
+        $('#error-codigo').hide();
+
+        // Validar código
+        $.ajax({
+            url: '{{ route("facturas.validar-codigo") }}',
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                numeracion_id: numeracionId,
+                codigo: codigo,
+                factura_id: facturaId || null
+            },
+            success: function(data) {
+                if (data.success) {
+                    // Actualizar código
+                    actualizarCodigoFactura(codigo, numeracionId, facturaId);
+                } else {
+                    $('#error-codigo').text(data.message).show();
+                }
+            },
+            error: function(xhr) {
+                var errorMsg = 'Error al validar el código';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                $('#error-codigo').text(errorMsg).show();
+            }
+        });
+    }
+
+    function actualizarCodigoFactura(codigo, numeracionId, facturaId) {
+        $.ajax({
+            url: '{{ route("facturas.actualizar-codigo") }}',
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                codigo: codigo,
+                numeracion_id: numeracionId,
+                factura_id: facturaId || null
+            },
+            success: function(data) {
+                if (data.success) {
+                    // Actualizar el display en tiempo real
+                    $('#codigo-factura-display').text(data.codigo);
+
+                    // Si es creación, guardar el código editado en el campo hidden
+                    if (!facturaId) {
+                        $('#codigo-editado').val(data.codigo);
+                    }
+
+                    // Cerrar el modal
+                    $('#modalEditarCodigo').modal('hide');
+
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        position: 'top-center',
+                        type: 'success',
+                        title: 'Código actualizado correctamente',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                } else {
+                    $('#error-codigo').text(data.message).show();
+                }
+            },
+            error: function(xhr) {
+                var errorMsg = 'Error al actualizar el código';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                $('#error-codigo').text(errorMsg).show();
+            }
+        });
     }
     </script>
 
