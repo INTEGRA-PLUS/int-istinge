@@ -65,6 +65,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
+use App\Helpers\CamposDinamicosHelper;
 
 class FacturasController extends Controller{
 
@@ -5497,39 +5498,8 @@ class FacturasController extends Controller{
                         foreach ($bodyDinamicArray as $paramTemplate) {
                             $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
 
-                            // Reemplazar campos de contacto
-                            $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
-                            $paramValue = str_replace('[contacto.apellido1]', $contacto->apellido1 ?? '', $paramValue);
-                            $paramValue = str_replace('[contacto.apellido2]', $contacto->apellido2 ?? '', $paramValue);
-
-                            // Reemplazar campos de factura
-                            $paramValue = str_replace('[factura.fecha]', $factura->fecha ?? '', $paramValue);
-                            $paramValue = str_replace('[factura.vencimiento]', $factura->vencimiento ?? '', $paramValue);
-
-                            // Obtener total de la factura
-                            $facturaTotal = 0;
-                            try {
-                                $totalObj = $factura->total();
-                                if ($totalObj && isset($totalObj->total)) {
-                                    $facturaTotal = $totalObj->total;
-                                }
-                            } catch (\Exception $e) {
-                                \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
-                            }
-                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
-
-                            // Obtener porpagar de la factura
-                            $facturaPorpagar = 0;
-                            try {
-                                $facturaPorpagar = $factura->porpagar();
-                            } catch (\Exception $e) {
-                                \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
-                            }
-                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
-
-                            // Reemplazar campos de empresa
-                            $paramValue = str_replace('[empresa.nombre]', $empresaObj->nombre ?? '', $paramValue);
-                            $paramValue = str_replace('[empresa.nit]', $empresaObj->nit ?? '', $paramValue);
+                            // Usar helper para procesar campos dinámicos
+                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresaObj);
 
                             $bodyTextParams[] = $paramValue;
                         }
@@ -5911,7 +5881,7 @@ class FacturasController extends Controller{
 
             // Guardar código anterior antes de actualizar
             $codigoAnterior = $factura->codigo;
-            
+
             // Actualizar y guardar datos
             $inicio = $nro->inicio;
             $nro->inicio += 1;
@@ -5942,7 +5912,7 @@ class FacturasController extends Controller{
 
             // Guardar código anterior antes de actualizar
             $codigoAnterior = $factura->codigo;
-            
+
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 2;
@@ -5994,9 +5964,9 @@ class FacturasController extends Controller{
             // Obtener el código anterior antes de la conversión
             $facturaAntes = Factura::find($facturas[$i]);
             $codigoAnterior = $facturaAntes ? $facturaAntes->codigo : null;
-            
+
             $response = $this->convertirelEctronica($facturas[$i],1);
-            
+
             // Crear log para cada conversión exitosa
             if(isset($response['success']) && $response['success'] == true){
                 $factura = Factura::find($facturas[$i]);

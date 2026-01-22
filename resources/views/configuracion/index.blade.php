@@ -2718,24 +2718,7 @@
         let plantillaMetaFacturaActual = null;
         let bodyTextValuesFactura = [];
 
-        // Campos dinámicos disponibles (mismos que en avisos.envio.blade.php)
-        const camposDinamicosFactura = {
-            'contacto': {
-                'nombre': 'Nombre del contacto',
-                'apellido1': 'Primer apellido',
-                'apellido2': 'Segundo apellido'
-            },
-            'factura': {
-                'fecha': 'Fecha de la factura',
-                'vencimiento': 'Fecha de vencimiento',
-                'total': 'Total de la factura',
-                'porpagar': 'Por pagar'
-            },
-            'empresa': {
-                'nombre': 'Nombre de la empresa',
-                'nit': 'NIT de la empresa'
-            }
-        };
+        @include('includes.campos-dinamicos')
 
         // Cargar plantillas Meta al abrir el modal
         $('#config_plantilla_factura_whatsapp').on('show.bs.modal', function() {
@@ -2903,13 +2886,13 @@
                 const $dropdownMenu = $('<ul class="dropdown-menu dropdown-menu-right"></ul>');
 
                 // Agregar opciones al dropdown
-                Object.keys(camposDinamicosFactura).forEach(function(categoria) {
+                Object.keys(camposDinamicos).forEach(function(categoria) {
                     const $categoriaHeader = $('<li><h6 class="dropdown-header">' + categoria.charAt(0).toUpperCase() + categoria.slice(1) + '</h6></li>');
                     $dropdownMenu.append($categoriaHeader);
 
-                    Object.keys(camposDinamicosFactura[categoria]).forEach(function(campo) {
+                    Object.keys(camposDinamicos[categoria]).forEach(function(campo) {
                         const campoKey = '[' + categoria + '.' + campo + ']';
-                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicosFactura[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
+                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicos[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
                         $dropdownMenu.append($item);
                     });
                 });

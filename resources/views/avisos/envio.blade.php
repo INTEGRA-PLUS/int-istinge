@@ -213,24 +213,7 @@
 	let plantillaMetaActual = null;
 	let bodyTextValues = [];
 
-	// Campos dinámicos disponibles
-	const camposDinamicos = {
-		'contacto': {
-			'nombre': 'Nombre del contacto',
-			'apellido1': 'Primer apellido',
-			'apellido2': 'Segundo apellido'
-		},
-		'factura': {
-			'fecha': 'Fecha de la factura',
-			'vencimiento': 'Fecha de vencimiento',
-			'total': 'Total de la factura',
-			'porpagar': 'Por pagar'
-		},
-		'empresa': {
-			'nombre': 'Nombre de la empresa',
-			'nit': 'NIT de la empresa'
-		}
-	};
+	@include('includes.campos-dinamicos')
 
 	$(document).ready(function() {
 		const plantillaId = $('#plantilla_dinamico').val();
