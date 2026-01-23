@@ -4375,21 +4375,29 @@ function getPlanes(mikrotik) {
 
             var $select = $('#plan_id');
 
-            $.each(data.planes, function(key, value) {
+            // Verificar que data.planes exista y sea un array
+            if (data.planes && Array.isArray(data.planes)) {
+                $.each(data.planes, function(key, value) {
 
-                if (value.type == 0) {
-                    var type = 'Queue Simple';
-                } else if (value.type == 1) {
-                    var type = 'PCQ';
-                }
+                    if (value.type == 0) {
+                        var type = 'Queue Simple';
+                    } else if (value.type == 1) {
+                        var type = 'PCQ';
+                    }
 
-                $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
-            });
-
+                    $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
+                });
+            }
 
             $select.selectpicker('refresh');
-            getInterfaces(mikrotik);
-            $("#amarre_mac").val(data.mikrotik.amarre_mac);
+            
+            // Solo llamar getInterfaces y actualizar amarre_mac si mikrotik existe
+            if (data.mikrotik) {
+                getInterfaces(mikrotik);
+                if (data.mikrotik.amarre_mac) {
+                    $("#amarre_mac").val(data.mikrotik.amarre_mac);
+                }
+            }
             $('#conexion').val('').selectpicker('refresh');
 
             // Vaciar el select de profiles para evitar duplicados

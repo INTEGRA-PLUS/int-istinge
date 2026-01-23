@@ -1454,11 +1454,7 @@ class Controller extends BaseController
             ->where('empresa', Auth::user()->empresa)
             ->get();
         
-        $mikrotik = Mikrotik::find($mikrotik);
-        $API = new RouterosAPI();
-        $API->port = $mikrotik->puerto_api;
-        $registro = false;
-        $getall = '';
+        $mikrotikObj = Mikrotik::find($mikrotik);
         $profile = [];
         $connectionError = false;
 
@@ -1466,9 +1462,12 @@ class Controller extends BaseController
         $empresa = Empresa::find(Auth::user()->empresa);
         $consultasMk = $empresa ? $empresa->consultas_mk : 1;
 
-        // Solo hacer consulta a mikrotik si consultas_mk = 1
-        if ($consultasMk == 1) {
-            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+        // Solo hacer consulta a mikrotik si consultas_mk = 1 y la mikrotik existe
+        if ($consultasMk == 1 && $mikrotikObj) {
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+            
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
                 $API->write('/ppp/profile/getall');
                 $READ = $API->read(false);
                 $profile = $API->parseResponse($READ);
@@ -1479,7 +1478,7 @@ class Controller extends BaseController
         }
 
         //   return "";
-        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotik,'profile' => $profile, 'connection_error' => $connectionError]);
+        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotikObj, 'profile' => $profile, 'connection_error' => $connectionError]);
     }
 
     public function logsMK($mikrotik){

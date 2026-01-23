@@ -1379,6 +1379,14 @@
             // El valor ya está seleccionado en el select, solo llamar la función
             cargarPuertosNap();
         @endif
+        
+        // Cargar planes al iniciar si ya hay un servidor seleccionado
+        @if(isset($contrato) && $contrato->server_configuration_id)
+            var serverId = $('#server_configuration_id').val();
+            if (serverId) {
+                getPlanes(serverId);
+            }
+        @endif
     });
 
     </script>
