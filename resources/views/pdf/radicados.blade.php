@@ -177,12 +177,20 @@
                         <tr>
                             <th style="text-align: left; padding-left: 9px;">Nro. Telefónico</th>
                             <td style="padding-left: 9px;">
-                                @if (!empty($radicado->telefono))
-                                    {{ $radicado->telefono }}
-                                @elseif (!empty($radicado->cliente()->celular))
-                                    {{ $radicado->cliente()->celular }}
-                                @elseif (!empty($radicado->cliente()->telefono1))
-                                    {{ $radicado->cliente()->telefono1 }}
+                                @php
+                                    $telefonos = [];
+                                    if (!empty($radicado->telefono)) {
+                                        $telefonos[] = $radicado->telefono;
+                                    }
+                                    if (!empty($radicado->cliente()->celular)) {
+                                        $telefonos[] = $radicado->cliente()->celular;
+                                    }
+                                    if (!empty($radicado->cliente()->telefono1)) {
+                                        $telefonos[] = $radicado->cliente()->telefono1;
+                                    }
+                                @endphp
+                                @if (count($telefonos) > 0)
+                                    {{ implode(', ', $telefonos) }}
                                 @else
                                     Sin teléfono
                                 @endif
