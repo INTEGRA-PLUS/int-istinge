@@ -1448,22 +1448,34 @@ class Controller extends BaseController
     }
 
     public function getPlanes($mikrotik){
-        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)->where('status', 1)->get();
+        // Obtener planes relacionados a la mikrotik y empresa
+        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)
+            ->where('status', 1)
+            ->where('empresa', Auth::user()->empresa)
+            ->get();
+        
         $mikrotik = Mikrotik::find($mikrotik);
         $API = new RouterosAPI();
         $API->port = $mikrotik->puerto_api;
         $registro = false;
         $getall = '';
-        $profile = $API->port;
+        $profile = [];
         $connectionError = false;
 
-        if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-            $API->write('/ppp/profile/getall');
-            $READ = $API->read(false);
-            $profile = $API->parseResponse($READ);
-            $API->disconnect();
-        } else {
-            $connectionError = true;
+        // Verificar si la empresa tiene consultas_mk = 0
+        $empresa = Empresa::find(Auth::user()->empresa);
+        $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+        // Solo hacer consulta a mikrotik si consultas_mk = 1
+        if ($consultasMk == 1) {
+            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                $API->write('/ppp/profile/getall');
+                $READ = $API->read(false);
+                $profile = $API->parseResponse($READ);
+                $API->disconnect();
+            } else {
+                $connectionError = true;
+            }
         }
 
         //   return "";

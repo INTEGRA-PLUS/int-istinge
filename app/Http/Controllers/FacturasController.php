@@ -1998,31 +1998,20 @@ class FacturasController extends Controller{
                     ->where('is_cron', 0)
                     ->delete();
 
-                // Si se seleccionó un contrato, crear la nueva relación
+                // Array para almacenar todos los contratos que deben estar asociados
+                $contratosFinales = [];
+
+                // Si se seleccionó un contrato principal, agregarlo a la lista
                 if(isset($request->contratos_json) && !empty($request->contratos_json)){
                     $contrato = Contrato::find($request->contratos_json);
                     if($contrato){
-                        // Verificar que no exista ya esta relación (por si acaso quedó alguna de cron)
-                        $existe = DB::table('facturas_contratos')
-                            ->where('factura_id', $factura->id)
-                            ->where('contrato_nro', $contrato->nro)
-                            ->first();
-
-                        if(!$existe){
-                            DB::table('facturas_contratos')->insert([
-                                'factura_id' => $factura->id,
-                                'contrato_nro' => $contrato->nro,
-                                'client_id' => $factura->cliente,
-                                'is_cron' => 0,
-                                'created_by' => $user->id,
-                                'created_at' => Carbon::now()
-                            ]);
-                        }
+                        $contratosFinales[] = $contrato->nro;
                     }
                 }
 
                 // Manejo de contratos asociados adicionales (contratos_asociados)
-                if(isset($request->contratos_asociados) && !empty($request->contratos_asociados)){
+                // Si el campo viene en el request (incluso si está vacío), procesarlo
+                if(isset($request->contratos_asociados)){
                     $contratosArray = explode(',', $request->contratos_asociados);
                     // Eliminamos valores vacíos del array
                     $contratosArray = array_filter($contratosArray, function($value) {
@@ -2033,23 +2022,23 @@ class FacturasController extends Controller{
                         $contratoNro = trim($contratoNro);
                         if(empty($contratoNro)) continue;
 
-                        // Verificar que no exista ya esta relación
-                        $existe = DB::table('facturas_contratos')
-                            ->where('factura_id', $factura->id)
-                            ->where('contrato_nro', $contratoNro)
-                            ->first();
-
-                        if(!$existe){
-                            DB::table('facturas_contratos')->insert([
-                                'factura_id' => $factura->id,
-                                'contrato_nro' => $contratoNro,
-                                'client_id' => $factura->cliente,
-                                'is_cron' => 0,
-                                'created_by' => $user->id,
-                                'created_at' => Carbon::now()
-                            ]);
+                        // Agregar a la lista final si no está ya incluido
+                        if(!in_array($contratoNro, $contratosFinales)){
+                            $contratosFinales[] = $contratoNro;
                         }
                     }
+                }
+
+                // Insertar todos los contratos finales
+                foreach($contratosFinales as $contratoNro){
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $contratoNro,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 0,
+                        'created_by' => $user->id,
+                        'created_at' => Carbon::now()
+                    ]);
                 }
 
                 $inner=array();

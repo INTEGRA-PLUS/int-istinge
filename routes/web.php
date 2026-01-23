@@ -1540,6 +1540,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/destroy_to_networksoft', 'ContratosController@destroy_to_networksoft')->name('contratos.destroy_to_networksoft');
 		Route::get('{id}/log', 'ContratosController@log')->name('contratos.log');
 		Route::get('{id}/pings', 'ContratosController@conexion')->name('contratos.ping');
+		Route::post('actualizar-fecha', 'ContratosController@actualizarFecha')->name('contratos.actualizar-fecha');
 		Route::get('{id}/ping_nuevo', 'ContratosController@ping_nuevo')->name('contratos.ping_nuevo');
 		Route::get('{id}/grafica-consumo', 'ContratosController@grafica_consumo')->name('contratos.grafica_consumo');
 		Route::get('{id}/grafica-proxy/{tipo}', 'ContratosController@grafica_proxy')->name('contratos.grafica_proxy');

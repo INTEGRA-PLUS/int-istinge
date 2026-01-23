@@ -78,6 +78,44 @@ class ContratosController extends Controller
         view()->share(['seccion' => 'contratos', 'subseccion' => 'listado', 'title' => 'Contratos de Servicio', 'icon' => 'fas fa-file-contract']);
     }
 
+    public function actualizarFecha(Request $request)
+    {
+        try {
+            $request->validate([
+                'contrato_id' => 'required|exists:contracts,id',
+                'fecha' => 'required|date_format:d-m-Y H:i:s'
+            ]);
+
+            $contrato = Contrato::where('id', $request->contrato_id)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$contrato) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Contrato no encontrado'
+                ], 404);
+            }
+
+            // Convertir fecha de formato d-m-Y H:i:s a formato de base de datos
+            $fechaCarbon = Carbon::createFromFormat('d-m-Y H:i:s', $request->fecha);
+            $contrato->created_at = $fechaCarbon;
+            $contrato->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fecha actualizada correctamente',
+                'fecha' => $fechaCarbon->format('Y-m-d H:i:s')
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar la fecha: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function index(Request $request)
     {
 

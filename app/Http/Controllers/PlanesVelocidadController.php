@@ -52,11 +52,35 @@ class PlanesVelocidadController extends Controller
 
             $mikrotikServer = Mikrotik::find($mikrotik_id);
 
+            // Verificar si la empresa tiene consultas_mk = 0
+            $empresa = Empresa::find(Auth::user()->empresa);
+            $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+            // Si consultas_mk = 0, no hacer consultas a mikrotik y retornar profile vacío
+            $profile = [];
+            $connectionError = false;
+
+            // Si consultas_mk = 1, hacer consulta a mikrotik (comportamiento original)
+            if ($consultasMk == 1 && $mikrotikServer) {
+                $API = new RouterosAPI();
+                $API->port = $mikrotikServer->puerto_api;
+                
+                if ($API->connect($mikrotikServer->ip, $mikrotikServer->usuario, $mikrotikServer->clave)) {
+                    $API->write('/ppp/profile/getall');
+                    $READ = $API->read(false);
+                    $profile = $API->parseResponse($READ);
+                    $API->disconnect();
+                } else {
+                    $connectionError = true;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'planes' => $planes,
                 'mikrotik' => $mikrotikServer,
-                'profile' => []
+                'profile' => $profile,
+                'connection_error' => $connectionError
             ]);
         } catch (\Exception $e) {
             return response()->json([
