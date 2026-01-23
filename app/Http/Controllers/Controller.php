@@ -1448,19 +1448,18 @@ class Controller extends BaseController
     }
 
     public function getPlanes($mikrotik){
-        // Validar que el usuario esté autenticado
-        if (!Auth::check() || !Auth::user()) {
-            return response()->json(['error' => 'Usuario no autenticado'], 401);
+        // Obtener la mikrotik primero para acceder a su empresa
+        $mikrotikObj = Mikrotik::find($mikrotik);
+
+        if (!$mikrotikObj) {
+            return response()->json(['error' => 'Mikrotik no encontrada'], 404);
         }
 
-        try {
-            $empresaId = Auth::user()->empresa;
+        // Obtener la empresa desde la mikrotik
+        $empresaId = $mikrotikObj->empresa ?? null;
 
-            if (!$empresaId) {
-                return response()->json(['error' => 'Usuario sin empresa asignada'], 400);
-            }
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Error al obtener la empresa del usuario: ' . $e->getMessage()], 400);
+        if (!$empresaId) {
+            return response()->json(['error' => 'La mikrotik no tiene empresa asignada'], 400);
         }
 
         // Obtener planes relacionados a la mikrotik y empresa
@@ -1469,7 +1468,6 @@ class Controller extends BaseController
             ->where('empresa', $empresaId)
             ->get();
 
-        $mikrotikObj = Mikrotik::find($mikrotik);
         $profile = [];
         $connectionError = false;
 
