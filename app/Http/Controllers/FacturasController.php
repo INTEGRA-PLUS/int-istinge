@@ -1722,7 +1722,20 @@ class FacturasController extends Controller{
             for($i = 0 ; $i < count($contratosArray); $i++){
 
                 //Validamos que no ingrese dos veces el mismo contrato.
-                if($contrato && $contratosArray[$i] != $contrato->nro){
+                // Si hay contrato principal, solo guardamos si es diferente al principal
+                // Si NO hay contrato principal, guardamos todos los contratos asociados
+                $debeGuardar = false;
+                if($contrato){
+                    // Hay contrato principal: solo guardar si es diferente
+                    if($contratosArray[$i] != $contrato->nro){
+                        $debeGuardar = true;
+                    }
+                } else {
+                    // No hay contrato principal: guardar todos los contratos asociados
+                    $debeGuardar = true;
+                }
+
+                if($debeGuardar){
                     DB::table('facturas_contratos')->insert([
                         'factura_id' => $factura->id,
                         'contrato_nro' => $contratosArray[$i],
