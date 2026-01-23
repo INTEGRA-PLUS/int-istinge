@@ -1448,25 +1448,40 @@ class Controller extends BaseController
     }
 
     public function getPlanes($mikrotik){
+        // Validar que el usuario esté autenticado
+        if (!Auth::check() || !Auth::user()) {
+            return response()->json(['error' => 'Usuario no autenticado'], 401);
+        }
+
+        try {
+            $empresaId = Auth::user()->empresa;
+
+            if (!$empresaId) {
+                return response()->json(['error' => 'Usuario sin empresa asignada'], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error al obtener la empresa del usuario: ' . $e->getMessage()], 400);
+        }
+
         // Obtener planes relacionados a la mikrotik y empresa
         $planes = PlanesVelocidad::where('mikrotik', $mikrotik)
             ->where('status', 1)
-            ->where('empresa', Auth::user()->empresa)
+            ->where('empresa', $empresaId)
             ->get();
-        
+
         $mikrotikObj = Mikrotik::find($mikrotik);
         $profile = [];
         $connectionError = false;
 
         // Verificar si la empresa tiene consultas_mk = 0
-        $empresa = Empresa::find(Auth::user()->empresa);
+        $empresa = Empresa::find($empresaId);
         $consultasMk = $empresa ? $empresa->consultas_mk : 1;
 
         // Solo hacer consulta a mikrotik si consultas_mk = 1 y la mikrotik existe
         if ($consultasMk == 1 && $mikrotikObj) {
             $API = new RouterosAPI();
             $API->port = $mikrotikObj->puerto_api;
-            
+
             if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
                 $API->write('/ppp/profile/getall');
                 $READ = $API->read(false);
