@@ -1993,9 +1993,14 @@ class FacturasController extends Controller{
                 // Manejo de contratos principales (contratos_json)
                 // Primero, eliminamos todas las relaciones de contratos principales que no sean de cron
                 // Esto incluye tanto el contrato principal como cualquier relación manual previa
+                // También eliminamos cualquier registro que no pertenezca al cliente de la factura
+                // (esto previene registros huérfanos de clientes incorrectos)
                 DB::table('facturas_contratos')
                     ->where('factura_id', $factura->id)
-                    ->where('is_cron', 0)
+                    ->where(function($query) use ($factura) {
+                        $query->where('is_cron', 0)
+                              ->orWhere('client_id', '!=', $factura->cliente);
+                    })
                     ->delete();
 
                 // Array para almacenar todos los contratos que deben estar asociados
