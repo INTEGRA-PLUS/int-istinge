@@ -45,6 +45,7 @@ use App\Model\Ingresos\ItemsFactura;
 use App\PlanesVelocidad;
 use App\Services\BTWService;
 use App\TerminosPago;
+use App\Integracion;
 use Barryvdh\DomPDF\Facade as PDF;
 use Mail;
 
@@ -1137,6 +1138,20 @@ class Controller extends BaseController
             where('f.estatus',1)->
             groupBy('f.id')->
             get()->last();
+        }
+
+        // Obtener la primera pasarela activa con cobro_extra > 0
+        $pasarelaConCobro = Integracion::where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->where('cobro_extra', '>', 0)->first();
+
+        // Sumar cobro_extra al precio si existe
+        if($pasarelaConCobro && $pasarelaConCobro->cobro_extra > 0){
+            if(is_array($contrato) || (is_object($contrato) && method_exists($contrato, 'each'))){
+                foreach($contrato as $con){
+                    $con->price += $pasarelaConCobro->cobro_extra;
+                }
+            } else if(is_object($contrato)){
+                $contrato->price += $pasarelaConCobro->cobro_extra;
+            }
         }
 
         $pasarelas = DB::table('integracion')->where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->get();

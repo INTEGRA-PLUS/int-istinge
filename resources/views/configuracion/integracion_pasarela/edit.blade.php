@@ -247,6 +247,15 @@
 	        </div>
 
 	        <div class="col-md-{{ $servicio->nombre == 'WOMPI' ? '3' : '4'}} form-group">
+	        	<label class="control-label">Cobro Extra</label>
+	        	<input type="number" class="form-control" id="cobro_extra" name="cobro_extra" step="0.01" min="0" value="{{$servicio->cobro_extra ?? 0}}" placeholder="0.00">
+	        	<small class="form-text text-muted">Recargo adicional que se suma al precio de la factura al pagar por esta pasarela</small>
+	        	<span class="help-block error">
+	        		<strong>{{ $errors->first('cobro_extra') }}</strong>
+	        	</span>
+	        </div>
+
+	        <div class="col-md-{{ $servicio->nombre == 'WOMPI' ? '3' : '4'}} form-group">
 	        	<label class="control-label">Permitir Pago desde la WEB <span class="text-danger">*</span></label>
 	        	<div class="input-group">
 	        		<select class="form-control selectpicker" name="web" id="web" required="" title="Seleccione" data-live-search="true" data-size="5">

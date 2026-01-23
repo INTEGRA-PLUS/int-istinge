@@ -73,6 +73,7 @@ class IntegracionPasarelaController extends Controller
 
             $servicio->web        = $request->web;
             $servicio->app        = $request->app;
+            $servicio->cobro_extra = isset($request->cobro_extra) ? $request->cobro_extra : 0;
             $servicio->updated_by = Auth::user()->id;
             $servicio->save();
 

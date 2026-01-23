@@ -2333,15 +2333,19 @@ class CronController extends Controller
                     $ingreso->save();
 
                     # REGISTRAMOS EL INGRESO_FACTURA
-                    $precio         = $this->precisionAPI($request->amount_in_cents/100, $empresa->id);
+                    // Precio que pagó el cliente (incluye cobro_extra si existe)
+                    $precioPagado = $this->precisionAPI($request->amount_in_cents/100, $empresa->id);
+
+                    // Precio real de la factura (sin cobro_extra)
+                    $precioReal = $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id);
 
                     $items          = new IngresosFactura;
                     $items->ingreso = $ingreso->id;
                     $items->factura = $factura->id;
                     $items->pagado  = $factura->pagado();
-                    $items->pago    = $precio;
+                    $items->pago    = $precioReal;
 
-                    if ($precio >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
+                    if ($precioReal >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
                         $factura->estatus = 0;
                         $factura->save();
 
@@ -2440,7 +2444,7 @@ class CronController extends Controller
                                 $codigoFactura = $factura->codigo ?? $factura->nro;
                                 $valorFactura =  $factura->totalAPI($empresa->id)->total;
                                 $fechaVencimiento = date('d-m-Y', strtotime($factura->vencimiento));
-                                $pagoRecibido = Funcion::ParsearAPI($precio, $empresa->id);
+                                $pagoRecibido = Funcion::ParsearAPI($precioPagado, $empresa->id);
 
                                 $bulksms = $empresa->sms_pago;
                                 $bulksms = str_replace("{cliente}", $nombreCliente, $bulksms);
@@ -2452,7 +2456,7 @@ class CronController extends Controller
 
                                 $mensaje =  $bulksms;
                             }else{
-                                $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precio, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
+                                $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precioPagado, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
                             }
 
                             if($servicio->nombre == 'Hablame SMS'){
