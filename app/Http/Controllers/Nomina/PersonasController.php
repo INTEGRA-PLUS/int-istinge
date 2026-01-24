@@ -284,6 +284,8 @@ class PersonasController extends Controller
             }
             $persona->nro_celular = $request->nro_celular;
             $persona->direccion = $request->direccion;
+            $persona->fk_iddepartamento = $request->departamento;
+            $persona->fk_idmunicipio = $request->municipio;
 
             /* >>> DATOS PRINCIPALES <<< */
 
@@ -375,6 +377,7 @@ class PersonasController extends Controller
         $tipo_contratos = DB::table('ne_tipo_contrato')->get();
         $bancos = DB::table('ne_bancos')->get();
         $metodo_pagos = DB::table('metodos_pago')->get();
+        $departamentos = DB::table('departamentos')->get();
 
         $diasDescanso = explode(" ", $persona->dias_descanso);
 
@@ -394,7 +397,8 @@ class PersonasController extends Controller
             'metodo_pagos',
             'persona',
             'bancos',
-            'diasDescanso'
+            'diasDescanso',
+            'departamentos'
         ));
     }
 
@@ -460,6 +464,8 @@ class PersonasController extends Controller
             }
             $persona->nro_celular = $request->nro_celular;
             $persona->direccion = $request->direccion;
+            $persona->fk_iddepartamento = $request->departamento;
+            $persona->fk_idmunicipio = $request->municipio;
 
             /* >>> DATOS PRINCIPALES <<< */
 

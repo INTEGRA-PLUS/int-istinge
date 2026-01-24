@@ -1132,6 +1132,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::post('/bancos/act_desac/{id}', 'CategoriasController@default')->name('bancos.act_desac');
 	Route::get('/bancos/ocultar/{id}', 'BancosController@ocultar')->name('bancos.ocultar');
 	Route::get('bancos/{bancos}/destroy_lote', 'BancosController@destroy_lote')->name('bancos.destroy_lote');
+	Route::get('/bancos/{id}/edit_limited', 'BancosController@edit_limited')->name('bancos.edit_limited');
+	Route::patch('/bancos/{id}/update_limited', 'BancosController@update_limited')->name('bancos.update_limited');
 	Route::resource('bancos', 'BancosController');
 
 	//PAGOS RECURRENTES

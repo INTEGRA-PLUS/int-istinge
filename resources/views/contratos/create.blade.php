@@ -368,7 +368,7 @@
                                 <div class="input-group">
                                     <select class="form-control selectpicker" name="server_configuration_id"
                                         id="server_configuration_id" required="" title="Seleccione"
-                                        data-live-search="true" data-size="5" onchange="getPlanes(this.value);">
+                                        data-live-search="true" data-size="5" onchange="getPlanes(this.value, typeof consultasMk !== 'undefined' ? consultasMk : 1);">
                                         @foreach ($servidores as $servidor)
                                             <option value="{{ $servidor->id }}"
                                                 {{ old('server_configuration_id') == $servidor->id ? 'selected' : '' }}>
@@ -1368,6 +1368,10 @@
 @endsection
 
 @section('scripts')
+    <script>
+        // Variable global para controlar si se deben hacer consultas a Mikrotik
+        var consultasMk = {{ Auth::user()->empresa()->consultas_mk ?? 0 }};
+    </script>
     <script>
 
         $("#formGrupo").submit(function() {

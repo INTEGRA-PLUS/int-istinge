@@ -4779,7 +4779,7 @@ class ContratosController extends Controller
             'IP', 'MAC', 'Conexion', 'Interfaz', 'Local Address / Segmento', 'Simple Queue', 'Tipo de Tecnologia',
             'Nombre de la Caja NAP', 'Nodo', 'Access Point', 'Grupo de Corte', 'Facturacion', 'Descuento',
             'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato',
-            'Profile', 'IP Local Address', 'Usuario', 'Contrasena'
+            'Profile', 'IP Local Address', 'Usuario', 'Contrasena', 'Linea'
         );
 
         // Comentarios detallados para cada campo con información de obligatoriedad y tipo de conexión
@@ -4814,7 +4814,8 @@ class ContratosController extends Controller
             'AB' => 'Profile de PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
             'AC' => 'IP Local Address para PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
             'AD' => 'Usuario para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
-            'AE' => 'Contraseña para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.'
+            'AE' => 'Contraseña para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
+            'AF' => 'Línea. Opcional en todos los tipos de conexión.'
         );
         $objPHPExcel = new PHPExcel();
         $tituloReporte = "Archivo de actualizacion de Contratos Internet " . Auth::user()->empresa()->nombre;
@@ -4965,7 +4966,8 @@ class ContratosController extends Controller
                 ->setCellValue("AB$j", $contrato->profile ?? '')
                 ->setCellValue("AC$j", $contrato->local_adress_pppoe ?? '')
                 ->setCellValue("AD$j", $contrato->usuario ?? '')
-                ->setCellValue("AE$j", $contrato->password ?? '');
+                ->setCellValue("AE$j", $contrato->password ?? '')
+                ->setCellValue("AF$j", $contrato->linea ?? '');
 
             $j++;
         }
@@ -5290,6 +5292,7 @@ class ContratosController extends Controller
             $colIPLocal = $esNroContrato ? 'AC' : 'AB';
             $colUsuario = $esNroContrato ? 'AD' : 'AC';
             $colClave = $esNroContrato ? 'AE' : 'AD';
+            $colLinea = $esNroContrato ? 'AF' : 'AE';
 
             // Leer todos los campos de la estructura unificada
             $request->ip = $sheet->getCell($colIP . $row)->getValue();
@@ -5314,6 +5317,7 @@ class ContratosController extends Controller
             $request->local_address_pppoe = $sheet->getCell($colIPLocal . $row)->getValue();
             $request->usuario = $sheet->getCell($colUsuario . $row)->getValue();
             $request->clave = $sheet->getCell($colClave . $row)->getValue();
+            $request->linea = $sheet->getCell($colLinea . $row)->getValue();
 
             // Aplicar strtolower a campos tipo texto antes de validar
             if (!empty($request->grupo_corte)) {
@@ -5577,6 +5581,7 @@ class ContratosController extends Controller
             $colIPLocal = $esNroContrato ? 'AC' : 'AB';
             $colUsuario = $esNroContrato ? 'AD' : 'AC';
             $colClave = $esNroContrato ? 'AE' : 'AD';
+            $colLinea = $esNroContrato ? 'AF' : 'AE';
 
             $request->ip = $sheet->getCell($colIP . $row)->getValue();
             $request->mac = $sheet->getCell($colMAC . $row)->getValue();
@@ -5600,6 +5605,7 @@ class ContratosController extends Controller
             $request->local_address_pppoe = $sheet->getCell($colIPLocal . $row)->getValue();
             $request->usuario = $sheet->getCell($colUsuario . $row)->getValue();
             $request->clave = $sheet->getCell($colClave . $row)->getValue();
+            $request->linea = $sheet->getCell($colLinea . $row)->getValue();
 
             // Aplicar strtolower a campos tipo texto
             if (!empty($request->grupo_corte)) {
@@ -5800,6 +5806,7 @@ class ContratosController extends Controller
             $contrato->usuario                 = $request->usuario ?? null;
             $contrato->password                = $request->clave ?? null;
             $contrato->local_adress_pppoe      = $request->local_address_pppoe ?? null;
+            $contrato->linea                   = $request->linea ?? null;
 
             // Manejar caja NAP y puerto
             if ($cajaNap != null) {

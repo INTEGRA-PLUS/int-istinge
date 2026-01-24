@@ -4350,7 +4350,65 @@ function getInterfaces(mikrotik) {
     })
 }
 
-function getPlanes(mikrotik) {
+function getPlanes(mikrotik, consultasMk) {
+    // Si consultasMk no está definido, asumir que es 1 (por defecto hacer consultas)
+    if (typeof consultasMk === 'undefined') {
+        consultasMk = 1;
+    }
+    
+    // Si consultas_mk == 0, no hacer peticiones a la API
+    if (consultasMk == 0) {
+        // Solo cargar planes desde la base de datos sin consultar Mikrotik
+        if (window.location.pathname.split("/")[1] === "software") {
+            var url = '/software/api/getPlanes/' + mikrotik;
+        } else {
+            var url = '/api/getPlanes/' + mikrotik;
+        }
+        
+        $.ajax({
+            url: url,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            method: 'get',
+            success: function(data) {
+                // No mostrar loader ya que no se hace consulta a Mikrotik
+                
+                // Verificar si hay error de conexión a la Mikrotik
+                if (data.connection_error === true) {
+                    return;
+                }
+
+                $("#plan_id").empty();
+
+                var $select = $('#plan_id');
+
+                // Verificar que data.planes exista y sea un array
+                if (data.planes && Array.isArray(data.planes)) {
+                    $.each(data.planes, function(key, value) {
+
+                        if (value.type == 0) {
+                            var type = 'Queue Simple';
+                        } else if (value.type == 1) {
+                            var type = 'PCQ';
+                        }
+
+                        $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
+                    });
+                }
+
+                $select.selectpicker('refresh');
+
+                // No llamar getInterfaces ni actualizar amarre_mac cuando consultas_mk = 0
+                // ya que no se hace consulta a Mikrotik
+                $('#conexion').val('').selectpicker('refresh');
+            },
+            error: function(data) {
+                console.log('Error al obtener planes:', data);
+            }
+        });
+        return;
+    }
+    
+    // Si consultas_mk == 1, hacer la petición normal con loader
     cargando(true);
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/api/getPlanes/' + mikrotik;
