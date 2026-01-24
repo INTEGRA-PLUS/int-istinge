@@ -90,7 +90,7 @@
 
 		<div class="form-group col-md-6" id="validatec1">
 			<label class="control-label">Departamento <span class="text-danger">*</span></label>
-			<select class="form-control selectpicker" name="departamento" id="departamento" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="searchMunicipality(this.value)">
+			<select class="form-control selectpicker" name="departamento" id="departamento" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="searchMunicipality(this.value, $('#municipio').val() || null)">
 				@foreach($departamentos as $departamento)
 				<option value="{{ $departamento->id }}" {{ $persona->fk_iddepartamento == $departamento->id ? 'selected' : '' }}>{{ $departamento->nombre }}</option>
 				@endforeach
@@ -480,7 +480,8 @@
 		
 		// Cargar municipios al cargar la página si hay departamento seleccionado
 		@if($persona->fk_iddepartamento)
-		searchMunicipality({{ $persona->fk_iddepartamento }});
+		var municipioSeleccionado = @if($persona->fk_idmunicipio) {{ $persona->fk_idmunicipio }} @else null @endif;
+		searchMunicipality({{ $persona->fk_iddepartamento }}, municipioSeleccionado);
 		@endif
 	});
 	$('#metodo_pago').change(function(e) {
