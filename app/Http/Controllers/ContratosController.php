@@ -5002,7 +5002,7 @@ class ContratosController extends Controller
             'IP', 'MAC', 'Conexion', 'Interfaz', 'Local Address / Segmento', 'Simple Queue', 'Tipo de Tecnologia',
             'Nombre de la Caja NAP', 'Nodo', 'Access Point', 'Grupo de Corte', 'Facturacion', 'Descuento',
             'Canal', 'Oficina', 'Tecnologia', 'Fecha del Contrato', 'Cliente en Mikrotik', 'Tipo Contrato',
-            'Profile', 'IP Local Address', 'Usuario', 'Contrasena'
+            'Profile', 'IP Local Address', 'Usuario', 'Contrasena', 'Linea'
         );
 
         // Comentarios detallados para cada campo con información de obligatoriedad y tipo de conexión
@@ -5036,7 +5036,8 @@ class ContratosController extends Controller
             'AA' => 'Profile de PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
             'AB' => 'IP Local Address para PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
             'AC' => 'Usuario para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
-            'AD' => 'Contraseña para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.'
+            'AD' => 'Contraseña para conexión PPPoE. Obligatorio solo para PPPoE. No aplica para otros tipos.',
+            'AE' => 'Línea. Opcional en todos los tipos de conexión.'
         );
         $objPHPExcel = new PHPExcel();
         $tituloReporte = "Archivo de Importación de Contratos Internet " . Auth::user()->empresa()->nombre;
