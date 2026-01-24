@@ -60,6 +60,7 @@ use App\MovimientoLOG;
 use App\NumeracionPos;
 use App\Services\BTWService;
 use App\Services\WapiService;
+use App\Services\OnePayService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,7 @@ class FacturasController extends Controller{
     const CAMBIO_PRECIO = 'precio';
     const CAMBIO_CLIENTE = 'cliente';
     const CAMBIO_FECHA = 'fecha';
+    const PAGO_ONEPAY = 'pago_onepay';
     // Agregar más constantes según se necesiten en el futuro
 
     public function __construct(ElectronicBillingService $electronicBillingService){
@@ -1819,6 +1821,20 @@ class FacturasController extends Controller{
 
         PucMovimiento::facturaVenta($factura,1, $request);
 
+        // Integración con OnePay si está habilitado
+        if(OnePayService::isEnabled($user->empresa)){
+            try {
+                $onePayService = new OnePayService($user->empresa);
+                $onePayService->createInvoice($factura, $user->empresa);
+            } catch (\Exception $e) {
+                // Log del error pero no interrumpir el flujo
+                Log::error('Error al crear factura en OnePay: ' . $e->getMessage(), [
+                    'factura_id' => $factura->id,
+                    'empresa_id' => $user->empresa
+                ]);
+            }
+        }
+
         //Creo la variable para el mensaje final, y la variable print (imprimir)
         $mensaje='Se ha creado satisfactoriamente la factura';
         $print=false;
@@ -1961,6 +1977,9 @@ class FacturasController extends Controller{
                 // Guardar valores anteriores para comparación y registro de logs
                 // Esto permite detectar cambios y registrar logs solo cuando hay modificaciones
                 $vencimientoAnterior = $factura->vencimiento;
+
+                // Calcular total anterior para comparar con OnePay
+                $totalAnterior = $factura->totalAPI($user->empresa)->total;
 
                 //Modificacion de los datos de la factura
                 $factura->notas =$request->notas;
@@ -2145,28 +2164,35 @@ class FacturasController extends Controller{
                     $descuento->save();
                 }
 
-
-                //>>>>Posible aplicación de Prorrateo al total<<<<//
-                // if(Auth::user()->empresaObj->prorrateo == 1){
-                //     $dias = $factura->diasCobradosProrrateo();
-                //     //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
-                //     if($dias != 30){
-                //         if(isset($factura->prorrateo_aplicado)){
-                //             $factura->prorrateo_aplicado = 1;
-                //             $factura->save();
-                //         }
-
-                //         foreach($factura->itemsFactura as $item){
-                //             //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
-                //             $precioItemProrrateo = $this->precision($item->precio * $dias / 30);
-                //             $item->precio = $precioItemProrrateo;
-                //             $item->save();
-                //         }
-                //     }
-                // }
-                //>>>>Fin posible aplicación prorrateo al total<<<<//
-
                 PucMovimiento::facturaVenta($factura,2,$request);
+
+                // Integración con OnePay: crear o actualizar según corresponda
+                if(OnePayService::isEnabled($user->empresa)){
+                    try {
+                        // Recalcular total después de guardar los items
+                        $factura = Factura::find($factura->id); // Refrescar modelo
+                        $totalNuevo = $factura->totalAPI($user->empresa)->total;
+
+                        $onePayService = new OnePayService($user->empresa);
+
+                        // Si no tiene onepay_invoice_id, es la primera vez que se crea en OnePay
+                        if(!$factura->onepay_invoice_id){
+                            // Crear factura en OnePay por primera vez
+                            $onePayService->createInvoice($factura, $user->empresa);
+                        } else {
+                            // Si ya existe, solo actualizar si cambió el total
+                            if(abs($totalAnterior - $totalNuevo) > 0.01){
+                                $onePayService->updateInvoice($factura, $user->empresa);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Log del error pero no interrumpir el flujo
+                        Log::error('Error al procesar factura en OnePay: ' . $e->getMessage(), [
+                            'factura_id' => $factura->id,
+                            'empresa_id' => $user->empresa
+                        ]);
+                    }
+                }
 
                 $mensaje='Se ha modificado satisfactoriamente la factura';
                 return redirect($request->page)->with('success', $mensaje)->with('codigo', $factura->id);

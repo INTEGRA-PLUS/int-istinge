@@ -2539,6 +2539,276 @@ class CronController extends Controller
         }
     }
 
+    public function eventosOnePay(Request $request){
+        $requestData = $request->all();
+
+        // Verificar que el evento sea payment.approved
+        if(isset($requestData['event']['type']) && $requestData['event']['type'] == 'payment.approved'){
+            $payment = $requestData['payment'];
+
+            // Buscar factura por provider_id (código de factura) o por onepay_invoice_id
+            $factura = null;
+
+            // Intentar buscar por provider_id primero
+            if(isset($payment['provider_id'])){
+                $factura = Factura::where('codigo', $payment['provider_id'])->first();
+            }
+
+            // Si no se encuentra, buscar por onepay_invoice_id usando el payment.id
+            if(!$factura && isset($payment['id'])){
+                $factura = Factura::where('onepay_invoice_id', $payment['id'])->first();
+            }
+
+            if($factura && $factura->estatus == 1){
+                $empresa = Empresa::find($factura->empresa);
+                $nro = Numeracion::where('empresa', $empresa->id)->first();
+                $caja = $nro->caja;
+
+                while (true) {
+                    $numero = Ingreso::where('empresa', $empresa->id)->where('nro', $caja)->count();
+                    if ($numero == 0) {
+                        break;
+                    }
+                    $caja++;
+                }
+
+                $banco = Banco::where('nombre', 'ONEPAY')->where('estatus', 1)->where('lectura', 1)->first();
+
+                // Si no existe el banco ONEPAY, crearlo o usar uno genérico
+                if(!$banco){
+                    // Buscar cualquier banco activo como fallback
+                    $banco = Banco::where('empresa', $empresa->id)->where('estatus', 1)->first();
+                }
+
+                # REGISTRAMOS EL INGRESO
+                $ingreso                = new Ingreso;
+                $ingreso->nro           = $caja;
+                $ingreso->empresa       = $empresa->id;
+                $ingreso->cliente       = $factura->cliente;
+                $ingreso->cuenta        = $banco ? $banco->id : 1;
+                $ingreso->metodo_pago   = 9;
+                $ingreso->tipo          = 1;
+                $ingreso->fecha         = date('Y-m-d');
+                $ingreso->observaciones = 'Pago OnePay ID: '.$payment['id'];
+                $ingreso->save();
+
+                # REGISTRAMOS EL INGRESO_FACTURA
+                // Precio que pagó el cliente (amount viene en centavos)
+                $precioPagado = $this->precisionAPI($payment['amount']/100, $empresa->id);
+
+                // Precio real de la factura (sin cobro_extra)
+                $precioReal = $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id);
+
+                $items          = new IngresosFactura;
+                $items->ingreso = $ingreso->id;
+                $items->factura = $factura->id;
+                $items->pagado  = $factura->pagado();
+                $items->pago    = $precioReal;
+
+                if ($precioReal >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
+                    $factura->estatus = 0;
+                    $factura->save();
+
+                    CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
+
+                    $crms = CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->get();
+                    foreach ($crms as $crm) {
+                        $crm->delete();
+                    }
+                }
+
+                $items->save();
+
+                # AUMENTAMOS LA NUMERACIÓN DE PAGOS
+                $nro->caja = $caja + 1;
+                $nro->save();
+
+                # REGISTRAMOS EL MOVIMIENTO
+                $ingreso = Ingreso::find($ingreso->id);
+
+                $this->up_transaccion_(1, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 1, $ingreso->pago(), $ingreso->fecha, $ingreso->descripcion,null, $empresa->id);
+
+                # REGISTRAR LOG DE PAGO CON ONEPAY
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato = $factura->id;
+                $movimiento->modulo = 8; // Módulo de facturas
+                $movimiento->descripcion = '<i class="fas fa-check text-success"></i> <b>Pago recibido</b> mediante OnePay por valor de '.Funcion::ParsearAPI($precioPagado, $empresa->id).' - ID: '.$payment['id'];
+                $movimiento->created_by = null; // Sistema
+                $movimiento->empresa = $empresa->id;
+                $movimiento->save();
+
+                if($factura->estatus == 0){
+                    # EJECUTAMOS COMANDOS EN MIKROTIK
+                    $cliente = Contacto::where('id', $factura->cliente)->first();
+                    $contrato = Contrato::where('client_id', $cliente->id)->first();
+
+                    if($contrato){
+                        $res = DB::table('contracts')->where('client_id', $cliente->id)->update(["state" => 'enabled']);
+
+                        $asignacion = Producto::where('contrato', $contrato->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
+
+                        if ($asignacion) {
+                            $cuotas_pendientes = $asignacion->cuotas_pendientes -= 1;
+                            $asignacion->cuotas_pendientes = $cuotas_pendientes;
+                            if ($cuotas_pendientes == 0) {
+                                $asignacion->status = 1;
+                            }
+                            $asignacion->save();
+                        }
+
+                        # API MK
+                        if($contrato->server_configuration_id){
+                            $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+
+                            $API = new RouterosAPI();
+                            $API->port = $mikrotik->puerto_api;
+
+                            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                $API->write('/ip/firewall/address-list/print', TRUE);
+                                $ARRAYS = $API->read();
+
+                                #ELIMINAMOS DE MOROSOS#
+                                $API->write('/ip/firewall/address-list/print', false);
+                                $API->write('?address='.$contrato->ip, false);
+                                $API->write("?list=morosos",false);
+                                $API->write('=.proplist=.id');
+                                $ARRAYS = $API->read();
+
+                                if(count($ARRAYS)>0){
+
+                                    $API->write('/ip/firewall/address-list/remove', false);
+                                    $API->write('=.id='.$ARRAYS[0]['.id']);
+                                    $READ = $API->read();
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+
+                                    $ingreso->revalidacion_enable_internet = 1;
+                                    $ingreso->save();
+
+                                    $contrato->state = 'enabled';
+                                    $contrato->save();
+                                }
+                                #ELIMINAMOS DE MOROSOS#
+                                $API->disconnect();
+
+                            }
+                        }else{
+                            $ingreso->revalidacion_enable_internet = 1;
+                            $ingreso->save();
+                        }
+                    }
+
+                    # ENVÍO SMS
+                    $servicio = Integracion::where('empresa', $empresa->id)->where('tipo', 'SMS')->where('status', 1)->first();
+                    if($servicio){
+                        $numero = str_replace('+','',$cliente->celular);
+                        $numero = str_replace(' ','',$numero);
+
+                        if($empresa->sms_pago && isset($factura)){
+                            $nombreCliente = $factura->cliente()->nombre.' '.$factura->cliente()->apellidos();
+                            $nombreEmpresa = $empresa->nombre;
+                            $codigoFactura = $factura->codigo ?? $factura->nro;
+                            $valorFactura =  $factura->totalAPI($empresa->id)->total;
+                            $fechaVencimiento = date('d-m-Y', strtotime($factura->vencimiento));
+                            $pagoRecibido = Funcion::ParsearAPI($precioPagado, $empresa->id);
+
+                            $bulksms = $empresa->sms_pago;
+                            $bulksms = str_replace("{cliente}", $nombreCliente, $bulksms);
+                            $bulksms = str_replace("{empresa}", $nombreEmpresa, $bulksms);
+                            $bulksms = str_replace("{factura}", $codigoFactura, $bulksms);
+                            $bulksms = str_replace("{valor}", $valorFactura, $bulksms);
+                            $bulksms = str_replace("{pagado}", $pagoRecibido, $bulksms);
+                            $bulksms = str_replace("{vencimiento}", $fechaVencimiento, $bulksms);
+
+                            $mensaje =  $bulksms;
+                        }else{
+                            $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precioPagado, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
+                        }
+
+                        if($servicio->nombre == 'Hablame SMS'){
+                            if($servicio->api_key && $servicio->user && $servicio->pass){
+                                $post['numero'] = $numero;
+                                $post['sms'] = $mensaje;
+
+                                $curl = curl_init();
+                                curl_setopt_array($curl, array(
+                                    CURLOPT_URL => 'https://api103.hablame.co/api/sms/v3/send/marketing/bulk',
+                                    CURLOPT_RETURNTRANSFER => true,
+                                    CURLOPT_ENCODING => '',
+                                    CURLOPT_MAXREDIRS => 10,
+                                    CURLOPT_TIMEOUT => 0,
+                                    CURLOPT_FOLLOWLOCATION => true,
+                                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                                    CURLOPT_CUSTOMREQUEST => 'POST',CURLOPT_POSTFIELDS => json_encode($post),
+                                    CURLOPT_HTTPHEADER => array(
+                                        'account: '.$servicio->user,
+                                        'apiKey: '.$servicio->api_key,
+                                        'token: '.$servicio->pass,
+                                        'Content-Type: application/json'
+                                    ),
+                                ));
+                                $result = curl_exec ($curl);
+                                $err  = curl_error($curl);
+                                curl_close($curl);
+                            }
+                        }elseif($servicio->nombre == 'SmsEasySms'){
+                            if($servicio->user && $servicio->pass){
+                                $post['to'] = array('57'.$numero);
+                                $post['text'] = $mensaje;
+                                $post['from'] = "SMS";
+                                $login = $servicio->user;
+                                $password = $servicio->pass;
+
+                                $ch = curl_init();
+                                curl_setopt($ch, CURLOPT_URL, "https://sms.istsas.com/Api/rest/message");
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                curl_setopt($ch, CURLOPT_POST, 1);
+                                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post));
+                                curl_setopt($ch, CURLOPT_HTTPHEADER,
+                                    array(
+                                        "Accept: application/json",
+                                        "Authorization: Basic ".base64_encode($login.":".$password)));
+                                $result = curl_exec ($ch);
+                                $err  = curl_error($ch);
+                                curl_close($ch);
+                            }
+                        }else{
+                            if($servicio->user && $servicio->pass){
+                                $post['to'] = array('57'.$numero);
+                                $post['text'] = $mensaje;
+                                $post['from'] = "";
+                                $login = $servicio->user;
+                                $password = $servicio->pass;
+
+                                $ch = curl_init();
+                                curl_setopt($ch, CURLOPT_URL, "https://masivos.colombiared.com.co/Api/rest/message");
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                curl_setopt($ch, CURLOPT_POST, 1);
+                                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post));
+                                curl_setopt($ch, CURLOPT_HTTPHEADER,
+                                    array(
+                                        "Accept: application/json",
+                                        "Authorization: Basic ".base64_encode($login.":".$password)));
+                                $result = curl_exec ($ch);
+                                $err  = curl_error($ch);
+                                curl_close($ch);
+                            }
+                        }
+                    }
+                }
+                return response('success', 200);
+            }
+            return response('false', 200);
+        }
+        return response('false', 200);
+    }
+
     public function eventosPayu(Request $request){
         $empresa = Empresa::find(1);
         if($request->state_pol == 4){

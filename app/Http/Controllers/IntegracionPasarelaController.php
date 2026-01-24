@@ -57,8 +57,13 @@ class IntegracionPasarelaController extends Controller
         if ($servicio) {
             $servicio->api_key    = $request->api_key;
             $servicio->api_event  = $request->api_event;
-            $servicio->accountId  = $request->accountId;
-            $servicio->merchantId = $request->merchantId;
+
+            // Para ONEPAY solo guardamos api_key (appkey), no merchantId ni accountId
+            if($servicio->nombre != 'ONEPAY'){
+                $servicio->accountId  = $request->accountId;
+                $servicio->merchantId = $request->merchantId;
+            }
+
             $servicio->integrity  = isset($request->integrity) ? $request->integrity : null;
 
             if($servicio->nombre=='ePayco'){

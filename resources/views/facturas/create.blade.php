@@ -59,7 +59,7 @@
     </div>
     <div class="col-md-4 text-center align-self-center" >
       <h4><b class="text-primary">No. </b> <span id="codigo-factura-display">{{$nro->prefijo}}{{$nro->inicio}}</span>
-        @if(isset($_SESSION['permisos']['43']) && $factura->emitida != 1)
+        @if(isset($_SESSION['permisos']['43']))
           <a href="#" onclick="abrirModalEditarCodigo({{$nro->id}}, '{{$nro->prefijo}}{{$nro->inicio}}', null, '{{$nro->prefijo}}'); return false;" class="btn btn-sm btn-outline-secondary ml-2" title="Editar código">
             <i class="fas fa-edit"></i>
           </a>

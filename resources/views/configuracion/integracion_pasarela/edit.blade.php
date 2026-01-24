@@ -191,7 +191,13 @@
 	        </div>
 
 	        <div class="col-md-{{ $servicio->nombre == 'WOMPI' ? '6' : '4'}} form-group {{ $servicio->nombre == 'ComboPay' ? 'd-none':''}}">
-	            <label class="control-label">{{ $servicio->nombre == 'WOMPI' ? 'Llave pública' : ''}}{{ $servicio->nombre == 'PayU' ? 'API Key' : ''}}{{ $servicio->nombre == 'ePayco' ? 'PUBLIC_KEY' : ''}} <span class="text-danger">*</span></label>
+	            <label class="control-label">
+                    {{ $servicio->nombre == 'WOMPI' ? 'Llave pública' : ''}}
+                    {{ $servicio->nombre == 'PayU' ? 'API Key' : ''}}
+                    {{ $servicio->nombre == 'ePayco' ? 'PUBLIC_KEY' : ''}}
+                    {{ $servicio->nombre == 'TopPay' ? 'Llave pública' : ''}}
+                    {{ $servicio->nombre == 'ONEPAY' ? 'appkey' : ''}}
+                <span class="text-danger">*</span></label>
 	            <input type="text" class="form-control" id="api_key" name="api_key"  required="" value="{{$servicio->api_key}}" maxlength="200">
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('api_key') }}</strong>
@@ -206,7 +212,7 @@
 	            </span>
 	        </div>
 
-	        <div class="col-md-4 form-group {{ $servicio->nombre == 'WOMPI' ? 'd-none' : ''}} {{ $servicio->nombre == 'ePayco' ? 'd-none' : ''}}">
+	        <div class="col-md-4 form-group {{ $servicio->nombre == 'WOMPI' ? 'd-none' : ''}} {{ $servicio->nombre == 'ePayco' ? 'd-none' : ''}} {{ $servicio->nombre == 'ONEPAY' ? 'd-none' : ''}}">
 	            <label class="control-label">{{ $servicio->nombre == 'ComboPay' ? 'Clave secreta':'merchantId'}} <span class="text-danger">*</span></label>
 	            <input type="text" class="form-control" id="merchantId" name="merchantId"  required="" value="{{$servicio->merchantId}}" maxlength="200">
 	            <span class="help-block error">
@@ -222,7 +228,7 @@
 	            </span>
 	        </div>
 
-	        <div class="col-md-4 form-group {{ $servicio->nombre == 'WOMPI' ? 'd-none' : ''}} {{ $servicio->nombre == 'ePayco' ? 'd-none' : ''}}">
+	        <div class="col-md-4 form-group {{ $servicio->nombre == 'WOMPI' ? 'd-none' : ''}} {{ $servicio->nombre == 'ePayco' ? 'd-none' : ''}} {{ $servicio->nombre == 'ONEPAY' ? 'd-none' : ''}}">
 	            <label class="control-label">{{ $servicio->nombre == 'ComboPay' ? 'ID de cliente':'accountId'}} <span class="text-danger">*</span></label>
 	            <input type="text" class="form-control" id="accountId" name="accountId"  required="" value="{{$servicio->accountId}}" maxlength="200">
 	            <span class="help-block error">
