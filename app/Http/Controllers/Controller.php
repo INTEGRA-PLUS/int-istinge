@@ -1862,7 +1862,7 @@ class Controller extends BaseController
               /*  return response()->json(['software' => $ips, 'mikrotik' => $sanitizedArray]);
             }
         }*/
-    }
+    // }
 
     public function getSegmentos($mikrotik){
         $segmentos = Segmento::where('mikrotik', $mikrotik)->get()->toArray();
