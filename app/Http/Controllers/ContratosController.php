@@ -1605,6 +1605,9 @@ class ContratosController extends Controller
         $empresa = Empresa::find(1);
         $cajasNaps = CajaNap::where('status', 1)->get();
 
+        // Obtener consultas_mk de la empresa
+        $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
         if ($contrato) {
             view()->share(['icon' => 'fas fa-file-contract', 'title' => 'Editar Contrato: ' . $contrato->nro]);
             return view('contratos.edit')->with(compact(
@@ -1625,7 +1628,8 @@ class ContratosController extends Controller
                 'cajasNaps',
                 'serviciosOtros',
                 'contactos',
-                'empresa'
+                'empresa',
+                'consultasMk'
             ));
         }
         return redirect('empresa/contratos')->with('danger', 'EL CONTRATO DE SERVICIOS NO HA ENCONTRADO');

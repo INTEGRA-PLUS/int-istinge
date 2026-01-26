@@ -28,10 +28,16 @@
             </div>
             <div class="col-md-4 text-center padding1" >
                 <h4><b class="text-primary">No. </b> <span id="codigo-factura-display">{{$factura->codigo}}</span>
-                    @if(isset($_SESSION['permisos']['43']) && $factura->emitida != 1)
-                      <a href="#" onclick="abrirModalEditarCodigo({{$factura->numeracion}}, '{{$factura->codigo}}', {{$factura->id}}, '{{$numeracionPrefijo ?? ''}}'); return false;" class="btn btn-sm btn-outline-secondary ml-2" title="Editar código">
-                        <i class="fas fa-edit"></i>
-                      </a>
+                    @if(isset($_SESSION['permisos']['43']))
+                        @if($factura->emitida != 1)
+                            <a href="#" onclick="abrirModalEditarCodigo({{$factura->numeracion}}, '{{$factura->codigo}}', {{$factura->id}}, '{{$numeracionPrefijo ?? ''}}'); return false;" class="btn btn-sm btn-outline-secondary ml-2" title="Editar código">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        @else
+                            <a href="#" onclick="Swal.fire('Error', 'No puedes editar el número de la factura por que se encuentra emitida la factura', 'error'); return false;" class="btn btn-sm btn-outline-secondary ml-2" title="Editar código">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        @endif
                     @endif
                 </h4>
             </div>

@@ -113,42 +113,43 @@
 
     // Función para verificar si jQuery está disponible y inicializar
     function initAsistencia() {
-        console.log('initAsistencia llamada. Document ready:', document.readyState);
-        console.log('jQuery disponible:', typeof $ !== 'undefined');
-        console.log('URL actual:', window.location.pathname);
+        // Evitar múltiples ejecuciones
+        if (window.asistenciaInicializada) {
+            return;
+        }
 
         if (typeof $ === 'undefined') {
-            console.log('jQuery no disponible, reintentando en 500ms...');
-            setTimeout(initAsistencia, 500);
+            // Reintentar solo una vez después de un breve delay
+            if (!window.asistenciaJQueryCheck) {
+                window.asistenciaJQueryCheck = true;
+                setTimeout(initAsistencia, 300);
+            }
             return;
         }
 
         // Verificar que el DOM esté listo
         if (document.readyState === 'loading') {
-            console.log('DOM aún cargando, esperando...');
-            setTimeout(initAsistencia, 200);
+            // Solo esperar una vez
+            if (!window.asistenciaDOMCheck) {
+                window.asistenciaDOMCheck = true;
+                setTimeout(initAsistencia, 100);
+            }
             return;
         }
 
-        console.log('Inicializando sistema de asistencias...');
-
         // Verificar estado de asistencia actual
         function verificarEstadoAsistencia() {
-            console.log('Verificando estado de asistencia...');
-
             // Verificar que los elementos del DOM existen antes de hacer la petición
             const texto = $('#texto-asistencia');
             const icono = $('#icono-asistencia');
             const boton = $('#btn-asistencia');
 
-            console.log('Elementos encontrados:');
-            console.log('Texto:', texto.length);
-            console.log('Icono:', icono.length);
-            console.log('Botón:', boton.length);
-
             if (icono.length === 0) {
-                console.log('Botón de asistencia no encontrado en esta página, reintentando en 1s...');
-                setTimeout(verificarEstadoAsistencia, 1000);
+                // Solo reintentar una vez si no se encuentra el botón
+                if (!window.asistenciaElementoCheck) {
+                    window.asistenciaElementoCheck = true;
+                    setTimeout(verificarEstadoAsistencia, 500);
+                }
                 return;
             }
 
@@ -164,21 +165,17 @@
                 dataType: 'json',
                 timeout: 10000,
                 success: function(response) {
-                    console.log('Estado asistencia recibido:', response);
-
                     // Volver a obtener los elementos por si acaso
                     const texto = $('#texto-asistencia');
                     const icono = $('#icono-asistencia');
                     const boton = $('#btn-asistencia');
 
                     if (icono.length === 0) {
-                        console.log('Elementos perdidos después de AJAX');
                         return;
                     }
 
                     if (response.ultimo_registro) {
                         const estado = response.ultimo_registro.tipo;
-                        console.log('Estado encontrado:', estado);
 
                         if (estado === 'ingreso') {
                             // EN EL TRABAJO - Verde (solo ícono, sin texto)
@@ -200,12 +197,8 @@
                         boton.attr('title', 'Sin registros hoy - Haz clic para marcar asistencia');
                         boton.addClass('btn-pulse');
                     }
-
-                    console.log('Estado actualizado correctamente');
                 },
                 error: function(xhr, status, error) {
-                    console.log('Error al verificar estado:', status, error, xhr.responseText);
-
                     // En caso de error, color por defecto
                     if ($('#icono-asistencia').length > 0) {
                         $('#icono-asistencia').css('color', '');
@@ -221,9 +214,9 @@
         window.asistenciaInicializada = true;
 
         // Verificar estado al cargar con un pequeño delay
-        setTimeout(verificarEstadoAsistencia, 500);
+        setTimeout(verificarEstadoAsistencia, 300);
 
-        // Configurar tooltip si el botón existe (con delay para asegurar que esté en el DOM)
+        // Configurar tooltip si el botón existe
         setTimeout(function() {
             if ($('#btn-asistencia').length > 0) {
                 $('#btn-asistencia').tooltip({
@@ -231,7 +224,7 @@
                     trigger: 'hover'
                 });
             }
-        }, 1000);
+        }, 500);
 
         // Evento del saldo (código existente)
         $('.saldo').off('click').on('click', function() {
@@ -257,60 +250,47 @@
             typeof window.actualizarEstadoAsistencia === 'function';
     }
 
-    // Ejecutar múltiples veces para asegurar compatibilidad
-    console.log('Script de asistencias cargado');
-
-    // 1. Si el documento ya está listo
+    // Ejecutar solo cuando el documento esté listo
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        console.log('Documento ya listo, ejecutando inmediatamente');
-        setTimeout(initAsistencia, 100);
-    } else {
-        // 2. Esperar a que el documento esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMContentLoaded disparado');
-            setTimeout(initAsistencia, 100);
-        });
-    }
-
-    // 3. Con jQuery si está disponible
-    if (typeof $ !== 'undefined') {
+        // Documento ya listo, ejecutar inmediatamente
+        initAsistencia();
+    } else if (typeof $ !== 'undefined') {
+        // jQuery disponible, usar document ready
         $(document).ready(function() {
-            console.log('jQuery document ready disparado');
-            setTimeout(initAsistencia, 200);
+            initAsistencia();
         });
     } else {
-        // 4. Esperar a que jQuery esté disponible
+        // Esperar a que jQuery esté disponible
         var checkJQuery = setInterval(function() {
             if (typeof $ !== 'undefined') {
                 clearInterval(checkJQuery);
-                console.log('jQuery finalmente disponible');
                 $(document).ready(function() {
-                    setTimeout(initAsistencia, 200);
+                    initAsistencia();
                 });
             }
         }, 100);
+        
+        // Fallback: ejecutar después de DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!window.asistenciaInicializada) {
+                initAsistencia();
+            }
+        });
     }
-
-    // 5. Forzar ejecución después de 2 segundos si no se ha ejecutado
-    setTimeout(function() {
-        if (!yaSeEjecuto()) {
-            console.log('Forzando ejecución después de 2 segundos');
-            initAsistencia();
-        }
-    }, 2000);
 
     // Verificar cuando cambie de página
     window.addEventListener('popstate', function() {
-        console.log('popstate detectado');
         window.asistenciaInicializada = false;
-        setTimeout(initAsistencia, 100);
+        window.asistenciaJQueryCheck = false;
+        window.asistenciaDOMCheck = false;
+        window.asistenciaElementoCheck = false;
+        initAsistencia();
     });
 
     // Verificar cuando el usuario regrese a la pestaña
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden && typeof window.actualizarEstadoAsistencia === 'function') {
-            console.log('Pestaña visible de nuevo, actualizando estado');
-            setTimeout(window.actualizarEstadoAsistencia, 500);
+            window.actualizarEstadoAsistencia();
         }
     });
 

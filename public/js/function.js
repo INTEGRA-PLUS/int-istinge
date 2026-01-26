@@ -4350,7 +4350,7 @@ function getInterfaces(mikrotik) {
     })
 }
 
-function getPlanes(mikrotik, consultasMk) {
+function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
     // Si consultasMk no está definido, asumir que es 1 (por defecto hacer consultas)
     if (typeof consultasMk === 'undefined') {
         consultasMk = 1;
@@ -4397,9 +4397,21 @@ function getPlanes(mikrotik, consultasMk) {
 
                 $select.selectpicker('refresh');
 
-                // No llamar getInterfaces ni actualizar amarre_mac cuando consultas_mk = 0
-                // ya que no se hace consulta a Mikrotik
-                $('#conexion').val('').selectpicker('refresh');
+                // Preservar el plan actual si existe y está en la lista
+                if (currentPlanId && currentPlanId !== null && currentPlanId !== 'null') {
+                    var planExists = $select.find('option[value="' + currentPlanId + '"]').length > 0;
+                    if (planExists) {
+                        $select.val(currentPlanId).selectpicker('refresh');
+                    }
+                }
+
+                // Preservar el tipo de conexión actual si existe
+                if (currentConexion && currentConexion !== null && currentConexion !== 'null') {
+                    $('#conexion').val(currentConexion).selectpicker('refresh');
+                } else {
+                    // Solo limpiar si no hay valor actual
+                    $('#conexion').val('').selectpicker('refresh');
+                }
             },
             error: function(data) {
                 console.log('Error al obtener planes:', data);
@@ -4449,6 +4461,14 @@ function getPlanes(mikrotik, consultasMk) {
 
             $select.selectpicker('refresh');
 
+            // Preservar el plan actual si existe y está en la lista
+            if (currentPlanId && currentPlanId !== null && currentPlanId !== 'null') {
+                var planExists = $select.find('option[value="' + currentPlanId + '"]').length > 0;
+                if (planExists) {
+                    $select.val(currentPlanId).selectpicker('refresh');
+                }
+            }
+
             // Solo llamar getInterfaces y actualizar amarre_mac si mikrotik existe
             if (data.mikrotik) {
                 getInterfaces(mikrotik);
@@ -4456,7 +4476,14 @@ function getPlanes(mikrotik, consultasMk) {
                     $("#amarre_mac").val(data.mikrotik.amarre_mac);
                 }
             }
-            $('#conexion').val('').selectpicker('refresh');
+            
+            // Preservar el tipo de conexión actual si existe
+            if (currentConexion && currentConexion !== null && currentConexion !== 'null') {
+                $('#conexion').val(currentConexion).selectpicker('refresh');
+            } else {
+                // Solo limpiar si no hay valor actual
+                $('#conexion').val('').selectpicker('refresh');
+            }
 
             // Vaciar el select de profiles para evitar duplicados
             var $profileSelect = $("#div_profile_select");

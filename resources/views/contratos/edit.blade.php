@@ -282,7 +282,7 @@
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Servidor <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <select class="form-control selectpicker" name="server_configuration_id" id="server_configuration_id" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="getPlanes(this.value);">
+                                    <select class="form-control selectpicker" name="server_configuration_id" id="server_configuration_id" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="getPlanes(this.value, {{ $consultasMk ?? 1 }});">
                                         @foreach($servidores as $servidor)
                                             <option value="{{$servidor->id}}" {{$servidor->id==$contrato->server_configuration_id?'selected':''}}>{{$servidor->nombre}} - {{$servidor->ip}}</option>
                                         @endforeach
@@ -1131,9 +1131,18 @@
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
-            getInterfaces($("#server_configuration_id").val());
-            // Cargar profiles iniciales del Mikrotik seleccionado
-            getProfiles($("#server_configuration_id").val());
+            
+            // Guardar valores actuales del plan y tipo de conexión antes de cargar
+            var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
+            var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
+            var consultasMk = {{ $consultasMk ?? 1 }};
+            
+            // Solo cargar interfaces y profiles si consultas_mk == 1
+            if (consultasMk == 1) {
+                getInterfaces($("#server_configuration_id").val());
+                // Cargar profiles iniciales del Mikrotik seleccionado
+                getProfiles($("#server_configuration_id").val());
+            }
 
             // Seleccionar automáticamente el profile actual del contrato cuando
             // el select asíncrono haya cargado sus opciones
@@ -1383,8 +1392,13 @@
         // Cargar planes al iniciar si ya hay un servidor seleccionado
         @if(isset($contrato) && $contrato->server_configuration_id)
             var serverId = $('#server_configuration_id').val();
+            var consultasMk = {{ $consultasMk ?? 1 }};
+            var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
+            var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
+            
             if (serverId) {
-                getPlanes(serverId);
+                // Guardar valores actuales antes de llamar getPlanes
+                getPlanes(serverId, consultasMk, currentPlanId, currentConexion);
             }
         @endif
     });
