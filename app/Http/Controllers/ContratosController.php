@@ -5216,25 +5216,25 @@ class ContratosController extends Controller
             }
 
             // Datos comunes - ajustar columnas según si hay nro contrato
-            // Leer campos comunes de la estructura unificada
-            // Estructura con Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
-            // Estructura sin Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
+            // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
+            // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
+            // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
             if ($esNroContrato) {
-                // Si hay nro contrato en A, los demás campos se desplazan una columna
-                $request->servicio   = $sheet->getCell("C" . $row)->getValue();
-                $request->serial_onu = $sheet->getCell("D" . $row)->getValue();
-                $request->olt_sn_mac = $sheet->getCell("E" . $row)->getValue();
-                $request->plan       = $sheet->getCell("F" . $row)->getValue();
-                $request->mikrotik   = $sheet->getCell("G" . $row)->getValue();
-                $request->state      = $sheet->getCell("H" . $row)->getValue();
+                // CON nro contrato: todo desplazado una columna a la derecha
+                $request->servicio   = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
+                $request->serial_onu = $sheet->getCell("D" . $row)->getValue();  // D = Serial ONU
+                $request->olt_sn_mac = $sheet->getCell("E" . $row)->getValue();  // E = OLT SN MAC
+                $request->plan       = $sheet->getCell("F" . $row)->getValue();  // F = Plan (NO E!)
+                $request->mikrotik   = $sheet->getCell("G" . $row)->getValue();  // G = Mikrotik (NO F!)
+                $request->state      = $sheet->getCell("H" . $row)->getValue();  // H = Estado
             } else {
-                // Sin nro contrato, lectura normal (estructura unificada de importación)
-                $request->servicio   = $sheet->getCell("B" . $row)->getValue();
-                $request->serial_onu = $sheet->getCell("C" . $row)->getValue();
-                $request->olt_sn_mac = $sheet->getCell("D" . $row)->getValue();
-                $request->plan       = $sheet->getCell("E" . $row)->getValue();
-                $request->mikrotik   = $sheet->getCell("F" . $row)->getValue();
-                $request->state      = $sheet->getCell("G" . $row)->getValue();
+                // SIN nro contrato: lectura normal
+                $request->servicio   = $sheet->getCell("B" . $row)->getValue();  // B = Servicio
+                $request->serial_onu = $sheet->getCell("C" . $row)->getValue();  // C = Serial ONU
+                $request->olt_sn_mac = $sheet->getCell("D" . $row)->getValue();  // D = OLT SN MAC
+                $request->plan       = $sheet->getCell("E" . $row)->getValue();  // E = Plan
+                $request->mikrotik   = $sheet->getCell("F" . $row)->getValue();  // F = Mikrotik
+                $request->state      = $sheet->getCell("G" . $row)->getValue();  // G = Estado
             }
 
             // Limpiar y validar valores leídos
@@ -5500,6 +5500,7 @@ class ContratosController extends Controller
             }
 
             // Detectar si la columna A contiene un número de contrato (misma lógica que el primer bucle)
+            // IMPORTANTE: Validar también que la columna B sea una identificación válida para confirmar
             $esNroContrato = false;
             $nro_contrato_actualizar = null;
             if (is_numeric($valorColumnaA)) {
@@ -5507,13 +5508,23 @@ class ContratosController extends Controller
                     ->where('empresa', Auth::user()->empresa)
                     ->first();
                 if ($contratoExistente) {
-                    $esNroContrato = true;
-                    $nro_contrato_actualizar = $valorColumnaA;
-                    $nit = $sheet->getCell("B" . $row)->getValue();
+                    // Verificar que la columna B sea una identificación válida (no vacía y parece ser NIT/cédula)
+                    $valorColumnaB = $sheet->getCell("B" . $row)->getValue();
+                    if (!empty($valorColumnaB) && (is_numeric($valorColumnaB) || strlen(trim((string)$valorColumnaB)) >= 5)) {
+                        $esNroContrato = true;
+                        $nro_contrato_actualizar = $valorColumnaA;
+                        $nit = $valorColumnaB; // Si hay nro contrato, la identificación está en B
+                    } else {
+                        // La columna B no parece ser una identificación válida, tratar A como identificación
+                        $esNroContrato = false;
+                        $nit = $valorColumnaA;
+                    }
                 } else {
+                    // No es un número de contrato existente, tratar como identificación
                     $nit = $valorColumnaA;
                 }
             } else {
+                // No es numérico, debe ser identificación
                 $nit = $valorColumnaA;
             }
 
@@ -5535,20 +5546,25 @@ class ContratosController extends Controller
             $offsetColumna = $esNroContrato ? 1 : 0;
 
             // Leer campos comunes de la estructura unificada (segundo bucle)
+            // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
+            // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
+            // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
             if ($esNroContrato) {
-                $request->servicio      = $sheet->getCell("C" . $row)->getValue();
-                $request->serial_onu    = $sheet->getCell("D" . $row)->getValue();
-                $request->olt_sn_mac    = $sheet->getCell("E" . $row)->getValue();
-                $request->plan          = $sheet->getCell("F" . $row)->getValue();
-                $request->mikrotik      = $sheet->getCell("G" . $row)->getValue();
-                $request->state         = $sheet->getCell("H" . $row)->getValue();
+                // CON nro contrato: todo desplazado una columna a la derecha
+                $request->servicio      = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
+                $request->serial_onu    = $sheet->getCell("D" . $row)->getValue();  // D = Serial ONU
+                $request->olt_sn_mac    = $sheet->getCell("E" . $row)->getValue();  // E = OLT SN MAC
+                $request->plan          = $sheet->getCell("F" . $row)->getValue();  // F = Plan (NO E!)
+                $request->mikrotik      = $sheet->getCell("G" . $row)->getValue();  // G = Mikrotik (NO F!)
+                $request->state         = $sheet->getCell("H" . $row)->getValue();  // H = Estado
             } else {
-                $request->servicio      = $sheet->getCell("B" . $row)->getValue();
-                $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();
-                $request->olt_sn_mac    = $sheet->getCell("D" . $row)->getValue();
-                $request->plan          = $sheet->getCell("E" . $row)->getValue();
-                $request->mikrotik      = $sheet->getCell("F" . $row)->getValue();
-                $request->state         = $sheet->getCell("G" . $row)->getValue();
+                // SIN nro contrato: lectura normal
+                $request->servicio      = $sheet->getCell("B" . $row)->getValue();  // B = Servicio
+                $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();  // C = Serial ONU
+                $request->olt_sn_mac    = $sheet->getCell("D" . $row)->getValue();  // D = OLT SN MAC
+                $request->plan          = $sheet->getCell("E" . $row)->getValue();  // E = Plan
+                $request->mikrotik      = $sheet->getCell("F" . $row)->getValue();  // F = Mikrotik
+                $request->state         = $sheet->getCell("G" . $row)->getValue();  // G = Estado
             }
 
             // Aplicar strtolower a campos tipo texto
