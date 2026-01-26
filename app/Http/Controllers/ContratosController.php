@@ -5187,6 +5187,7 @@ class ContratosController extends Controller
 
             // Detectar si la columna A contiene un número de contrato
             // Un número de contrato es un valor numérico que existe en la base de datos
+            // IMPORTANTE: Validar también que la columna B sea una identificación válida para confirmar
             $esNroContrato = false;
             $nro_contrato_actualizar = null;
             if (is_numeric($valorColumnaA)) {
@@ -5194,9 +5195,17 @@ class ContratosController extends Controller
                     ->where('empresa', Auth::user()->empresa)
                     ->first();
                 if ($contratoExistente) {
-                    $esNroContrato = true;
-                    $nro_contrato_actualizar = $valorColumnaA;
-                    $nit = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
+                    // Verificar que la columna B sea una identificación válida (no vacía y parece ser NIT/cédula)
+                    $valorColumnaB = $sheet->getCell("B" . $row)->getValue();
+                    if (!empty($valorColumnaB) && (is_numeric($valorColumnaB) || strlen(trim((string)$valorColumnaB)) >= 5)) {
+                        $esNroContrato = true;
+                        $nro_contrato_actualizar = $valorColumnaA;
+                        $nit = $valorColumnaB; // Si hay nro contrato, la identificación está en B
+                    } else {
+                        // La columna B no parece ser una identificación válida, tratar A como identificación
+                        $esNroContrato = false;
+                        $nit = $valorColumnaA;
+                    }
                 } else {
                     // No es un número de contrato existente, tratar como identificación
                     $nit = $valorColumnaA;
@@ -5208,6 +5217,8 @@ class ContratosController extends Controller
 
             // Datos comunes - ajustar columnas según si hay nro contrato
             // Leer campos comunes de la estructura unificada
+            // Estructura con Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
+            // Estructura sin Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
             if ($esNroContrato) {
                 // Si hay nro contrato en A, los demás campos se desplazan una columna
                 $request->servicio   = $sheet->getCell("C" . $row)->getValue();
@@ -5224,6 +5235,17 @@ class ContratosController extends Controller
                 $request->plan       = $sheet->getCell("E" . $row)->getValue();
                 $request->mikrotik   = $sheet->getCell("F" . $row)->getValue();
                 $request->state      = $sheet->getCell("G" . $row)->getValue();
+            }
+
+            // Limpiar y validar valores leídos
+            if (!empty($request->plan)) {
+                $request->plan = trim((string) $request->plan);
+            }
+            if (!empty($request->mikrotik)) {
+                $request->mikrotik = trim((string) $request->mikrotik);
+            }
+            if (!empty($request->olt_sn_mac)) {
+                $request->olt_sn_mac = trim((string) $request->olt_sn_mac);
             }
 
             // Aplicar strtolower a campos tipo texto antes de validar
@@ -5384,14 +5406,21 @@ class ContratosController extends Controller
             }
 
             if ($request->plan != "") {
-                if(!isset($mikoId)){
-                    $mikoId = 0;
-                }
+                // Validar que el plan no sea un valor que parezca OLT SN MAC (hexadecimal de 12 caracteres)
+                // Los OLT SN MAC suelen ser valores hexadecimales largos
+                $planValue = trim((string) $request->plan);
+                if (preg_match('/^[0-9a-f]{12,}$/i', $planValue)) {
+                    $error->plan = "El valor ingresado en Plan parece ser un OLT SN MAC. Verifique que la columna Plan (F) contenga el nombre del plan, no el OLT SN MAC (E).";
+                } else {
+                    if(!isset($mikoId)){
+                        $mikoId = 0;
+                    }
 
-                // Buscar en minúsculas
-                $num = PlanesVelocidad::whereRaw('LOWER(name) = ?', [strtolower($request->plan)])->where('mikrotik', $mikoId)->count();
-                if ($num == 0) {
-                    $error->plan = "El plan de velocidad " . $request->plan . " ingresado no se encuentra en nuestra base de datos";
+                    // Buscar en minúsculas
+                    $num = PlanesVelocidad::whereRaw('LOWER(name) = ?', [strtolower($planValue)])->where('mikrotik', $mikoId)->count();
+                    if ($num == 0) {
+                        $error->plan = "El plan de velocidad " . $planValue . " ingresado no se encuentra en nuestra base de datos. Verifique que la columna Plan (F) contenga el nombre correcto del plan.";
+                    }
                 }
             }
             if (!$request->state) {
