@@ -5219,6 +5219,11 @@ class ContratosController extends Controller
             // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
             // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
             // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
+
+            // Debug: Verificar qué está leyendo
+            $columnaF = $sheet->getCell("F" . $row)->getValue();
+            $columnaG = $sheet->getCell("G" . $row)->getValue();
+
             if ($esNroContrato) {
                 // CON nro contrato: todo desplazado una columna a la derecha
                 $request->servicio   = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
@@ -5396,12 +5401,35 @@ class ContratosController extends Controller
                 $error->servicio = "El campo Servicio es obligatorio";
             }
             if ($request->mikrotik != "") {
-                // Buscar en minúsculas
-                $miko = Mikrotik::whereRaw('LOWER(nombre) = ?', [strtolower($request->mikrotik)])->first();
-                if (!$miko) {
-                    $error->mikrotik = "El mikrotik ingresado no se encuentra en nuestra base de datos";
+                // Debug: Verificar si está leyendo un plan en lugar de mikrotik
+                // Si contiene palabras típicas de planes, está leyendo la columna incorrecta
+                if (stripos($request->mikrotik, 'internet') !== false ||
+                    stripos($request->mikrotik, 'megas') !== false ||
+                    stripos($request->mikrotik, 'g1p') !== false ||
+                    stripos($request->mikrotik, 'mbps') !== false ||
+                    (stripos($request->mikrotik, 'mb') !== false && stripos($request->mikrotik, 'mb') < 10)) {
+                    // Parece que está leyendo un plan en lugar de mikrotik
+                    // Esto indica que está leyendo la columna incorrecta
+                    // Debug: mostrar qué está leyendo
+                    dd([
+                        'fila' => $row,
+                        'esNroContrato' => $esNroContrato,
+                        'valorColumnaA' => $valorColumnaA,
+                        'valorColumnaB' => isset($valorColumnaB) ? $valorColumnaB : 'no definido',
+                        'mikrotik_leido' => $request->mikrotik,
+                        'columnaF' => isset($columnaF) ? $columnaF : 'no definido',
+                        'columnaG' => isset($columnaG) ? $columnaG : 'no definido',
+                        'plan_leido' => $request->plan
+                    ]);
+                    $error->mikrotik = "Error: Se está leyendo un Plan ('" . $request->mikrotik . "') en lugar del Mikrotik. Verifique que la columna Mikrotik (G con Nro Contrato, F sin Nro Contrato) contenga el nombre del servidor Mikrotik, no el plan.";
                 } else {
-                    $mikoId = $miko->id;
+                    // Buscar en minúsculas
+                    $miko = Mikrotik::whereRaw('LOWER(nombre) = ?', [strtolower($request->mikrotik)])->first();
+                    if (!$miko) {
+                        $error->mikrotik = "El mikrotik ingresado '" . $request->mikrotik . "' no se encuentra en nuestra base de datos. Verifique que la columna Mikrotik (G con Nro Contrato, F sin Nro Contrato) contenga el nombre correcto del servidor.";
+                    } else {
+                        $mikoId = $miko->id;
+                    }
                 }
             }
 
