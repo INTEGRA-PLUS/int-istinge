@@ -5177,6 +5177,14 @@ class ContratosController extends Controller
         // Array para recopilar todas las identificaciones no encontradas
         $identificacionesNoEncontradas = [];
 
+        // Verificar el encabezado en la fila 3 para determinar si es actualización
+        // Si la columna A en la fila 3 dice "Nro Contrato", entonces todas las filas tienen nro contrato
+        $encabezadoColumnaA = trim((string) $sheet->getCell("A3")->getValue());
+        $tieneNroContratoEnEncabezado = (strtoupper($encabezadoColumnaA) === 'NRO CONTRATO' ||
+                                         strtoupper($encabezadoColumnaA) === 'NRO. CONTRATO' ||
+                                         strtoupper($encabezadoColumnaA) === 'NUMERO CONTRATO' ||
+                                         strtoupper($encabezadoColumnaA) === 'NÚMERO CONTRATO');
+
         for ($row = 4; $row <= $highestRow; $row++) {
             $request = (object) array();
             //obtengo el A4 desde donde empieza la data
@@ -5185,33 +5193,15 @@ class ContratosController extends Controller
                 break;
             }
 
-            // Detectar si la columna A contiene un número de contrato
-            // Un número de contrato es un valor numérico que existe en la base de datos
-            // IMPORTANTE: Validar también que la columna B sea una identificación válida para confirmar
-            $esNroContrato = false;
-            $nro_contrato_actualizar = null;
-            if (is_numeric($valorColumnaA)) {
-                $contratoExistente = Contrato::where('nro', $valorColumnaA)
-                    ->where('empresa', Auth::user()->empresa)
-                    ->first();
-                if ($contratoExistente) {
-                    // Verificar que la columna B sea una identificación válida (no vacía y parece ser NIT/cédula)
-                    $valorColumnaB = $sheet->getCell("B" . $row)->getValue();
-                    if (!empty($valorColumnaB) && (is_numeric($valorColumnaB) || strlen(trim((string)$valorColumnaB)) >= 5)) {
-                        $esNroContrato = true;
-                        $nro_contrato_actualizar = $valorColumnaA;
-                        $nit = $valorColumnaB; // Si hay nro contrato, la identificación está en B
-                    } else {
-                        // La columna B no parece ser una identificación válida, tratar A como identificación
-                        $esNroContrato = false;
-                        $nit = $valorColumnaA;
-                    }
-                } else {
-                    // No es un número de contrato existente, tratar como identificación
-                    $nit = $valorColumnaA;
-                }
+            // Si el encabezado indica que hay Nro Contrato, todas las filas se tratan como actualización
+            if ($tieneNroContratoEnEncabezado) {
+                $esNroContrato = true;
+                $nro_contrato_actualizar = is_numeric($valorColumnaA) ? $valorColumnaA : null;
+                $nit = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
             } else {
-                // No es numérico, debe ser identificación
+                // Sin encabezado de Nro Contrato, tratar A como identificación
+                $esNroContrato = false;
+                $nro_contrato_actualizar = null;
                 $nit = $valorColumnaA;
             }
 
@@ -5219,11 +5209,6 @@ class ContratosController extends Controller
             // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
             // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
             // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
-
-            // Debug: Verificar qué está leyendo
-            $columnaF = $sheet->getCell("F" . $row)->getValue();
-            $columnaG = $sheet->getCell("G" . $row)->getValue();
-
             if ($esNroContrato) {
                 // CON nro contrato: todo desplazado una columna a la derecha
                 $request->servicio   = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
@@ -5401,35 +5386,12 @@ class ContratosController extends Controller
                 $error->servicio = "El campo Servicio es obligatorio";
             }
             if ($request->mikrotik != "") {
-                // Debug: Verificar si está leyendo un plan en lugar de mikrotik
-                // Si contiene palabras típicas de planes, está leyendo la columna incorrecta
-                if (stripos($request->mikrotik, 'internet') !== false ||
-                    stripos($request->mikrotik, 'megas') !== false ||
-                    stripos($request->mikrotik, 'g1p') !== false ||
-                    stripos($request->mikrotik, 'mbps') !== false ||
-                    (stripos($request->mikrotik, 'mb') !== false && stripos($request->mikrotik, 'mb') < 10)) {
-                    // Parece que está leyendo un plan en lugar de mikrotik
-                    // Esto indica que está leyendo la columna incorrecta
-                    // Debug: mostrar qué está leyendo
-                    dd([
-                        'fila' => $row,
-                        'esNroContrato' => $esNroContrato,
-                        'valorColumnaA' => $valorColumnaA,
-                        'valorColumnaB' => isset($valorColumnaB) ? $valorColumnaB : 'no definido',
-                        'mikrotik_leido' => $request->mikrotik,
-                        'columnaF' => isset($columnaF) ? $columnaF : 'no definido',
-                        'columnaG' => isset($columnaG) ? $columnaG : 'no definido',
-                        'plan_leido' => $request->plan
-                    ]);
-                    $error->mikrotik = "Error: Se está leyendo un Plan ('" . $request->mikrotik . "') en lugar del Mikrotik. Verifique que la columna Mikrotik (G con Nro Contrato, F sin Nro Contrato) contenga el nombre del servidor Mikrotik, no el plan.";
+                // Buscar en minúsculas
+                $miko = Mikrotik::whereRaw('LOWER(nombre) = ?', [strtolower($request->mikrotik)])->first();
+                if (!$miko) {
+                    $error->mikrotik = "El mikrotik ingresado no se encuentra en nuestra base de datos";
                 } else {
-                    // Buscar en minúsculas
-                    $miko = Mikrotik::whereRaw('LOWER(nombre) = ?', [strtolower($request->mikrotik)])->first();
-                    if (!$miko) {
-                        $error->mikrotik = "El mikrotik ingresado '" . $request->mikrotik . "' no se encuentra en nuestra base de datos. Verifique que la columna Mikrotik (G con Nro Contrato, F sin Nro Contrato) contenga el nombre correcto del servidor.";
-                    } else {
-                        $mikoId = $miko->id;
-                    }
+                    $mikoId = $miko->id;
                 }
             }
 
@@ -5527,32 +5489,16 @@ class ContratosController extends Controller
                 break;
             }
 
-            // Detectar si la columna A contiene un número de contrato (misma lógica que el primer bucle)
-            // IMPORTANTE: Validar también que la columna B sea una identificación válida para confirmar
-            $esNroContrato = false;
-            $nro_contrato_actualizar = null;
-            if (is_numeric($valorColumnaA)) {
-                $contratoExistente = Contrato::where('nro', $valorColumnaA)
-                    ->where('empresa', Auth::user()->empresa)
-                    ->first();
-                if ($contratoExistente) {
-                    // Verificar que la columna B sea una identificación válida (no vacía y parece ser NIT/cédula)
-                    $valorColumnaB = $sheet->getCell("B" . $row)->getValue();
-                    if (!empty($valorColumnaB) && (is_numeric($valorColumnaB) || strlen(trim((string)$valorColumnaB)) >= 5)) {
-                        $esNroContrato = true;
-                        $nro_contrato_actualizar = $valorColumnaA;
-                        $nit = $valorColumnaB; // Si hay nro contrato, la identificación está en B
-                    } else {
-                        // La columna B no parece ser una identificación válida, tratar A como identificación
-                        $esNroContrato = false;
-                        $nit = $valorColumnaA;
-                    }
-                } else {
-                    // No es un número de contrato existente, tratar como identificación
-                    $nit = $valorColumnaA;
-                }
+            // Usar la misma detección del encabezado que en el primer bucle
+            // Si el encabezado indica que hay Nro Contrato, todas las filas se tratan como actualización
+            if ($tieneNroContratoEnEncabezado) {
+                $esNroContrato = true;
+                $nro_contrato_actualizar = is_numeric($valorColumnaA) ? $valorColumnaA : null;
+                $nit = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
             } else {
-                // No es numérico, debe ser identificación
+                // Sin encabezado de Nro Contrato, tratar A como identificación
+                $esNroContrato = false;
+                $nro_contrato_actualizar = null;
                 $nit = $valorColumnaA;
             }
 
