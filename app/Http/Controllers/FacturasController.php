@@ -1082,6 +1082,13 @@ class FacturasController extends Controller{
             if ($request->barrio) {
                 $facturas->where('c.barrio_id', $request->barrio);
             }
+            // Filtro por tipo de facturación del contrato
+            if ($request->tipo_facturacion && is_array($request->tipo_facturacion) && count($request->tipo_facturacion) > 0) {
+                $facturas->where(function ($query) use ($request) {
+                    $query->whereIn('cs1.facturacion', $request->tipo_facturacion)
+                          ->orWhereIn('cs2.facturacion', $request->tipo_facturacion);
+                });
+            }
             // Filtro por rango de fechas (desde - hasta)
             if ($request->desde) {
                 $facturas->where('factura.fecha', '>=', $request->desde);
@@ -1249,6 +1256,13 @@ class FacturasController extends Controller{
             }
             if ($request->barrio) {
                 $countQuery->where('c.barrio_id', $request->barrio);
+            }
+            // Filtro por tipo de facturación del contrato
+            if ($request->tipo_facturacion && is_array($request->tipo_facturacion) && count($request->tipo_facturacion) > 0) {
+                $countQuery->where(function ($query) use ($request) {
+                    $query->whereIn('cs1.facturacion', $request->tipo_facturacion)
+                          ->orWhereIn('cs2.facturacion', $request->tipo_facturacion);
+                });
             }
             if ($request->desde) {
                 $countQuery->where('factura.fecha', '>=', $request->desde);

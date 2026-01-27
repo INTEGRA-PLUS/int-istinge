@@ -161,6 +161,12 @@
                                 @endforeach
 							</select>
 						</div>
+                        <div class="col-md-2 pl-1 pt-1">
+							<select title="Contrato tipo" class="form-control rounded selectpicker" name="tipo_facturacion" id="tipo_facturacion" multiple data-live-search="true">
+								<option value="1">Estándar</option>
+								<option value="3">Electrónica</option>
+							</select>
+						</div>
                         @if ($empresa->token_siigo != null || $empresa->token_siigo != '')
                         <div class="col-md-2 pl-1 pt-1">
 							<select title="¿Envía a siigo?" class="form-control rounded selectpicker" name="fact_siigo" id="fact_siigo" multiple data-live-search="true">
@@ -749,6 +755,7 @@
 			data.grupos_corte = $('#grupos_corte').val();
 			data.fact_siigo = $('#fact_siigo').val();
 			data.otras_opciones = $('#otras_opciones').val();
+			data.tipo_facturacion = $('#tipo_facturacion').val();
 			data.filtro = true;
 
 			// Solo enviar filtros_aplicados cuando se ha hecho clic en el botón filtrar
@@ -780,7 +787,7 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo, #otras_opciones').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo, #otras_opciones, #tipo_facturacion').on('change',function() {
             filtroClickeado = true; // Marcar que se aplicó un filtro por cambio de dropdown
             getDataTable();
             return false;
@@ -1163,6 +1170,7 @@
 		$('#grupos_corte').val('').selectpicker('refresh');
 		$('#fact_siigo').val('').selectpicker('refresh');
 		$('#otras_opciones').val('').selectpicker('refresh');
+		$('#tipo_facturacion').val('').selectpicker('refresh');
 		$('#state_contrato').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
@@ -1188,6 +1196,7 @@
             'grupos_corte=' + encodeURIComponent($('#grupos_corte').val() || ''),
             'fact_siigo=' + encodeURIComponent($('#fact_siigo').val() || ''),
             'otras_opciones=' + encodeURIComponent($('#otras_opciones').val() || ''),
+            'tipo_facturacion=' + encodeURIComponent($('#tipo_facturacion').val() || ''),
             'state_contrato=' + encodeURIComponent($('#state_contrato').val() || ''),
             'tipo=1'
         ].join('&');
