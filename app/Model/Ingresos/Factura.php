@@ -1729,6 +1729,10 @@ public function forma_pago()
                 $diasCobrados = $fechaInicio->diffInDays($fechaFin);
                 $diasCobrados++;
 
+                if($fechaFin->format('d') == 28 && $grupo->fecha_corte == 30 && $diasCobrados == 28){
+                    $diasCobrados = 30;
+                }
+
                 if($diasCobrados == 0){return 30;}
                 if($fechaInicio->endOfMonth()->day <=28 && $diasCobrados >= 28){$diasCobrados=30;}
                 $diasCobrados=$diasCobrados;
