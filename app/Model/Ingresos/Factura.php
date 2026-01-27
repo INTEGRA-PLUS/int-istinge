@@ -1404,11 +1404,7 @@ public function forma_pago()
             ->select('gc.*')->first();
         }
 
-        $empresa = Empresa::find($this->empresa);
-
-
         if($grupo){
-            $empresa = Empresa::find($this->empresa);
             $mesInicioCorte = $mesFinCorte = Carbon::parse($this->fecha)->format('m');
             $yearInicioCorte = $yearFinCorte = Carbon::parse($this->fecha)->format('Y');
 
@@ -1487,8 +1483,11 @@ public function forma_pago()
             /* Validacion de mes anticipado o mes vencido */
             $diaFac = Carbon::parse($this->fecha)->format('d');
 
+            // Usar periodo_facturacion del grupo de corte, con valor por defecto 1 (mes anticipado) si es null
+            $periodoFacturacion = $grupo->periodo_facturacion ?? 1;
+
             //si este caso ocurre es por que tengo que cobrar el mes pasado
-            if($empresa->periodo_facturacion == 2){
+            if($periodoFacturacion == 2){
                 // MES VENCIDO
                 $corteAnterior = Carbon::createFromDate(
                     Carbon::parse($this->fecha)->year,
@@ -1500,7 +1499,7 @@ public function forma_pago()
                 $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
             }
             else {
-                if ($empresa->periodo_facturacion == 1) {
+                if ($periodoFacturacion == 1) {
                     // MES ANTICIPADO
                     $corteActual = Carbon::createFromDate(
                         Carbon::parse($this->fecha)->year,
@@ -1511,7 +1510,7 @@ public function forma_pago()
                     $inicioCorte = $corteActual->copy();
                     $finCorte = $corteActual->copy()->addMonth()->subDay();
 
-                } else if ($empresa->periodo_facturacion == 3) {
+                } else if ($periodoFacturacion == 3) {
                     // MES ACTUAL
                     $corteActual = Carbon::createFromDate(
                         Carbon::parse($this->fecha)->year,

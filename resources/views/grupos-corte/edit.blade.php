@@ -96,6 +96,17 @@
 	                <strong>{{ $errors->first('status') }}</strong>
 	            </span>
 	        </div>
+	        <div class="col-md-3 form-group">
+	            <label class="control-label">Periodo de Facturación <span class="text-danger">*</span></label>
+	            <select class="form-control selectpicker" name="periodo_facturacion" id="periodo_facturacion" title="Seleccione" required="">
+	                <option value="1" {{ ($grupo->periodo_facturacion == 1) ? 'selected' : '' }}>Mes anticipado</option>
+	                <option value="2" {{ ($grupo->periodo_facturacion == 2) ? 'selected' : '' }}>Mes vencido</option>
+	                <option value="3" {{ ($grupo->periodo_facturacion == 3) ? 'selected' : '' }}>Mes actual</option>
+	            </select>
+	            <span class="help-block error">
+	                <strong>{{ $errors->first('periodo_facturacion') }}</strong>
+	            </span>
+	        </div>
 
             {{-- <div class="col-md-3 form-group">
 	            <label class="control-label">Dias Prorroga suspensión TV <span class="text-danger">*</span></label>

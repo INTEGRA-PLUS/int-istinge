@@ -71,6 +71,17 @@
 	                <strong>{{ $errors->first('hora_suspension') }}</strong>
 	            </span>
 	        </div>
+	        <div class="col-md-6 form-group">
+	            <label class="control-label">Periodo de Facturación <span class="text-danger">*</span></label>
+	            <select class="form-control selectpicker" name="periodo_facturacion" id="periodo_facturacion" title="Seleccione" required="">
+	                <option value="1" {{old('periodo_facturacion')==1?'selected':''}}>Mes anticipado</option>
+	                <option value="2" {{old('periodo_facturacion')==2?'selected':''}}>Mes vencido</option>
+	                <option value="3" {{old('periodo_facturacion')==3?'selected':''}}>Mes actual</option>
+	            </select>
+	            <span class="help-block error">
+	                <strong>{{ $errors->first('periodo_facturacion') }}</strong>
+	            </span>
+	        </div>
 	        <div class="col-md-6 form-group d-none">
 	            <label class="control-label">Estado <span class="text-danger">*</span></label>
 	            <select class="form-control selectpicker" name="status" id="status" title="Seleccione" required="">
