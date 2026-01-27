@@ -67,14 +67,14 @@ class OnePayService
             }
 
             //para efectos de prueba:
-            $cliente->celular = '573002457118';
-            $empresa->nombre = 'Vivecomunicaciones';
+            // $cliente->celular = '573002457118';
+            // $empresa->nombre = 'Vivecomunicaciones';
 
             // Preparar datos
             $data = [
-                'reference' => $factura->codigo,
+                'reference' => $cliente->nit,
                 'provider_id' => $factura->codigo,
-                'provider' => $empresa->nombre,
+                'provider' => 'integra',
                 'amount' => $amount,
                 'name' => 'Factura #' . $factura->codigo,
                 'phone' => $cliente->celular ? $this->formatPhone($cliente->celular) : null,
@@ -179,12 +179,12 @@ class OnePayService
             }
 
             //para efectos de prueba:
-            $cliente->celular = '573002457118';
-            $empresa->nombre = 'Vivecomunicaciones';
+            // $cliente->celular = '573002457118';
+            // $empresa->nombre = 'Vivecomunicaciones';
 
             // Preparar datos
             $data = [
-                'reference' => $factura->codigo,
+                'reference' => $cliente->nit,
                 'provider_id' => $factura->codigo,
                 'amount' => $amount,
                 'name' => 'Factura #' . $factura->codigo,
