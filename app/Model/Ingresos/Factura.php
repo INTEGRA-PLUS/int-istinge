@@ -1729,6 +1729,7 @@ public function forma_pago()
                 $diasCobrados = $fechaInicio->diffInDays($fechaFin);
                 $diasCobrados++;
 
+                //validacion mes de febrero.
                 if($fechaFin->format('d') == 28 && $grupo->fecha_corte == 30 && $diasCobrados == 28){
                     $diasCobrados = 30;
                 }
