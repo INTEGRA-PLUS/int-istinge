@@ -6056,6 +6056,131 @@ class FacturasController extends Controller{
         }
     }
 
+    public function convertirEstandar($facturaId, $masivo = false)
+    {
+        try {
+            $factura = Factura::find($facturaId);
+
+            if (!$factura) {
+                $mensaje = 'Factura no encontrada con ID: ' . $facturaId;
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            // Validar que la factura no esté emitida
+            if ($factura->emitida != 0) {
+                $mensaje = 'No se puede convertir una factura electrónica que ya ha sido emitida.';
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            $num = Factura::where('empresa', Auth::user()->empresa)->orderBy('nro', 'asc')->get()->last();
+            $numero = $num ? $num->nro + 1 : 1;
+
+            $nro = NumeracionFactura::where('empresa', Auth::user()->empresa)
+                ->where('preferida', 1)
+                ->where('estado', 1)
+                ->where('tipo', 1)
+                ->first();
+
+            if (!$nro) {
+                $mensaje = 'No se encontró una numeración para facturas estándar preferida.';
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+
+            // Actualizar y guardar datos
+            $inicio = $nro->inicio;
+            $nro->inicio += 1;
+            $nro->save();
+
+            $factura->codigo = $nro->prefijo . $inicio;
+
+            $codigoUsado = Factura::where('empresa', Auth::user()->empresa)
+            ->where('codigo', $factura->codigo)
+            ->where('id', '!=', $facturaId)
+            ->where('numeracion', $nro->id)
+            ->first();
+
+            if($codigoUsado){
+
+                if (!$masivo) {
+                    return back()->with('danger', 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado');
+                }
+
+                return [
+                    'success' => false,
+                    'message' => 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado',
+                    'factura_id' => $facturaId,
+                ];
+
+            }
+
+            $factura->nro = $numero;
+            $factura->numeracion = $nro->id;
+            $factura->tipo = 1;
+            $factura->fecha = Carbon::now()->format('Y-m-d');
+            $factura->save();
+
+            // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
+            if (!$masivo) {
+                $codigoNuevo = $factura->codigo;
+                $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a estándar por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato    = $factura->id;
+                $movimiento->modulo      = 8;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+            }
+
+            if (!$masivo) {
+                return back()->with('success', 'Factura con el nuevo código: ' . $factura->codigo . ' convertida correctamente.');
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Factura convertida exitosamente.',
+                'factura_id' => $facturaId,
+                'codigo' => $factura->codigo,
+            ];
+        } catch (\Exception $e) {
+            $mensajeError = 'Ocurrió un error al convertir la factura: ' . $e->getMessage();
+
+            if (!$masivo) {
+                return back()->with('danger', $mensajeError);
+            }
+
+            return [
+                'success' => false,
+                'message' => $mensajeError,
+                'factura_id' => $facturaId,
+            ];
+        }
+    }
+
 
     public function conversionmasivaElectronica($facturas){
         $facturas = explode(",", $facturas);
@@ -6092,6 +6217,66 @@ class FacturasController extends Controller{
             return response()->json([
                 'success' => true,
                 'text'    => 'Conversión masiva de facturas electrónicas terminada',
+            ]);
+        }
+    }
+
+    public function conversionmasivaEstandar($facturas){
+        $facturas = explode(",", $facturas);
+        $resultados = [];
+        $exitosos = 0;
+        $fallidos = 0;
+        
+        for ($i=0; $i < count($facturas) ; $i++) {
+            // Obtener el código anterior antes de la conversión
+            $facturaAntes = Factura::find($facturas[$i]);
+            $codigoAnterior = $facturaAntes ? $facturaAntes->codigo : null;
+
+            $response = $this->convertirEstandar($facturas[$i], 1);
+
+            // Crear log para cada conversión exitosa
+            if(isset($response['success']) && $response['success'] == true){
+                $factura = Factura::find($facturas[$i]);
+                if($factura){
+                    $codigoNuevo = $factura->codigo;
+                    $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a estándar por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = Auth::user()->empresa;
+                    $movimiento->save();
+                    $exitosos++;
+                }
+            } else {
+                $fallidos++;
+                $resultados[] = [
+                    'factura_id' => $facturas[$i],
+                    'codigo' => $codigoAnterior,
+                    'error' => isset($response['message']) ? $response['message'] : 'Error desconocido'
+                ];
+            }
+        }
+
+        if($fallidos > 0 && $exitosos == 0){
+            $mensaje = 'No se pudo convertir ninguna factura. ';
+            if(count($resultados) > 0){
+                $mensaje .= 'Errores: ' . implode(', ', array_column($resultados, 'error'));
+            }
+            return response()->json([
+                'success' => false,
+                'text'    => $mensaje,
+            ]);
+        }else{
+            $mensaje = 'Conversión masiva de facturas estándar terminada. ';
+            $mensaje .= 'Exitosas: ' . $exitosos;
+            if($fallidos > 0){
+                $mensaje .= ', Fallidas: ' . $fallidos;
+            }
+            return response()->json([
+                'success' => true,
+                'text'    => $mensaje,
             ]);
         }
     }

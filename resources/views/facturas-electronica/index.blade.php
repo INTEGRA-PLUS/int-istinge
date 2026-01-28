@@ -233,6 +233,7 @@
                     </button>
                     <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Emitir Facturas en Lote</a>
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_convertir_estandar"><i class="fas fa-exchange-alt"></i> Convertir a facturas estándar en Lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_siigo"><i class="fas fa-server"></i> Enviar a Siigo en lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_imp_fac"><i class="fas fa-file-excel"></i> Imprimir facturas</a>
                         @if(isset($_SESSION['permisos']['855']))
@@ -410,9 +411,11 @@
 			if(table.rows('.selected').data().length >= 0){
 				$("#btn_emitir").removeClass('disabled d-none');
                 $("#btn_imp_fac").removeClass('disabled d-none');
+                $("#btn_convertir_estandar").removeClass('disabled d-none');
 			}else{
 				$("#btn_emitir").addClass('disabled d-none');
                 $("#btn_imp_fac").removeClass('disabled d-none');
+                $("#btn_convertir_estandar").addClass('disabled d-none');
 			}
         });
 
@@ -473,6 +476,91 @@
                                 swal({
                                     title: 'INFO',
                                     html: 'Se han emitido algunas facturas, vuelve a emitir otro lote si quedan facturas pendientes.',
+                                    type: 'info',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'Recargar Página',
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+            console.log(facturas);
+        });
+
+        $('#btn_convertir_estandar').on('click', function(e) {
+            var table = $('#tabla-facturas').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if (nro <= 0) {
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una factura electrónica',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var facturas = [];
+            for (i = 0; i < nro; i++) {
+                facturas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '¿Desea convertir ' + nro + ' facturas electrónicas a estándar?',
+                text: 'Esto puede demorar unos minutos. Al Aceptar, no podrá cancelar el proceso',
+                type: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00ce68',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/facturas/conversionmasiva-estandar/` + facturas.join(',') :
+                        `/empresa/facturas/conversionmasiva-estandar/` + facturas.join(',');
+
+                    $.ajax({
+                        url: url,
+                        method: 'GET',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+
+                            if(data.success == false){
+                                swal({
+                                    title: 'ERROR',
+                                    html: data.message,
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                                return false;
+                            }else{
+                                swal({
+                                title: 'PROCESO REALIZADO',
+                                html: data.text,
+                                type: 'success',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#1A59A1',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                            }
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            if (xhr.status === 500) {
+                                swal({
+                                    title: 'INFO',
+                                    html: 'Se han convertido algunas facturas, vuelve a convertir otro lote si quedan facturas pendientes.',
                                     type: 'info',
                                     showConfirmButton: true,
                                     confirmButtonColor: '#d33',
