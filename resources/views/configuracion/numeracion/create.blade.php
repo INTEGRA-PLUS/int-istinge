@@ -20,7 +20,7 @@
     </div>
     <div class="col-md-3 form-group">
       <label class="control-label">Número inicial <span class="text-danger">*</span></label>
-      <input type="text" class="form-control nro"  id="inicio" name="inicio"  required="" value="{{old('inicio')}}" maxlength="8">
+      <input type="text" class="form-control nro"  id="inicio" name="inicio"  required="" value="{{old('inicio')}}" maxlength="15">
       <span class="help-block error">
         <strong>{{ $errors->first('inicio') }}</strong>
       </span>
