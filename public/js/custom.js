@@ -549,7 +549,7 @@ $(document).ready(function() {
 
 
     if ($('#form-numeracion').length > 0) {
-        $('.nro').mask('00000');
+        $('.nro').mask('000000000000000');
         $("#form-numeracion").validate({ language: 'es' });
         var today = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
         $('#desde').datepicker({

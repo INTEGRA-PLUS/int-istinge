@@ -2296,6 +2296,7 @@ class CronController extends Controller
         }
     }
 
+
     public function eventosWompi(Request $request){
         $empresa = Empresa::find(1);
         $request = (object) $request->all();
@@ -4326,6 +4327,45 @@ class CronController extends Controller
         }
 
         return "ookok";
+
+   }
+
+   public static function agregarIVA(){
+
+    //Agrega el iva solamente al item que es tv y no cambia el total de la factura, solo discrmina el iva.
+    $facturas = Factura::where('fecha','>=','2026-01-01')->where('tipo',2)->get();
+
+       foreach($facturas as $factura){
+
+            $items = $factura->itemsFactura()
+            ->where('descripcion', 'LIKE', '%TV%')
+            ->get();
+
+            foreach ($items as $i) {
+
+                if($i->id_impuesto != 1){
+                    $precio = (float) $i->precio; // precio con IVA
+                    $cant   = (float) $i->cant;
+
+                    $totalConIva = $precio * $cant;
+
+                    $base = $totalConIva / 1.19;
+                    $iva  = $totalConIva - $base;
+
+                    $i->precio = round($base, 2); // ahora precio SIN IVA
+                    $i->impuesto = round($iva, 2);
+                    $i->id_impuesto = 1; // 19%
+
+                    // return $i;
+                    $i->save(); // solo si quieres persistir
+                }
+
+
+            }
+       }
+
+       return "ok cambios";
+
 
    }
 
