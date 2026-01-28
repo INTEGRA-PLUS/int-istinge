@@ -628,6 +628,7 @@ class FacturasController extends Controller{
         ->join('empresas as em', 'em.id', '=', 'factura.empresa')
         ->join('items_factura as if', 'factura.id', '=', 'if.factura')
         ->leftJoin('vendedores as v', 'factura.vendedor', '=', 'v.id')
+        ->leftJoin('barrios as barrio','barrio.id','c.barrio_id')
         ->leftJoin(
             DB::raw('
                 (SELECT factura_id, contrato_nro
@@ -644,6 +645,7 @@ class FacturasController extends Controller{
         ->leftJoin('contracts as cs2', 'cs2.id', '=', 'factura.contrato_id')
         ->leftJoin('mikrotik as mk', 'mk.id', '=', 'cs1.server_configuration_id')
         ->select(
+            'barrio.nombre as barrio',
             'mk.nombre as servidor',
             'cs1.server_configuration_id',
             'cs1.opciones_dian',
@@ -1113,7 +1115,7 @@ class FacturasController extends Controller{
                     ->groupBy('fc1.contrato_nro')
                     ->pluck('factura_id')
                     ->toArray();
-                
+
                 if (!empty($ultimasFacturasIds)) {
                     $facturas->whereIn('factura.id', $ultimasFacturasIds);
                 } else {
@@ -1287,7 +1289,7 @@ class FacturasController extends Controller{
                     ->groupBy('fc1.contrato_nro')
                     ->pluck('factura_id')
                     ->toArray();
-                
+
                 if (!empty($ultimasFacturasIds)) {
                     $countQuery->whereIn('factura.id', $ultimasFacturasIds);
                 } else {
