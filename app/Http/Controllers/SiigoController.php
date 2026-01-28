@@ -407,11 +407,17 @@ class SiigoController extends Controller
 
             $apellidos = $cliente_factura->apellido1 . ($cliente_factura->apellido2 != "" ?  " " . $cliente_factura->apellido2 : "");
 
+            // Determinar el valor de draft basado en la configuración siigo_emitida
+            // Si siigo_emitida == 1, entonces draft = false (factura emitida)
+            // Si siigo_emitida == 0 o no existe, entonces draft = true (factura como borrador)
+            $draftValue = (isset($empresa->siigo_emitida) && $empresa->siigo_emitida == 1) ? false : true;
+
             $data = [
                 "document" => [
                     "id" => $request->tipo_comprobante
                 ],
                 "date" => Carbon::now()->format('Y-m-d'),
+                "draft" => $draftValue,
                 "customer" => [
                     "person_type" => $cliente_factura->dv != null ? 'Company' : 'Person',
                     "id_type" => $cliente_factura->dv != null ? "31" : "13", //13 cedula 31 nit

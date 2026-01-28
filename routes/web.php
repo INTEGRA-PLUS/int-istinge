@@ -249,6 +249,7 @@ Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consult
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
 Route::post('configuracion_pagosiigo', 'ConfiguracionController@pagosSiigo');
+Route::post('configuracion_siigoemitida', 'ConfiguracionController@siigoEmitida');
 Route::post('configuracion_reconexiongenerica', 'ConfiguracionController@reconexionGenerica');
 Route::post('updatereconexiongenerica', 'ConfiguracionController@updateReconexionGenerica')->name('configuracion.updatereconexiongenerica');
 Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@aplicacionSaldosFavor');

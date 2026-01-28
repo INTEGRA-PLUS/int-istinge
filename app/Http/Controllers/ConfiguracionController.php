@@ -2730,6 +2730,20 @@ class ConfiguracionController extends Controller
         }
     }
 
+    public function siigoEmitida(Request $request){
+        $empresa = Empresa::find(auth()->user()->empresa);
+
+        if ($request->status == 0) {
+          $empresa->siigo_emitida = 1;
+          $empresa->save();
+          return 1;
+        } else {
+          $empresa->siigo_emitida = 0;
+          $empresa->save();
+          return 0;
+        }
+    }
+
     /**
      * Parsea una fecha en diferentes formatos y la convierte a Y-m-d
      * @param string $dateString Fecha en cualquier formato común

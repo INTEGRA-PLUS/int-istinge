@@ -360,12 +360,24 @@
                         Enviar a siigo al crear pago
                     </a>
                     <input type="hidden" id="pagosiigo" value="{{ Auth::user()->empresa()->pago_siigo }}">
+                    <br>
+                    <a href="javascript:siigoEmitida()">
+                        {{ (Auth::user()->empresa()->siigo_emitida ?? 0) == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                        Enviar a siigo con estado emitido
+                    </a>
+                    <input type="hidden" id="siigoemitida" value="{{ Auth::user()->empresa()->siigo_emitida ?? 0 }}">
 
                 @elseif($empresa->pago_siigo == 1)
                 <a href="javascript:pagoSiigo()">
                     {{ Auth::user()->empresa()->pago_siigo == 0 ? 'Habilitar' : 'Deshabilitar' }}
                     Enviar a siigo al crear pago
                 </a>
+                <br>
+                <a href="javascript:siigoEmitida()">
+                    {{ (Auth::user()->empresa()->siigo_emitida ?? 0) == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                    Enviar a siigo con estado emitido
+                </a>
+                <input type="hidden" id="siigoemitida" value="{{ Auth::user()->empresa()->siigo_emitida ?? 0 }}">
                 @endif
             @endif
         </div>
@@ -1546,6 +1558,70 @@
                         }
                     });
 
+                }
+            })
+        }
+
+        function siigoEmitida(){
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion_siigoemitida';
+            } else {
+                var url = '/configuracion_siigoemitida';
+            }
+
+            if ($("#siigoemitida").val() == 0) {
+                $titleswal = "¿Desea habilitar el envio a siigo con el estado emitido?";
+            }
+
+            if ($("#siigoemitida").val() == 1) {
+                $titleswal = "¿Desea deshabilitar el envio a siigo con el estado emitido?";
+            }
+
+            Swal.fire({
+                title: $titleswal,
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                cancelButtonText: 'Cancelar',
+                confirmButtonText: 'Aceptar',
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: url,
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        method: 'post',
+                        data: {
+                            status: $("#siigoemitida").val()
+                        },
+                        success: function(data) {
+                            console.log(data);
+                            if (data == 1) {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envío a siigo con estado emitido habilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#siigoemitida").val(1);
+                            } else {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envío a siigo con estado emitido deshabilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#siigoemitida").val(0);
+                            }
+                            setTimeout(function() {
+                                var a = document.createElement("a");
+                                a.href = window.location.pathname;
+                                a.click();
+                            }, 1000);
+                        }
+                    });
                 }
             })
         }
