@@ -664,14 +664,14 @@
 
     @if(count($imagenes) > 0)
     @foreach($imagenes as $index => $imagen)
-    <div style="{{ $index > 0 ? 'page-break-before: always;' : '' }} page-break-inside: avoid; page-break-after: avoid;">
-        <table width="100%" style="page-break-inside: avoid;">
+    <div style="{{ $index > 0 ? 'page-break-before: always;' : '' }} page-break-inside: avoid; page-break-after: avoid; margin: 0; padding: 0;">
+        <table width="100%" style="page-break-inside: avoid; width: 100%; margin: 0; padding: 0;">
             <tbody>
                 <tr>
-                    <td style="text-align: center; vertical-align: middle; padding: 30px;">
-                        <p style="font-weight: bold; margin-bottom: 20px; padding: 8px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
-                        <div style="text-align: center;">
-                            <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="width: 70%; max-width: 70%; height: auto; max-height: 500px; display: block; margin: 0 auto;">
+                    <td style="text-align: center; vertical-align: middle; padding: 30px; width: 100%;">
+                        <p style="font-weight: bold; margin-bottom: 20px; margin-top: 0; padding: 8px; text-align: center;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
+                        <div style="text-align: center; width: 100%; margin: 0; padding: 0;">
+                            <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="width: 70% !important; max-width: 70% !important; height: auto !important; max-height: 500px !important; display: block !important; margin: 0 auto !important;">
                         </div>
                     </td>
                 </tr>
