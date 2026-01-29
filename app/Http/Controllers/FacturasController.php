@@ -6471,29 +6471,59 @@ class FacturasController extends Controller{
 
                         if($empresa->proveedor == 2){
                             try {
+                                // Guardar el estado inicial de emitida
+                                $emitidaAntes = $factura->emitida;
+
                                 $resultado = $this->jsonDianFacturaVenta($factura->id);
 
-                                // Verificar si la respuesta es un error
-                                if($resultado instanceof \Illuminate\Http\JsonResponse){
-                                    $data = json_decode($resultado->getContent(), true);
-                                    if(isset($data['status']) && ($data['status'] == 'error' || $data['status'] == 0)){
-                                        $errores[] = "Factura #{$factura->codigo}: " . ($data['message'] ?? $data['mensaje'] ?? 'Error desconocido');
-                                        continue;
-                                    } elseif(isset($data['status']) && $data['status'] == 'success'){
-                                        $exitosas++;
-                                    } else {
-                                        $exitosas++;
-                                    }
-                                } else {
-                                    // Si es un redirect, asumimos éxito (el método maneja sus propios errores)
+                                // Recargar la factura para verificar si quedó emitida
+                                $factura->refresh();
+
+                                // Si la factura quedó marcada como emitida, fue exitosa
+                                if($factura->emitida == 1 && $factura->emitida != $emitidaAntes){
                                     $exitosas++;
+                                } else {
+                                    // Verificar si la respuesta es un error
+                                    if($resultado instanceof \Illuminate\Http\JsonResponse){
+                                        $data = json_decode($resultado->getContent(), true);
+                                        if(isset($data['status']) && ($data['status'] == 'error' || $data['status'] == 0)){
+                                            $errores[] = "Factura #{$factura->codigo}: " . ($data['message'] ?? $data['mensaje'] ?? 'Error desconocido');
+                                        } elseif(isset($data['status']) && $data['status'] == 'success'){
+                                            // Si el status es success pero no se marcó como emitida, verificar UUID
+                                            if($factura->uuid){
+                                                $exitosas++;
+                                            } else {
+                                                $errores[] = "Factura #{$factura->codigo}: Procesada pero no se pudo confirmar la emisión";
+                                            }
+                                        } else {
+                                            // Si no hay status claro, verificar por UUID
+                                            if($factura->uuid){
+                                                $exitosas++;
+                                            } else {
+                                                $errores[] = "Factura #{$factura->codigo}: No se pudo determinar el resultado";
+                                            }
+                                        }
+                                    } else {
+                                        // Si es un redirect, verificar si quedó emitida
+                                        if($factura->emitida == 1 || $factura->uuid){
+                                            $exitosas++;
+                                        } else {
+                                            $errores[] = "Factura #{$factura->codigo}: No se pudo confirmar la emisión";
+                                        }
+                                    }
                                 }
                             } catch (\Exception $e) {
-                                $mensajeError = $e->getMessage();
-                                if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
-                                    $mensajeError = "El vendedor asociado a la factura no existe o no está configurado correctamente";
+                                // Verificar si a pesar del error, la factura quedó emitida
+                                $factura->refresh();
+                                if($factura->emitida == 1 || $factura->uuid){
+                                    $exitosas++;
+                                } else {
+                                    $mensajeError = $e->getMessage();
+                                    if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
+                                        $mensajeError = "El vendedor asociado a la factura no existe o no está configurado correctamente";
+                                    }
+                                    $errores[] = "Factura #{$factura->codigo}: {$mensajeError}";
                                 }
-                                $errores[] = "Factura #{$factura->codigo}: {$mensajeError}";
                             }
                         }else{
                             try {
