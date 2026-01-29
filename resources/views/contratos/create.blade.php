@@ -1385,6 +1385,19 @@
         $(document).on('change', 'input[type="file"]', function() {
             var fileName = this.files[0].name;
             var fileSize = this.files[0].size;
+            var fileInputId = $(this).attr('id');
+            var referenciaId = '';
+
+            // Mapear el adjunto a su referencia correspondiente
+            if (fileInputId === 'adjunto_a') {
+                referenciaId = 'referencia_a';
+            } else if (fileInputId === 'adjunto_b') {
+                referenciaId = 'referencia_b';
+            } else if (fileInputId === 'adjunto_c') {
+                referenciaId = 'referencia_c';
+            } else if (fileInputId === 'adjunto_d') {
+                referenciaId = 'referencia_d';
+            }
 
             if (fileSize > 512000) {
                 this.value = '';
@@ -1407,6 +1420,22 @@
                     case 'JPG':
                     case 'PNG':
                     case 'PDF':
+                        // Validar que si hay adjunto, también haya referencia
+                        if (referenciaId && this.files.length > 0) {
+                            var referenciaValue = $('#' + referenciaId).val();
+                            if (!referenciaValue || referenciaValue.trim() === '') {
+                                var letraAdjunto = fileInputId.replace('adjunto_', '').toUpperCase();
+                                Swal.fire({
+                                    title: 'Debe ingresar una Referencia ' + letraAdjunto,
+                                    text: 'Si ingresa un Adjunto ' + letraAdjunto + ', debe ingresar también una Referencia ' + letraAdjunto,
+                                    type: 'warning',
+                                    showCancelButton: false,
+                                    confirmButtonColor: '#3085d6',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                                $('#' + referenciaId).focus();
+                            }
+                        }
                         break;
                     default:
                         this.value = '';
@@ -1421,6 +1450,38 @@
                             timer: 10000
                         });
                 }
+            }
+        });
+
+        // Validación antes de enviar el formulario
+        $('#form-contrato').on('submit', function(e) {
+            var adjuntos = ['adjunto_a', 'adjunto_b', 'adjunto_c', 'adjunto_d'];
+            var referencias = ['referencia_a', 'referencia_b', 'referencia_c', 'referencia_d'];
+            var errores = [];
+
+            for (var i = 0; i < adjuntos.length; i++) {
+                var adjuntoInput = document.getElementById(adjuntos[i]);
+                var referenciaInput = $('#' + referencias[i]);
+
+                if (adjuntoInput && adjuntoInput.files.length > 0) {
+                    var referenciaValue = referenciaInput.val();
+                    if (!referenciaValue || referenciaValue.trim() === '') {
+                        var letra = adjuntos[i].replace('adjunto_', '').toUpperCase();
+                        errores.push('Si ingresa un Adjunto ' + letra + ', debe ingresar también una Referencia ' + letra);
+                    }
+                }
+            }
+
+            if (errores.length > 0) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Validación de Adjuntos',
+                    html: errores.join('<br>'),
+                    type: 'error',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Aceptar'
+                });
+                return false;
             }
         });
 

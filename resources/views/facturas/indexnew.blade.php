@@ -175,11 +175,15 @@
 							</select>
 						</div>
                         @endif
-                        <div class="col-md-2 pl-1 pt-1">
-							<select title="Otras opciones" class="form-control rounded selectpicker" id="otras_opciones" data-size="5">
-								<option value="">Seleccione...</option>
+                        <div class="col-md-3 pl-1 pt-1" style="display: flex; align-items: center;">
+							<select title="Otras opciones" class="form-control rounded selectpicker" id="otras_opciones" data-size="5" data-toggle="tooltip" data-placement="top" title="" style="flex: 1;">
+								<option value="">Otras opciones</option>
 								<option value="ultimas_contratos">Últimas facturas por contratos</option>
+								<option value="clientes_multiples_facturas">Clientes con más de 1 factura</option>
 							</select>
+							<span id="tooltip_clientes_multiples" style="display: none; margin-left: 5px;">
+								<a><i data-tippy-content="Si el cliente tiene más de una factura (a partir de 2 facturas) saldrán en la tabla, usa las fechas desde - hasta para obtener mayor precisión y saber si un cliente se le generó varias veces la facturación en un mes." class="icono far fa-question-circle"></i></a>
+							</span>
 						</div>
 						<div class="col-md-2 pl-1 pt-1 d-none">
 							<select title="Enviada a Correo" class="form-control rounded selectpicker" id="correo">
@@ -412,6 +416,11 @@
 <script>
 	// Variable global para controlar cuando se hace clic en filtrar
 	var filtroClickeado = false;
+
+	// Inicializar tooltips
+	$(document).ready(function() {
+		$('[data-toggle="tooltip"]').tooltip();
+	});
 
     function showModalSiigo(factura_id,codigo,fecha,cliente){
 
@@ -787,11 +796,56 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo, #otras_opciones, #tipo_facturacion').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo, #tipo_facturacion').on('change',function() {
             filtroClickeado = true; // Marcar que se aplicó un filtro por cambio de dropdown
             getDataTable();
             return false;
         });
+
+		// Inicializar tooltip después de que selectpicker esté listo
+		$('#otras_opciones').on('loaded.bs.select', function() {
+			$(this).tooltip({
+				placement: 'top',
+				trigger: 'hover'
+			});
+		});
+
+		// Manejar tooltip y ejecución automática cuando cambie la selección
+		$('#otras_opciones').on('changed.bs.select', function() {
+			var selectedValue = $(this).val();
+
+			// Mostrar/ocultar icono de tooltip según la opción seleccionada
+			if (selectedValue === 'clientes_multiples_facturas') {
+				$('#tooltip_clientes_multiples').show();
+				// Reinicializar tippy para el nuevo elemento visible
+				// tippy se inicializa globalmente con .icono, pero necesitamos reinicializarlo para elementos dinámicos
+				if (typeof tippy !== 'undefined') {
+					setTimeout(function() {
+						var iconElement = document.querySelector('#tooltip_clientes_multiples .icono');
+						if (iconElement && !iconElement._tippy) {
+							tippy(iconElement, {
+								content(reference) {
+									return reference.getAttribute('data-tippy-content');
+								},
+								animation: 'perspective',
+								arrow: true,
+								arrowType: 'sharp',
+								interactive: true,
+								allowHTML: true
+							});
+						}
+					}, 100);
+				}
+			} else {
+				$('#tooltip_clientes_multiples').hide();
+			}
+
+			// Ejecutar filtro automáticamente si hay una opción seleccionada
+			if (selectedValue) {
+				filtroClickeado = true; // Marcar que se aplicó un filtro
+				getDataTable();
+			}
+		});
 
 		$('.vencimiento').datepicker({
 			locale: 'es-es',

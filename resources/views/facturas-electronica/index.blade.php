@@ -195,6 +195,16 @@
 							</select>
 						</div>
                         @endif
+                        <div class="col-md-3 pl-1 pt-1" style="display: flex; align-items: center;">
+							<select title="Otras opciones" class="form-control rounded selectpicker" id="otras_opciones" data-size="5" data-toggle="tooltip" data-placement="top" title="" style="flex: 1;">
+								<option value="">Otras opciones</option>
+								<option value="ultimas_contratos">Últimas facturas por contratos</option>
+								<option value="clientes_multiples_facturas">Clientes con más de 1 factura</option>
+							</select>
+							<span id="tooltip_clientes_multiples" style="display: none; margin-left: 5px;">
+								<a><i data-tippy-content="Si el cliente tiene más de una factura (a partir de 2 facturas) saldrán en la tabla, usa las fechas desde - hasta para obtener mayor precisión y saber si un cliente se le generó varias veces la facturación en un mes." class="icono far fa-question-circle"></i></a>
+							</span>
+						</div>
 						<div class="col-md-2 pl-1 pt-1 d-none">
 							<select title="Enviada a Correo" class="form-control rounded selectpicker" id="correo">
 								<option value="1">Si</option>
@@ -295,6 +305,12 @@
 @section('scripts')
 <script>
 	var tabla = $('#tabla-facturas');
+
+	// Inicializar tooltips
+	$(document).ready(function() {
+		$('[data-toggle="tooltip"]').tooltip();
+	});
+
 	window.addEventListener('load', function() {
 		var tabla = $('#tabla-facturas').DataTable({
 			responsive: true,
@@ -365,6 +381,7 @@
 			data.grupos_corte = $('#grupos_corte').val();
 			data.fact_siigo = $('#fact_siigo').val();
 			data.emision = $('#emision').val();
+			data.otras_opciones = $('#otras_opciones').val();
 			data.filtro = true;
 		});
 
@@ -387,10 +404,54 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #grupos_corte, #fact_siigo').on('change',function() {
+		$('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #grupos_corte, #fact_siigo').on('change',function() {
             getDataTable();
             return false;
         });
+
+		// Inicializar tooltip después de que selectpicker esté listo
+		$('#otras_opciones').on('loaded.bs.select', function() {
+			$(this).tooltip({
+				placement: 'top',
+				trigger: 'hover'
+			});
+		});
+
+		// Manejar tooltip y ejecución automática cuando cambie la selección
+		$('#otras_opciones').on('changed.bs.select', function() {
+			var selectedValue = $(this).val();
+
+			// Mostrar/ocultar icono de tooltip según la opción seleccionada
+			if (selectedValue === 'clientes_multiples_facturas') {
+				$('#tooltip_clientes_multiples').show();
+				// Reinicializar tippy para el nuevo elemento visible
+				// tippy se inicializa globalmente con .icono, pero necesitamos reinicializarlo para elementos dinámicos
+				if (typeof tippy !== 'undefined') {
+					setTimeout(function() {
+						var iconElement = document.querySelector('#tooltip_clientes_multiples .icono');
+						if (iconElement && !iconElement._tippy) {
+							tippy(iconElement, {
+								content(reference) {
+									return reference.getAttribute('data-tippy-content');
+								},
+								animation: 'perspective',
+								arrow: true,
+								arrowType: 'sharp',
+								interactive: true,
+								allowHTML: true
+							});
+						}
+					}, 100);
+				}
+			} else {
+				$('#tooltip_clientes_multiples').hide();
+			}
+
+			// Ejecutar filtro automáticamente si hay una opción seleccionada
+			if (selectedValue) {
+				getDataTable();
+			}
+		});
 
 		$('.vencimiento').datepicker({
 			locale: 'es-es',
@@ -844,6 +905,7 @@
 		$('#estado').val('').selectpicker('refresh');
 		$('#grupos_corte').val('').selectpicker('refresh');
 		$('#fact_siigo').val('').selectpicker('refresh');
+		$('#otras_opciones').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
 		$('#emision').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
@@ -853,7 +915,7 @@
 
 	function exportar() {
 		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
+        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
 	}
 </script>
 @endsection

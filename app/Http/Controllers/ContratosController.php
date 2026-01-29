@@ -825,10 +825,24 @@ class ContratosController extends Controller
             }
 
             $request->validate($rules);
-        } elseif ($request->servicio_tv) {
+        } else        if ($request->servicio_tv) {
             $request->validate([
                 'servicio_tv' => 'required'
             ]);
+        }
+
+        // Validación: Si hay adjunto, debe haber referencia correspondiente
+        if ($request->hasFile('adjunto_a') && empty($request->referencia_a)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto A, debe ingresar también una Referencia A');
+        }
+        if ($request->hasFile('adjunto_b') && empty($request->referencia_b)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto B, debe ingresar también una Referencia B');
+        }
+        if ($request->hasFile('adjunto_c') && empty($request->referencia_c)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto C, debe ingresar también una Referencia C');
+        }
+        if ($request->hasFile('adjunto_d') && empty($request->referencia_d)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto D, debe ingresar también una Referencia D');
         }
 
         $ppoe_local_adress = "";
@@ -1661,6 +1675,20 @@ class ContratosController extends Controller
 
         if (!$request->server_configuration_id && !$request->servicio_tv) {
             return back()->with('danger', 'ESTÁ INTENTANDO GENERAR UN CONTRATO PERO NO HA SELECCIONADO NINGÚN SERVICIO');
+        }
+
+        // Validación: Si hay adjunto, debe haber referencia correspondiente
+        if ($request->hasFile('adjunto_a') && empty($request->referencia_a)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto A, debe ingresar también una Referencia A');
+        }
+        if ($request->hasFile('adjunto_b') && empty($request->referencia_b)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto B, debe ingresar también una Referencia B');
+        }
+        if ($request->hasFile('adjunto_c') && empty($request->referencia_c)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto C, debe ingresar también una Referencia C');
+        }
+        if ($request->hasFile('adjunto_d') && empty($request->referencia_d)) {
+            return back()->withInput()->with('danger', 'Si ingresa un Adjunto D, debe ingresar también una Referencia D');
         }
 
         if ($request->mac_address) {

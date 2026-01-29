@@ -801,6 +801,59 @@ class FacturasController extends Controller{
             if ($request->hasta) {
                 $facturas->where('factura.fecha', '<=', $request->hasta);
             }
+            // Filtro de otras opciones
+            if ($request->otras_opciones == 'ultimas_contratos') {
+                // Obtener las facturas más recientes de cada contrato desde facturas_contratos
+                $ultimasFacturasIds = DB::table('facturas_contratos as fc1')
+                    ->select(DB::raw('MAX(fc1.factura_id) as factura_id'))
+                    ->whereIn('fc1.factura_id', function($query) use ($identificadorEmpresa) {
+                        $query->select('id')
+                            ->from('factura')
+                            ->where('empresa', $identificadorEmpresa)
+                            ->where('tipo', 2)
+                            ->where('lectura', 1);
+                    })
+                    ->groupBy('fc1.contrato_nro')
+                    ->pluck('factura_id')
+                    ->toArray();
+
+                if (!empty($ultimasFacturasIds)) {
+                    $facturas->whereIn('factura.id', $ultimasFacturasIds);
+                } else {
+                    // Si no hay facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
+            }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', 2)
+                    ->where('lectura', 1);
+                
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+                
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+                
+                if (!empty($clientesMultiplesIds)) {
+                    $facturas->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
+            }
         } else {
             // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
             $facturas->where(function ($query) {
@@ -1123,6 +1176,38 @@ class FacturasController extends Controller{
                     $facturas->where('factura.id', '=', 0);
                 }
             }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', '!=', 2)
+                    ->where('tipo', '!=', 5)
+                    ->where('tipo', '!=', 6)
+                    ->where('lectura', 1);
+                
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+                
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+                
+                if (!empty($clientesMultiplesIds)) {
+                    $facturas->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
+            }
         } else {
             // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
             $facturas->where(function ($query) {
@@ -1294,6 +1379,38 @@ class FacturasController extends Controller{
                     $countQuery->whereIn('factura.id', $ultimasFacturasIds);
                 } else {
                     // Si no hay facturas, no mostrar ninguna
+                    $countQuery->where('factura.id', '=', 0);
+                }
+            }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', '!=', 2)
+                    ->where('tipo', '!=', 5)
+                    ->where('tipo', '!=', 6)
+                    ->where('lectura', 1);
+                
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+                
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+                
+                if (!empty($clientesMultiplesIds)) {
+                    $countQuery->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
                     $countQuery->where('factura.id', '=', 0);
                 }
             }
