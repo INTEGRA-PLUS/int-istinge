@@ -624,4 +624,67 @@
             </tbody>
         </table>
     </div>
+
+    @if(($contact->imgA ?? null) || ($contact->imgB ?? null) || ($contact->imgC ?? null) || ($contact->imgD ?? null) || ($contact->imgE ?? null) || ($contact->imgF ?? null) || ($contact->imgG ?? null) || ($contact->imgH ?? null) || ($contract->imgA ?? null) || ($contract->imgB ?? null) || ($contract->imgC ?? null) || ($contract->imgD ?? null) || ($contract->imgE ?? null) || ($contract->imgF ?? null) || ($contract->imgG ?? null) || ($contract->imgH ?? null))
+    <div style="margin-top: 20px;">
+        <table width="100%">
+            <tbody>
+                <tr>
+                    <td style="vertical-align:top;" width="50%">
+                        @if($contact->imgA ?? $contract->imgA ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen A</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgA ?? $contract->imgA)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgC ?? $contract->imgC ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen C</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgC ?? $contract->imgC)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgE ?? $contract->imgE ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen E</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgE ?? $contract->imgE)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgG ?? $contract->imgG ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen G</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgG ?? $contract->imgG)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                    </td>
+                    <td style="vertical-align:top;" width="50%">
+                        @if($contact->imgB ?? $contract->imgB ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen B</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgB ?? $contract->imgB)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgD ?? $contract->imgD ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen D</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgD ?? $contract->imgD)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgF ?? $contract->imgF ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen F</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgF ?? $contract->imgF)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                        @if($contact->imgH ?? $contract->imgH ?? null)
+                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen H</p>
+                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgH ?? $contract->imgH)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                        </div>
+                        @endif
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    @endif
 @endsection
