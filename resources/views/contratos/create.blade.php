@@ -353,6 +353,7 @@
                                     <option value="4" {{ old('estrato') == 4 ? 'selected' : '' }}>4</option>
                                     <option value="5" {{ old('estrato') == 5 ? 'selected' : '' }}>5</option>
                                     <option value="6" {{ old('estrato') == 6 ? 'selected' : '' }}>6</option>
+                                    <option value="7" {{ old('estrato') == 7 ? 'selected' : '' }}>7</option>
                                 </select>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('estrato') }}</strong>

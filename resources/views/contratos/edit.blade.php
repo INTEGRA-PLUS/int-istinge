@@ -268,6 +268,7 @@
                                     <option value="4" {{ $contrato->estrato == 4 ? 'selected' : '' }}>4</option>
                                     <option value="5" {{ $contrato->estrato == 5 ? 'selected' : '' }}>5</option>
                                     <option value="6" {{ $contrato->estrato == 6 ? 'selected' : '' }}>6</option>
+                                    <option value="7" {{ $contrato->estrato == 7 ? 'selected' : '' }}>7</option>
                                 </select>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('estrato') }}</strong>
@@ -1131,12 +1132,12 @@
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
-            
+
             // Guardar valores actuales del plan y tipo de conexión antes de cargar
             var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
             var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
             var consultasMk = {{ $consultasMk ?? 1 }};
-            
+
             // Solo cargar interfaces y profiles si consultas_mk == 1
             if (consultasMk == 1) {
                 getInterfaces($("#server_configuration_id").val());
@@ -1388,14 +1389,14 @@
             // El valor ya está seleccionado en el select, solo llamar la función
             cargarPuertosNap();
         @endif
-        
+
         // Cargar planes al iniciar si ya hay un servidor seleccionado
         @if(isset($contrato) && $contrato->server_configuration_id)
             var serverId = $('#server_configuration_id').val();
             var consultasMk = {{ $consultasMk ?? 1 }};
             var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
             var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
-            
+
             if (serverId) {
                 // Guardar valores actuales antes de llamar getPlanes
                 getPlanes(serverId, consultasMk, currentPlanId, currentConexion);
