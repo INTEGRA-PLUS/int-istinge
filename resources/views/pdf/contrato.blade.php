@@ -85,6 +85,14 @@
         .pl-2{
             padding-left: .75em;
         }
+        .imagen-container {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .imagen-row {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
     </style>
     <style media="print" type="text/css">
         @page {
@@ -625,66 +633,44 @@
         </table>
     </div>
 
-    @if(($contact->imgA ?? null) || ($contact->imgB ?? null) || ($contact->imgC ?? null) || ($contact->imgD ?? null) || ($contact->imgE ?? null) || ($contact->imgF ?? null) || ($contact->imgG ?? null) || ($contact->imgH ?? null) || ($contract->imgA ?? null) || ($contract->imgB ?? null) || ($contract->imgC ?? null) || ($contract->imgD ?? null) || ($contract->imgE ?? null) || ($contract->imgF ?? null) || ($contract->imgG ?? null) || ($contract->imgH ?? null))
+    @php
+        $imagenes = [];
+        if($contact->imgA ?? $contract->imgA ?? null) $imagenes[] = ['letra' => 'A', 'ruta' => ($contact->imgA ?? $contract->imgA)];
+        if($contact->imgB ?? $contract->imgB ?? null) $imagenes[] = ['letra' => 'B', 'ruta' => ($contact->imgB ?? $contract->imgB)];
+        if($contact->imgC ?? $contract->imgC ?? null) $imagenes[] = ['letra' => 'C', 'ruta' => ($contact->imgC ?? $contract->imgC)];
+        if($contact->imgD ?? $contract->imgD ?? null) $imagenes[] = ['letra' => 'D', 'ruta' => ($contact->imgD ?? $contract->imgD)];
+        if($contact->imgE ?? $contract->imgE ?? null) $imagenes[] = ['letra' => 'E', 'ruta' => ($contact->imgE ?? $contract->imgE)];
+        if($contact->imgF ?? $contract->imgF ?? null) $imagenes[] = ['letra' => 'F', 'ruta' => ($contact->imgF ?? $contract->imgF)];
+        if($contact->imgG ?? $contract->imgG ?? null) $imagenes[] = ['letra' => 'G', 'ruta' => ($contact->imgG ?? $contract->imgG)];
+        if($contact->imgH ?? $contract->imgH ?? null) $imagenes[] = ['letra' => 'H', 'ruta' => ($contact->imgH ?? $contract->imgH)];
+    @endphp
+
+    @if(count($imagenes) > 0)
     <div style="margin-top: 20px;">
-        <table width="100%">
+        @for($i = 0; $i < count($imagenes); $i += 2)
+        <table width="100%" class="imagen-row" style="margin-bottom: 10px; page-break-inside: avoid;">
             <tbody>
                 <tr>
-                    <td style="vertical-align:top;" width="50%">
-                        @if($contact->imgA ?? $contract->imgA ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen A</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgA ?? $contract->imgA)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgC ?? $contract->imgC ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen C</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgC ?? $contract->imgC)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgE ?? $contract->imgE ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen E</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgE ?? $contract->imgE)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgG ?? $contract->imgG ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen G</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgG ?? $contract->imgG)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                    <td style="vertical-align:top; padding-right: 5px;" width="50%" class="imagen-container">
+                        @if(isset($imagenes[$i]))
+                        <div style="border: 1px solid #000; text-align: center; padding: 5px; page-break-inside: avoid;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen {{ $imagenes[$i]['letra'] }}</p>
+                            <img src="{{ asset('adjuntos/documentos/'.$imagenes[$i]['ruta']) }}" style="max-width: 100%; max-height: 280px; width: auto; height: auto; display: block; margin: 0 auto;">
                         </div>
                         @endif
                     </td>
-                    <td style="vertical-align:top;" width="50%">
-                        @if($contact->imgB ?? $contract->imgB ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen B</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgB ?? $contract->imgB)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgD ?? $contract->imgD ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen D</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgD ?? $contract->imgD)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgF ?? $contract->imgF ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen F</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgF ?? $contract->imgF)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
-                        </div>
-                        @endif
-                        @if($contact->imgH ?? $contract->imgH ?? null)
-                        <div style="border: 1px solid #000; margin-top: 5px; text-align: center; padding: 5px;">
-                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen H</p>
-                            <img src="{{ asset('adjuntos/documentos/'.($contact->imgH ?? $contract->imgH)) }}" style="max-width: 100%; max-height: 300px; width: auto; height: auto;">
+                    <td style="vertical-align:top; padding-left: 5px;" width="50%" class="imagen-container">
+                        @if(isset($imagenes[$i + 1]))
+                        <div style="border: 1px solid #000; text-align: center; padding: 5px; page-break-inside: avoid;">
+                            <p style="font-weight: bold; margin-bottom: 5px;" class="small titulo-bg">Imagen {{ $imagenes[$i + 1]['letra'] }}</p>
+                            <img src="{{ asset('adjuntos/documentos/'.$imagenes[$i + 1]['ruta']) }}" style="max-width: 100%; max-height: 280px; width: auto; height: auto; display: block; margin: 0 auto;">
                         </div>
                         @endif
                     </td>
                 </tr>
             </tbody>
         </table>
+        @endfor
     </div>
     @endif
 @endsection
