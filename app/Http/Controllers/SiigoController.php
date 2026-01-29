@@ -469,6 +469,16 @@ class SiigoController extends Controller
                 ]
             ];
 
+            // Si draft es false, agregar opciones para enviar a DIAN y por correo
+            if ($draftValue === false) {
+                $data["stamp"] = [
+                    "send" => true  // Enviar a DIAN
+                ];
+                $data["mail"] = [
+                    "send" => true  // Enviar por correo
+                ];
+            }
+
 
 
             //Envio a curl invoice
