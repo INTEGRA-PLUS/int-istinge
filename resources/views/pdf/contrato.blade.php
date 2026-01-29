@@ -92,6 +92,15 @@
         .imagen-row {
             page-break-inside: avoid;
             break-inside: avoid;
+            margin-bottom: 15px;
+        }
+        .imagen-box {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 8px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            background-color: #f9f9f9;
         }
     </style>
     <style media="print" type="text/css">
