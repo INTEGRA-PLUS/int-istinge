@@ -6451,37 +6451,102 @@ class FacturasController extends Controller{
 
     public function emisionMasivaXml($facturas){
 
-
         try {
             $empresa = Auth::user()->empresaObj;
             $facturas = explode(",", $facturas);
             set_time_limit(0);
 
+            $exitosas = 0;
+            $errores = [];
+            $totalFacturas = count($facturas);
+
             for ($i=0; $i < count($facturas) ; $i++) {
-                $factura = Factura::where('empresa', $empresa->id)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
+                try {
+                    $factura = Factura::where('empresa', $empresa->id)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
 
-                if(isset($factura)){
-                    $factura->modificado = 1;
-                    $factura->fecha = Carbon::now()->format('Y-m-d');
-                    $factura->save();
+                    if(isset($factura)){
+                        $factura->modificado = 1;
+                        $factura->fecha = Carbon::now()->format('Y-m-d');
+                        $factura->save();
 
-                    if($empresa->proveedor == 2){
-                        $this->jsonDianFacturaVenta($factura->id);
-                    }else{
-                        $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                        if($empresa->proveedor == 2){
+                            try {
+                                $resultado = $this->jsonDianFacturaVenta($factura->id);
+
+                                // Verificar si la respuesta es un error
+                                if($resultado instanceof \Illuminate\Http\JsonResponse){
+                                    $data = json_decode($resultado->getContent(), true);
+                                    if(isset($data['status']) && ($data['status'] == 'error' || $data['status'] == 0)){
+                                        $errores[] = "Factura #{$factura->codigo}: " . ($data['message'] ?? $data['mensaje'] ?? 'Error desconocido');
+                                        continue;
+                                    } elseif(isset($data['status']) && $data['status'] == 'success'){
+                                        $exitosas++;
+                                    } else {
+                                        $exitosas++;
+                                    }
+                                } else {
+                                    // Si es un redirect, asumimos éxito (el método maneja sus propios errores)
+                                    $exitosas++;
+                                }
+                            } catch (\Exception $e) {
+                                $mensajeError = $e->getMessage();
+                                if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
+                                    $mensajeError = "El vendedor asociado a la factura no existe o no está configurado correctamente";
+                                }
+                                $errores[] = "Factura #{$factura->codigo}: {$mensajeError}";
+                            }
+                        }else{
+                            try {
+                                $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                                $exitosas++;
+                            } catch (\Exception $e) {
+                                $errores[] = "Factura #{$factura->codigo}: {$e->getMessage()}";
+                            }
+                        }
+                    } else {
+                        $errores[] = "Factura ID {$facturas[$i]}: No encontrada o ya emitida";
                     }
+                } catch (\Throwable $th) {
+                    $facturaCodigo = isset($factura) ? $factura->codigo : "ID {$facturas[$i]}";
+                    $mensajeError = $th->getMessage();
+
+                    // Mensajes más descriptivos para errores comunes
+                    if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
+                        if(strpos($th->getFile(), 'InvoiceJsonBuilder.php') !== false){
+                            $mensajeError = "Error: El vendedor asociado a la factura no existe o no está configurado correctamente";
+                        } else {
+                            $mensajeError = "Error: Falta información requerida (objeto no encontrado)";
+                        }
+                    }
+
+                    $errores[] = "Factura #{$facturaCodigo}: {$mensajeError}";
+                }
+            }
+
+            $mensaje = "Emisión masiva completada. ";
+            $mensaje .= "Exitosas: {$exitosas} de {$totalFacturas}. ";
+
+            if(count($errores) > 0){
+                $mensaje .= "Errores: " . count($errores) . ". ";
+                $mensaje .= "Detalles: " . implode(" | ", array_slice($errores, 0, 5));
+                if(count($errores) > 5){
+                    $mensaje .= " y " . (count($errores) - 5) . " más...";
                 }
             }
 
             return response()->json([
-                'success' => true,
-                'text'    => 'Emisión masiva de facturas electrónicas temrinada',
+                'success' => count($errores) == 0,
+                'text'    => $mensaje,
+                'exitosas' => $exitosas,
+                'errores' => count($errores),
+                'detalles_errores' => $errores
             ]);
 
         } catch (\Throwable $th) {
             return response()->json([
                 'success' => false,
-                'text'    => 'Emisión en lote terminó con errores ' . $th->getMessage(),
+                'text'    => 'Error general en emisión masiva: ' . $th->getMessage(),
+                'errores' => [$th->getMessage()]
             ]);
         }
     }
