@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Impuesto;
 use App\Model\Ingresos\FacturaRetencion;
 use App\NotaRetencion;
+use App\Vendedor;
 use Carbon\Carbon;
 use DB;
 use InvalidArgumentException;
@@ -85,7 +86,7 @@ class InvoiceJsonBuilder
                 'currencyCodeCurrencyID' => $monedaCambio,
                 'currencyCode' => $moneda,
                 'salesRepCode1' => null,
-                'salesRepName1' => $factura->vendedorObj->nombre,
+                'salesRepName1' => self::getVendedorNombre($factura, $empresa),
                 'invoiceComment' => $factura->observaciones,
                 'resolution1' => $resolucion_msj,
                 'resolution2' => '',
@@ -513,6 +514,39 @@ class InvoiceJsonBuilder
             'btw_login'=> $data['btw_login'] ?? '',
             'software' => $data['software'] ?? '',
         ];
+    }
+
+    /**
+     * Obtiene el nombre del vendedor asociado a la factura.
+     * Si no existe un vendedor asociado, retorna el nombre del primer vendedor activo de la empresa.
+     *
+     * @param \App\Model\Ingresos\Factura $factura
+     * @param \App\Empresa $empresa
+     * @return string
+     */
+    private static function getVendedorNombre($factura, $empresa)
+    {
+        // Intentar obtener el vendedor asociado a la factura
+        $vendedor = $factura->vendedorObj;
+
+        // Si existe el vendedor asociado, retornar su nombre
+        if ($vendedor && isset($vendedor->nombre)) {
+            return $vendedor->nombre;
+        }
+
+        // Si no existe, obtener el primer vendedor activo de la empresa
+        $primerVendedor = Vendedor::where('empresa', $empresa->id)
+            ->where('estado', 1)
+            ->orderBy('id', 'ASC')
+            ->first();
+
+        // Si existe un vendedor activo, retornar su nombre
+        if ($primerVendedor && isset($primerVendedor->nombre)) {
+            return $primerVendedor->nombre;
+        }
+
+        // Si no hay vendedores, retornar string vacío
+        return '';
     }
 
 }
