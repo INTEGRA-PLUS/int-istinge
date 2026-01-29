@@ -655,36 +655,23 @@
     @endphp
 
     @if(count($imagenes) > 0)
-    <div style="margin-top: 30px;">
-        <p style="text-align: center; font-weight: bold; margin-bottom: 15px; padding: 8px;" class="small titulo-bg">IMÁGENES ADJUNTAS</p>
-        @for($i = 0; $i < count($imagenes); $i += 2)
-        <table width="100%" style="page-break-inside: avoid; margin-bottom: 25px; border-collapse: separate; border-spacing: 10px;">
+    @foreach($imagenes as $imagen)
+    <div style="page-break-before: always; margin-top: 50px;">
+        <table width="100%" style="page-break-inside: avoid;">
             <tbody>
                 <tr>
-                    <td width="50%" style="vertical-align: top; padding-right: 5px;">
-                        @if(isset($imagenes[$i]))
-                        <div class="imagen-box" style="min-height: 350px;">
-                            <p style="font-weight: bold; margin-bottom: 10px; margin-top: 0; padding: 5px;" class="small titulo-bg">Imagen {{ $imagenes[$i]['letra'] }}</p>
-                            <div style="text-align: center; padding: 5px;">
-                                <img src="{{ asset('adjuntos/documentos/'.$imagenes[$i]['ruta']) }}" alt="Imagen {{ $imagenes[$i]['letra'] }}" style="max-width: 100%; max-height: 320px; width: auto; height: auto; display: block; margin: 0 auto;">
+                    <td style="text-align: center; vertical-align: middle;">
+                        <div class="imagen-box" style="padding: 20px;">
+                            <p style="font-weight: bold; margin-bottom: 20px; padding: 10px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
+                            <div style="text-align: center;">
+                                <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="max-width: 90%; max-height: 650px; width: auto; height: auto; display: block; margin: 0 auto;">
                             </div>
                         </div>
-                        @endif
-                    </td>
-                    <td width="50%" style="vertical-align: top; padding-left: 5px;">
-                        @if(isset($imagenes[$i + 1]))
-                        <div class="imagen-box" style="min-height: 350px;">
-                            <p style="font-weight: bold; margin-bottom: 10px; margin-top: 0; padding: 5px;" class="small titulo-bg">Imagen {{ $imagenes[$i + 1]['letra'] }}</p>
-                            <div style="text-align: center; padding: 5px;">
-                                <img src="{{ asset('adjuntos/documentos/'.$imagenes[$i + 1]['ruta']) }}" alt="Imagen {{ $imagenes[$i + 1]['letra'] }}" style="max-width: 100%; max-height: 320px; width: auto; height: auto; display: block; margin: 0 auto;">
-                            </div>
-                        </div>
-                        @endif
                     </td>
                 </tr>
             </tbody>
         </table>
-        @endfor
     </div>
+    @endforeach
     @endif
 @endsection
