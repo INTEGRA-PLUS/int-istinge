@@ -1438,13 +1438,29 @@ class FacturasController extends Controller{
         $fecha = date('d-m-Y');
 
         $bodega = Bodega::where('empresa',$empresa->id)->where('status', 1)->first();
-        $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
-        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-        ->where('empresa',$empresa->id)
-        ->where('status', 1)
-        ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
-        ->orderBy('producto','ASC')
-        ->get();
+        if (!$bodega) {
+            $inventario = collect();
+        } else {
+            $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                    $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                         ->where('productos_bodegas.bodega', '=', $bodega->id);
+                })
+                ->where('inventario.empresa', $empresa->id)
+                ->where('inventario.status', 1)
+                ->where(function($query) use ($bodega) {
+                    $query->where('inventario.tipo_producto', '!=', 1)
+                          ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                              $subquery->select('producto')
+                                      ->from('productos_bodegas')
+                                      ->where('bodega', $bodega->id);
+                          });
+                })
+                ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                ->orderBy('inventario.producto','ASC')
+                ->get();
+        }
         $extras = CamposExtra::where('empresa',$empresa->id)->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',$empresa->id)->where('status', 1)->get();
         //$clientes = Contacto::where('empresa',$empresa->id)->whereIn('tipo_contacto',[0,2])->where('status',1)->orderBy('nombre','asc')->get();
@@ -1518,13 +1534,29 @@ class FacturasController extends Controller{
         $fecha = date('d-m-Y');
 
         $bodega = Bodega::where('empresa',$empresa->id)->where('status', 1)->first();
-        $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
-            DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-            ->where('empresa',$empresa->id)
-            ->where('status', 1)
-            ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
-            ->orderBy('producto','ASC')
-            ->get();
+        if (!$bodega) {
+            $inventario = collect();
+        } else {
+            $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                    $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                         ->where('productos_bodegas.bodega', '=', $bodega->id);
+                })
+                ->where('inventario.empresa', $empresa->id)
+                ->where('inventario.status', 1)
+                ->where(function($query) use ($bodega) {
+                    $query->where('inventario.tipo_producto', '!=', 1)
+                          ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                              $subquery->select('producto')
+                                      ->from('productos_bodegas')
+                                      ->where('bodega', $bodega->id);
+                          });
+                })
+                ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                ->orderBy('inventario.producto','ASC')
+                ->get();
+        }
 
         $extras = CamposExtra::where('empresa',$empresa->id)->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',$empresa->id)->where('status', 1)->get();
@@ -6226,7 +6258,7 @@ class FacturasController extends Controller{
         $resultados = [];
         $exitosos = 0;
         $fallidos = 0;
-        
+
         for ($i=0; $i < count($facturas) ; $i++) {
             // Obtener el código anterior antes de la conversión
             $facturaAntes = Factura::find($facturas[$i]);
