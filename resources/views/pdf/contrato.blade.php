@@ -102,6 +102,14 @@
             break-inside: avoid;
             background-color: #f9f9f9;
         }
+        .imagen-page {
+            page-break-before: always;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
     </style>
     <style media="print" type="text/css">
         @page {
@@ -655,17 +663,15 @@
     @endphp
 
     @if(count($imagenes) > 0)
-    @foreach($imagenes as $imagen)
-    <div style="page-break-before: always; margin-top: 20px;">
-        <table width="100%" style="page-break-inside: avoid; height: 100%;">
+    @foreach($imagenes as $index => $imagen)
+    <div class="imagen-page" style="{{ $index > 0 ? 'page-break-before: always;' : 'page-break-before: auto;' }} page-break-after: avoid; page-break-inside: avoid; margin: 0; padding: 0;">
+        <table width="100%" style="page-break-inside: avoid; height: 100vh; margin: 0; padding: 0;">
             <tbody>
                 <tr>
-                    <td style="text-align: center; vertical-align: middle; padding: 10px;">
-                        <div style="padding: 10px;">
-                            <p style="font-weight: bold; margin-bottom: 15px; padding: 8px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
-                            <div style="text-align: center;">
-                                <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="width: 95%; max-width: 95%; height: auto; max-height: 750px; display: block; margin: 0 auto;">
-                            </div>
+                    <td style="text-align: center; vertical-align: middle; padding: 15px; margin: 0;">
+                        <p style="font-weight: bold; margin-bottom: 15px; margin-top: 0; padding: 8px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
+                        <div style="text-align: center; margin: 0; padding: 0;">
+                            <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="width: 95%; max-width: 95%; height: auto; max-height: 750px; display: block; margin: 0 auto;">
                         </div>
                     </td>
                 </tr>
