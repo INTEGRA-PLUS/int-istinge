@@ -656,15 +656,15 @@
 
     @if(count($imagenes) > 0)
     @foreach($imagenes as $imagen)
-    <div style="page-break-before: always; margin-top: 50px;">
-        <table width="100%" style="page-break-inside: avoid;">
+    <div style="page-break-before: always; margin-top: 20px;">
+        <table width="100%" style="page-break-inside: avoid; height: 100%;">
             <tbody>
                 <tr>
-                    <td style="text-align: center; vertical-align: middle;">
-                        <div class="imagen-box" style="padding: 20px;">
-                            <p style="font-weight: bold; margin-bottom: 20px; padding: 10px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
+                    <td style="text-align: center; vertical-align: middle; padding: 10px;">
+                        <div style="padding: 10px;">
+                            <p style="font-weight: bold; margin-bottom: 15px; padding: 8px;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
                             <div style="text-align: center;">
-                                <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="max-width: 90%; max-height: 650px; width: auto; height: auto; display: block; margin: 0 auto;">
+                                <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}" style="width: 95%; max-width: 95%; height: auto; max-height: 750px; display: block; margin: 0 auto;">
                             </div>
                         </div>
                     </td>
