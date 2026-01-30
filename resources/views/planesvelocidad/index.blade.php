@@ -258,6 +258,7 @@
             		}).deselect();
             	}
             }]
+			@endif
 		});
 
         tabla.on('preXhr.dt', function(e, settings, data) {
@@ -298,6 +299,7 @@
         	return false;
         });
 
+        @if(isset($_SESSION['permisos']['834']))
         $('#btn_enabled').click( function () {
             states('enabled');
         });
@@ -317,8 +319,8 @@
         $('#btn_guardar_mikrotik').click( function () {
             guardarEnMikrotik();
         });
+        @endif
     });
-    @endif
 	function abrirFiltrador() {
 		if ($('#form-filter').hasClass('d-none')) {
 			$('#boton-filtrar').html('<i class="fas fa-times"></i> Cerrar');
