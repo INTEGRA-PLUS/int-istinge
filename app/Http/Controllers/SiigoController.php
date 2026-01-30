@@ -350,10 +350,29 @@ class SiigoController extends Controller
             $cliente_factura = $factura->cliente();
             $items_factura = ItemsFactura::join('inventario', 'inventario.id', 'items_factura.producto')
                 ->where('factura', $factura->id)
-                ->select('items_factura.precio','inventario.codigo_siigo','items_factura.cant',
+                ->select('items_factura.precio','inventario.codigo_siigo','inventario.siigo_id','items_factura.cant',
                 'items_factura.id_impuesto','items_factura.producto','inventario.ref',
                 'inventario.producto as nombreProducto','inventario.id')
                 ->get();
+
+            // Validar que todos los items tengan siigo_id asignado
+            $itemsSinMapeo = [];
+            foreach ($items_factura as $item) {
+                if (!isset($item->siigo_id) || $item->siigo_id == null || $item->siigo_id == '') {
+                    $itemsSinMapeo[] = $item->nombreProducto . ($item->ref ? ' (Ref: ' . $item->ref . ')' : '');
+                }
+            }
+
+            if (!empty($itemsSinMapeo)) {
+                $itemsLista = implode(', ', $itemsSinMapeo);
+                $mensaje = 'Los siguientes productos no tienen mapeo con Siigo: ' . $itemsLista . '. ';
+                $mensaje .= 'Por favor, vaya a <strong>Configuración > Siigo > Productos</strong> y realice el mapeo de los items antes de enviar la factura.';
+
+                return response()->json([
+                    'status' => 400,
+                    'error' => $mensaje
+                ], 400);
+            }
 
             $empresa = Empresa::Find(1);
             $departamento = $cliente_factura->departamento();
@@ -369,7 +388,7 @@ class SiigoController extends Controller
                     $respuesta = $this->createItem($item);
 
                     $item = Inventario::leftJoin('items_factura as if', 'if.producto', 'inventario.id')
-                        ->select('if.precio', 'inventario.codigo_siigo', 'if.cant', 'if.id_impuesto',
+                        ->select('if.precio', 'inventario.codigo_siigo', 'inventario.siigo_id', 'if.cant', 'if.id_impuesto',
                         'if.producto','inventario.ref', 'inventario.producto as nombreProducto')
                         ->where('inventario.id', $item->id)
                         ->first();
