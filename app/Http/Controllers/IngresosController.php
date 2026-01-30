@@ -578,6 +578,7 @@ class IngresosController extends Controller
             $ingreso->anticipo = $request->saldofavor > 0 ? '1' : ''; // variables que me indican si se trata de un anticipo
             $ingreso->valor_anticipo = $request->saldofavor > 0 ? $request->saldofavor : ''; //variables que me indican si se trata de un anticipo
             $ingreso->comprobante_pago = $request->comprobante_pago;
+            $ingreso->forma_pago = $request->forma_pago;
             $ingreso->save();
 
             //Si el tipo de ingreso es de facturas
@@ -1856,6 +1857,7 @@ class IngresosController extends Controller
             $ingreso->fecha=Carbon::parse($request->fecha)->format('Y-m-d');
             $ingreso->observaciones=mb_strtolower($request->observaciones);
             $ingreso->updated_by = Auth::user()->id;
+            $ingreso->forma_pago = $request->forma_pago;
             $ingreso->save();
 
             //Si el tipo de ingreso es de facturas de venta
