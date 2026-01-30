@@ -1637,6 +1637,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('storeBack', 'PlanesVelocidadController@storeBack')->name('planes-velocidad.storeBack');
 		Route::get('/{planes}/{state}/state_lote', 'PlanesVelocidadController@state_lote')->name('planes-velocidad.state_lote');
 		Route::get('/{planes}/destroy_lote', 'PlanesVelocidadController@destroy_lote')->name('planes-velocidad.destroy_lote');
+		Route::get('/{planes}/crear-mikrotik/{mikrotik_id}', 'PlanesVelocidadController@crear_en_mikrotik')->name('planes-velocidad.crear_mikrotik');
 	});
 
 	Route::resource('planes-velocidad', 'PlanesVelocidadController');
