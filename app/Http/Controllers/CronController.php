@@ -5640,6 +5640,11 @@ class CronController extends Controller
      */
     private static function eliminarFacturaCompleta($factura)
     {
+        // Eliminar registros de CRM que referencian esta factura
+        DB::table('crm')
+            ->where('factura', $factura->id)
+            ->delete();
+
         // Eliminar items_factura
         ItemsFactura::where('factura', $factura->id)->delete();
 
