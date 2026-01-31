@@ -988,6 +988,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		Route::get('/movimiento/{id}', 'IngresosController@showMovimiento')->name('ingresos.showmovimiento');
 		Route::get('/tirillawpp/{id}', 'IngresosController@tirillaWpp')->name('ingresos.tirillawpp');
+		Route::post('/preview-next-invoice', 'IngresosController@previewNextInvoice')->name('ingresos.preview_next_invoice');
 	});
 
 	Route::resource('recurrentes', 'RecurrentesController');
