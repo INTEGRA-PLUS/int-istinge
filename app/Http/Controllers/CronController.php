@@ -307,7 +307,7 @@ class CronController extends Controller
                     $y = $y+1;
                     $m = 01;
                 }
-                $date_pagooportuno = $y . "-" . $m . "-" . $d;
+                $date_pagooportuno = self::validarFechaUltimoDiaMes($y, $m, $d);
                 //Fin calculo fecha de pago oportuno
 
                 //calculo fecha suspension
@@ -328,7 +328,7 @@ class CronController extends Controller
                         }
                     }
                 }
-                $date_suspension = $y . "-" . $m . "-" . $ds;
+                $date_suspension = self::validarFechaUltimoDiaMes($y, $m, $ds);
                 //Fin calculo fecha suspension
 
                 foreach ($contratos as $contrato) {
@@ -6212,5 +6212,47 @@ class CronController extends Controller
         $resultado = self::generarFacturasPersonalizadas($contratos_precios);
 
         return response()->json($resultado);
+    }
+
+    /**
+     * Valida y corrige una fecha si el día excede los días del mes
+     * Si el día es inválido para el mes, lo ajusta al último día del mes
+     *
+     * @param int|string $year Año
+     * @param int|string $month Mes (1-12)
+     * @param int|string $day Día
+     * @return string Fecha corregida en formato Y-m-d
+     */
+    private static function validarFechaUltimoDiaMes($year, $month, $day)
+    {
+        try {
+            // Convertir a enteros
+            $year = (int)$year;
+            $month = (int)$month;
+            $day = (int)$day;
+
+            // Intentar crear la fecha con el primer día del mes para obtener el último día válido
+            $fecha = Carbon::create($year, $month, 1);
+            $ultimoDiaMes = $fecha->endOfMonth()->day;
+
+            // Si el día excede el último día del mes, usar el último día
+            if ($day > $ultimoDiaMes) {
+                $day = $ultimoDiaMes;
+            }
+
+            // Crear y retornar la fecha corregida
+            $fechaCorregida = Carbon::create($year, $month, $day);
+            return $fechaCorregida->format('Y-m-d');
+
+        } catch (\Exception $e) {
+            // En caso de error, usar el último día del mes
+            try {
+                $fecha = Carbon::create($year, $month, 1);
+                return $fecha->endOfMonth()->format('Y-m-d');
+            } catch (\Exception $e2) {
+                // Si aún hay error, retornar fecha actual como fallback
+                return Carbon::now()->format('Y-m-d');
+            }
+        }
     }
 }
