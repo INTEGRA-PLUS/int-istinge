@@ -742,9 +742,15 @@ class FacturasController extends Controller{
                 });
             }
             if($request->fact_siigo){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
-                });
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $facturas->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $facturas->whereNull('factura.siigo_id');
+                }
             }
             if($request->creacion){
                 $facturas->where(function ($query) use ($request) {
@@ -1101,7 +1107,15 @@ class FacturasController extends Controller{
                 $facturas->where('factura.cliente', $request->cliente);
             }
             if($request->fact_siigo){
-                $facturas->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $facturas->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $facturas->whereNull('factura.siigo_id');
+                }
             }
             if($request->corte){
                 $facturas->where('cs1.fecha_corte', $request->corte);
@@ -1308,7 +1322,15 @@ class FacturasController extends Controller{
                 $countQuery->where('factura.cliente', $request->cliente);
             }
             if($request->fact_siigo){
-                $countQuery->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $countQuery->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $countQuery->whereNull('factura.siigo_id');
+                }
             }
             if($request->corte){
                 $countQuery->where('cs1.fecha_corte', $request->corte);
