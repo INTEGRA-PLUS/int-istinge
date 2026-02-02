@@ -100,6 +100,9 @@ Route::post('pagos/combopay', 'CronController@eventosCombopay');
 /** EVENTOS TOPPAY **/
 Route::post('pagos/toppay', 'CronController@eventosTopPay');
 
+/** EVENTOS ONEPAY **/
+Route::post('pagos/onepay', 'CronController@eventosOnePay');
+
 /**
  * Mostrar los datos de la factura mediante la llave unica asignada en el método
  * facturasController@enviar
@@ -163,6 +166,25 @@ Route::get('facturaElectronica/{key}/pdf', function ($key) {
 
     }
 })->name('imprimirFe');
+
+Route::get('factura/{key}/pdf-onepay', function ($key) {
+    // Si no hay usuario autenticado, usar el primer usuario con rol != 1
+    if (!\Illuminate\Support\Facades\Auth::check()) {
+        $user = User::where('rol', '!=', 1)->first();
+        if ($user) {
+            \Illuminate\Support\Facades\Auth::login($user);
+        }
+    }
+
+    $factura = Factura::where('nonkey', $key)->first();
+    
+    if (!$factura) {
+        return abort(404, 'Factura no encontrada');
+    }
+
+    // Usar el método Imprimir del FacturasController
+    return \App\Http\Controllers\FacturasController::Imprimir($factura->id, 'original', true, false, false);
+})->name('factura.pdf.onepay');
 
 Route::get('facturaElectronica/{key}/xml', function ($key) {
     $FacturaVenta = Factura::where('nonkey', $key)->first();

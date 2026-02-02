@@ -31,6 +31,15 @@
                 </select>
             </div>
             <div class="form-group col-md-2">
+                <label>Métodos de pago</label>
+                <select class="form-control selectpicker" name="metodo_pago" id="metodo_pago">
+                    @foreach($metodosPago as $mp)
+                        <option value="{{$mp->id}}" {{$mp->id == $request->metodo_pago ? 'selected' : ''}}> {{$mp->metodo}} </option>
+                    @endforeach
+                    <option {{ !$request->metodo_pago ? 'selected' : ''}} value="">TODOS</option>
+                </select>
+            </div>
+            <div class="form-group col-md-2">
                 <label></label>
                 <select class="form-control selectpicker" name="fechas" id="fechas">
                     <optgroup label="Presente">
@@ -83,6 +92,7 @@
                             <th>Barrio</th>
                             <th>Realizó</th>
                             <th>Cuenta</th>
+                            <th>Método de pago</th>
                             <th>Categoría</th>
                             <th>Estado</th>
                             <th>Observaciones</th>
@@ -122,6 +132,13 @@
                                     {{$movimiento->banco()->nombre}}
                                 </td>
                                 <td>
+                                    @if($movimiento->modulo == 1 && $movimiento->padre())
+                                        {{$movimiento->padre()->metodo_pago() ? $movimiento->padre()->metodo_pago() : ''}}
+                                    @elseif($movimiento->modulo == 2 && $movimiento->show_modulo())
+                                        {{$movimiento->show_modulo()->metodo_pago() ? $movimiento->show_modulo()->metodo_pago() : ''}}
+                                    @endif
+                                </td>
+                                <td>
                                     {{$movimiento->categoria()}}
                                 </td>
                                 <td>
@@ -145,7 +162,7 @@
                         @endforeach
                     </tbody>
                     <tfoot class="thead-dark">
-                        <td colspan="11"></td>
+                        <td colspan="12"></td>
                         <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['salida'])}}</th>
                         <th>{{Auth::user()->empresa()->moneda}} {{App\Funcion::Parsear($totales['entrada'])}}</th>
                     </tfoot>

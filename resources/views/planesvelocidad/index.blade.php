@@ -144,6 +144,7 @@
                     		<a class="dropdown-item" href="javascript:void(0)" id="btn_enabled"><i class="fas fa-fw fa-power-off" style="margin-left:4px; "></i> Habilitar Planes</a>
                     		<a class="dropdown-item" href="javascript:void(0)" id="btn_disabled"><i class="fas fa-fw fa-power-off" style="margin-left:4px; "></i> Deshabilitar Planes</a>
                     		<a class="dropdown-item" href="javascript:void(0)" id="btn_destroy"><i class="fas fa-fw fa-times" style="margin-left:4px; "></i> Eliminar Planes</a>
+                    		<a class="dropdown-item" href="javascript:void(0)" id="btn_crear_mikrotik"><i class="fas fa-fw fa-server" style="margin-left:4px; "></i> Crear en una mikrotik específica</a>
                     	</div>
                     </div>
                 @endif
@@ -164,6 +165,34 @@
 			</table>
 		</div>
 
+	</div>
+
+	<!-- Modal para seleccionar Mikrotik -->
+	<div class="modal fade" id="modalMikrotik" tabindex="-1" role="dialog" aria-labelledby="modalMikrotikLabel" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="modalMikrotikLabel">Seleccionar Mikrotik</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group">
+						<label for="mikrotik_select">Seleccione la Mikrotik donde se crearán los planes:</label>
+						<select class="form-control selectpicker" id="mikrotik_select" data-live-search="true" data-size="5" title="Seleccione una Mikrotik">
+							@foreach($mikrotiks as $mikrotik)
+								<option value="{{$mikrotik->id}}">{{$mikrotik->nombre}}</option>
+							@endforeach
+						</select>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+					<button type="button" class="btn btn-primary" id="btn_guardar_mikrotik">Guardar</button>
+				</div>
+			</div>
+		</div>
 	</div>
 @endsection
 
@@ -229,6 +258,7 @@
             		}).deselect();
             	}
             }]
+			@endif
 		});
 
         tabla.on('preXhr.dt', function(e, settings, data) {
@@ -269,6 +299,7 @@
         	return false;
         });
 
+        @if(isset($_SESSION['permisos']['834']))
         $('#btn_enabled').click( function () {
             states('enabled');
         });
@@ -280,8 +311,16 @@
         $('#btn_destroy').click( function () {
             destroy();
         });
+
+        $('#btn_crear_mikrotik').click( function () {
+            crearEnMikrotik();
+        });
+
+        $('#btn_guardar_mikrotik').click( function () {
+            guardarEnMikrotik();
+        });
+        @endif
     });
-    @endif
 	function abrirFiltrador() {
 		if ($('#form-filter').hasClass('d-none')) {
 			$('#boton-filtrar').html('<i class="fas fa-times"></i> Cerrar');
@@ -431,6 +470,97 @@
                             confirmButtonText: 'ACEPTAR',
                         });
                         getDataTable();
+                    }
+                })
+            }
+        })
+    }
+
+    function crearEnMikrotik(){
+        var planes = [];
+
+        var table = $('#tabla-planes').DataTable();
+        var nro = table.rows('.selected').data().length;
+
+        if(nro<=1){
+            swal({
+                title: 'ERROR',
+                html: 'Para ejecutar esta acción, debe al menos seleccionar dos planes',
+                type: 'error',
+            });
+            return false;
+        }
+
+        for (i = 0; i < nro; i++) {
+            planes.push(table.rows('.selected').data()[i]['id']);
+        }
+
+        // Guardar los planes seleccionados en una variable global
+        window.planesSeleccionados = planes;
+        
+        // Abrir el modal
+        $('#modalMikrotik').modal('show');
+        $('#mikrotik_select').selectpicker('refresh');
+    }
+
+    function guardarEnMikrotik(){
+        var mikrotikId = $('#mikrotik_select').val();
+        
+        if(!mikrotikId){
+            swal({
+                title: 'ERROR',
+                html: 'Debe seleccionar una Mikrotik',
+                type: 'error',
+            });
+            return false;
+        }
+
+        swal({
+            title: '¿Desea crear los planes en la Mikrotik seleccionada?',
+            text: 'Se crearán ' + window.planesSeleccionados.length + ' planes idénticos en la Mikrotik seleccionada',
+            type: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#00ce68',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Aceptar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.value) {
+                cargando(true);
+
+                var planes = window.planesSeleccionados.join(',');
+
+                if (window.location.pathname.split("/")[1] === "software") {
+                    var url = `/software/empresa/planes-velocidad/`+planes+`/crear-mikrotik/`+mikrotikId;
+                }else{
+                    var url = `/empresa/planes-velocidad/`+planes+`/crear-mikrotik/`+mikrotikId;
+                }
+
+                $.ajax({
+                    url: url,
+                    method: 'GET',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    success: function(data) {
+                        cargando(false);
+                        $('#modalMikrotik').modal('hide');
+                        swal({
+                            title: 'PROCESO REALIZADO',
+                            html: '<strong>'+data.correctos+' planes creados correctamente</strong><br><strong>'+data.fallidos+' planes no pudieron ser creados</strong>',
+                            type: 'success',
+                            showConfirmButton: true,
+                            confirmButtonColor: '#1A59A1',
+                            confirmButtonText: 'ACEPTAR',
+                        });
+                        getDataTable();
+                    },
+                    error: function(xhr) {
+                        cargando(false);
+                        $('#modalMikrotik').modal('hide');
+                        swal({
+                            title: 'ERROR',
+                            html: 'Ocurrió un error al crear los planes',
+                            type: 'error',
+                        });
                     }
                 })
             }

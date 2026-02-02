@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Auth as Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use App\WhatsappMetaLog;
+use App\Helpers\CamposDinamicosHelper;
 
 class AvisosController extends Controller
 {
@@ -420,46 +421,8 @@ class AvisosController extends Controller
                                     foreach ($bodyDinamicArray as $paramTemplate) {
                                         $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
 
-                                        // Reemplazar campos de contacto
-                                        $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
-                                        $paramValue = str_replace('[contacto.apellido1]', $contacto->apellido1 ?? '', $paramValue);
-                                        $paramValue = str_replace('[contacto.apellido2]', $contacto->apellido2 ?? '', $paramValue);
-
-                                        // Reemplazar campos de factura
-                                        if ($factura) {
-                                            $paramValue = str_replace('[factura.fecha]', $factura->fecha ?? '', $paramValue);
-                                            $paramValue = str_replace('[factura.vencimiento]', $factura->vencimiento ?? '', $paramValue);
-
-                                            // Obtener total de la factura
-                                            $facturaTotal = 0;
-                                            try {
-                                                $totalObj = $factura->total();
-                                                if ($totalObj && isset($totalObj->total)) {
-                                                    $facturaTotal = $totalObj->total;
-                                                }
-                                            } catch (\Exception $e) {
-                                                \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
-                                            }
-                                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
-
-                                            // Obtener porpagar de la factura
-                                            $facturaPorpagar = 0;
-                                            try {
-                                                $facturaPorpagar = $factura->porpagar();
-                                            } catch (\Exception $e) {
-                                                \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
-                                            }
-                                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
-                                        } else {
-                                            $paramValue = str_replace('[factura.fecha]', '', $paramValue);
-                                            $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
-                                            $paramValue = str_replace('[factura.total]', '0,00', $paramValue);
-                                            $paramValue = str_replace('[factura.porpagar]', '0,00', $paramValue);
-                                        }
-
-                                        // Reemplazar campos de empresa
-                                        $paramValue = str_replace('[empresa.nombre]', $empresa->nombre ?? '', $paramValue);
-                                        $paramValue = str_replace('[empresa.nit]', $empresa->nit ?? '', $paramValue);
+                                        // Usar helper para procesar campos dinámicos
+                                        $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
 
                                         $bodyTextParams[] = $paramValue;
                                     }

@@ -218,6 +218,7 @@ Route::get('lcotizaciones', 'CotizacionesController@cotizaciones');
 Route::get('lremisiones', 'RemisionesController@remisiones');
 Route::get('lproductos', 'ProductosController@productos');
 Route::get('auditoria_contratos', 'AuditoriaController@auditoria_contratos');
+Route::get('auditoria_facturas', 'AuditoriaController@auditoria_facturas');
 Route::get('gruposopcionesmasivas', 'GruposCorteController@gruposOpcionesMasivas');
 /*DATATABLE ORACLE*/
 
@@ -248,6 +249,7 @@ Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consult
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
 Route::post('configuracion_pagosiigo', 'ConfiguracionController@pagosSiigo');
+Route::post('configuracion_siigoemitida', 'ConfiguracionController@siigoEmitida');
 Route::post('configuracion_reconexiongenerica', 'ConfiguracionController@reconexionGenerica');
 Route::post('updatereconexiongenerica', 'ConfiguracionController@updateReconexionGenerica')->name('configuracion.updatereconexiongenerica');
 Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@aplicacionSaldosFavor');
@@ -670,6 +672,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('descarga-efecty', 'FacturasController@downloadEfecty')->name('facturas.downloadefecty');
 		Route::get('convertirelectronica/{facturaid}', 'FacturasController@convertirelEctronica')->name('facturas.convertirelectronica');
 		Route::get('conversionmasiva/{facturas}', 'FacturasController@conversionmasivaElectronica');
+		Route::get('conversionmasiva-estandar/{facturas}', 'FacturasController@conversionmasivaEstandar');
 		Route::get('enviomasivosiigo/{facturas}', 'SiigoController@envioMasivoSiigo')->name('facturas.enviomasivosiigo');
 		Route::get('impresionmasiva/{facturas}', 'FacturasController@ImprimirMultiple');
 		Route::delete('eliminarmasiva/{facturas}', 'FacturasController@eliminarMasivaFacturas')->name('facturas.eliminarmasiva');
@@ -703,6 +706,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// Eliminar factura
 	Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
+
+	// Validar y actualizar código de factura
+	Route::post('facturas/validar-codigo', 'FacturasController@validarCodigoFactura')->name('facturas.validar-codigo');
+	Route::post('facturas/actualizar-codigo', 'FacturasController@actualizarCodigoFactura')->name('facturas.actualizar-codigo');
+	Route::get('facturas/numeracion-prefijo/{id}', 'FacturasController@getNumeracionPrefijo')->name('facturas.numeracion-prefijo');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
@@ -980,6 +988,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		Route::get('/movimiento/{id}', 'IngresosController@showMovimiento')->name('ingresos.showmovimiento');
 		Route::get('/tirillawpp/{id}', 'IngresosController@tirillaWpp')->name('ingresos.tirillawpp');
+		Route::post('/preview-next-invoice', 'IngresosController@previewNextInvoice')->name('ingresos.preview_next_invoice');
 	});
 
 	Route::resource('recurrentes', 'RecurrentesController');
@@ -1126,6 +1135,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::post('/bancos/act_desac/{id}', 'CategoriasController@default')->name('bancos.act_desac');
 	Route::get('/bancos/ocultar/{id}', 'BancosController@ocultar')->name('bancos.ocultar');
 	Route::get('bancos/{bancos}/destroy_lote', 'BancosController@destroy_lote')->name('bancos.destroy_lote');
+	Route::get('/bancos/{id}/edit_limited', 'BancosController@edit_limited')->name('bancos.edit_limited');
+	Route::patch('/bancos/{id}/update_limited', 'BancosController@update_limited')->name('bancos.update_limited');
 	Route::resource('bancos', 'BancosController');
 
 	//PAGOS RECURRENTES
@@ -1534,6 +1545,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/destroy_to_networksoft', 'ContratosController@destroy_to_networksoft')->name('contratos.destroy_to_networksoft');
 		Route::get('{id}/log', 'ContratosController@log')->name('contratos.log');
 		Route::get('{id}/pings', 'ContratosController@conexion')->name('contratos.ping');
+		Route::post('actualizar-fecha', 'ContratosController@actualizarFecha')->name('contratos.actualizar-fecha');
 		Route::get('{id}/ping_nuevo', 'ContratosController@ping_nuevo')->name('contratos.ping_nuevo');
 		Route::get('{id}/grafica-consumo', 'ContratosController@grafica_consumo')->name('contratos.grafica_consumo');
 		Route::get('{id}/grafica-proxy/{tipo}', 'ContratosController@grafica_proxy')->name('contratos.grafica_proxy');
@@ -1626,6 +1638,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('storeBack', 'PlanesVelocidadController@storeBack')->name('planes-velocidad.storeBack');
 		Route::get('/{planes}/{state}/state_lote', 'PlanesVelocidadController@state_lote')->name('planes-velocidad.state_lote');
 		Route::get('/{planes}/destroy_lote', 'PlanesVelocidadController@destroy_lote')->name('planes-velocidad.destroy_lote');
+		Route::get('/{planes}/crear-mikrotik/{mikrotik_id}', 'PlanesVelocidadController@crear_en_mikrotik')->name('planes-velocidad.crear_mikrotik');
 	});
 
 	Route::resource('planes-velocidad', 'PlanesVelocidadController');
@@ -1819,6 +1832,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//AUDITORIA
 	Route::group(['prefix' => 'auditoria'], function () {
 		Route::get('contratos', 'AuditoriaController@contratos')->name('auditoria.contratos');
+		Route::get('facturas', 'AuditoriaController@facturas')->name('auditoria.facturas');
 	});
 	Route::resource('auditoria', 'AuditoriaController');
 	Route::resource('barrios', 'BarriosController');

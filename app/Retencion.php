@@ -26,7 +26,7 @@ class Retencion extends Model
 
     public function tipo()
     {
-        $tipo='Otro tipo de retenci��n';
+        $tipo='Otro tipo de retención';
         if ($this->tipo==1) {
             $tipo='Retención de IVA';
         }

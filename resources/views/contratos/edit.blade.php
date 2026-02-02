@@ -268,6 +268,7 @@
                                     <option value="4" {{ $contrato->estrato == 4 ? 'selected' : '' }}>4</option>
                                     <option value="5" {{ $contrato->estrato == 5 ? 'selected' : '' }}>5</option>
                                     <option value="6" {{ $contrato->estrato == 6 ? 'selected' : '' }}>6</option>
+                                    <option value="7" {{ $contrato->estrato == 7 ? 'selected' : '' }}>7</option>
                                 </select>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('estrato') }}</strong>
@@ -282,7 +283,7 @@
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Servidor <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <select class="form-control selectpicker" name="server_configuration_id" id="server_configuration_id" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="getPlanes(this.value);">
+                                    <select class="form-control selectpicker" name="server_configuration_id" id="server_configuration_id" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="getPlanes(this.value, {{ $consultasMk ?? 1 }});">
                                         @foreach($servidores as $servidor)
                                             <option value="{{$servidor->id}}" {{$servidor->id==$contrato->server_configuration_id?'selected':''}}>{{$servidor->nombre}} - {{$servidor->ip}}</option>
                                         @endforeach
@@ -1079,6 +1080,19 @@
         $(document).on('change','input[type="file"]',function(){
             var fileName = this.files[0].name;
             var fileSize = this.files[0].size;
+            var fileInputId = $(this).attr('id');
+            var referenciaId = '';
+
+            // Mapear el adjunto a su referencia correspondiente
+            if (fileInputId === 'adjunto_a') {
+                referenciaId = 'referencia_a';
+            } else if (fileInputId === 'adjunto_b') {
+                referenciaId = 'referencia_b';
+            } else if (fileInputId === 'adjunto_c') {
+                referenciaId = 'referencia_c';
+            } else if (fileInputId === 'adjunto_d') {
+                referenciaId = 'referencia_d';
+            }
 
             if(fileSize > 512000){
                 this.value = '';
@@ -1101,6 +1115,22 @@
                     case 'JPG':
                     case 'PNG':
                     case 'PDF':
+                        // Validar que si hay adjunto, también haya referencia
+                        if (referenciaId && this.files.length > 0) {
+                            var referenciaValue = $('#' + referenciaId).val();
+                            if (!referenciaValue || referenciaValue.trim() === '') {
+                                var letraAdjunto = fileInputId.replace('adjunto_', '').toUpperCase();
+                                Swal.fire({
+                                    title: 'Debe ingresar una Referencia ' + letraAdjunto,
+                                    text: 'Si ingresa un Adjunto ' + letraAdjunto + ', debe ingresar también una Referencia ' + letraAdjunto,
+                                    type: 'warning',
+                                    showCancelButton: false,
+                                    confirmButtonColor: '#3085d6',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                                $('#' + referenciaId).focus();
+                            }
+                        }
                         break;
                     default:
                         this.value = '';
@@ -1131,9 +1161,18 @@
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
             });
-            getInterfaces($("#server_configuration_id").val());
-            // Cargar profiles iniciales del Mikrotik seleccionado
-            getProfiles($("#server_configuration_id").val());
+
+            // Guardar valores actuales del plan y tipo de conexión antes de cargar
+            var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
+            var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
+            var consultasMk = {{ $consultasMk ?? 1 }};
+
+            // Solo cargar interfaces y profiles si consultas_mk == 1
+            if (consultasMk == 1) {
+                getInterfaces($("#server_configuration_id").val());
+                // Cargar profiles iniciales del Mikrotik seleccionado
+                getProfiles($("#server_configuration_id").val());
+            }
 
             // Seleccionar automáticamente el profile actual del contrato cuando
             // el select asíncrono haya cargado sus opciones
@@ -1371,6 +1410,38 @@
                 });
             }
         });
+
+        // Validación antes de enviar el formulario
+        $('#form-contrato').on('submit', function(e) {
+            var adjuntos = ['adjunto_a', 'adjunto_b', 'adjunto_c', 'adjunto_d'];
+            var referencias = ['referencia_a', 'referencia_b', 'referencia_c', 'referencia_d'];
+            var errores = [];
+
+            for (var i = 0; i < adjuntos.length; i++) {
+                var adjuntoInput = document.getElementById(adjuntos[i]);
+                var referenciaInput = $('#' + referencias[i]);
+                
+                if (adjuntoInput && adjuntoInput.files.length > 0) {
+                    var referenciaValue = referenciaInput.val();
+                    if (!referenciaValue || referenciaValue.trim() === '') {
+                        var letra = adjuntos[i].replace('adjunto_', '').toUpperCase();
+                        errores.push('Si ingresa un Adjunto ' + letra + ', debe ingresar también una Referencia ' + letra);
+                    }
+                }
+            }
+
+            if (errores.length > 0) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Validación de Adjuntos',
+                    html: errores.join('<br>'),
+                    type: 'error',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Aceptar'
+                });
+                return false;
+            }
+        });
     }
 
     // Cargar puertos al iniciar si ya hay una caja NAP seleccionada
@@ -1378,6 +1449,19 @@
         @if(isset($contrato) && $contrato->cajanap_id)
             // El valor ya está seleccionado en el select, solo llamar la función
             cargarPuertosNap();
+        @endif
+
+        // Cargar planes al iniciar si ya hay un servidor seleccionado
+        @if(isset($contrato) && $contrato->server_configuration_id)
+            var serverId = $('#server_configuration_id').val();
+            var consultasMk = {{ $consultasMk ?? 1 }};
+            var currentPlanId = {{ $contrato->plan_id ? $contrato->plan_id : 'null' }};
+            var currentConexion = {{ $contrato->conexion ? $contrato->conexion : 'null' }};
+
+            if (serverId) {
+                // Guardar valores actuales antes de llamar getPlanes
+                getPlanes(serverId, consultasMk, currentPlanId, currentConexion);
+            }
         @endif
     });
 

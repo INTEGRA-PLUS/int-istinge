@@ -343,7 +343,14 @@
 						@endif
 						<tr>
 							<th>Contrato Registrado el</th>
-							<td>{{date('d-m-Y g:i:s A', strtotime($contrato->created_at))}}</td>
+							<td>
+								<span id="fecha-registro-display">{{date('d-m-Y g:i:s A', strtotime($contrato->created_at))}}</span>
+								@if(isset($_SESSION['permisos']['406']))
+									<a href="javascript:abrirModalEditarFecha({{$contrato->id}}, '{{date('d-m-Y H:i:s', strtotime($contrato->created_at))}}')" style="font-size: 0.8em;margin-left: 10px;" title="Editar fecha">
+										<i class="fas fa-pencil-alt"></i>
+									</a>
+								@endif
+							</td>
 						</tr>
                         @if($contrato->fechaDesconexion() != null)
                         <tr>
@@ -413,7 +420,14 @@
 						@endif
                         <tr>
 							<th>Contrato Registrado el</th>
-							<td>{{date('d-m-Y g:i:s A', strtotime($contrato->created_at))}}</td>
+							<td>
+								<span id="fecha-registro-display-tv">{{date('d-m-Y g:i:s A', strtotime($contrato->created_at))}}</span>
+								@if(isset($_SESSION['permisos']['406']))
+									<a href="javascript:abrirModalEditarFecha({{$contrato->id}}, '{{date('d-m-Y H:i:s', strtotime($contrato->created_at))}}')" style="font-size: 0.8em;margin-left: 10px;" title="Editar fecha">
+										<i class="fas fa-pencil-alt"></i>
+									</a>
+								@endif
+							</td>
 						</tr>
                         @if($contrato->fechaDesconexion() != null)
                         <tr>
@@ -473,4 +487,162 @@
 			</div>
 		</div>
 	</div>
+
+	{{-- Modal para editar fecha de registro --}}
+	@if(isset($_SESSION['permisos']['406']))
+	<div class="modal fade" id="modalEditarFecha" role="dialog" data-backdrop="static" data-keyboard="false">
+		<div class="modal-dialog modal-sm">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">&times;</button>
+					<h4 class="modal-title">Editar Fecha de Registro</h4>
+				</div>
+				<div class="modal-body" style="padding: 20px;">
+					<form id="form-editar-fecha">
+						<input type="hidden" id="contrato-id-fecha">
+						<div class="form-group">
+							<label class="control-label">Fecha <span class="text-danger">*</span></label>
+							<input type="date" class="form-control" id="fecha-registro" required>
+							<span class="help-block error" style="margin-top: 5px;">
+								<strong id="error-fecha" style="font-size: 0.85em;"></strong>
+							</span>
+						</div>
+						<div class="form-group" style="margin-bottom: 0;">
+							<label class="control-label">Hora <span class="text-danger">*</span></label>
+							<input type="time" class="form-control" id="hora-registro" required step="1">
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer" style="padding: 10px 20px;">
+					<button type="button" class="btn btn-sm btn-default" data-dismiss="modal">Cancelar</button>
+					<button type="button" class="btn btn-sm btn-success" onclick="guardarFechaRegistro()">Guardar</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	@endif
+@endsection
+
+@section('scripts')
+@if(isset($_SESSION['permisos']['406']))
+<script>
+	function abrirModalEditarFecha(contratoId, fechaActual) {
+		$('#contrato-id-fecha').val(contratoId);
+
+		// Separar fecha y hora
+		var partes = fechaActual.split(' ');
+		var fecha = partes[0]; // formato: dd-mm-yyyy
+		var hora = partes[1] || '00:00:00'; // formato: HH:mm:ss
+
+		// Convertir fecha de dd-mm-yyyy a yyyy-mm-dd para input type="date"
+		var fechaParts = fecha.split('-');
+		var fechaFormatoDate = fechaParts[2] + '-' + fechaParts[1] + '-' + fechaParts[0];
+
+		// Convertir hora de HH:mm:ss a HH:mm para input type="time"
+		var horaFormatoTime = hora.substring(0, 5); // Toma solo HH:mm
+
+		$('#fecha-registro').val(fechaFormatoDate);
+		$('#hora-registro').val(horaFormatoTime);
+		$('#error-fecha').text('');
+		$('#modalEditarFecha').modal('show');
+	}
+
+	function guardarFechaRegistro() {
+		var contratoId = $('#contrato-id-fecha').val();
+		var fecha = $('#fecha-registro').val(); // formato: yyyy-mm-dd
+		var hora = $('#hora-registro').val(); // formato: HH:mm
+
+		if (!fecha) {
+			$('#error-fecha').text('La fecha es requerida');
+			return;
+		}
+
+		if (!hora) {
+			$('#error-fecha').text('La hora es requerida');
+			return;
+		}
+
+		// Convertir fecha de yyyy-mm-dd a dd-mm-yyyy
+		var fechaParts = fecha.split('-');
+		var fechaFormato = fechaParts[2] + '-' + fechaParts[1] + '-' + fechaParts[0];
+
+		// Agregar segundos a la hora si no los tiene
+		var horaCompleta = hora;
+		if (hora.split(':').length === 2) {
+			horaCompleta = hora + ':00';
+		}
+
+		// Combinar fecha y hora en formato dd-mm-yyyy HH:mm:ss
+		var fechaCompleta = fechaFormato + ' ' + horaCompleta;
+
+		cargando(true);
+
+		$.ajax({
+			url: '{{ route("contratos.actualizar-fecha") }}',
+			method: 'POST',
+			headers: {
+				'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+			},
+			data: {
+				contrato_id: contratoId,
+				fecha: fechaCompleta
+			},
+			success: function(response) {
+				cargando(false);
+				if (response.success) {
+					// Formatear fecha para mostrar
+					var fechaFormateada = formatearFecha(response.fecha);
+					$('#fecha-registro-display').text(fechaFormateada);
+					$('#fecha-registro-display-tv').text(fechaFormateada);
+					$('#modalEditarFecha').modal('hide');
+
+					Swal.fire({
+						position: 'top-center',
+						type: 'success',
+						title: 'Fecha actualizada correctamente',
+						showConfirmButton: false,
+						timer: 2000
+					});
+				} else {
+					$('#error-fecha').text(response.message || 'Error al actualizar la fecha');
+				}
+			},
+			error: function(xhr) {
+				cargando(false);
+				var errorMessage = 'Error al actualizar la fecha';
+				if (xhr.responseJSON && xhr.responseJSON.message) {
+					errorMessage = xhr.responseJSON.message;
+				}
+				$('#error-fecha').text(errorMessage);
+
+				Swal.fire({
+					position: 'top-center',
+					type: 'error',
+					title: 'Error',
+					text: errorMessage,
+					showConfirmButton: true
+				});
+			}
+		});
+	}
+
+	function formatearFecha(fecha) {
+		// Convertir de formato Y-m-d H:i:s a d-m-Y g:i:s A
+		var date = new Date(fecha);
+		var day = String(date.getDate()).padStart(2, '0');
+		var month = String(date.getMonth() + 1).padStart(2, '0');
+		var year = date.getFullYear();
+		var hours = date.getHours();
+		var minutes = String(date.getMinutes()).padStart(2, '0');
+		var seconds = String(date.getSeconds()).padStart(2, '0');
+		var ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? hours : 12;
+		hours = String(hours).padStart(2, '0');
+
+		return day + '-' + month + '-' + year + ' ' + hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+	}
+
+</script>
+@endif
 @endsection

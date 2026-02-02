@@ -56,6 +56,9 @@ use PHPExcel_Style_NumberFormat;
 use PHPExcel_Shared_ZipArchive;
 
 use App\Producto;
+use App\GrupoCorte;
+use App\TerminosPago;
+use App\PlanesVelocidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -578,6 +581,7 @@ class IngresosController extends Controller
             $ingreso->anticipo = $request->saldofavor > 0 ? '1' : ''; // variables que me indican si se trata de un anticipo
             $ingreso->valor_anticipo = $request->saldofavor > 0 ? $request->saldofavor : ''; //variables que me indican si se trata de un anticipo
             $ingreso->comprobante_pago = $request->comprobante_pago;
+            $ingreso->forma_pago = $request->forma_pago;
             $ingreso->save();
 
             //Si el tipo de ingreso es de facturas
@@ -778,6 +782,37 @@ class IngresosController extends Controller
                 //sumo a las numeraciones el recibo
                 $nro->caja = $caja + 1;
                 $nro->save();
+
+                //store: CREAR PRÓXIMA FACTURA (después de procesar todos los pagos)
+                if(isset($request->tipo_electronica) && $request->tipo_electronica == 3 && $request->tipo == 1){
+                    // Agrupar contratos únicos de las facturas pagadas
+                    $contratosUnicos = [];
+                    foreach ($request->factura_pendiente as $key => $facturaId) {
+                        if (isset($request->precio[$key]) && $request->precio[$key] > 0) {
+                            $factura = Factura::find($facturaId);
+                            if ($factura) {
+                                $facturaContrato = DB::table('facturas_contratos')
+                                    ->where('factura_id', $facturaId)
+                                    ->first();
+                                
+                                if ($facturaContrato) {
+                                    $contratoNro = $facturaContrato->contrato_nro;
+                                    if (!isset($contratosUnicos[$contratoNro])) {
+                                        $contrato = Contrato::where('nro', $contratoNro)->first();
+                                        if ($contrato) {
+                                            $contratosUnicos[$contratoNro] = $contrato;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Crear próxima factura para cada contrato único
+                    foreach ($contratosUnicos as $contrato) {
+                        $this->crearProximaFactura($contrato, $empresa);
+                    }
+                }
 
                 //Registro el Movimiento
                 $ingreso = Ingreso::find($ingreso->id);
@@ -1856,6 +1891,7 @@ class IngresosController extends Controller
             $ingreso->fecha=Carbon::parse($request->fecha)->format('Y-m-d');
             $ingreso->observaciones=mb_strtolower($request->observaciones);
             $ingreso->updated_by = Auth::user()->id;
+            $ingreso->forma_pago = $request->forma_pago;
             $ingreso->save();
 
             //Si el tipo de ingreso es de facturas de venta
@@ -2679,5 +2715,782 @@ class IngresosController extends Controller
             $style   = 'danger';
         }
         return back()->with($style, $mensaje);
+    }
+
+    /**
+     * Preview de la próxima factura que se creará
+     * Retorna información de las facturas que se generarán basándose en los pagos asociados
+     */
+    public function previewNextInvoice(Request $request)
+    {
+        try {
+            $facturasConPago = [];
+            $facturasSinContrato = [];
+            $facturasPreview = [];
+
+            // Recopilar facturas con pagos
+            if ($request->has('factura_pendiente') && $request->has('precio')) {
+                foreach ($request->factura_pendiente as $key => $facturaId) {
+                    $monto = isset($request->precio[$key]) ? floatval($request->precio[$key]) : 0;
+                    if ($monto > 0) {
+                        $factura = Factura::find($facturaId);
+                        if ($factura) {
+                            // Verificar si tiene contrato asociado
+                            $facturaContrato = DB::table('facturas_contratos')
+                                ->where('factura_id', $facturaId)
+                                ->first();
+
+                            if (!$facturaContrato) {
+                                $facturasSinContrato[] = [
+                                    'codigo' => $factura->codigo ?? $factura->nro,
+                                    'id' => $factura->id
+                                ];
+                            } else {
+                                $facturasConPago[] = [
+                                    'factura_id' => $facturaId,
+                                    'monto' => $monto,
+                                    'contrato_nro' => $facturaContrato->contrato_nro
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Si hay facturas sin contrato, retornar error
+            if (count($facturasSinContrato) > 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'facturas_sin_contrato',
+                    'facturas' => $facturasSinContrato,
+                    'message' => 'Algunas facturas no tienen contrato asociado'
+                ], 400);
+            }
+
+            // Agrupar por contrato
+            $contratosUnicos = [];
+            foreach ($facturasConPago as $item) {
+                $contratoNro = $item['contrato_nro'];
+                if (!isset($contratosUnicos[$contratoNro])) {
+                    $contratosUnicos[$contratoNro] = [];
+                }
+                $contratosUnicos[$contratoNro][] = $item;
+            }
+
+            // Calcular próxima factura para cada contrato
+            foreach ($contratosUnicos as $contratoNro => $items) {
+                $contrato = Contrato::where('nro', $contratoNro)->first();
+                if ($contrato) {
+                    $preview = $this->calcularProximaFactura($contrato);
+                    if ($preview) {
+                        $facturasPreview[] = $preview;
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'facturas' => $facturasPreview
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'error_general',
+                'message' => 'Error al calcular la próxima factura: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Calcula la información de la próxima factura basándose en el contrato
+     */
+    private function calcularProximaFactura($contrato)
+    {
+        try {
+            // Obtener grupo de corte
+            $grupoCorte = GrupoCorte::find($contrato->grupo_corte);
+            if (!$grupoCorte || !$grupoCorte->fecha_factura) {
+                return null;
+            }
+
+            // Calcular fecha de factura (siguiente mes)
+            $fechaActual = Carbon::now();
+            $mesSiguiente = $fechaActual->copy()->addMonth();
+            $diaFactura = $grupoCorte->fecha_factura;
+
+            // Validar si el día excede los días del mes
+            $ultimoDiaMes = $mesSiguiente->endOfMonth()->day;
+            if ($diaFactura > $ultimoDiaMes) {
+                $diaFactura = $ultimoDiaMes;
+            }
+
+            $fechaFactura = Carbon::create($mesSiguiente->year, $mesSiguiente->month, $diaFactura);
+
+            // Calcular fecha de vencimiento (similar a CronController)
+            $y = $mesSiguiente->year;
+            $m = $mesSiguiente->month;
+            $ds = $grupoCorte->fecha_suspension;
+            $da = Carbon::now()->day;
+            
+            if ($contrato->fecha_suspension) {
+                $fechaSuspension = Carbon::parse($contrato->fecha_suspension);
+            } else {
+                if ($da > $ds && $m != 12) {
+                    $m = $m + 1;
+                }
+                if ($m == 12) {
+                    if ($da > $ds) {
+                        if (Carbon::now()->month != 11) {
+                            $m = 1;
+                            $y = $y + 1;
+                        }
+                    }
+                }
+                $fechaSuspensionStr = $this->validarFechaUltimoDiaMes($y, $m, $ds);
+                $fechaSuspension = Carbon::parse($fechaSuspensionStr);
+            }
+
+            // Obtener numeración
+            $nro = NumeracionFactura::tipoNumeracion($contrato);
+            if (!$nro) {
+                return null;
+            }
+
+            // Obtener código siguiente disponible
+            $inicio = $nro->inicio;
+            $codigoTemporal = $nro->prefijo . $inicio;
+            
+            // Verificar si el código ya existe (similar a CronController)
+            while (Factura::where('codigo', $codigoTemporal)->first()) {
+                $nro = $nro->fresh();
+                $inicio = $nro->inicio;
+                $nro->inicio += 1;
+                $nro->save();
+                $codigoTemporal = $nro->prefijo . $inicio;
+            }
+
+            // Calcular items
+            $items = [];
+            $empresa = Empresa::find(Auth::user()->empresa);
+            $fechaActual = Carbon::now()->format('Y-m-d');
+
+            // Obtener contratos múltiples si aplica
+            if ($contrato->factura_individual == 0) {
+                $contratosMultiples = Contrato::where('client_id', $contrato->client_id)
+                    ->where('factura_individual', 0)
+                    ->get();
+            } else {
+                $contratosMultiples = Contrato::where('nro', $contrato->nro)
+                    ->where('client_id', $contrato->client_id)
+                    ->get();
+            }
+
+            foreach ($contratosMultiples as $cm) {
+                $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+
+                // Plan de Internet
+                if ($cm->plan_id) {
+                    $plan = PlanesVelocidad::find($cm->plan_id);
+                    if ($plan) {
+                        $item = Inventario::find($plan->item);
+                        if ($item) {
+                            $precio = $item->precio;
+                            $descuento = 0;
+                            $descuentoPesos = 0;
+
+                            // Aplicar descuentos
+                            if (($descuentoHasta && $fechaActual <= $descuentoHasta) || !$descuentoHasta) {
+                                if ($cm->descuento_pesos && $descuentoPesos == 0) {
+                                    $precio = $precio - $cm->descuento_pesos;
+                                    $descuentoPesos = 1;
+                                }
+                                $descuento = $cm->descuento ?? 0;
+                            }
+
+                            $impuesto = $item->impuesto;
+                            if ($cm->iva_factura == 1) {
+                                $impuesto = 19;
+                            }
+
+                            $items[] = [
+                                'descripcion' => $plan->name,
+                                'precio' => round($precio, $empresa->precision ?? 2),
+                                'cantidad' => 1,
+                                'descuento' => $descuento,
+                                'impuesto' => $impuesto,
+                                'tipo' => 'Plan Internet'
+                            ];
+                        }
+                    }
+                }
+
+                // Plan de Televisión
+                if ($cm->servicio_tv) {
+                    $item = Inventario::find($cm->servicio_tv);
+                    if ($item) {
+                        $precio = $item->precio;
+                        $descuento = 0;
+                        $descuentoPesos = 0;
+
+                        if (($descuentoHasta && $fechaActual <= $descuentoHasta) || !$descuentoHasta) {
+                            if ($cm->descuento_pesos && $descuentoPesos == 0) {
+                                $precio = $precio - $cm->descuento_pesos;
+                                $descuentoPesos = 1;
+                            }
+                            $descuento = $cm->descuento ?? 0;
+                        }
+
+                        $items[] = [
+                            'descripcion' => $item->producto,
+                            'precio' => round($precio, $empresa->precision ?? 2),
+                            'cantidad' => 1,
+                            'descuento' => $descuento,
+                            'impuesto' => $item->impuesto,
+                            'tipo' => 'Televisión'
+                        ];
+                    }
+                }
+
+                // Otro servicio
+                if ($cm->servicio_otro) {
+                    $item = Inventario::find($cm->servicio_otro);
+                    if ($item) {
+                        // Validar vencimiento del item si aplica
+                        if ($cm->rd_item_vencimiento == 1 && $cm->dt_item_hasta < now()) {
+                            continue;
+                        }
+
+                        $precio = $item->precio;
+                        $descuento = 0;
+                        $descuentoPesos = 0;
+
+                        if (($descuentoHasta && $fechaActual <= $descuentoHasta) || !$descuentoHasta) {
+                            if ($cm->descuento_pesos && $descuentoPesos == 0) {
+                                $precio = $precio - $cm->descuento_pesos;
+                                $descuentoPesos = 1;
+                            }
+                            $descuento = $cm->descuento ?? 0;
+                        }
+
+                        $items[] = [
+                            'descripcion' => $item->producto,
+                            'precio' => round($precio, $empresa->precision ?? 2),
+                            'cantidad' => 1,
+                            'descuento' => $descuento,
+                            'impuesto' => $item->impuesto,
+                            'tipo' => 'Otro Servicio'
+                        ];
+                    }
+                }
+
+                // Productos con cuotas pendientes
+                $asignacion = Producto::where('contrato', $cm->id)
+                    ->where('venta', 1)
+                    ->where('status', 2)
+                    ->where('cuotas_pendientes', '>', 0)
+                    ->get()
+                    ->last();
+
+                if ($asignacion) {
+                    $item = Inventario::find($asignacion->producto);
+                    if ($item) {
+                        $precio = $asignacion->precio / $asignacion->cuotas;
+                        $descuento = 0;
+                        $descuentoPesos = 0;
+
+                        if (($descuentoHasta && $fechaActual <= $descuentoHasta) || !$descuentoHasta) {
+                            if ($cm->descuento_pesos && $descuentoPesos == 0) {
+                                $precio = $precio - $cm->descuento_pesos;
+                                $descuentoPesos = 1;
+                            }
+                            $descuento = $cm->descuento ?? 0;
+                        }
+
+                        $items[] = [
+                            'descripcion' => $item->producto,
+                            'precio' => round($precio, $empresa->precision ?? 2),
+                            'cantidad' => 1,
+                            'descuento' => $descuento,
+                            'impuesto' => $item->impuesto,
+                            'tipo' => 'Producto'
+                        ];
+                    }
+                }
+            }
+
+            // Calcular totales
+            $subtotal = 0;
+            $totalDescuento = 0;
+            $totalImpuestos = 0;
+            $impuestosPorTipo = [];
+
+            foreach ($items as $item) {
+                $subtotalItem = $item['precio'] * $item['cantidad'];
+                $subtotal += $subtotalItem;
+
+                // Descuento
+                if ($item['descuento'] > 0) {
+                    $descuentoItem = ($subtotalItem * $item['descuento']) / 100;
+                    $totalDescuento += $descuentoItem;
+                    $subtotalItem -= $descuentoItem;
+                }
+
+                // Impuestos
+                if ($item['impuesto'] > 0) {
+                    $impuestoItem = ($subtotalItem * $item['impuesto']) / 100;
+                    $totalImpuestos += $impuestoItem;
+                    
+                    if (!isset($impuestosPorTipo[$item['impuesto']])) {
+                        $impuestosPorTipo[$item['impuesto']] = 0;
+                    }
+                    $impuestosPorTipo[$item['impuesto']] += $impuestoItem;
+                }
+            }
+
+            $total = $subtotal - $totalDescuento + $totalImpuestos;
+            $total = round($total, $empresa->precision ?? 2);
+
+            // Determinar tipo de factura (estándar o electrónica)
+            $tipoFactura = 1; // 1 = Estándar, 2 = Electrónica
+            $tipoFacturaTexto = 'Estándar';
+            
+            if ($contrato->facturacion == 3) {
+                $electronica = Factura::booleanFacturaElectronica($contrato->client_id);
+                if ($electronica) {
+                    $tipoFactura = 2;
+                    $tipoFacturaTexto = 'Electrónica';
+                }
+            }
+
+            return [
+                'contrato_nro' => $contrato->nro,
+                'codigo' => $codigoTemporal,
+                'fecha' => $fechaFactura->format('Y-m-d'),
+                'vencimiento' => $fechaSuspension->format('Y-m-d'),
+                'tipo' => $tipoFactura,
+                'tipo_texto' => $tipoFacturaTexto,
+                'items' => $items,
+                'subtotal' => round($subtotal, $empresa->precision ?? 2),
+                'descuento' => round($totalDescuento, $empresa->precision ?? 2),
+                'impuestos' => round($totalImpuestos, $empresa->precision ?? 2),
+                'total' => $total,
+                'impuestos_detalle' => $impuestosPorTipo
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error en calcularProximaFactura: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Crea la próxima factura basándose en el contrato
+     * Similar a CronController::CrearFactura pero para creación manual
+     */
+    private function crearProximaFactura($contrato, $empresa)
+    {
+        try {
+            // Obtener grupo de corte
+            $grupoCorte = GrupoCorte::find($contrato->grupo_corte);
+            if (!$grupoCorte || !$grupoCorte->fecha_factura) {
+                return;
+            }
+
+            // Calcular fecha de factura (siguiente mes)
+            $fechaActual = Carbon::now();
+            $mesSiguiente = $fechaActual->copy()->addMonth();
+            $diaFactura = $grupoCorte->fecha_factura;
+
+            // Validar si el día excede los días del mes
+            $ultimoDiaMes = $mesSiguiente->endOfMonth()->day;
+            if ($diaFactura > $ultimoDiaMes) {
+                $diaFactura = $ultimoDiaMes;
+            }
+
+            $fechaFactura = Carbon::create($mesSiguiente->year, $mesSiguiente->month, $diaFactura);
+
+            // Calcular fecha de vencimiento
+            $y = $mesSiguiente->year;
+            $m = $mesSiguiente->month;
+            $ds = $grupoCorte->fecha_suspension;
+            $da = Carbon::now()->day;
+            
+            if ($contrato->fecha_suspension) {
+                $fechaSuspension = Carbon::parse($contrato->fecha_suspension);
+            } else {
+                if ($da > $ds && $m != 12) {
+                    $m = $m + 1;
+                }
+                if ($m == 12) {
+                    if ($da > $ds) {
+                        if (Carbon::now()->month != 11) {
+                            $m = 1;
+                            $y = $y + 1;
+                        }
+                    }
+                }
+                $fechaSuspensionStr = $this->validarFechaUltimoDiaMes($y, $m, $ds);
+                $fechaSuspension = Carbon::parse($fechaSuspensionStr);
+            }
+
+            // Calcular fecha de pago oportuno
+            $y = $mesSiguiente->year;
+            $m = $mesSiguiente->month;
+            $d = $grupoCorte->fecha_pago;
+            if ($d == 0) {
+                $d = 30;
+            }
+
+            if ($grupoCorte->fecha_factura > $grupoCorte->fecha_pago && $m != 12) {
+                $m = $m + 1;
+            }
+
+            if ($m == 12 && $grupoCorte->fecha_factura > $grupoCorte->fecha_pago) {
+                $y = $y + 1;
+                $m = 1;
+            }
+            $datePagoOportunoStr = $this->validarFechaUltimoDiaMes($y, $m, $d);
+            $datePagoOportuno = Carbon::parse($datePagoOportunoStr);
+
+            // Obtener numeración
+            $nro = NumeracionFactura::tipoNumeracion($contrato);
+            if (!$nro) {
+                return;
+            }
+
+            // Obtener número de factura
+            $num = Factura::where('empresa', $empresa->id)->orderby('id', 'asc')->get()->last();
+            if ($num) {
+                $numero = $num->nro;
+            } else {
+                $numero = 0;
+            }
+            $numero = round(floatval($numero)) + 1;
+
+            // Obtener código siguiente disponible
+            $inicio = $nro->inicio;
+            while (Factura::where('codigo', $nro->prefijo . $inicio)->first()) {
+                $nro = $nro->fresh();
+                $inicio = $nro->inicio;
+                $nro->inicio += 1;
+                $nro->save();
+            }
+
+            // Determinar tipo de factura
+            $tipo = 1; // 1 = normal, 2 = Electrónica
+            $electronica = Factura::booleanFacturaElectronica($contrato->client_id);
+
+            if ($contrato->facturacion == 3 && !$electronica) {
+                $tipo = 1;
+            } elseif ($contrato->facturacion == 3 && $electronica) {
+                $tipo = 2;
+            }
+
+            // Obtener plazo
+            $plazo = TerminosPago::where('dias', Funcion::diffDates($fechaSuspension->format('Y-m-d'), Carbon::now()) + 1)->first();
+
+            // Verificar que no exista factura para este contrato en la fecha
+            if (DB::table('facturas_contratos')
+                ->whereDate('created_at', $fechaFactura->format('Y-m-d'))
+                ->where('contrato_nro', $contrato->nro)
+                ->where('is_cron', 0)
+                ->first()) {
+                return; // Ya existe una factura para esta fecha
+            }
+
+            // Crear factura
+            $factura = new Factura;
+            $factura->nro = $numero;
+            $factura->codigo = $nro->prefijo . $inicio;
+            $factura->numeracion = $nro->id;
+            $factura->plazo = isset($plazo->id) ? $plazo->id : '';
+            $factura->term_cond = $contrato->terminos_cond;
+            $factura->facnotas = $contrato->notas_fact;
+            $factura->empresa = $empresa->id;
+            $factura->cliente = $contrato->client_id;
+            $factura->fecha = $fechaFactura->format('Y-m-d');
+            $factura->tipo = $tipo;
+            $factura->vencimiento = $fechaSuspension->format('Y-m-d');
+            $factura->suspension = $fechaSuspension->format('Y-m-d');
+            $factura->pago_oportuno = $datePagoOportuno->format('Y-m-d');
+            $factura->observaciones = 'Facturación Manual - Corte ' . $grupoCorte->fecha_corte;
+            $factura->bodega = 1;
+            $factura->vendedor = 1;
+            $factura->prorrateo_aplicado = 0;
+            $factura->facturacion_automatica = 0;
+            $factura->factura_mes_manual = 1;
+            $factura->contrato_id = $contrato->id;
+            $factura->created_by = Auth::user()->id;
+
+            // Validar que no exista el código
+            if (Factura::where('codigo', $factura->codigo)->count() <= 1) {
+                $factura->save();
+
+                // Obtener contratos múltiples si aplica
+                if ($contrato->factura_individual == 0) {
+                    $contratosMultiples = Contrato::where('client_id', $factura->cliente)
+                        ->where('factura_individual', 0)
+                        ->get();
+                } else {
+                    $contratosMultiples = Contrato::where('nro', $contrato->nro)
+                        ->where('client_id', $factura->cliente)
+                        ->get();
+                }
+
+                foreach ($contratosMultiples as $cm) {
+                    $descuentoPesos = 0;
+                    $descuentoHasta = isset($cm->fecha_hasta_desc) ? $cm->fecha_hasta_desc : null;
+                    $fechaActual = Carbon::now()->format('Y-m-d');
+
+                    // Plan de Internet
+                    if ($cm->plan_id) {
+                        $plan = PlanesVelocidad::find($cm->plan_id);
+                        if ($plan) {
+                            $item = Inventario::find($plan->item);
+                            if ($item) {
+                                $item_reg = new ItemsFactura;
+                                $item_reg->factura = $factura->id;
+                                $item_reg->producto = $item->id;
+                                $item_reg->ref = $item->ref;
+                                $item_reg->precio = $item->precio;
+                                $item_reg->descripcion = $plan->name;
+                                $item_reg->id_impuesto = $item->id_impuesto;
+                                $item_reg->impuesto = $item->impuesto;
+                                if ($cm->iva_factura == 1) {
+                                    $item_reg->id_impuesto = 1;
+                                    $item_reg->impuesto = 19;
+                                }
+                                $item_reg->cant = 1;
+
+                                if ($descuentoHasta != null && $fechaActual <= $descuentoHasta) {
+                                    $item_reg->desc = $cm->descuento;
+                                    if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                        $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                        $descuentoPesos = 1;
+                                    }
+                                } elseif ($descuentoHasta == null || $descuentoHasta == "") {
+                                    $item_reg->desc = $cm->descuento;
+                                    if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                        $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                        $descuentoPesos = 1;
+                                    }
+                                }
+
+                                $item_reg->save();
+                            }
+                        }
+                    }
+
+                    // Plan de Televisión
+                    if ($cm->servicio_tv) {
+                        $item = Inventario::find($cm->servicio_tv);
+                        if ($item) {
+                            $item_reg = new ItemsFactura;
+                            $item_reg->factura = $factura->id;
+                            $item_reg->producto = $item->id;
+                            $item_reg->ref = $item->ref;
+                            $item_reg->precio = $item->precio;
+                            $item_reg->descripcion = $item->producto;
+                            $item_reg->id_impuesto = $item->id_impuesto;
+                            $item_reg->impuesto = $item->impuesto;
+                            $item_reg->cant = 1;
+
+                            if ($descuentoHasta != null && $fechaActual <= $descuentoHasta) {
+                                $item_reg->desc = $cm->descuento;
+                                if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                    $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                    $descuentoPesos = 1;
+                                }
+                            } elseif ($descuentoHasta == null || $descuentoHasta == "") {
+                                $item_reg->desc = $cm->descuento;
+                                if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                    $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                    $descuentoPesos = 1;
+                                }
+                            }
+
+                            $item_reg->save();
+                        }
+                    }
+
+                    // Otro servicio
+                    if ($cm->servicio_otro) {
+                        $item = Inventario::find($cm->servicio_otro);
+                        if ($item) {
+                            if ($cm->rd_item_vencimiento == 1) {
+                                if ($cm->dt_item_hasta >= now()) {
+                                    $item_reg = new ItemsFactura;
+                                    $item_reg->factura = $factura->id;
+                                    $item_reg->producto = $item->id;
+                                    $item_reg->ref = $item->ref;
+                                    $item_reg->precio = $item->precio;
+                                    $item_reg->descripcion = $item->producto;
+                                    $item_reg->id_impuesto = $item->id_impuesto;
+                                    $item_reg->impuesto = $item->impuesto;
+                                    $item_reg->cant = 1;
+
+                                    if ($descuentoHasta != null && $fechaActual <= $descuentoHasta) {
+                                        $item_reg->desc = $cm->descuento;
+                                        if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                            $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                            $descuentoPesos = 1;
+                                        }
+                                    } elseif ($descuentoHasta == null || $descuentoHasta == "") {
+                                        $item_reg->desc = $cm->descuento;
+                                        if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                            $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                            $descuentoPesos = 1;
+                                        }
+                                    }
+
+                                    $item_reg->save();
+                                }
+                            } else {
+                                $item_reg = new ItemsFactura;
+                                $item_reg->factura = $factura->id;
+                                $item_reg->producto = $item->id;
+                                $item_reg->ref = $item->ref;
+                                $item_reg->precio = $item->precio;
+                                $item_reg->descripcion = $item->producto;
+                                $item_reg->id_impuesto = $item->id_impuesto;
+                                $item_reg->impuesto = $item->impuesto;
+                                $item_reg->cant = 1;
+
+                                if ($descuentoHasta != null && $fechaActual <= $descuentoHasta) {
+                                    $item_reg->desc = $cm->descuento;
+                                    if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                        $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                        $descuentoPesos = 1;
+                                    }
+                                } elseif ($descuentoHasta == null || $descuentoHasta == "") {
+                                    $item_reg->desc = $cm->descuento;
+                                    if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                        $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                        $descuentoPesos = 1;
+                                    }
+                                }
+
+                                $item_reg->save();
+                            }
+                        }
+                    }
+
+                    // Productos con cuotas pendientes
+                    $asignacion = Producto::where('contrato', $cm->id)
+                        ->where('venta', 1)
+                        ->where('status', 2)
+                        ->where('cuotas_pendientes', '>', 0)
+                        ->get()
+                        ->last();
+
+                    if ($asignacion) {
+                        $item = Inventario::find($asignacion->producto);
+                        if ($item) {
+                            $item_reg = new ItemsFactura;
+                            $item_reg->factura = $factura->id;
+                            $item_reg->producto = $item->id;
+                            $item_reg->ref = $item->ref;
+                            $item_reg->precio = ($asignacion->precio / $asignacion->cuotas);
+                            $item_reg->descripcion = $item->producto;
+                            $item_reg->id_impuesto = $item->id_impuesto;
+                            $item_reg->impuesto = $item->impuesto;
+                            $item_reg->cant = 1;
+
+                            if ($descuentoHasta != null && $fechaActual <= $descuentoHasta) {
+                                $item_reg->desc = $cm->descuento;
+                                if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                    $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                    $descuentoPesos = 1;
+                                }
+                            } elseif ($descuentoHasta == null || $descuentoHasta == "") {
+                                $item_reg->desc = $cm->descuento;
+                                if ($cm->descuento_pesos != null && $descuentoPesos == 0) {
+                                    $item_reg->precio = $item_reg->precio - $cm->descuento_pesos;
+                                    $descuentoPesos = 1;
+                                }
+                            }
+
+                            $item_reg->save();
+                        }
+                    }
+
+                    // Guardar en facturas_contratos
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $cm->nro,
+                        'created_by' => Auth::user()->id,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 0,
+                        'created_at' => Carbon::now()
+                    ]);
+                }
+
+                // Aplicar prorrateo si está habilitado
+                if ($empresa->prorrateo == 1) {
+                    $dias = $factura->diasCobradosProrrateo();
+                    if ($dias < 30) {
+                        DB::table('factura')->where('id', $factura->id)->update([
+                            'prorrateo_aplicado' => 1
+                        ]);
+
+                        foreach ($factura->itemsFactura as $item) {
+                            $precioItemProrrateo = round($item->precio * $dias / 30, $empresa->precision);
+                            DB::table('items_factura')->where('id', $item->id)->update([
+                                'precio' => $precioItemProrrateo
+                            ]);
+                        }
+                    }
+                }
+
+                // Actualizar numeración
+                $nro->save();
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Error en crearProximaFactura: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Valida y corrige una fecha si el día excede los días del mes
+     * Si el día es inválido para el mes, lo ajusta al último día del mes
+     * 
+     * @param int|string $year Año
+     * @param int|string $month Mes (1-12)
+     * @param int|string $day Día
+     * @return string Fecha corregida en formato Y-m-d
+     */
+    private function validarFechaUltimoDiaMes($year, $month, $day)
+    {
+        try {
+            // Convertir a enteros
+            $year = (int)$year;
+            $month = (int)$month;
+            $day = (int)$day;
+            
+            // Intentar crear la fecha con el primer día del mes para obtener el último día válido
+            $fecha = Carbon::create($year, $month, 1);
+            $ultimoDiaMes = $fecha->endOfMonth()->day;
+            
+            // Si el día excede el último día del mes, usar el último día
+            if ($day > $ultimoDiaMes) {
+                $day = $ultimoDiaMes;
+            }
+            
+            // Crear y retornar la fecha corregida
+            $fechaCorregida = Carbon::create($year, $month, $day);
+            return $fechaCorregida->format('Y-m-d');
+            
+        } catch (\Exception $e) {
+            // En caso de error, usar el último día del mes
+            try {
+                $fecha = Carbon::create($year, $month, 1);
+                return $fecha->endOfMonth()->format('Y-m-d');
+            } catch (\Exception $e2) {
+                // Si aún hay error, retornar fecha actual como fallback
+                return Carbon::now()->format('Y-m-d');
+            }
+        }
     }
 }

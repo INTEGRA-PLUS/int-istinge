@@ -60,11 +60,13 @@ use App\MovimientoLOG;
 use App\NumeracionPos;
 use App\Services\BTWService;
 use App\Services\WapiService;
+use App\Services\OnePayService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
+use App\Helpers\CamposDinamicosHelper;
 
 class FacturasController extends Controller{
 
@@ -79,6 +81,7 @@ class FacturasController extends Controller{
     const CAMBIO_PRECIO = 'precio';
     const CAMBIO_CLIENTE = 'cliente';
     const CAMBIO_FECHA = 'fecha';
+    const PAGO_ONEPAY = 'pago_onepay';
     // Agregar más constantes según se necesiten en el futuro
 
     public function __construct(ElectronicBillingService $electronicBillingService){
@@ -625,6 +628,7 @@ class FacturasController extends Controller{
         ->join('empresas as em', 'em.id', '=', 'factura.empresa')
         ->join('items_factura as if', 'factura.id', '=', 'if.factura')
         ->leftJoin('vendedores as v', 'factura.vendedor', '=', 'v.id')
+        ->leftJoin('barrios as barrio','barrio.id','c.barrio_id')
         ->leftJoin(
             DB::raw('
                 (SELECT factura_id, contrato_nro
@@ -641,6 +645,7 @@ class FacturasController extends Controller{
         ->leftJoin('contracts as cs2', 'cs2.id', '=', 'factura.contrato_id')
         ->leftJoin('mikrotik as mk', 'mk.id', '=', 'cs1.server_configuration_id')
         ->select(
+            'barrio.nombre as barrio',
             'mk.nombre as servidor',
             'cs1.server_configuration_id',
             'cs1.opciones_dian',
@@ -795,6 +800,59 @@ class FacturasController extends Controller{
             }
             if ($request->hasta) {
                 $facturas->where('factura.fecha', '<=', $request->hasta);
+            }
+            // Filtro de otras opciones
+            if ($request->otras_opciones == 'ultimas_contratos') {
+                // Obtener las facturas más recientes de cada contrato desde facturas_contratos
+                $ultimasFacturasIds = DB::table('facturas_contratos as fc1')
+                    ->select(DB::raw('MAX(fc1.factura_id) as factura_id'))
+                    ->whereIn('fc1.factura_id', function($query) use ($identificadorEmpresa) {
+                        $query->select('id')
+                            ->from('factura')
+                            ->where('empresa', $identificadorEmpresa)
+                            ->where('tipo', 2)
+                            ->where('lectura', 1);
+                    })
+                    ->groupBy('fc1.contrato_nro')
+                    ->pluck('factura_id')
+                    ->toArray();
+
+                if (!empty($ultimasFacturasIds)) {
+                    $facturas->whereIn('factura.id', $ultimasFacturasIds);
+                } else {
+                    // Si no hay facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
+            }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', 2)
+                    ->where('lectura', 1);
+
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+
+                if (!empty($clientesMultiplesIds)) {
+                    $facturas->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
             }
         } else {
             // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
@@ -1079,12 +1137,76 @@ class FacturasController extends Controller{
             if ($request->barrio) {
                 $facturas->where('c.barrio_id', $request->barrio);
             }
+            // Filtro por tipo de facturación del contrato
+            if ($request->tipo_facturacion && is_array($request->tipo_facturacion) && count($request->tipo_facturacion) > 0) {
+                $facturas->where(function ($query) use ($request) {
+                    $query->whereIn('cs1.facturacion', $request->tipo_facturacion)
+                          ->orWhereIn('cs2.facturacion', $request->tipo_facturacion);
+                });
+            }
             // Filtro por rango de fechas (desde - hasta)
             if ($request->desde) {
                 $facturas->where('factura.fecha', '>=', $request->desde);
             }
             if ($request->hasta) {
                 $facturas->where('factura.fecha', '<=', $request->hasta);
+            }
+            // Filtro de otras opciones
+            if ($request->otras_opciones == 'ultimas_contratos') {
+                // Obtener las facturas más recientes de cada contrato desde facturas_contratos
+                $ultimasFacturasIds = DB::table('facturas_contratos as fc1')
+                    ->select(DB::raw('MAX(fc1.factura_id) as factura_id'))
+                    ->whereIn('fc1.factura_id', function($query) use ($identificadorEmpresa) {
+                        $query->select('id')
+                            ->from('factura')
+                            ->where('empresa', $identificadorEmpresa)
+                            ->where('tipo', '!=', 2)
+                            ->where('tipo', '!=', 5)
+                            ->where('tipo', '!=', 6)
+                            ->where('lectura', 1);
+                    })
+                    ->groupBy('fc1.contrato_nro')
+                    ->pluck('factura_id')
+                    ->toArray();
+
+                if (!empty($ultimasFacturasIds)) {
+                    $facturas->whereIn('factura.id', $ultimasFacturasIds);
+                } else {
+                    // Si no hay facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
+            }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', '!=', 2)
+                    ->where('tipo', '!=', 5)
+                    ->where('tipo', '!=', 6)
+                    ->where('lectura', 1);
+
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+
+                if (!empty($clientesMultiplesIds)) {
+                    $facturas->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
+                    $facturas->where('factura.id', '=', 0);
+                }
             }
         } else {
             // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
@@ -1222,11 +1344,75 @@ class FacturasController extends Controller{
             if ($request->barrio) {
                 $countQuery->where('c.barrio_id', $request->barrio);
             }
+            // Filtro por tipo de facturación del contrato
+            if ($request->tipo_facturacion && is_array($request->tipo_facturacion) && count($request->tipo_facturacion) > 0) {
+                $countQuery->where(function ($query) use ($request) {
+                    $query->whereIn('cs1.facturacion', $request->tipo_facturacion)
+                          ->orWhereIn('cs2.facturacion', $request->tipo_facturacion);
+                });
+            }
             if ($request->desde) {
                 $countQuery->where('factura.fecha', '>=', $request->desde);
             }
             if ($request->hasta) {
                 $countQuery->where('factura.fecha', '<=', $request->hasta);
+            }
+            // Filtro de otras opciones
+            if ($request->otras_opciones == 'ultimas_contratos') {
+                // Obtener las facturas más recientes de cada contrato desde facturas_contratos
+                $ultimasFacturasIds = DB::table('facturas_contratos as fc1')
+                    ->select(DB::raw('MAX(fc1.factura_id) as factura_id'))
+                    ->whereIn('fc1.factura_id', function($query) use ($identificadorEmpresa) {
+                        $query->select('id')
+                            ->from('factura')
+                            ->where('empresa', $identificadorEmpresa)
+                            ->where('tipo', '!=', 2)
+                            ->where('tipo', '!=', 5)
+                            ->where('tipo', '!=', 6)
+                            ->where('lectura', 1);
+                    })
+                    ->groupBy('fc1.contrato_nro')
+                    ->pluck('factura_id')
+                    ->toArray();
+
+                if (!empty($ultimasFacturasIds)) {
+                    $countQuery->whereIn('factura.id', $ultimasFacturasIds);
+                } else {
+                    // Si no hay facturas, no mostrar ninguna
+                    $countQuery->where('factura.id', '=', 0);
+                }
+            }
+            // Filtro de clientes con más de 1 factura
+            if ($request->otras_opciones == 'clientes_multiples_facturas') {
+                // Obtener clientes con más de 1 factura en el rango de fechas
+                $clientesMultiplesIds = DB::table('factura')
+                    ->select('cliente')
+                    ->where('empresa', $identificadorEmpresa)
+                    ->where('tipo', '!=', 2)
+                    ->where('tipo', '!=', 5)
+                    ->where('tipo', '!=', 6)
+                    ->where('lectura', 1);
+
+                // Aplicar filtro de fechas si existe
+                if ($request->desde) {
+                    $clientesMultiplesIds->where('fecha', '>=', $request->desde);
+                }
+                if ($request->hasta) {
+                    $clientesMultiplesIds->where('fecha', '<=', $request->hasta);
+                }
+
+                $clientesMultiplesIds = $clientesMultiplesIds
+                    ->groupBy('cliente')
+                    ->havingRaw('COUNT(*) >= 2')
+                    ->pluck('cliente')
+                    ->toArray();
+
+                if (!empty($clientesMultiplesIds)) {
+                    $countQuery->whereIn('factura.cliente', $clientesMultiplesIds);
+                } else {
+                    // Si no hay clientes con múltiples facturas, no mostrar ninguna
+                    $countQuery->where('factura.id', '=', 0);
+                }
             }
         } else {
             // Si no hay filtros aplicados, aplicar rango por defecto (2025-2026)
@@ -1369,13 +1555,29 @@ class FacturasController extends Controller{
         $fecha = date('d-m-Y');
 
         $bodega = Bodega::where('empresa',$empresa->id)->where('status', 1)->first();
-        $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
-        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-        ->where('empresa',$empresa->id)
-        ->where('status', 1)
-        ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
-        ->orderBy('producto','ASC')
-        ->get();
+        if (!$bodega) {
+            $inventario = collect();
+        } else {
+            $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                    $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                         ->where('productos_bodegas.bodega', '=', $bodega->id);
+                })
+                ->where('inventario.empresa', $empresa->id)
+                ->where('inventario.status', 1)
+                ->where(function($query) use ($bodega) {
+                    $query->where('inventario.tipo_producto', '!=', 1)
+                          ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                              $subquery->select('producto')
+                                      ->from('productos_bodegas')
+                                      ->where('bodega', $bodega->id);
+                          });
+                })
+                ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                ->orderBy('inventario.producto','ASC')
+                ->get();
+        }
         $extras = CamposExtra::where('empresa',$empresa->id)->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',$empresa->id)->where('status', 1)->get();
         //$clientes = Contacto::where('empresa',$empresa->id)->whereIn('tipo_contacto',[0,2])->where('status',1)->orderBy('nombre','asc')->get();
@@ -1449,13 +1651,29 @@ class FacturasController extends Controller{
         $fecha = date('d-m-Y');
 
         $bodega = Bodega::where('empresa',$empresa->id)->where('status', 1)->first();
-        $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
-            DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-            ->where('empresa',$empresa->id)
-            ->where('status', 1)
-            ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
-            ->orderBy('producto','ASC')
-            ->get();
+        if (!$bodega) {
+            $inventario = collect();
+        } else {
+            $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                    $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                         ->where('productos_bodegas.bodega', '=', $bodega->id);
+                })
+                ->where('inventario.empresa', $empresa->id)
+                ->where('inventario.status', 1)
+                ->where(function($query) use ($bodega) {
+                    $query->where('inventario.tipo_producto', '!=', 1)
+                          ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                              $subquery->select('producto')
+                                      ->from('productos_bodegas')
+                                      ->where('bodega', $bodega->id);
+                          });
+                })
+                ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                ->orderBy('inventario.producto','ASC')
+                ->get();
+        }
 
         $extras = CamposExtra::where('empresa',$empresa->id)->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',$empresa->id)->where('status', 1)->get();
@@ -1586,8 +1804,12 @@ class FacturasController extends Controller{
             if($request->contratos_json != ''){
                 $contrato = Contrato::where('id', $request->contratos_json)->first();
             }else{
-                $mensaje='Debes seleccionar un contrato para el tipo de facturacion estandar.';
-                return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
+                // Verificar si el cliente tiene factura_est_elec = 1 para permitir crear sin contrato
+                $cliente = Contacto::where('id', $request->cliente)->where('empresa', $user->empresa)->first();
+                if(!$cliente || $cliente->factura_est_elec != 1){
+                    $mensaje='Debes seleccionar un contrato para el tipo de facturacion estandar.';
+                    return redirect('empresa/configuracion/numeraciones')->with('error', $mensaje);
+                }
             }
 
         }else{
@@ -1602,12 +1824,29 @@ class FacturasController extends Controller{
 
         //Actualiza el nro de inicio para la numeracion seleccionada
         $inicio = $nro->inicio;
+        $codigoEditado = $request->codigo_editado;
 
-        // Validacion para que solo asigne numero consecutivo si no existe.
-        while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
-            $nro->save();
-            $inicio=$nro->inicio;
-            $nro->inicio += 1;
+        // Si hay un código editado, validarlo y usarlo
+        if ($codigoEditado && !empty($codigoEditado)) {
+            // Validar que el código no exista
+            $existe = Factura::where('numeracion', $nro->id)
+                ->where('codigo', $codigoEditado)
+                ->exists();
+
+            if ($existe) {
+                $mensaje = 'El código editado ya existe en otra factura.';
+                return redirect()->back()->with('error', $mensaje)->withInput();
+            }
+
+            $codigoFinal = $codigoEditado;
+        } else {
+            // Validacion para que solo asigne numero consecutivo si no existe.
+            while (Factura::where('codigo',$nro->prefijo.$inicio)->first()) {
+                $nro->save();
+                $inicio=$nro->inicio;
+                $nro->inicio += 1;
+            }
+            $codigoFinal = $nro->prefijo.$inicio;
         }
 
         if($request->nro_remision){
@@ -1649,7 +1888,7 @@ class FacturasController extends Controller{
         $factura = new Factura;
         $factura->nonkey = $key;
         $factura->nro = $numero;
-        $factura->codigo=$nro->prefijo.$inicio;
+        $factura->codigo = $codigoFinal;
         $factura->numeracion=$nro->id;
         $factura->plazo=$request->plazo;
         $factura->term_cond=$request->term_cond;
@@ -1700,7 +1939,20 @@ class FacturasController extends Controller{
             for($i = 0 ; $i < count($contratosArray); $i++){
 
                 //Validamos que no ingrese dos veces el mismo contrato.
-                if($contrato && $contratosArray[$i] != $contrato->nro){
+                // Si hay contrato principal, solo guardamos si es diferente al principal
+                // Si NO hay contrato principal, guardamos todos los contratos asociados
+                $debeGuardar = false;
+                if($contrato){
+                    // Hay contrato principal: solo guardar si es diferente
+                    if($contratosArray[$i] != $contrato->nro){
+                        $debeGuardar = true;
+                    }
+                } else {
+                    // No hay contrato principal: guardar todos los contratos asociados
+                    $debeGuardar = true;
+                }
+
+                if($debeGuardar){
                     DB::table('facturas_contratos')->insert([
                         'factura_id' => $factura->id,
                         'contrato_nro' => $contratosArray[$i],
@@ -1784,6 +2036,20 @@ class FacturasController extends Controller{
 
         PucMovimiento::facturaVenta($factura,1, $request);
 
+        // Integración con OnePay si está habilitado
+        if(OnePayService::isEnabled($user->empresa)){
+            try {
+                $onePayService = new OnePayService($user->empresa);
+                $onePayService->createInvoice($factura, $user->empresa);
+            } catch (\Exception $e) {
+                // Log del error pero no interrumpir el flujo
+                Log::error('Error al crear factura en OnePay: ' . $e->getMessage(), [
+                    'factura_id' => $factura->id,
+                    'empresa_id' => $user->empresa
+                ]);
+            }
+        }
+
         //Creo la variable para el mensaje final, y la variable print (imprimir)
         $mensaje='Se ha creado satisfactoriamente la factura';
         $print=false;
@@ -1838,10 +2104,29 @@ class FacturasController extends Controller{
                 if (!$bodega) {
                     $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
                 }
-                $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-                ->where('empresa',Auth::user()->empresa)
-                ->where('status', 1)
-                ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')->get();
+                if (!$bodega) {
+                    $inventario = collect();
+                } else {
+                    $inventario = Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                        DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                        ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                            $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                                 ->where('productos_bodegas.bodega', '=', $bodega->id);
+                        })
+                        ->where('inventario.empresa', Auth::user()->empresa)
+                        ->where('inventario.status', 1)
+                        ->where(function($query) use ($bodega) {
+                            $query->where('inventario.tipo_producto', '!=', 1)
+                                  ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                                      $subquery->select('producto')
+                                              ->from('productos_bodegas')
+                                              ->where('bodega', $bodega->id);
+                                  });
+                        })
+                        ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                        ->orderBy('inventario.producto','ASC')
+                        ->get();
+                }
 
                 $listas = ListaPrecios::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
                 $bodegas = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
@@ -1874,8 +2159,17 @@ class FacturasController extends Controller{
                 ->get();
                 $contratosFacturas = DB::table('facturas_contratos')->where('factura_id',$factura->id)->first();
 
+                // Obtener el prefijo de la numeración para el modal de edición
+                $numeracionPrefijo = null;
+                if ($factura->numeracion) {
+                    $numeracionObj = NumeracionFactura::find($factura->numeracion);
+                    if ($numeracionObj) {
+                        $numeracionPrefijo = $numeracionObj->prefijo;
+                    }
+                }
+
                 return view('facturas.edit')->with(compact('clientes', 'inventario', 'vendedores', 'terminos', 'impuestos', 'factura', 'items', 'listas', 'bodegas', 'retencionesFacturas', 'retenciones', 'tipo_documento', 'categorias', 'medidas', 'unidades', 'prefijos', 'tipos_empresa', 'identificaciones', 'extras','relaciones','formasPago',
-                'contratos','contratosFacturas'
+                'contratos','contratosFacturas', 'numeracionPrefijo'
             ));
             }
             return redirect('empresa/factura-index')->with('success', 'La factura de venta '.$factura->codigo.' ya esta cerrada');
@@ -1917,6 +2211,9 @@ class FacturasController extends Controller{
                 // Guardar valores anteriores para comparación y registro de logs
                 // Esto permite detectar cambios y registrar logs solo cuando hay modificaciones
                 $vencimientoAnterior = $factura->vencimiento;
+
+                // Calcular total anterior para comparar con OnePay
+                $totalAnterior = $factura->totalAPI($user->empresa)->total;
 
                 //Modificacion de los datos de la factura
                 $factura->notas =$request->notas;
@@ -1962,36 +2259,30 @@ class FacturasController extends Controller{
                 // Manejo de contratos principales (contratos_json)
                 // Primero, eliminamos todas las relaciones de contratos principales que no sean de cron
                 // Esto incluye tanto el contrato principal como cualquier relación manual previa
+                // También eliminamos cualquier registro que no pertenezca al cliente de la factura
+                // (esto previene registros huérfanos de clientes incorrectos)
                 DB::table('facturas_contratos')
                     ->where('factura_id', $factura->id)
-                    ->where('is_cron', 0)
+                    ->where(function($query) use ($factura) {
+                        $query->where('is_cron', 0)
+                              ->orWhere('client_id', '!=', $factura->cliente);
+                    })
                     ->delete();
 
-                // Si se seleccionó un contrato, crear la nueva relación
+                // Array para almacenar todos los contratos que deben estar asociados
+                $contratosFinales = [];
+
+                // Si se seleccionó un contrato principal, agregarlo a la lista
                 if(isset($request->contratos_json) && !empty($request->contratos_json)){
                     $contrato = Contrato::find($request->contratos_json);
                     if($contrato){
-                        // Verificar que no exista ya esta relación (por si acaso quedó alguna de cron)
-                        $existe = DB::table('facturas_contratos')
-                            ->where('factura_id', $factura->id)
-                            ->where('contrato_nro', $contrato->nro)
-                            ->first();
-
-                        if(!$existe){
-                            DB::table('facturas_contratos')->insert([
-                                'factura_id' => $factura->id,
-                                'contrato_nro' => $contrato->nro,
-                                'client_id' => $factura->cliente,
-                                'is_cron' => 0,
-                                'created_by' => $user->id,
-                                'created_at' => Carbon::now()
-                            ]);
-                        }
+                        $contratosFinales[] = $contrato->nro;
                     }
                 }
 
                 // Manejo de contratos asociados adicionales (contratos_asociados)
-                if(isset($request->contratos_asociados) && !empty($request->contratos_asociados)){
+                // Si el campo viene en el request (incluso si está vacío), procesarlo
+                if(isset($request->contratos_asociados)){
                     $contratosArray = explode(',', $request->contratos_asociados);
                     // Eliminamos valores vacíos del array
                     $contratosArray = array_filter($contratosArray, function($value) {
@@ -2002,23 +2293,23 @@ class FacturasController extends Controller{
                         $contratoNro = trim($contratoNro);
                         if(empty($contratoNro)) continue;
 
-                        // Verificar que no exista ya esta relación
-                        $existe = DB::table('facturas_contratos')
-                            ->where('factura_id', $factura->id)
-                            ->where('contrato_nro', $contratoNro)
-                            ->first();
-
-                        if(!$existe){
-                            DB::table('facturas_contratos')->insert([
-                                'factura_id' => $factura->id,
-                                'contrato_nro' => $contratoNro,
-                                'client_id' => $factura->cliente,
-                                'is_cron' => 0,
-                                'created_by' => $user->id,
-                                'created_at' => Carbon::now()
-                            ]);
+                        // Agregar a la lista final si no está ya incluido
+                        if(!in_array($contratoNro, $contratosFinales)){
+                            $contratosFinales[] = $contratoNro;
                         }
                     }
+                }
+
+                // Insertar todos los contratos finales
+                foreach($contratosFinales as $contratoNro){
+                    DB::table('facturas_contratos')->insert([
+                        'factura_id' => $factura->id,
+                        'contrato_nro' => $contratoNro,
+                        'client_id' => $factura->cliente,
+                        'is_cron' => 0,
+                        'created_by' => $user->id,
+                        'created_at' => Carbon::now()
+                    ]);
                 }
 
                 $inner=array();
@@ -2107,28 +2398,35 @@ class FacturasController extends Controller{
                     $descuento->save();
                 }
 
-
-                //>>>>Posible aplicación de Prorrateo al total<<<<//
-                // if(Auth::user()->empresaObj->prorrateo == 1){
-                //     $dias = $factura->diasCobradosProrrateo();
-                //     //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
-                //     if($dias != 30){
-                //         if(isset($factura->prorrateo_aplicado)){
-                //             $factura->prorrateo_aplicado = 1;
-                //             $factura->save();
-                //         }
-
-                //         foreach($factura->itemsFactura as $item){
-                //             //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
-                //             $precioItemProrrateo = $this->precision($item->precio * $dias / 30);
-                //             $item->precio = $precioItemProrrateo;
-                //             $item->save();
-                //         }
-                //     }
-                // }
-                //>>>>Fin posible aplicación prorrateo al total<<<<//
-
                 PucMovimiento::facturaVenta($factura,2,$request);
+
+                // Integración con OnePay: crear o actualizar según corresponda
+                if(OnePayService::isEnabled($user->empresa)){
+                    try {
+                        // Recalcular total después de guardar los items
+                        $factura = Factura::find($factura->id); // Refrescar modelo
+                        $totalNuevo = $factura->totalAPI($user->empresa)->total;
+
+                        $onePayService = new OnePayService($user->empresa);
+
+                        // Si no tiene onepay_invoice_id, es la primera vez que se crea en OnePay
+                        if(!$factura->onepay_invoice_id){
+                            // Crear factura en OnePay por primera vez
+                            $onePayService->createInvoice($factura, $user->empresa);
+                        } else {
+                            // Si ya existe, solo actualizar si cambió el total
+                            if(abs($totalAnterior - $totalNuevo) > 0.01){
+                                $onePayService->updateInvoice($factura, $user->empresa);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Log del error pero no interrumpir el flujo
+                        Log::error('Error al procesar factura en OnePay: ' . $e->getMessage(), [
+                            'factura_id' => $factura->id,
+                            'empresa_id' => $user->empresa
+                        ]);
+                    }
+                }
 
                 $mensaje='Se ha modificado satisfactoriamente la factura';
                 return redirect($request->page)->with('success', $mensaje)->with('codigo', $factura->id);
@@ -5467,39 +5765,8 @@ class FacturasController extends Controller{
                         foreach ($bodyDinamicArray as $paramTemplate) {
                             $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
 
-                            // Reemplazar campos de contacto
-                            $paramValue = str_replace('[contacto.nombre]', $contacto->nombre ?? '', $paramValue);
-                            $paramValue = str_replace('[contacto.apellido1]', $contacto->apellido1 ?? '', $paramValue);
-                            $paramValue = str_replace('[contacto.apellido2]', $contacto->apellido2 ?? '', $paramValue);
-
-                            // Reemplazar campos de factura
-                            $paramValue = str_replace('[factura.fecha]', $factura->fecha ?? '', $paramValue);
-                            $paramValue = str_replace('[factura.vencimiento]', $factura->vencimiento ?? '', $paramValue);
-
-                            // Obtener total de la factura
-                            $facturaTotal = 0;
-                            try {
-                                $totalObj = $factura->total();
-                                if ($totalObj && isset($totalObj->total)) {
-                                    $facturaTotal = $totalObj->total;
-                                }
-                            } catch (\Exception $e) {
-                                \Log::warning('Error obteniendo total de factura: ' . $e->getMessage());
-                            }
-                            $paramValue = str_replace('[factura.total]', number_format($facturaTotal, 0, ',', '.'), $paramValue);
-
-                            // Obtener porpagar de la factura
-                            $facturaPorpagar = 0;
-                            try {
-                                $facturaPorpagar = $factura->porpagar();
-                            } catch (\Exception $e) {
-                                \Log::warning('Error obteniendo porpagar de factura: ' . $e->getMessage());
-                            }
-                            $paramValue = str_replace('[factura.porpagar]', number_format($facturaPorpagar, 0, ',', '.'), $paramValue);
-
-                            // Reemplazar campos de empresa
-                            $paramValue = str_replace('[empresa.nombre]', $empresaObj->nombre ?? '', $paramValue);
-                            $paramValue = str_replace('[empresa.nit]', $empresaObj->nit ?? '', $paramValue);
+                            // Usar helper para procesar campos dinámicos
+                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresaObj);
 
                             $bodyTextParams[] = $paramValue;
                         }
@@ -5879,6 +6146,9 @@ class FacturasController extends Controller{
                 ];
             }
 
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+
             // Actualizar y guardar datos
             $inicio = $nro->inicio;
             $nro->inicio += 1;
@@ -5907,11 +6177,152 @@ class FacturasController extends Controller{
             }
 
 
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 2;
             $factura->fecha = Carbon::now()->format('Y-m-d');
             $factura->save();
+
+            // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
+            if (!$masivo) {
+                $codigoNuevo = $factura->codigo;
+                $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a electrónica por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato    = $factura->id;
+                $movimiento->modulo      = 8;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+            }
+
+            if (!$masivo) {
+                return back()->with('success', 'Factura con el nuevo código: ' . $factura->codigo . ' convertida correctamente.');
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Factura convertida exitosamente.',
+                'factura_id' => $facturaId,
+                'codigo' => $factura->codigo,
+            ];
+        } catch (\Exception $e) {
+            $mensajeError = 'Ocurrió un error al convertir la factura: ' . $e->getMessage();
+
+            if (!$masivo) {
+                return back()->with('danger', $mensajeError);
+            }
+
+            return [
+                'success' => false,
+                'message' => $mensajeError,
+                'factura_id' => $facturaId,
+            ];
+        }
+    }
+
+    public function convertirEstandar($facturaId, $masivo = false)
+    {
+        try {
+            $factura = Factura::find($facturaId);
+
+            if (!$factura) {
+                $mensaje = 'Factura no encontrada con ID: ' . $facturaId;
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            // Validar que la factura no esté emitida
+            if ($factura->emitida != 0) {
+                $mensaje = 'No se puede convertir una factura electrónica que ya ha sido emitida.';
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            $num = Factura::where('empresa', Auth::user()->empresa)->orderBy('nro', 'asc')->get()->last();
+            $numero = $num ? $num->nro + 1 : 1;
+
+            $nro = NumeracionFactura::where('empresa', Auth::user()->empresa)
+                ->where('preferida', 1)
+                ->where('estado', 1)
+                ->where('tipo', 1)
+                ->first();
+
+            if (!$nro) {
+                $mensaje = 'No se encontró una numeración para facturas estándar preferida.';
+                if (!$masivo) {
+                    return back()->with('danger', $mensaje);
+                }
+                return [
+                    'success' => false,
+                    'message' => $mensaje,
+                    'factura_id' => $facturaId,
+                ];
+            }
+
+            // Guardar código anterior antes de actualizar
+            $codigoAnterior = $factura->codigo;
+
+            // Actualizar y guardar datos
+            $inicio = $nro->inicio;
+            $nro->inicio += 1;
+            $nro->save();
+
+            $factura->codigo = $nro->prefijo . $inicio;
+
+            $codigoUsado = Factura::where('empresa', Auth::user()->empresa)
+            ->where('codigo', $factura->codigo)
+            ->where('id', '!=', $facturaId)
+            ->where('numeracion', $nro->id)
+            ->first();
+
+            if($codigoUsado){
+
+                if (!$masivo) {
+                    return back()->with('danger', 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado');
+                }
+
+                return [
+                    'success' => false,
+                    'message' => 'Revisar la ultima factura del segmento y modificar la numeracion. Razon: Codigo duplicado',
+                    'factura_id' => $facturaId,
+                ];
+
+            }
+
+            $factura->nro = $numero;
+            $factura->numeracion = $nro->id;
+            $factura->tipo = 1;
+            $factura->fecha = Carbon::now()->format('Y-m-d');
+            $factura->save();
+
+            // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
+            if (!$masivo) {
+                $codigoNuevo = $factura->codigo;
+                $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a estándar por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato    = $factura->id;
+                $movimiento->modulo      = 8;
+                $movimiento->descripcion = $descripcion;
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+            }
 
             if (!$masivo) {
                 return back()->with('success', 'Factura con el nuevo código: ' . $factura->codigo . ' convertida correctamente.');
@@ -5942,7 +6353,27 @@ class FacturasController extends Controller{
     public function conversionmasivaElectronica($facturas){
         $facturas = explode(",", $facturas);
         for ($i=0; $i < count($facturas) ; $i++) {
+            // Obtener el código anterior antes de la conversión
+            $facturaAntes = Factura::find($facturas[$i]);
+            $codigoAnterior = $facturaAntes ? $facturaAntes->codigo : null;
+
             $response = $this->convertirelEctronica($facturas[$i],1);
+
+            // Crear log para cada conversión exitosa
+            if(isset($response['success']) && $response['success'] == true){
+                $factura = Factura::find($facturas[$i]);
+                if($factura){
+                    $codigoNuevo = $factura->codigo;
+                    $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a electrónica por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = Auth::user()->empresa;
+                    $movimiento->save();
+                }
+            }
         }
 
         if(isset($response['success']) && $response['success'] == false){
@@ -5958,39 +6389,194 @@ class FacturasController extends Controller{
         }
     }
 
-    public function emisionMasivaXml($facturas){
+    public function conversionmasivaEstandar($facturas){
+        $facturas = explode(",", $facturas);
+        $resultados = [];
+        $exitosos = 0;
+        $fallidos = 0;
 
+        for ($i=0; $i < count($facturas) ; $i++) {
+            // Obtener el código anterior antes de la conversión
+            $facturaAntes = Factura::find($facturas[$i]);
+            $codigoAnterior = $facturaAntes ? $facturaAntes->codigo : null;
+
+            $response = $this->convertirEstandar($facturas[$i], 1);
+
+            // Crear log para cada conversión exitosa
+            if(isset($response['success']) && $response['success'] == true){
+                $factura = Factura::find($facturas[$i]);
+                if($factura){
+                    $codigoNuevo = $factura->codigo;
+                    $descripcion = '<i class="fas fa-check text-success"></i> Factura convertida a estándar por <b>'.Auth::user()->nombres.'</b>. Código anterior: <b>'.$codigoAnterior.'</b>, código nuevo: <b>'.$codigoNuevo.'</b>';
+                    $movimiento = new MovimientoLOG();
+                    $movimiento->contrato    = $factura->id;
+                    $movimiento->modulo      = 8;
+                    $movimiento->descripcion = $descripcion;
+                    $movimiento->created_by  = Auth::user()->id;
+                    $movimiento->empresa     = Auth::user()->empresa;
+                    $movimiento->save();
+                    $exitosos++;
+                }
+            } else {
+                $fallidos++;
+                $resultados[] = [
+                    'factura_id' => $facturas[$i],
+                    'codigo' => $codigoAnterior,
+                    'error' => isset($response['message']) ? $response['message'] : 'Error desconocido'
+                ];
+            }
+        }
+
+        if($fallidos > 0 && $exitosos == 0){
+            $mensaje = 'No se pudo convertir ninguna factura. ';
+            if(count($resultados) > 0){
+                $mensaje .= 'Errores: ' . implode(', ', array_column($resultados, 'error'));
+            }
+            return response()->json([
+                'success' => false,
+                'text'    => $mensaje,
+            ]);
+        }else{
+            $mensaje = 'Conversión masiva de facturas estándar terminada. ';
+            $mensaje .= 'Exitosas: ' . $exitosos;
+            if($fallidos > 0){
+                $mensaje .= ', Fallidas: ' . $fallidos;
+            }
+            return response()->json([
+                'success' => true,
+                'text'    => $mensaje,
+            ]);
+        }
+    }
+
+    public function emisionMasivaXml($facturas){
 
         try {
             $empresa = Auth::user()->empresaObj;
             $facturas = explode(",", $facturas);
             set_time_limit(0);
 
+            $exitosas = 0;
+            $errores = [];
+            $totalFacturas = count($facturas);
+
             for ($i=0; $i < count($facturas) ; $i++) {
-                $factura = Factura::where('empresa', $empresa->id)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
+                try {
+                    $factura = Factura::where('empresa', $empresa->id)->where('emitida', 0)->where('tipo',2)->where('id', $facturas[$i])->first();
 
-                if(isset($factura)){
-                    $factura->modificado = 1;
-                    $factura->fecha = Carbon::now()->format('Y-m-d');
-                    $factura->save();
+                    if(isset($factura)){
+                        $factura->modificado = 1;
+                        $factura->fecha = Carbon::now()->format('Y-m-d');
+                        $factura->save();
 
-                    if($empresa->proveedor == 2){
-                        $this->jsonDianFacturaVenta($factura->id);
-                    }else{
-                        $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                        if($empresa->proveedor == 2){
+                            try {
+                                // Guardar el estado inicial de emitida
+                                $emitidaAntes = $factura->emitida;
+
+                                $resultado = $this->jsonDianFacturaVenta($factura->id);
+
+                                // Recargar la factura para verificar si quedó emitida
+                                $factura->refresh();
+
+                                // Si la factura quedó marcada como emitida, fue exitosa
+                                if($factura->emitida == 1 && $factura->emitida != $emitidaAntes){
+                                    $exitosas++;
+                                } else {
+                                    // Verificar si la respuesta es un error
+                                    if($resultado instanceof \Illuminate\Http\JsonResponse){
+                                        $data = json_decode($resultado->getContent(), true);
+                                        if(isset($data['status']) && ($data['status'] == 'error' || $data['status'] == 0)){
+                                            $errores[] = "Factura #{$factura->codigo}: " . ($data['message'] ?? $data['mensaje'] ?? 'Error desconocido');
+                                        } elseif(isset($data['status']) && $data['status'] == 'success'){
+                                            // Si el status es success pero no se marcó como emitida, verificar UUID
+                                            if($factura->uuid){
+                                                $exitosas++;
+                                            } else {
+                                                $errores[] = "Factura #{$factura->codigo}: Procesada pero no se pudo confirmar la emisión";
+                                            }
+                                        } else {
+                                            // Si no hay status claro, verificar por UUID
+                                            if($factura->uuid){
+                                                $exitosas++;
+                                            } else {
+                                                $errores[] = "Factura #{$factura->codigo}: No se pudo determinar el resultado";
+                                            }
+                                        }
+                                    } else {
+                                        // Si es un redirect, verificar si quedó emitida
+                                        if($factura->emitida == 1 || $factura->uuid){
+                                            $exitosas++;
+                                        } else {
+                                            $errores[] = "Factura #{$factura->codigo}: No se pudo confirmar la emisión";
+                                        }
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                // Verificar si a pesar del error, la factura quedó emitida
+                                $factura->refresh();
+                                if($factura->emitida == 1 || $factura->uuid){
+                                    $exitosas++;
+                                } else {
+                                    $mensajeError = $e->getMessage();
+                                    if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
+                                        $mensajeError = "El vendedor asociado a la factura no existe o no está configurado correctamente";
+                                    }
+                                    $errores[] = "Factura #{$factura->codigo}: {$mensajeError}";
+                                }
+                            }
+                        }else{
+                            try {
+                                $this->xmlFacturaVentaMasivo($factura->id, $empresa->id);
+                                $exitosas++;
+                            } catch (\Exception $e) {
+                                $errores[] = "Factura #{$factura->codigo}: {$e->getMessage()}";
+                            }
+                        }
+                    } else {
+                        $errores[] = "Factura ID {$facturas[$i]}: No encontrada o ya emitida";
                     }
+                } catch (\Throwable $th) {
+                    $facturaCodigo = isset($factura) ? $factura->codigo : "ID {$facturas[$i]}";
+                    $mensajeError = $th->getMessage();
+
+                    // Mensajes más descriptivos para errores comunes
+                    if(strpos($mensajeError, "Trying to get property 'nombre' of non-object") !== false){
+                        if(strpos($th->getFile(), 'InvoiceJsonBuilder.php') !== false){
+                            $mensajeError = "Error: El vendedor asociado a la factura no existe o no está configurado correctamente";
+                        } else {
+                            $mensajeError = "Error: Falta información requerida (objeto no encontrado)";
+                        }
+                    }
+
+                    $errores[] = "Factura #{$facturaCodigo}: {$mensajeError}";
+                }
+            }
+
+            $mensaje = "Emisión masiva completada. ";
+            $mensaje .= "Exitosas: {$exitosas} de {$totalFacturas}. ";
+
+            if(count($errores) > 0){
+                $mensaje .= "Errores: " . count($errores) . ". ";
+                $mensaje .= "Detalles: " . implode(" | ", array_slice($errores, 0, 5));
+                if(count($errores) > 5){
+                    $mensaje .= " y " . (count($errores) - 5) . " más...";
                 }
             }
 
             return response()->json([
-                'success' => true,
-                'text'    => 'Emisión masiva de facturas electrónicas temrinada',
+                'success' => count($errores) == 0,
+                'text'    => $mensaje,
+                'exitosas' => $exitosas,
+                'errores' => count($errores),
+                'detalles_errores' => $errores
             ]);
 
         } catch (\Throwable $th) {
             return response()->json([
                 'success' => false,
-                'text'    => 'Emisión en lote terminó con errores ' . $th->getMessage(),
+                'text'    => 'Error general en emisión masiva: ' . $th->getMessage(),
+                'errores' => [$th->getMessage()]
             ]);
         }
     }
@@ -6513,6 +7099,159 @@ class FacturasController extends Controller{
         }
     }
 
+    /**
+     * Validar si un código de factura está disponible
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function validarCodigoFactura(Request $request)
+    {
+        $request->validate([
+            'numeracion_id' => 'required|integer',
+            'codigo' => 'required|string',
+            'factura_id' => 'nullable|integer'
+        ]);
 
+        $numeracionId = $request->numeracion_id;
+        $codigo = $request->codigo;
+        $facturaId = $request->factura_id;
+
+        // Verificar que la numeración existe
+        $numeracion = NumeracionFactura::find($numeracionId);
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 400);
+        }
+
+        // Verificar que el código no exista en otra factura con la misma numeración
+        $query = Factura::where('numeracion', $numeracionId)
+            ->where('codigo', $codigo);
+
+        // Si es edición, excluir la factura actual
+        if ($facturaId) {
+            $query->where('id', '!=', $facturaId);
+        }
+
+        $existe = $query->exists();
+
+        if ($existe) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ya existe otra factura con ese número en esta numeración'
+            ], 200);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'El código está disponible'
+        ], 200);
+    }
+
+    /**
+     * Actualizar el código de una factura
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function actualizarCodigoFactura(Request $request)
+    {
+        // Verificar permiso 43
+        $this->getAllPermissions(Auth::user()->id);
+        if (!isset($_SESSION['permisos']['43'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para realizar esta acción'
+            ], 403);
+        }
+
+        $request->validate([
+            'factura_id' => 'nullable|integer',
+            'codigo' => 'required|string',
+            'numeracion_id' => 'required|integer'
+        ]);
+
+        $codigo = $request->codigo;
+        $numeracionId = $request->numeracion_id;
+        $facturaId = $request->factura_id;
+
+        // Verificar que la numeración existe
+        $numeracion = NumeracionFactura::find($numeracionId);
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 400);
+        }
+
+        // Validar que el código no exista en otra factura con la misma numeración
+        $query = Factura::where('numeracion', $numeracionId)
+            ->where('codigo', $codigo);
+
+        if ($facturaId) {
+            $query->where('id', '!=', $facturaId);
+        }
+
+        $existe = $query->exists();
+
+        if ($existe) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ya existe otra factura con ese número en esta numeración'
+            ], 200);
+        }
+
+        // Si es edición, actualizar la factura existente
+        if ($facturaId) {
+            $factura = Factura::find($facturaId);
+            if (!$factura) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La factura no existe'
+                ], 404);
+            }
+
+            $factura->codigo = $codigo;
+            $factura->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Código actualizado correctamente',
+                'codigo' => $codigo
+            ], 200);
+        }
+
+        // Si es creación, solo retornar el código validado
+        // El código se asignará cuando se guarde la factura
+        // Si es creación, solo retornar el código validado
+        // El código se asignará cuando se guarde la factura
+        return response()->json([
+            'success' => true,
+            'message' => 'Código validado correctamente',
+            'codigo' => $codigo
+        ], 200);
+    }
+
+    /**
+     * Obtener el prefijo de una numeración
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getNumeracionPrefijo($id)
+    {
+        $numeracion = NumeracionFactura::find($id);
+
+        if (!$numeracion) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La numeración no existe'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'prefijo' => $numeracion->prefijo
+        ], 200);
+    }
 
 }

@@ -619,6 +619,11 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{route('auditoria.contratos')}}">Contratos</a>
             </li>
             @endif
+            @if(isset($_SESSION['permisos']['832']))
+            <li class="nav-item" id="auditoria-facturas">
+                <a class="nav-link" href="{{route('auditoria.facturas')}}">Facturas</a>
+            </li>
+            @endif
         </ul>
     </div>
 </li>

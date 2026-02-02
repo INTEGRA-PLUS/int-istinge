@@ -296,6 +296,19 @@
                     <strong>{{ $errors->first('boton_emision') }}</strong>
                 </span>
             </div>
+			<div class="form-group col-md-3">
+                <label class="control-label">
+                    Habilitar creacion de facturas estandar y electronicas
+                    <a><i data-tippy-content="Si habilitas esta opcion podras crear facturacion estandar y electronica con este cliente sin importar el tipo de facturacion que se haya escogido en el contrato" class="icono far fa-question-circle"></i></a>
+                </label>
+                <select class="form-control selectpicker" id="factura_est_elec" name="factura_est_elec" title="Seleccione">
+                    <option value="0" {{ ($contacto->factura_est_elec ?? 0) == 0 ? 'selected':'' }}>No</option>
+                    <option value="1" {{ ($contacto->factura_est_elec ?? 0) == 1 ? 'selected':'' }}>Si</option>
+                </select>
+                <span class="help-block error">
+                    <strong>{{ $errors->first('factura_est_elec') }}</strong>
+                </span>
+            </div>
 			@if(Auth::user()->empresa()->oficina)
 			{{-- <div class="form-group col-md-3">
 				<label class="control-label">Oficina Asociada <span class="text-danger">*</span></label>

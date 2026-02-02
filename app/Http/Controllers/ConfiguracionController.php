@@ -2730,6 +2730,20 @@ class ConfiguracionController extends Controller
         }
     }
 
+    public function siigoEmitida(Request $request){
+        $empresa = Empresa::find(auth()->user()->empresa);
+
+        if ($request->status == 0) {
+          $empresa->siigo_emitida = 1;
+          $empresa->save();
+          return 1;
+        } else {
+          $empresa->siigo_emitida = 0;
+          $empresa->save();
+          return 0;
+        }
+    }
+
     /**
      * Parsea una fecha en diferentes formatos y la convierte a Y-m-d
      * @param string $dateString Fecha en cualquier formato común
@@ -2849,14 +2863,50 @@ class ConfiguracionController extends Controller
             }
 
             if ($httpCode != 200) {
+                // Intentar parsear la respuesta para detectar errores específicos de Meta
+                $errorData = json_decode($response, true);
+
+                // Detectar error específico: Phone Number ID en lugar de WABA ID
+                if (json_last_error() === JSON_ERROR_NONE && isset($errorData['error'])) {
+                    $errorCode = isset($errorData['error']['code']) ? $errorData['error']['code'] : null;
+                    $errorMessage = isset($errorData['error']['message']) ? $errorData['error']['message'] : '';
+                    $errorType = isset($errorData['error']['type']) ? $errorData['error']['type'] : '';
+
+                    // Detectar el error 100 relacionado con WhatsAppBusinessPhoneNumber
+                    if ($errorCode == 100 &&
+                        (stripos($errorMessage, 'WhatsAppBusinessPhoneNumber') !== false ||
+                         stripos($errorMessage, 'message_templates') !== false)) {
+
+                        Log::error('Error al obtener plantillas WhatsApp - ID incorrecto detectado: ' . $httpCode . ' - ' . $response);
+                        Log::error('ID utilizado: ' . $empresa->whatsapp_business_account_id);
+
+                        return response()->json([
+                            'success' => 0,
+                            'message' => 'El ID configurado es incorrecto. Está usando un "Phone Number ID" en lugar de un "WhatsApp Business Account ID" (WABA ID). ' .
+                                         'Para obtener las plantillas, necesita el WABA ID. Puede encontrarlo en su cuenta de Meta Business Manager, ' .
+                                         'en la sección de WhatsApp Business Account. El WABA ID es diferente al Phone Number ID que se usa para enviar mensajes.'
+                        ], 400);
+                    }
+                }
+
+                // Para otros errores, mantener el logging detallado
                 Log::error('Error HTTP al obtener plantillas WhatsApp: ' . $httpCode . ' - ' . $response);
-                return response()->json(['success' => 0, 'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'], 400);
+                Log::error('ID utilizado: ' . $empresa->whatsapp_business_account_id);
+
+                // Intentar extraer mensaje de error de Meta si está disponible
+                $mensajeError = 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')';
+                if (json_last_error() === JSON_ERROR_NONE && isset($errorData['error']['message'])) {
+                    $mensajeError .= '. ' . $errorData['error']['message'];
+                }
+
+                return response()->json(['success' => 0, 'message' => $mensajeError], 400);
             }
 
             $responseData = json_decode($response, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
+                Log::error('Respuesta recibida: ' . $response);
                 return response()->json(['success' => 0, 'message' => 'Error al procesar la respuesta de la API'], 400);
             }
 

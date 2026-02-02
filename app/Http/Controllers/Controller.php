@@ -40,11 +40,13 @@ use App\PucMovimiento;
 include_once(app_path() .'/../public/routeros_api.class.php');
 use RouterosAPI;
 use App\Mikrotik;
+use App\Interfaz;
 use App\Model\Ingresos\FacturaRetencion;
 use App\Model\Ingresos\ItemsFactura;
 use App\PlanesVelocidad;
 use App\Services\BTWService;
 use App\TerminosPago;
+use App\Integracion;
 use Barryvdh\DomPDF\Facade as PDF;
 use Mail;
 
@@ -1139,6 +1141,20 @@ class Controller extends BaseController
             get()->last();
         }
 
+        // Obtener la primera pasarela activa con cobro_extra > 0
+        $pasarelaConCobro = Integracion::where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->where('cobro_extra', '>', 0)->first();
+
+        // Sumar cobro_extra al precio si existe
+        if($pasarelaConCobro && $pasarelaConCobro->cobro_extra > 0){
+            if(is_array($contrato) || (is_object($contrato) && method_exists($contrato, 'each'))){
+                foreach($contrato as $con){
+                    $con->price += $pasarelaConCobro->cobro_extra;
+                }
+            } else if(is_object($contrato)){
+                $contrato->price += $pasarelaConCobro->cobro_extra;
+            }
+        }
+
         $pasarelas = DB::table('integracion')->where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->get();
 
         return response()->json(['contrato' => $contrato, 'pasarelas' => $pasarelas]);
@@ -1429,14 +1445,36 @@ class Controller extends BaseController
     }
 
     public function getInterfaces($mikrotik){
-        $mikrotik = Mikrotik::where('id', $mikrotik)->first();
+        $mikrotikObj = Mikrotik::where('id', $mikrotik)->first();
         $ARRAY = '';
 
-        if ($mikrotik) {
-            $API = new RouterosAPI();
-            $API->port = $mikrotik->puerto_api;
+        if ($mikrotikObj) {
+            // Obtener la empresa desde la mikrotik
+            $empresaId = $mikrotikObj->empresa ?? null;
 
-            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+            if ($empresaId) {
+                // Verificar si la empresa tiene consultas_mk = 0
+                $empresa = Empresa::find($empresaId);
+                $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+                // Si consultas_mk == 0, obtener interfaces desde la base de datos
+                if ($consultasMk == 0) {
+                    $interfaces = Interfaz::all();
+                    $ARRAY = $interfaces->map(function($interfaz) {
+                        return [
+                            'name' => $interfaz->name,
+                            'type' => $interfaz->type
+                        ];
+                    })->toArray();
+                    return json_encode($this->convert_from_latin1_to_utf8_recursively($ARRAY));
+                }
+            }
+
+            // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
                 $API->write('/interface/getall');
                 $READ = $API->read(false);
                 $ARRAY = $API->parseResponse($READ);
@@ -1448,26 +1486,50 @@ class Controller extends BaseController
     }
 
     public function getPlanes($mikrotik){
-        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)->where('status', 1)->get();
-        $mikrotik = Mikrotik::find($mikrotik);
-        $API = new RouterosAPI();
-        $API->port = $mikrotik->puerto_api;
-        $registro = false;
-        $getall = '';
-        $profile = $API->port;
+        // Obtener la mikrotik primero para acceder a su empresa
+        $mikrotikObj = Mikrotik::find($mikrotik);
+
+        if (!$mikrotikObj) {
+            return response()->json(['error' => 'Mikrotik no encontrada'], 404);
+        }
+
+        // Obtener la empresa desde la mikrotik
+        $empresaId = $mikrotikObj->empresa ?? null;
+
+        if (!$empresaId) {
+            return response()->json(['error' => 'La mikrotik no tiene empresa asignada'], 400);
+        }
+
+        // Obtener planes relacionados a la mikrotik y empresa
+        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)
+            ->where('status', 1)
+            ->where('empresa', $empresaId)
+            ->get();
+
+        $profile = [];
         $connectionError = false;
 
-        if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-            $API->write('/ppp/profile/getall');
-            $READ = $API->read(false);
-            $profile = $API->parseResponse($READ);
-            $API->disconnect();
-        } else {
-            $connectionError = true;
+        // Verificar si la empresa tiene consultas_mk = 0
+        $empresa = Empresa::find($empresaId);
+        $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+        // Solo hacer consulta a mikrotik si consultas_mk = 1 y la mikrotik existe
+        if ($consultasMk == 1 && $mikrotikObj) {
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
+                $API->write('/ppp/profile/getall');
+                $READ = $API->read(false);
+                $profile = $API->parseResponse($READ);
+                $API->disconnect();
+            } else {
+                $connectionError = true;
+            }
         }
 
         //   return "";
-        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotik,'profile' => $profile, 'connection_error' => $connectionError]);
+        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotikObj, 'profile' => $profile, 'connection_error' => $connectionError]);
     }
 
     public function logsMK($mikrotik){
@@ -1706,45 +1768,62 @@ class Controller extends BaseController
     public function getIps($mikrotik){
         $ips = Contrato::where('status', 1)->select('ip', 'state')->orderBy('ip', 'asc')->get();
 
-$mikrotik = Mikrotik::find($mikrotik);
-if ($mikrotik) {
-    $API = new RouterosAPI();
-    $API->port = $mikrotik->puerto_api;
-
-    if ($API->connect($mikrotik->ip, $mikrotik->usuario, $mikrotik->clave)) {
-        $API->write("/queue/simple/getall");
-        $READ = $API->read(false);
-        $ARRAY = $API->parseResponse($READ);
-        $API->disconnect();
+        $mikrotikObj = Mikrotik::find($mikrotik);
         $sanitizedArray = [];
 
-        foreach ($ARRAY as $item) {
-            $sanitizedItem = [];
+        if ($mikrotikObj) {
+            // Obtener la empresa desde la mikrotik
+            $empresaId = $mikrotikObj->empresa ?? null;
 
-            foreach ($item as $key => $value) {
-                // Verificar si $value es una cadena antes de intentar convertirla
-                if (is_string($value)) {
-                    // Detectar la codificación
-                    $encoding = mb_detect_encoding($value, mb_list_encodings(), true);
-                    if ($encoding) {
-                        // Convertir a UTF-8 si se detecta la codificación
-                        $sanitizedItem[$key] = mb_convert_encoding($value, "UTF-8", $encoding);
-                    } else {
-                        // Sanitizar la cadena si la codificación no se detecta
-                        $sanitizedItem[$key] = iconv('UTF-8', 'UTF-8//IGNORE', $value);
-                    }
-                } else {
-                    $sanitizedItem[$key] = $value; // Si no es una cadena, mantener el valor original
+            if ($empresaId) {
+                // Verificar si la empresa tiene consultas_mk = 0
+                $empresa = Empresa::find($empresaId);
+                $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+                // Si consultas_mk == 0, retornar array vacío para mikrotik
+                if ($consultasMk == 0) {
+                    return response()->json(['software' => $ips, 'mikrotik' => []]);
                 }
             }
 
-            // Agregar el item sanitizado al array resultante
-            $sanitizedArray[] = $sanitizedItem;
+            // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
+                $API->write("/queue/simple/getall");
+                $READ = $API->read(false);
+                $ARRAY = $API->parseResponse($READ);
+                $API->disconnect();
+
+                foreach ($ARRAY as $item) {
+                    $sanitizedItem = [];
+
+                    foreach ($item as $key => $value) {
+                        // Verificar si $value es una cadena antes de intentar convertirla
+                        if (is_string($value)) {
+                            // Detectar la codificación
+                            $encoding = mb_detect_encoding($value, mb_list_encodings(), true);
+                            if ($encoding) {
+                                // Convertir a UTF-8 si se detecta la codificación
+                                $sanitizedItem[$key] = mb_convert_encoding($value, "UTF-8", $encoding);
+                            } else {
+                                // Sanitizar la cadena si la codificación no se detecta
+                                $sanitizedItem[$key] = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+                            }
+                        } else {
+                            $sanitizedItem[$key] = $value; // Si no es una cadena, mantener el valor original
+                        }
+                    }
+
+                    // Agregar el item sanitizado al array resultante
+                    $sanitizedArray[] = $sanitizedItem;
+                }
+            }
         }
 
         return response()->json(['software' => $ips, 'mikrotik' => $sanitizedArray]);
     }
-}
         /*$ips = Contrato::where('status', 1)->select('ip', 'state')->orderBy('ip', 'asc')->get();
 
         $mikrotik = Mikrotik::find($mikrotik);
@@ -1783,7 +1862,7 @@ if ($mikrotik) {
               /*  return response()->json(['software' => $ips, 'mikrotik' => $sanitizedArray]);
             }
         }*/
-    }
+    // }
 
     public function getSegmentos($mikrotik){
         $segmentos = Segmento::where('mikrotik', $mikrotik)->get()->toArray();

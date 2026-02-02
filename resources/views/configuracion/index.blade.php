@@ -360,12 +360,24 @@
                         Enviar a siigo al crear pago
                     </a>
                     <input type="hidden" id="pagosiigo" value="{{ Auth::user()->empresa()->pago_siigo }}">
+                    <br>
+                    <a href="javascript:siigoEmitida()">
+                        {{ (Auth::user()->empresa()->siigo_emitida ?? 0) == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                        Enviar a siigo con estado emitido
+                    </a>
+                    <input type="hidden" id="siigoemitida" value="{{ Auth::user()->empresa()->siigo_emitida ?? 0 }}">
 
                 @elseif($empresa->pago_siigo == 1)
                 <a href="javascript:pagoSiigo()">
                     {{ Auth::user()->empresa()->pago_siigo == 0 ? 'Habilitar' : 'Deshabilitar' }}
                     Enviar a siigo al crear pago
                 </a>
+                <br>
+                <a href="javascript:siigoEmitida()">
+                    {{ (Auth::user()->empresa()->siigo_emitida ?? 0) == 0 ? 'Habilitar' : 'Deshabilitar' }}
+                    Enviar a siigo con estado emitido
+                </a>
+                <input type="hidden" id="siigoemitida" value="{{ Auth::user()->empresa()->siigo_emitida ?? 0 }}">
                 @endif
             @endif
         </div>
@@ -1550,6 +1562,70 @@
             })
         }
 
+        function siigoEmitida(){
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/configuracion_siigoemitida';
+            } else {
+                var url = '/configuracion_siigoemitida';
+            }
+
+            if ($("#siigoemitida").val() == 0) {
+                $titleswal = "¿Desea habilitar el envio a siigo con el estado emitido?";
+            }
+
+            if ($("#siigoemitida").val() == 1) {
+                $titleswal = "¿Desea deshabilitar el envio a siigo con el estado emitido?";
+            }
+
+            Swal.fire({
+                title: $titleswal,
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                cancelButtonText: 'Cancelar',
+                confirmButtonText: 'Aceptar',
+            }).then((result) => {
+                if (result.value) {
+                    $.ajax({
+                        url: url,
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        method: 'post',
+                        data: {
+                            status: $("#siigoemitida").val()
+                        },
+                        success: function(data) {
+                            console.log(data);
+                            if (data == 1) {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envío a siigo con estado emitido habilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#siigoemitida").val(1);
+                            } else {
+                                Swal.fire({
+                                    type: 'success',
+                                    title: 'Envío a siigo con estado emitido deshabilitado',
+                                    showConfirmButton: false,
+                                    timer: 5000
+                                })
+                                $("#siigoemitida").val(0);
+                            }
+                            setTimeout(function() {
+                                var a = document.createElement("a");
+                                a.href = window.location.pathname;
+                                a.click();
+                            }, 1000);
+                        }
+                    });
+                }
+            })
+        }
+
         function reconexionGenerica() {
             if (window.location.pathname.split("/")[1] === "software") {
                 var url = '/software/configuracion_reconexiongenerica';
@@ -2718,24 +2794,7 @@
         let plantillaMetaFacturaActual = null;
         let bodyTextValuesFactura = [];
 
-        // Campos dinámicos disponibles (mismos que en avisos.envio.blade.php)
-        const camposDinamicosFactura = {
-            'contacto': {
-                'nombre': 'Nombre del contacto',
-                'apellido1': 'Primer apellido',
-                'apellido2': 'Segundo apellido'
-            },
-            'factura': {
-                'fecha': 'Fecha de la factura',
-                'vencimiento': 'Fecha de vencimiento',
-                'total': 'Total de la factura',
-                'porpagar': 'Por pagar'
-            },
-            'empresa': {
-                'nombre': 'Nombre de la empresa',
-                'nit': 'NIT de la empresa'
-            }
-        };
+        @include('includes.campos-dinamicos')
 
         // Cargar plantillas Meta al abrir el modal
         $('#config_plantilla_factura_whatsapp').on('show.bs.modal', function() {
@@ -2903,13 +2962,13 @@
                 const $dropdownMenu = $('<ul class="dropdown-menu dropdown-menu-right"></ul>');
 
                 // Agregar opciones al dropdown
-                Object.keys(camposDinamicosFactura).forEach(function(categoria) {
+                Object.keys(camposDinamicos).forEach(function(categoria) {
                     const $categoriaHeader = $('<li><h6 class="dropdown-header">' + categoria.charAt(0).toUpperCase() + categoria.slice(1) + '</h6></li>');
                     $dropdownMenu.append($categoriaHeader);
 
-                    Object.keys(camposDinamicosFactura[categoria]).forEach(function(campo) {
+                    Object.keys(camposDinamicos[categoria]).forEach(function(campo) {
                         const campoKey = '[' + categoria + '.' + campo + ']';
-                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicosFactura[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
+                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicos[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
                         $dropdownMenu.append($item);
                     });
                 });

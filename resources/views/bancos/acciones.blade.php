@@ -13,6 +13,9 @@
     @if(isset($session['284']) && $lectura==0 && $nombre !== 'Saldos a favor')
         <a href="{{route('bancos.edit', $nro)}}" class="btn btn-outline-primary btn-icons"><i class="fas fa-edit"></i></a>
     @endif
+    @if(isset($session['284']) && $lectura==1 && $nombre !== 'Saldos a favor')
+        <a href="{{route('bancos.edit_limited', $nro)}}" class="btn btn-outline-primary btn-icons" title="Editar número de cuenta y descripción"><i class="fas fa-edit"></i></a>
+    @endif
 
     @if(!$uso)
         @if($lectura==0 && $nombre !== 'Saldos a favor')

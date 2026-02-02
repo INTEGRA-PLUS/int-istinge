@@ -148,6 +148,38 @@ class BancosController extends Controller
         return redirect('empresa/bancos')->with('success', 'No existe un registro con ese id');
     }
 
+    public function edit_limited($id){
+        $this->getAllPermissions(Auth::user()->id);
+        $banco = Banco::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        if ($banco) {
+            if ($banco->lectura != 1) {
+                return redirect('empresa/bancos')->with('danger', 'Esta cuenta no permite edición limitada');
+            }
+            $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+            view()->share(['title' => 'Modificar Cuenta: '.$banco->nombre]);
+            return view('bancos.edit_limited')->with(compact('banco', 'oficinas'));
+        }
+        return redirect('empresa/bancos')->with('success', 'No existe un registro con ese id');
+    }
+
+    public function update_limited(Request $request, $id){
+        $banco = Banco::where('empresa',Auth::user()->empresa)->where('nro', $id)->first();
+        if ($banco) {
+            if ($banco->lectura != 1) {
+                return redirect('empresa/bancos')->with('danger', 'Esta cuenta no permite edición limitada');
+            }
+            $request->validate([
+                'nro_cta' => 'required|numeric'
+            ]);
+            $banco->nro_cta=$request->nro_cta;
+            $banco->descripcion=$request->descripcion;
+            $banco->save();
+            $mensaje='Se ha modificado satisfactoriamente el banco';
+            return redirect('empresa/bancos')->with('success', $mensaje)->with('banco_id', $banco->id);
+        }
+        return redirect('empresa/bancos')->with('success', 'No existe un registro con ese id');
+    }
+
     public function update(Request $request, $id){
         $banco =Banco::find($id);
         if ($banco) {

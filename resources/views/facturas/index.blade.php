@@ -234,7 +234,7 @@
 									{{ csrf_field() }}
 								</form>
 								@if(isset($_SESSION['permisos']['43']))
-								@if($factura->estatus == 1)
+								@if($factura->estatus == 1 && $factura->emitida != 1)
 									<button class="btn btn-outline-danger  btn-icons" type="button" title="Anular" onclick="confirmar('anular-factura{{$factura->id}}', '¿Está seguro de que desea anular la factura?', ' ');"><i class="fas fa-minus"></i></button>
 								@elseif($factura->estatus==2)
 									<button class="btn btn-outline-success  btn-icons" type="submit" title="Abrir" onclick="confirmar('anular-factura{{$factura->id}}', '¿Está seguro de que desea abrir la factura?', ' ');"><i class="fas fa-unlock-alt"></i></button>

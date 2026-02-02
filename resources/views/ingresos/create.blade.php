@@ -572,6 +572,34 @@
       @endforeach
   </optgroup>
 @endforeach'>
+
+<!-- Modal de Información de Factura Próxima -->
+<div class="modal fade" id="modalPreviewFactura" tabindex="-1" role="dialog" aria-labelledby="modalPreviewFacturaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPreviewFacturaLabel">Información de Factura(s) a Crear</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="alertasFacturas" class="alert alert-danger d-none" role="alert">
+          <h6>Facturas sin contrato asociado:</h6>
+          <ul id="listaFacturasSinContrato"></ul>
+        </div>
+        <div id="contenidoFacturas">
+          <p class="text-center">Cargando información...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnContinuarFactura">Continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -637,6 +665,206 @@
     // Enviar el formulario
     form.submit();
 });
+
+    // Manejar selección de "Crear próxima factura"
+    $('input[name="tipo_electronica"]').on('change', function() {
+        if ($(this).val() == '3') {
+            mostrarPreviewFactura();
+        }
+    });
+
+    // Deseleccionar "Crear próxima factura" cuando se modifica un monto recibido
+    // Usar delegación de eventos porque los campos se cargan dinámicamente
+    $(document).on('change keyup input', 'input[name="precio[]"]', function() {
+        // Verificar si la opción "Crear próxima factura" está seleccionada
+        var crearProximaFactura = $('input[name="tipo_electronica"][value="3"]');
+        if (crearProximaFactura.is(':checked')) {
+            // Deseleccionar la opción
+            crearProximaFactura.prop('checked', false);
+            // Opcional: mostrar un mensaje informativo
+            console.log('La opción "Crear próxima factura" ha sido deseleccionada porque se modificó un monto recibido.');
+        }
+    });
+
+    function mostrarPreviewFactura() {
+        // Recopilar facturas con pagos
+        var facturasPendientes = [];
+        var precios = [];
+
+        // Buscar todas las filas de facturas en la tabla
+        $('#table-facturas tbody tr').each(function() {
+            var $row = $(this);
+            var facturaInput = $row.find('input[name="factura_pendiente[]"]');
+            var precioInput = $row.find('input[name="precio[]"]');
+
+            if (facturaInput.length > 0 && precioInput.length > 0) {
+                var facturaId = facturaInput.val();
+                var precio = parseFloat(precioInput.val()) || 0;
+
+                if (precio > 0 && facturaId) {
+                    facturasPendientes.push(facturaId);
+                    precios.push(precio);
+                }
+            }
+        });
+
+        // Si no hay facturas con pago, no mostrar modal
+        if (facturasPendientes.length === 0) {
+            return;
+        }
+
+        // Preparar datos para enviar
+        var formData = new FormData();
+        facturasPendientes.forEach(function(id, index) {
+            formData.append('factura_pendiente[]', id);
+            formData.append('precio[]', precios[index]);
+        });
+
+        // Mostrar modal con loading
+        $('#contenidoFacturas').html('<p class="text-center"><span class="spinner-border text-primary" role="status"></span> Cargando información...</p>');
+        $('#alertasFacturas').addClass('d-none');
+        $('#modalPreviewFactura').modal('show');
+
+        // Hacer petición AJAX
+        $.ajax({
+            url: '{{ route("ingresos.preview_next_invoice") }}',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                if (response.success) {
+                    mostrarFacturasPreview(response.facturas);
+                } else {
+                    mostrarError(response);
+                }
+            },
+            error: function(xhr) {
+                var error = xhr.responseJSON || {};
+                mostrarError(error);
+            }
+        });
+    }
+
+    function mostrarFacturasPreview(facturas) {
+        var html = '';
+        var simbolo = $('#simbolo').val() || '$';
+
+        if (facturas.length === 0) {
+            html = '<p class="text-warning text-center">No se encontraron facturas para crear.</p>';
+        } else {
+            facturas.forEach(function(factura, index) {
+                html += '<div class="card mb-3">';
+                html += '<div class="card-header"><h6 class="mb-0">Factura #' + (index + 1) + ' - Contrato: ' + factura.contrato_nro + '</h6></div>';
+                html += '<div class="card-body">';
+                html += '<div class="row mb-2">';
+                html += '<div class="col-md-6"><strong>Código:</strong> ' + factura.codigo + '</div>';
+                html += '<div class="col-md-6"><strong>Fecha:</strong> ' + formatearFecha(factura.fecha) + '</div>';
+                html += '</div>';
+                html += '<div class="row mb-3">';
+                html += '<div class="col-md-6"><strong>Vencimiento:</strong> ' + formatearFecha(factura.vencimiento) + '</div>';
+                html += '<div class="col-md-6"><strong>Tipo:</strong> <span class="badge badge-' + (factura.tipo == 2 ? 'success' : 'info') + '">' + (factura.tipo_texto || 'Estándar') + '</span></div>';
+                html += '</div>';
+
+                // Tabla de items
+                html += '<table class="table table-sm table-bordered mb-3">';
+                html += '<thead class="thead-dark">';
+                html += '<tr><th>Descripción</th><th>Cantidad</th><th>Precio</th><th>Desc.</th><th>Impuesto</th><th>Subtotal</th></tr>';
+                html += '</thead><tbody>';
+
+                factura.items.forEach(function(item) {
+                    var subtotalItem = item.precio * item.cantidad;
+                    var descuentoValor = 0;
+                    if (item.descuento > 0) {
+                        descuentoValor = (subtotalItem * item.descuento) / 100;
+                        subtotalItem -= descuentoValor;
+                    }
+                    var impuestoValor = 0;
+                    if (item.impuesto > 0) {
+                        impuestoValor = (subtotalItem * item.impuesto) / 100;
+                    }
+                    var totalItem = subtotalItem + impuestoValor;
+
+                    html += '<tr>';
+                    html += '<td>' + item.descripcion + ' <small class="text-muted">(' + item.tipo + ')</small></td>';
+                    html += '<td class="text-center">' + item.cantidad + '</td>';
+                    html += '<td class="text-right">' + simbolo + ' ' + formatearNumero(item.precio) + '</td>';
+                    html += '<td class="text-right">' + (item.descuento > 0 ? item.descuento + '%' : '-') + '</td>';
+                    html += '<td class="text-right">' + (item.impuesto > 0 ? item.impuesto + '%' : '-') + '</td>';
+                    html += '<td class="text-right">' + simbolo + ' ' + formatearNumero(totalItem) + '</td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+
+                // Totales
+                html += '<div class="row">';
+                html += '<div class="col-md-6"></div>';
+                html += '<div class="col-md-6">';
+                html += '<table class="table table-sm">';
+                html += '<tr><td><strong>Subtotal:</strong></td><td class="text-right">' + simbolo + ' ' + formatearNumero(factura.subtotal) + '</td></tr>';
+                if (factura.descuento > 0) {
+                    html += '<tr><td><strong>Descuento:</strong></td><td class="text-right">' + simbolo + ' ' + formatearNumero(factura.descuento) + '</td></tr>';
+                }
+                if (factura.impuestos > 0) {
+                    html += '<tr><td><strong>Impuestos:</strong></td><td class="text-right">' + simbolo + ' ' + formatearNumero(factura.impuestos) + '</td></tr>';
+                }
+                html += '<tr class="table-primary"><td><strong>TOTAL:</strong></td><td class="text-right"><strong>' + simbolo + ' ' + formatearNumero(factura.total) + '</strong></td></tr>';
+                html += '</table>';
+                html += '</div>';
+                html += '</div>';
+
+                html += '</div></div>';
+            });
+        }
+
+        $('#contenidoFacturas').html(html);
+    }
+
+    function mostrarError(response) {
+        var html = '';
+        var simbolo = $('#simbolo').val() || '$';
+
+        if (response.error === 'facturas_sin_contrato' && response.facturas) {
+            // Mostrar alerta de facturas sin contrato
+            var lista = '';
+            response.facturas.forEach(function(factura) {
+                lista += '<li>Factura <strong>' + factura.codigo + '</strong> (ID: ' + factura.id + ')</li>';
+            });
+            $('#listaFacturasSinContrato').html(lista);
+            $('#alertasFacturas').removeClass('d-none');
+
+            html = '<p class="text-danger">No se puede generar la próxima factura porque algunas facturas no tienen contrato asociado.</p>';
+        } else {
+            html = '<p class="text-danger">Error al obtener la información: ' + (response.message || 'Error desconocido') + '</p>';
+        }
+
+        $('#contenidoFacturas').html(html);
+    }
+
+    function formatearFecha(fecha) {
+        if (!fecha) return '-';
+        var date = new Date(fecha);
+        var day = String(date.getDate()).padStart(2, '0');
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var year = date.getFullYear();
+        return day + '/' + month + '/' + year;
+    }
+
+    function formatearNumero(numero) {
+        return parseFloat(numero).toLocaleString('es-ES', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    // Botón continuar del modal
+    $('#btnContinuarFactura').on('click', function() {
+        $('#modalPreviewFactura').modal('hide');
+    });
 
 
   })

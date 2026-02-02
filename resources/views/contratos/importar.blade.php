@@ -150,7 +150,7 @@
                                 <h6><i class="fas fa-exclamation-triangle"></i> Errores encontrados:</h6>
                                 <ul class="mb-0">
                                     @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
+                                    <li>{!! $error !!}</li>
                                     @endforeach
                                 </ul>
                             </div>

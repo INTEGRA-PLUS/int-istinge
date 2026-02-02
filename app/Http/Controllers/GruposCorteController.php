@@ -114,6 +114,7 @@ class GruposCorteController extends Controller
             'fecha_factura' => 'required|numeric',
             'fecha_pago' => 'required|numeric',
             'hora_suspension' => 'required',
+            'periodo_facturacion' => 'required|numeric|in:1,2,3',
         ]);
 
         $hora_suspension = explode(":", $request->hora_suspension);
@@ -131,6 +132,7 @@ class GruposCorteController extends Controller
         $grupo->hora_creacion_factura = $request->hora_creacion_factura;
         $grupo->status = $request->status;
         $grupo->prorroga_tv = $request->prorroga_tv ?? 0;
+        $grupo->periodo_facturacion = $request->periodo_facturacion;
         $grupo->created_by = Auth::user()->id;
         $grupo->empresa = Auth::user()->empresa;
         $grupo->save();
@@ -153,6 +155,7 @@ class GruposCorteController extends Controller
         $grupo->hora_suspension  = $request->hora_suspension;
         $grupo->hora_suspension_limit = $hora_suspension_limit;
         $grupo->prorroga_tv = $request->prorroga_tv;
+        $grupo->periodo_facturacion = $request->periodo_facturacion ?? 1;
         $grupo->status           = $request->status;
         $grupo->created_by       = Auth::user()->id;
         $grupo->empresa          = Auth::user()->empresa;
@@ -201,6 +204,7 @@ class GruposCorteController extends Controller
             'fecha_factura' => 'required|numeric',
             'fecha_pago' => 'required|numeric',
             'hora_suspension' => 'required',
+            'periodo_facturacion' => 'required|numeric|in:1,2,3',
         ]);
 
         $grupo = GrupoCorte::find($id);
@@ -240,6 +244,7 @@ class GruposCorteController extends Controller
             $grupo->hora_creacion_factura = $request->hora_creacion_factura;
             $grupo->status                = $request->status;
             $grupo->prorroga_tv           = $request->prorroga_tv;
+            $grupo->periodo_facturacion  = $request->periodo_facturacion;
             $grupo->updated_by            = Auth::user()->id;
             $grupo->nro_factura_vencida = $request->nro_factura_vencida;
             $grupo->save();

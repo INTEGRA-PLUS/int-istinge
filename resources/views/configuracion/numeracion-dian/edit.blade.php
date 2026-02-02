@@ -13,7 +13,7 @@
     </div>
     <div class="col-md-3 form-group">
       <label class="control-label">Prefijo </label>
-      <input type="text" class="form-control"  id="prefijo" name="prefijo" value="{{$numeracion->prefijo}}" maxlength="8">
+      <input type="text" class="form-control"  id="prefijo" name="prefijo" value="{{$numeracion->prefijo}}" maxlength="15">
       <span class="help-block error">
         <strong>{{ $errors->first('prefijo') }}</strong>
       </span>
@@ -21,7 +21,7 @@
 
     <div class="col-md-2 form-group">
       <label class="control-label">Número inicial <span class="text-danger">*</span></label>
-      <input type="text" class="form-control nro"  id="inicioverdadero" name="inicioverdadero"  required="" value="{{$numeracion->inicioverdadero}}" maxlength="8">
+      <input type="text" class="form-control nro"  id="inicioverdadero" name="inicioverdadero"  required="" value="{{$numeracion->inicioverdadero}}" maxlength="15">
       <span class="help-block error">
         <strong>{{ $errors->first('inicioverdadero') }}</strong>
       </span>
@@ -29,7 +29,7 @@
 
     <div class="col-md-2 form-group">
       <label class="control-label">Próximo número<span class="text-danger">*</span></label>
-      <input type="text" class="form-control nro"  id="inicio" name="inicio"  required="" value="{{$numeracion->inicio}}" maxlength="8">
+      <input type="text" class="form-control nro"  id="inicio" name="inicio"  required="" value="{{$numeracion->inicio}}" maxlength="15">
       <span class="help-block error">
         <strong>{{ $errors->first('inicio') }}</strong>
       </span>

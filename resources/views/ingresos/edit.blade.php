@@ -90,7 +90,8 @@
           <div class="col-sm-8">
             <select class="form-control selectpicker" name="forma_pago" id="forma_pago" title="Seleccione" data-live-search="true" data-size="5" onchange="showAnti()">
               @foreach($formas as $f)
-              <option value="{{$f->id}}">{{$f->codigo}} - {{$f->nombre}}</option>
+              <option value="{{$f->id}}" {{$ingreso->forma_pago == $f->id ? 'selected' : ''}}
+                >{{$f->codigo}} - {{$f->nombre}}</option>
               @endforeach
             </select>
           </div>
