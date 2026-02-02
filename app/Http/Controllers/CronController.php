@@ -4755,7 +4755,6 @@ class CronController extends Controller
 
             // ✅ Límite dinámico según modo
             $limit = ($instance->meta == 0) ? 45 : 15;
-            Log::info("Modo de envío detectado: " . ($instance->meta == 0 ? "WABA/Vibio (meta=0)" : "META directo (meta=1)") . " | Límite lote: {$limit}");
 
             // ===========================
             // ✅ Query de facturas (excluye pagas)
@@ -4779,10 +4778,9 @@ class CronController extends Controller
                 ->limit($limit)
                 ->get();
 
-            Log::info("Facturas seleccionadas para envío: " . $facturas->count());
 
             foreach ($facturas as $factura) {
-                Log::info("Procesando factura: {$factura->codigo}");
+
 
                 // ✅ Blindaje por si pagó entre selección y envío
                 $yaPago = DB::table('ingresos_factura')
@@ -4801,7 +4799,6 @@ class CronController extends Controller
                 $factura->save();
 
                 $contacto = $factura->cliente();
-                Log::info("Cliente asociado: {$contacto->nombre} {$contacto->apellido1}, NIT: {$contacto->nit}");
 
                 // Determinar número válido
                 $celular = null;
@@ -4831,16 +4828,13 @@ class CronController extends Controller
                 }
 
                 $telefonoCompleto = '+' . $prefijo . ltrim($celular, '0');
-                Log::info("Teléfono completo: {$telefonoCompleto}");
 
                 // =======================================================
                 // 🚀 ENVÍO META 0 (Vibio / Plantilla WABA)
                 // =======================================================
                 if ($instance->meta == 0) {
-                    Log::info("Usando modo WABA (Vibio API).");
 
                     $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
-                    Log::info("Respuesta canal: " . json_encode($canalResponse));
 
                     $canalData = json_decode($canalResponse->scalar ?? '{}');
 
@@ -4850,7 +4844,6 @@ class CronController extends Controller
                     }
 
                     $tipoCanal = $canalData->data->channel->type ?? null;
-                    Log::info("Tipo de canal detectado: {$tipoCanal}");
 
                     // Generar PDF temporal
                     $this->getFacturaTemp($factura->id, config('app.key'));
@@ -4869,7 +4862,6 @@ class CronController extends Controller
                     }
 
                     $urlFactura = url("storage/temp/{$fileName}");
-                    Log::info("Factura {$factura->codigo}: URL PDF => {$urlFactura}");
 
                     // Buscar plantilla preferida para facturas
                     $plantilla = Plantilla::where('preferida_cron_factura', 1)
@@ -4887,7 +4879,6 @@ class CronController extends Controller
 
                     // Si hay plantilla preferida, usar sus datos
                     if ($plantilla) {
-                        Log::info("Factura {$factura->codigo}: Usando plantilla preferida: {$plantilla->title}");
 
                         // Procesar body_dinamic si existe
                         $bodyTextParams = [];
@@ -4960,7 +4951,6 @@ class CronController extends Controller
                         ];
                     } else {
                         // Comportamiento por defecto si no hay plantilla preferida
-                        Log::info("Factura {$factura->codigo}: No hay plantilla preferida, usando valores por defecto");
 
                         $body = [
                             "phone" => $telefonoCompleto,
@@ -4991,7 +4981,6 @@ class CronController extends Controller
                         ];
                     }
 
-                    Log::info("Factura {$factura->codigo}: cuerpo mensaje => " . json_encode($body));
 
                     if ($tipoCanal !== "waba") {
                         Log::error("Canal no permitido: {$tipoCanal}. Solo se permite waba.");
@@ -5000,7 +4989,6 @@ class CronController extends Controller
 
                     $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
 
-                    Log::info("Factura {$factura->codigo}: respuesta API => " . json_encode($response));
 
                     if (isset($response->statusCode) && $response->statusCode !== 200) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
@@ -5051,13 +5039,11 @@ class CronController extends Controller
 
                     $factura->whatsapp = 1;
                     $factura->save();
-                    Log::info("Factura {$factura->codigo}: marcada como enviada ✅");
 
                 } else {
                     // =======================================================
                     // 🚀 MODO META (directo, manual con base64)
                     // =======================================================
-                    Log::info("Usando modo META directo.");
 
                     if ($instance->status !== "PAIRED") {
                         Log::error("Instancia no conectada a WhatsApp (status: {$instance->status}).");
@@ -5090,10 +5076,7 @@ class CronController extends Controller
                         "media" => $file
                     ];
 
-                    Log::info("Factura {$factura->codigo}: cuerpo META => " . json_encode($body));
-
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-                    Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
 
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
@@ -5101,7 +5084,6 @@ class CronController extends Controller
                         if ($response->statusCode == 500) {
                             $factura->whatsapp = 1;
                             $factura->save();
-                            Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
                         }
                         sleep(5);
                         continue;
@@ -5137,19 +5119,16 @@ class CronController extends Controller
 
                     $factura->whatsapp = 1;
                     $factura->save();
-                    Log::info("Factura {$factura->codigo}: enviada por META ✅");
                     sleep(5);
                 }
             }
 
-            Log::info("✅ Lote completado correctamente.");
             $this->refreshCorteIntertTV();
 
         } catch (\Throwable $e) {
             Log::error("🔥 Error general en envioFacturaWpp: {$e->getMessage()} en línea {$e->getLine()}");
         }
 
-        Log::info("=== Fin de ejecución envioFacturaWpp() ===");
     }
 
     public function aplicateProrrateo(){
@@ -5409,7 +5388,7 @@ class CronController extends Controller
                     $notasDebito->update(['dian_service'=> 1]);
                     $nominas->update(['dian_service'=> 1]);
                 }
-                Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
+                // Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
 
             } catch (ClientException $e) {
                 if($e->getResponse()->getStatusCode() === 404) {
@@ -5980,7 +5959,7 @@ class CronController extends Controller
             if ($facturas_existentes->count() > 0) {
                 $facturas_ids = $facturas_existentes->toArray();
 
-                Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
+                // Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
 
                 // Eliminar en orden específico para evitar violaciones de integridad referencial
 
