@@ -2038,16 +2038,24 @@ class ReportesController extends Controller
         if(!isset($request->servidor) ||  $request->servidor == 0){
 
             $movimientos= Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
+                ->leftjoin('ingresos as i', function($join) {
+                    $join->on('i.id', '=', 'movimientos.id_modulo')
+                         ->where('movimientos.modulo', '=', 1);
+                })
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
-                ->where('fecha', '>=', $dates['inicio'])
-                ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.fecha', '>=', $dates['inicio'])
+                ->where('movimientos.fecha', '<=', $dates['fin'])
                 ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
             $movimientosTodos = Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
+                ->leftjoin('ingresos as i', function($join) {
+                    $join->on('i.id', '=', 'movimientos.id_modulo')
+                         ->where('movimientos.modulo', '=', 1);
+                })
                 ->select('movimientos.*', DB::raw('if(movimientos.contacto,c.nombre,"") as nombrecliente'))
-                ->where('fecha', '>=', $dates['inicio'])
-                ->where('fecha', '<=', $dates['fin'])
+                ->where('movimientos.fecha', '>=', $dates['inicio'])
+                ->where('movimientos.fecha', '<=', $dates['fin'])
                 ->where('movimientos.estatus','<>',2)
                 ->where('movimientos.empresa',$empresa);
 
@@ -2055,6 +2063,7 @@ class ReportesController extends Controller
         elseif($request->servidor){
 
             $movimientos= Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
+            ->leftjoin('ingresos as i', 'i.id', '=', 'movimientos.id_modulo')
             ->leftjoin('ingresos_factura as if','if.ingreso','movimientos.id_modulo')
             ->leftjoin('factura as f','f.id','if.factura')
             ->leftjoin('contracts as co','co.id','f.contrato_id')
@@ -2066,6 +2075,7 @@ class ReportesController extends Controller
             ->where('movimientos.empresa',$empresa);
 
              $movimientosTodos = Movimiento::leftjoin('contactos as c', 'movimientos.contacto', '=', 'c.id')
+            ->leftjoin('ingresos as i', 'i.id', '=', 'movimientos.id_modulo')
             ->leftjoin('ingresos_factura as if','if.ingreso','movimientos.id_modulo')
             ->leftjoin('factura as f','f.id','if.factura')
             ->leftjoin('contracts as co','co.id','f.contrato_id')
@@ -2087,6 +2097,10 @@ class ReportesController extends Controller
             $movimientos->where('movimientos.tipo',$request->tipo);
             $movimientosTodos->where('movimientos.tipo',$request->tipo);
         }
+        if($request->metodo_pago){
+            $movimientos->where('i.metodo_pago', $request->metodo_pago);
+            $movimientosTodos->where('i.metodo_pago', $request->metodo_pago);
+        }
 
         $movimientos=$movimientos->OrderBy($orderby, $order)->get();
         // $movimientos=  $movimientos->orderBy('fecha', 'DESC')->paginate(25)->appends($appends);
@@ -2107,7 +2121,10 @@ class ReportesController extends Controller
 
         $servidores = Mikrotik::where('status', 1)->where('empresa', $empresa)->get();
 
-        return view('reportes.cajas.index')->with(compact('movimientos','request','example','totales','servidores','cajas'));
+        // Obtener métodos de pago para el filtro
+        $metodosPago = DB::table('metodos_pago')->get();
+
+        return view('reportes.cajas.index')->with(compact('movimientos','request','example','totales','servidores','cajas','metodosPago'));
     }
 
     public function instalacion(Request $request) {
