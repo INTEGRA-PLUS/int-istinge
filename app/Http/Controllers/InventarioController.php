@@ -79,13 +79,15 @@ class InventarioController extends Controller{
             $precio=ListaPrecios::where('empresa', Auth::user()->empresa)->where('nro', $request->lista)->first();
             $select[]='pp.precio as precio';
             $campos[3]=$orderby='pp.precio';
-            $productos = Inventario::join('productos_precios as pp', 'pp.producto', '=', 'inventario.id')->where('pp.lista', $precio->id)->select($select);
+            $productos = Inventario::join('productos_precios as pp', 'pp.producto', '=', 'inventario.id')
+            ->where('pp.lista', $precio->id)->select($select);
         }else{
             $productos = Inventario::select($select);
         }
 
         $appends=array('orderby'=>$request->orderby, 'order'=>$request->order);
-        $productos = $productos->where('inventario.empresa',Auth::user()->empresa)->whereIn('type',['MATERIAL','MODEMS']);
+        $productos = $productos->where('inventario.empresa',Auth::user()->empresa)
+        ->whereIn('type',['MATERIAL','MODEMS', 'OFICINA','SERVICIO']);
 
         if ($request->name_1) {
             $busqueda=true; $appends['name_1']=$request->name_1; $productos=$productos->where('inventario.ref', 'like', '%' .$request->name_1.'%');
@@ -109,7 +111,8 @@ class InventarioController extends Controller{
             if ($request->$tite) {
                 $busqueda=true;
                 $appends[$tite]=$request->$tite;
-                $productos=$productos->leftjoin('inventario_meta','id_producto','=','inventario.id')->where('meta_key',$value->campo)->where('meta_value','LIKE','%'. $request->$tite. '%');
+                $productos=$productos->leftjoin('inventario_meta','id_producto','=','inventario.id')
+                ->where('meta_key',$value->campo)->where('meta_value','LIKE','%'. $request->$tite. '%');
             }
             $cont++;
         }

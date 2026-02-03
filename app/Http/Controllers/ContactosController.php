@@ -388,38 +388,25 @@ class ContactosController extends Controller
         $tipos_empresa = TipoEmpresa::where('empresa', Auth::user()->empresa)
             ->get();
 
-        $prefijos = DB::table('prefijos_telefonicos')->get();
-
-        $paises = DB::table('pais')->get();
+        $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
 
         $departamentos = DB::table('departamentos')->get();
 
-        $transportadora_id = TipoEmpresa::where('empresa', auth()->user()->empresa)
-            ->where('nombre', 'TRANSPORTADORA')
-            ->first();
-
-        if ($transportadora_id) {
-            $transportadoras = Contacto::where('empresa', auth()->user()->empresa)
-                ->where('tipo_empresa', $transportadora_id->id)
-                ->get();
-        } else {
-            $transportadoras = null;
-        }
-
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+        
+        $barrios = DB::table('barrios')->where('status',1)->get();
 
         view()->share(['title' => 'Nuevo Proveedor', 'subseccion' => 'proveedores', 'middel' => true]);
 
         return view('contactos.createp')->with(compact(
             'identificaciones',
             'tipos_empresa',
-            'prefijos',
             'vendedores',
             'listas',
             'paises',
             'departamentos',
-            'transportadoras',
-            'oficinas'
+            'oficinas',
+            'barrios'
         ));
     }
 
