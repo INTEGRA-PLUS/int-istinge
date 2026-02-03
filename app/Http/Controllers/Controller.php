@@ -2516,11 +2516,12 @@ class Controller extends BaseController
             $factura->vencimiento   = $date_suspension;
             $factura->suspension    = $date_suspension;
             $factura->pago_oportuno = $date_pagooportuno;
-            $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
+            $factura->observaciones = 'Factura creada desde contrato - Corte '.$grupo_corte->fecha_corte;
             $factura->bodega        = 1;
             $factura->vendedor      = 1;
             $factura->prorrateo_aplicado = 0;
             $factura->facturacion_automatica = 1;
+            $factura->factura_mes_manual = 1;
             $factura->contrato_id = $contrato->id;
             $factura->save();
 
