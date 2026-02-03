@@ -2293,10 +2293,10 @@ class ContratosController extends Controller
 
                     $contrato->save();
 
-                     //Opcion de crear factrua con prorrateo
-                    if (Auth::user()->empresa()->contrato_factura_pro == 1) {
-                        $this->createFacturaProrrateo($contrato);
-                    }
+                    //  //Opcion de crear factrua con prorrateo
+                    // if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+                    //     $this->createFacturaProrrateo($contrato);
+                    // }
 
                     /*REGISTRO DEL LOG*/
                     if (!is_null($descripcion)) {
