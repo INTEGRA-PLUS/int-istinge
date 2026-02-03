@@ -3156,13 +3156,22 @@ class ConfiguracionController extends Controller
                 ], 400);
             }
 
+            // Obtener PIN del request o usar valor por defecto
+            $pin = $request->input('pin', '123456');
+            if (empty($pin)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'El PIN es requerido para registrar el número'
+                ], 400);
+            }
+
             // Construir URL de la API
             $url = 'https://graph.facebook.com/v24.0/' . $instance->phone_number_id . '/register';
 
             // Body de la petición
             $body = json_encode([
                 'messaging_product' => 'whatsapp',
-                'pin' => '123456'
+                'pin' => $pin
             ]);
 
             // Hacer petición POST a Facebook Graph API
@@ -3196,15 +3205,55 @@ class ConfiguracionController extends Controller
                 ], 400);
             }
 
+            // Decodificar respuesta para verificar errores
+            $responseData = json_decode($response, true);
+
+            // Si el código HTTP no es 200, parsear el error de Facebook
             if ($httpCode != 200) {
                 Log::error('Error HTTP al registrar número WhatsApp: ' . $httpCode . ' - ' . $response);
+
+                $errorMessage = 'Error al registrar el número de teléfono';
+
+                // Parsear error de Facebook Graph API
+                if (isset($responseData['error'])) {
+                    $fbError = $responseData['error'];
+                    $errorMessage = $fbError['message'] ?? $errorMessage;
+
+                    // Mensajes más específicos según el tipo de error
+                    if (isset($fbError['code'])) {
+                        switch ($fbError['code']) {
+                            case 100:
+                                // Error de objeto no encontrado o sin permisos
+                                if (isset($fbError['error_subcode']) && $fbError['error_subcode'] == 33) {
+                                    $errorMessage = 'El número de teléfono (ID: ' . $instance->phone_number_id . ') no existe, no tiene permisos suficientes, o el PIN ingresado es incorrecto. Verifique el phone_number_id y el PIN correcto en Meta Business Manager.';
+                                } else {
+                                    $errorMessage = 'Error de permisos o configuración: ' . $errorMessage;
+                                }
+                                break;
+                            case 190:
+                                $errorMessage = 'Token de acceso inválido o expirado. Verifique ACCESS_TOKEN_META en el archivo .env';
+                                break;
+                            case 803:
+                                $errorMessage = 'El número de teléfono ya está registrado o el PIN es incorrecto';
+                                break;
+                            default:
+                                $errorMessage = 'Error de la API de Facebook: ' . $errorMessage;
+                        }
+                    }
+
+                    // Agregar información adicional si está disponible
+                    if (isset($fbError['type'])) {
+                        $errorMessage .= ' (Tipo: ' . $fbError['type'] . ')';
+                    }
+                } else {
+                    $errorMessage = 'Error en la respuesta de la API de Facebook (Código HTTP: ' . $httpCode . ')';
+                }
+
                 return response()->json([
                     'success' => 0,
-                    'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'
+                    'message' => $errorMessage
                 ], 400);
             }
-
-            $responseData = json_decode($response, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
@@ -3232,7 +3281,7 @@ class ConfiguracionController extends Controller
             Log::error('Error al registrar número WhatsApp: ' . $e->getMessage());
             return response()->json([
                 'success' => 0,
-                'message' => 'Error al registrar el número: ' . $e->getMessage()
+                'message' => 'Error inesperado al registrar el número: ' . $e->getMessage()
             ], 500);
         }
     }
