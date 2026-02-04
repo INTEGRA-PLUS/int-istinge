@@ -115,7 +115,7 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                     <a class="nav-link" href="{{route('inventario.index')}}">Planes</a>
                 </li>
                 <li class="nav-item" id="material">
-                    <a class="nav-link" href="{{route('inventario.material')}}">Productos</a>
+                    <a class="nav-link" href="{{route('inventario.index')}}">Productos</a>
                 </li>
                 <li class="nav-item" id="planes_tv">
                     <a class="nav-link" href="{{route('inventario.television')}}">Planes de Televisión</a>
