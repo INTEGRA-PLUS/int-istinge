@@ -754,8 +754,10 @@ function contratos_facturas(contacto){
 
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/empresa/contratos/' + contacto + '/json';
+        var urlContacto = '/software/empresa/contactos/' + contacto + '/json';
     } else {
         var url = '/empresa/contratos/' + contacto + '/json';
+        var urlContacto = '/empresa/contactos/' + contacto + '/json';
     }
 
     $.ajax({
@@ -770,6 +772,7 @@ function contratos_facturas(contacto){
 
             if(data.data.length == 0){
                 $("#divcontratos").addClass('d-none')
+                cargando(false)
                 return;
             }
 
@@ -784,7 +787,35 @@ function contratos_facturas(contacto){
 
             $("#contratos_json").selectpicker('refresh')
             $("#divcontratos").removeClass('d-none')
-            cargando(false)
+
+            // Verificar si el cliente tiene factura_est_elec = 1 para quitar required
+            $.ajax({
+                url: urlContacto,
+                success: function(contactoData) {
+                    contactoData = JSON.parse(contactoData);
+                    if (contactoData[0]) {
+                        contactoData = contactoData[0];
+                    }
+
+                    if (contactoData.factura_est_elec == 1) {
+                        // Quitar required del campo contrato
+                        $('#contratos_json').removeAttr('required');
+                        // Quitar asterisco del label si existe
+                        $('#divcontratos label').find('.text-danger').remove();
+                    } else {
+                        // Restaurar required si no está habilitado
+                        $('#contratos_json').attr('required', '');
+                        // Restaurar asterisco si no existe
+                        if ($('#divcontratos label').find('.text-danger').length == 0) {
+                            $('#divcontratos label').append(' <span class="text-danger">*</span>');
+                        }
+                    }
+                    cargando(false)
+                },
+                error: function() {
+                    cargando(false)
+                }
+            });
 
         },
         error: function(data) {
@@ -848,7 +879,7 @@ function contacto(selected, modificar = false, type = 1) {
 
                 //Validación de cuando es una factura estandar normal pero no tiene ningun contrato sale alerta.
                 if(window.location.pathname.split("/")[3] != "ordenes"){
-                     if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0) {
+                     if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0 && data.factura_est_elec != 1) {
                     if ($("#dian").val() == null) {
                         Swal.fire({
                             position: 'top-center',
@@ -863,7 +894,7 @@ function contacto(selected, modificar = false, type = 1) {
                         return;
                     }
                     //referencia a que el cliente tiene un contrato por facturacion electrónica y no por estandar
-                } else if (type == 1 && data.facturacion == 3 && modulo == 0) {
+                } else if (type == 1 && data.facturacion == 3 && modulo == 0 && (data.factura_est_elec != 1)) {
                     Swal.fire({
                         position: 'top-center',
                         type: 'error',
@@ -879,6 +910,23 @@ function contacto(selected, modificar = false, type = 1) {
             }
 
 
+            // Manejar campo contrato cuando factura_est_elec = 1
+            if (data.factura_est_elec == 1) {
+                // Quitar required del campo contrato
+                $('#contratos_json').removeAttr('required');
+                // Quitar asterisco del label si existe
+                $('#divcontratos label').find('.text-danger').remove();
+            } else {
+                // Restaurar required si no está habilitado
+                if ($('#divcontratos').is(':visible') && $('#divcontratos').hasClass('d-none') == false) {
+                    $('#contratos_json').attr('required', '');
+                    // Restaurar asterisco si no existe
+                    if ($('#divcontratos label').find('.text-danger').length == 0) {
+                        $('#divcontratos label').append(' <span class="text-danger">*</span>');
+                    }
+                }
+            }
+
             if ($('#ident').length > 0) {
                 $('#ident').val(data.nit);
                 if (data.celular == '') { $('#telefono').val(data.telefono1); } else { $('#telefono').val(data.celular); }
@@ -890,7 +938,7 @@ function contacto(selected, modificar = false, type = 1) {
                         if (data.plan) {
                             it++;
                             $('#item1').val(data.plan).selectpicker('refresh');
-                            rellenar(1, data.plan);
+                            rellenar(it, data.plan);
                         }
                         if (data.servicio_tv) {
                             createRow();
@@ -3817,12 +3865,12 @@ function validateDian(id, rutasuccess, codigo, emails = false, facturasp = 0) {
                         $img = "total.png";
                         messageValidateDian($mensaje, $footer, $img);
                     }
-                    else if (validate.emitida == false) {
-                        $mensaje = "Se debe emitir la factura anterior para no perder el consecutivo.";
-                        $footer = "";
-                        $img = "emitida.png";
-                        messageValidateDian($mensaje, $footer, $img);
-                    }
+                    // else if (validate.emitida == false) {
+                    //     $mensaje = "Se debe emitir la factura anterior para no perder el consecutivo.";
+                    //     $footer = "";
+                    //     $img = "emitida.png";
+                    //     messageValidateDian($mensaje, $footer, $img);
+                    // }
 
                     //-- /Validaciones para la factura --//
                     else {
@@ -4302,7 +4350,77 @@ function getInterfaces(mikrotik) {
     })
 }
 
-function getPlanes(mikrotik) {
+function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
+    // Si consultasMk no está definido, asumir que es 1 (por defecto hacer consultas)
+    if (typeof consultasMk === 'undefined') {
+        consultasMk = 1;
+    }
+    
+    // Si consultas_mk == 0, no hacer peticiones a la API
+    if (consultasMk == 0) {
+        // Solo cargar planes desde la base de datos sin consultar Mikrotik
+        if (window.location.pathname.split("/")[1] === "software") {
+            var url = '/software/api/getPlanes/' + mikrotik;
+        } else {
+            var url = '/api/getPlanes/' + mikrotik;
+        }
+        
+        $.ajax({
+            url: url,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            method: 'get',
+            success: function(data) {
+                // No mostrar loader ya que no se hace consulta a Mikrotik
+                
+                // Verificar si hay error de conexión a la Mikrotik
+                if (data.connection_error === true) {
+                    return;
+                }
+
+                $("#plan_id").empty();
+
+                var $select = $('#plan_id');
+
+                // Verificar que data.planes exista y sea un array
+                if (data.planes && Array.isArray(data.planes)) {
+                    $.each(data.planes, function(key, value) {
+
+                        if (value.type == 0) {
+                            var type = 'Queue Simple';
+                        } else if (value.type == 1) {
+                            var type = 'PCQ';
+                        }
+
+                        $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
+                    });
+                }
+
+                $select.selectpicker('refresh');
+
+                // Preservar el plan actual si existe y está en la lista
+                if (currentPlanId && currentPlanId !== null && currentPlanId !== 'null') {
+                    var planExists = $select.find('option[value="' + currentPlanId + '"]').length > 0;
+                    if (planExists) {
+                        $select.val(currentPlanId).selectpicker('refresh');
+                    }
+                }
+
+                // Preservar el tipo de conexión actual si existe
+                if (currentConexion && currentConexion !== null && currentConexion !== 'null') {
+                    $('#conexion').val(currentConexion).selectpicker('refresh');
+                } else {
+                    // Solo limpiar si no hay valor actual
+                    $('#conexion').val('').selectpicker('refresh');
+                }
+            },
+            error: function(data) {
+                console.log('Error al obtener planes:', data);
+            }
+        });
+        return;
+    }
+    
+    // Si consultas_mk == 1, hacer la petición normal con loader
     cargando(true);
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/api/getPlanes/' + mikrotik;
@@ -4327,22 +4445,45 @@ function getPlanes(mikrotik) {
 
             var $select = $('#plan_id');
 
-            $.each(data.planes, function(key, value) {
+            // Verificar que data.planes exista y sea un array
+            if (data.planes && Array.isArray(data.planes)) {
+                $.each(data.planes, function(key, value) {
 
-                if (value.type == 0) {
-                    var type = 'Queue Simple';
-                } else if (value.type == 1) {
-                    var type = 'PCQ';
-                }
+                    if (value.type == 0) {
+                        var type = 'Queue Simple';
+                    } else if (value.type == 1) {
+                        var type = 'PCQ';
+                    }
 
-                $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
-            });
-
+                    $select.append('<option value=' + value.id + '>' + type + ': ' + value.name + '</option>');
+                });
+            }
 
             $select.selectpicker('refresh');
-            getInterfaces(mikrotik);
-            $("#amarre_mac").val(data.mikrotik.amarre_mac);
-            $('#conexion').val('').selectpicker('refresh');
+
+            // Preservar el plan actual si existe y está en la lista
+            if (currentPlanId && currentPlanId !== null && currentPlanId !== 'null') {
+                var planExists = $select.find('option[value="' + currentPlanId + '"]').length > 0;
+                if (planExists) {
+                    $select.val(currentPlanId).selectpicker('refresh');
+                }
+            }
+
+            // Solo llamar getInterfaces y actualizar amarre_mac si mikrotik existe
+            if (data.mikrotik) {
+                getInterfaces(mikrotik);
+                if (data.mikrotik.amarre_mac) {
+                    $("#amarre_mac").val(data.mikrotik.amarre_mac);
+                }
+            }
+            
+            // Preservar el tipo de conexión actual si existe
+            if (currentConexion && currentConexion !== null && currentConexion !== 'null') {
+                $('#conexion').val(currentConexion).selectpicker('refresh');
+            } else {
+                // Solo limpiar si no hay valor actual
+                $('#conexion').val('').selectpicker('refresh');
+            }
 
             // Vaciar el select de profiles para evitar duplicados
             var $profileSelect = $("#div_profile_select");
@@ -4486,7 +4627,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 4){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4511,7 +4653,8 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }else if(document.getElementById("conexion").value == 2){
         document.getElementById("local_adress").classList.add('d-none');
@@ -4526,24 +4669,13 @@ function interfazChange(){
         document.getElementById("div_mac").classList.remove('d-none');
         document.getElementById("mac_address").setAttribute('required', true);
 
-        document.getElementById("div_dhcp").classList.remove('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
 
         // Llamar a la función para ocultar/mostrar campos según Simple Queue
         toggleCamposDHCP();
     }else if(document.getElementById("conexion").value == 1){
-
-      //  document.getElementById("usuario").value = '';
-      //  document.getElementById("password").value = '';
-     //   document.getElementById("div_usuario").classList.remove('d-none');
-     //   document.getElementById("usuario").setAttribute('required', true);
-     //   document.getElementById("div_password").classList.remove('d-none');
-     //   document.getElementById("password").setAttribute('required', true);
-
-    //    document.getElementById("div_mac").classList.add('d-none');
-     //   document.getElementById("mac_address").removeAttribute('required');
-     //   document.getElementById("div_dhcp").classList.add('d-none');
-     //   document.getElementById("simple_queue").removeAttribute('required');
         document.getElementById("usuario").value = '';
         document.getElementById("password").value = '';
         document.getElementById("div_usuario").classList.remove('d-none');
@@ -4553,12 +4685,21 @@ function interfazChange(){
 
         document.getElementById("div_mac").classList.add('d-none');
         document.getElementById("mac_address").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
-        document.getElementById("simple_queue").removeAttribute('required');
-         // Campo que se activa nada mas cuando es pppoe
+
+        // Mostrar Simple Queue para PPPOE
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) {
+            divSimpleQueue.classList.remove('d-none');
+            document.getElementById("simple_queue").setAttribute('required', true);
+        }
+
+        // Campo que se activa nada mas cuando es pppoe
         document.getElementById("local_adress").classList.remove('d-none');
         document.getElementById("local_adress").setAttribute('required', true);
         document.getElementById("div_profile").classList.remove('d-none');
+
+        // Llamar a la función para ocultar/mostrar campos según Simple Queue
+        toggleCamposDHCP();
 
     }else{
         document.getElementById("div_interfaz").classList.add('d-none');
@@ -4588,7 +4729,8 @@ function interfazChange(){
 
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("password").removeAttribute('required');
-        document.getElementById("div_dhcp").classList.add('d-none');
+        var divSimpleQueue = document.getElementById("div_simple_queue");
+        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }
     document.getElementById("interfaz").value = '';
@@ -4620,33 +4762,66 @@ function toggleCamposDHCP(){
     // Verificar si los elementos existen (pueden no existir en todas las páginas)
     if(!conexion || !simpleQueue) return;
 
-    // Solo aplicar la lógica si el tipo de conexión es DHCP (valor 2)
-    if(conexion.value == 2){
-        var divInterfaz = document.getElementById("div_interfaz");
-        var divSegmentoIp = document.getElementById("div_segmento_ip");
-        var divDireccionIp = document.getElementById("div_direccion_ip");
-        var localAddress = document.getElementById("local_address");
-        var ip = document.getElementById("ip");
+    var divInterfaz = document.getElementById("div_interfaz");
+    var divSegmentoIp = document.getElementById("div_segmento_ip");
+    var divDireccionIp = document.getElementById("div_direccion_ip");
+    var localAddress = document.getElementById("local_address");
+    var ip = document.getElementById("ip");
+    var localAdress = document.getElementById("local_adress"); // Campo Dirección IP (Local Address) para PPPOE
 
+    // Aplicar la lógica si el tipo de conexión es DHCP (valor 2) o PPPOE (valor 1)
+    if(conexion.value == 2 || conexion.value == 1){
         // Si Simple Queue es dinámica, ocultar los campos
         if(simpleQueue.value == 'dinamica'){
             if(divInterfaz) {
                 divInterfaz.classList.add('d-none');
                 var interfaz = document.getElementById("interfaz");
-                if(interfaz) interfaz.removeAttribute('required');
+                if(interfaz) {
+                    interfaz.removeAttribute('required');
+                    interfaz.required = false;
+                    // También remover el atributo required del HTML
+                    $(interfaz).removeAttr('required');
+                }
             }
             if(divSegmentoIp) {
                 divSegmentoIp.classList.add('d-none');
-                if(localAddress) localAddress.removeAttribute('required');
+                if(localAddress) {
+                    localAddress.removeAttribute('required');
+                    localAddress.required = false;
+                    // También remover el atributo required del HTML
+                    $(localAddress).removeAttr('required');
+                }
             }
             if(divDireccionIp) {
                 divDireccionIp.classList.add('d-none');
-                if(ip) ip.removeAttribute('required');
-                // Remover el asterisco del label cuando es DHCP con simple_queue dinámico
+                if(ip) {
+                    ip.removeAttribute('required');
+                    ip.required = false;
+                    // También remover el atributo required del HTML
+                    $(ip).removeAttr('required');
+                }
+                // Remover el asterisco del label cuando es dinámico
                 var labelIp = document.getElementById("div_ip");
                 if(labelIp) {
                     // Remover cualquier asterisco que pueda existir
                     labelIp.innerHTML = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
+                }
+            }
+            // Ocultar Local Address para PPPOE cuando es dinámico
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.add('d-none');
+                var direccionLocalAddress = document.getElementById("direccion_local_address");
+                if(direccionLocalAddress) {
+                    direccionLocalAddress.removeAttribute('required');
+                    direccionLocalAddress.required = false;
+                    $(direccionLocalAddress).removeAttr('required');
+                }
+                // También buscar por el ID local_address que puede estar en el input
+                var localAddressInput = document.getElementById("local_address");
+                if(localAddressInput && localAddressInput.tagName === 'INPUT') {
+                    localAddressInput.removeAttribute('required');
+                    localAddressInput.required = false;
+                    $(localAddressInput).removeAttr('required');
                 }
             }
         } else {
@@ -4663,7 +4838,7 @@ function toggleCamposDHCP(){
             if(divDireccionIp) {
                 divDireccionIp.classList.remove('d-none');
                 if(ip) ip.setAttribute('required', true);
-                // Agregar el asterisco del label cuando es DHCP con simple_queue estático
+                // Agregar el asterisco del label cuando es estático
                 var labelIp = document.getElementById("div_ip");
                 if(labelIp) {
                     // Remover asteriscos existentes primero para evitar duplicados
@@ -4673,6 +4848,11 @@ function toggleCamposDHCP(){
                         labelIp.innerHTML = labelText.replace(/(Dirección IP \(Remote Address\))/, '$1 <span class="text-danger">*</span>');
                     }
                 }
+            }
+            // Mostrar Local Address para PPPOE cuando es estático
+            if(conexion.value == 1 && localAdress) {
+                localAdress.classList.remove('d-none');
+                localAdress.setAttribute('required', true);
             }
         }
 

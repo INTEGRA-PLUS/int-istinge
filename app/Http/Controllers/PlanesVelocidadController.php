@@ -52,11 +52,35 @@ class PlanesVelocidadController extends Controller
 
             $mikrotikServer = Mikrotik::find($mikrotik_id);
 
+            // Verificar si la empresa tiene consultas_mk = 0
+            $empresa = Empresa::find(Auth::user()->empresa);
+            $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+            // Si consultas_mk = 0, no hacer consultas a mikrotik y retornar profile vacío
+            $profile = [];
+            $connectionError = false;
+
+            // Si consultas_mk = 1, hacer consulta a mikrotik (comportamiento original)
+            if ($consultasMk == 1 && $mikrotikServer) {
+                $API = new RouterosAPI();
+                $API->port = $mikrotikServer->puerto_api;
+                
+                if ($API->connect($mikrotikServer->ip, $mikrotikServer->usuario, $mikrotikServer->clave)) {
+                    $API->write('/ppp/profile/getall');
+                    $READ = $API->read(false);
+                    $profile = $API->parseResponse($READ);
+                    $API->disconnect();
+                } else {
+                    $connectionError = true;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'planes' => $planes,
                 'mikrotik' => $mikrotikServer,
-                'profile' => []
+                'profile' => $profile,
+                'connection_error' => $connectionError
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -932,6 +956,146 @@ class PlanesVelocidadController extends Controller
             'fallidos'  => $fail,
             'correctos' => $succ,
             'state'     => 'eliminados'
+        ]);
+    }
+
+    public function crear_en_mikrotik($planes, $mikrotik_id)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+
+        $succ = 0;
+        $fail = 0;
+
+        $planes = explode(",", $planes);
+        $mikrotik = Mikrotik::where('id', $mikrotik_id)
+            ->where('empresa', Auth::user()->empresa)
+            ->first();
+
+        if (!$mikrotik) {
+            return response()->json([
+                'success'   => false,
+                'fallidos'  => count($planes),
+                'correctos' => 0,
+                'message'   => 'La Mikrotik seleccionada no existe o no pertenece a su empresa'
+            ], 400);
+        }
+
+        foreach ($planes as $plan_id) {
+            try {
+                $planOriginal = PlanesVelocidad::where('id', $plan_id)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->first();
+
+                if (!$planOriginal) {
+                    $fail++;
+                    continue;
+                }
+
+                // Verificar si ya existe un plan con el mismo nombre en esa mikrotik
+                $planExistente = PlanesVelocidad::where('name', $planOriginal->name)
+                    ->where('mikrotik', $mikrotik_id)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->first();
+
+                if ($planExistente) {
+                    $fail++;
+                    continue;
+                }
+
+                // Obtener el inventario original del plan
+                $inventarioOriginal = Inventario::find($planOriginal->item);
+                
+                if (!$inventarioOriginal) {
+                    $fail++;
+                    continue;
+                }
+
+                // Validar si ya existe un plan en la mikrotik destino con un inventario que tenga la misma referencia
+                $planesEnMikrotik = PlanesVelocidad::where('mikrotik', $mikrotik_id)
+                    ->where('empresa', Auth::user()->empresa)
+                    ->get();
+
+                $planConMismaRef = false;
+                foreach ($planesEnMikrotik as $planMikrotik) {
+                    $inventarioPlan = Inventario::find($planMikrotik->item);
+                    if ($inventarioPlan && $inventarioPlan->ref === $inventarioOriginal->ref) {
+                        $planConMismaRef = true;
+                        break;
+                    }
+                }
+
+                if ($planConMismaRef) {
+                    $fail++;
+                    continue;
+                }
+
+                // CREAR NUEVO INVENTARIO (siguiendo el mismo patrón que store)
+                $inventario = new Inventario;
+                $inventario->empresa = Auth::user()->empresa;
+                $inventario->producto = $inventarioOriginal->producto;
+                $inventario->ref = $inventarioOriginal->ref;
+                $inventario->precio = $inventarioOriginal->precio;
+                $inventario->id_impuesto = $inventarioOriginal->id_impuesto;
+                $inventario->impuesto = $inventarioOriginal->impuesto;
+                $inventario->tipo_producto = $inventarioOriginal->tipo_producto;
+                $inventario->unidad = $inventarioOriginal->unidad;
+                $inventario->nro = 0;
+                $inventario->categoria = $inventarioOriginal->categoria;
+                $inventario->lista = $inventarioOriginal->lista;
+                $inventario->type_autoretencion = $inventarioOriginal->type_autoretencion;
+                $inventario->type = 'PLAN';
+                $inventario->save();
+
+                // Copiar las cuentas contables del inventario original (producto_cuentas)
+                $cuentasOriginales = ProductoCuenta::where('inventario_id', $inventarioOriginal->id)->get();
+                foreach ($cuentasOriginales as $cuentaOriginal) {
+                    $productoCuenta = new ProductoCuenta;
+                    $productoCuenta->cuenta_id = $cuentaOriginal->cuenta_id;
+                    $productoCuenta->inventario_id = $inventario->id;
+                    $productoCuenta->tipo = $cuentaOriginal->tipo;
+                    $productoCuenta->save();
+                }
+
+                // CREAR EL PLAN (después de crear el inventario)
+                $plan = new PlanesVelocidad;
+                $plan->mikrotik = $mikrotik_id;
+                $plan->name = $planOriginal->name;
+                $plan->price = $planOriginal->price;
+                $plan->upload = $planOriginal->upload;
+                $plan->download = $planOriginal->download;
+                $plan->type = $planOriginal->type;
+                $plan->address_list = $planOriginal->address_list;
+                $plan->created_by = Auth::user()->id;
+                $plan->tipo_plan = $planOriginal->tipo_plan;
+                $plan->burst_limit_subida = $planOriginal->burst_limit_subida;
+                $plan->burst_limit_bajada = $planOriginal->burst_limit_bajada;
+                $plan->burst_threshold_subida = $planOriginal->burst_threshold_subida;
+                $plan->burst_threshold_bajada = $planOriginal->burst_threshold_bajada;
+                $plan->burst_time_subida = $planOriginal->burst_time_subida;
+                $plan->burst_time_bajada = $planOriginal->burst_time_bajada;
+                $plan->queue_type_subida = $planOriginal->queue_type_subida;
+                $plan->queue_type_bajada = $planOriginal->queue_type_bajada;
+                $plan->parenta = $planOriginal->parenta;
+                $plan->prioridad = $planOriginal->prioridad;
+                $plan->limit_at_subida = $planOriginal->limit_at_subida;
+                $plan->limit_at_bajada = $planOriginal->limit_at_bajada;
+                $plan->item = $inventario->id;
+                $plan->empresa = Auth::user()->empresa;
+                $plan->dhcp_server = $planOriginal->dhcp_server;
+                $plan->status = $planOriginal->status;
+                $plan->save();
+
+                $succ++;
+            } catch (\Exception $e) {
+                \Log::error('Error al crear plan en mikrotik: ' . $e->getMessage());
+                $fail++;
+            }
+        }
+
+        return response()->json([
+            'success'   => true,
+            'fallidos'  => $fail,
+            'correctos' => $succ
         ]);
     }
 }

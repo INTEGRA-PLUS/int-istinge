@@ -161,6 +161,12 @@
                                 @endforeach
 							</select>
 						</div>
+                        <div class="col-md-2 pl-1 pt-1">
+							<select title="Contrato tipo" class="form-control rounded selectpicker" name="tipo_facturacion" id="tipo_facturacion" multiple data-live-search="true">
+								<option value="1">Estándar</option>
+								<option value="3">Electrónica</option>
+							</select>
+						</div>
                         @if ($empresa->token_siigo != null || $empresa->token_siigo != '')
                         <div class="col-md-2 pl-1 pt-1">
 							<select title="¿Envía a siigo?" class="form-control rounded selectpicker" name="fact_siigo" id="fact_siigo" multiple data-live-search="true">
@@ -169,6 +175,16 @@
 							</select>
 						</div>
                         @endif
+                        <div class="col-md-3 pl-1 pt-1" style="display: flex; align-items: center;">
+							<select title="Otras opciones" class="form-control rounded selectpicker" id="otras_opciones" data-size="5" data-toggle="tooltip" data-placement="top" title="" style="flex: 1;">
+								<option value="">Otras opciones</option>
+								<option value="ultimas_contratos">Últimas facturas por contratos</option>
+								<option value="clientes_multiples_facturas">Clientes con más de 1 factura</option>
+							</select>
+							<span id="tooltip_clientes_multiples" style="display: none; margin-left: 5px;">
+								<a><i data-tippy-content="Si el cliente tiene más de una factura (a partir de 2 facturas) saldrán en la tabla, usa las fechas desde - hasta para obtener mayor precisión y saber si un cliente se le generó varias veces la facturación en un mes." class="icono far fa-question-circle"></i></a>
+							</span>
+						</div>
 						<div class="col-md-2 pl-1 pt-1 d-none">
 							<select title="Enviada a Correo" class="form-control rounded selectpicker" id="correo">
 								<option value="1">Si</option>
@@ -211,6 +227,9 @@
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_emitir"><i class="fas fa-server"></i> Convertir a facturas electrónicas en Lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_siigo"><i class="fas fa-server"></i> Enviar a Siigo en lote</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_imp_fac"><i class="fas fa-file-excel"></i> Imprimir facturas</a>
+                        @if(isset($_SESSION['permisos']['44']))
+                        <a class="dropdown-item text-danger" href="javascript:void(0)" id="btn_eliminar"><i class="fas fa-trash"></i> Eliminar facturas en lote</a>
+                        @endif
                     </div>
 
                 </div>
@@ -397,6 +416,11 @@
 <script>
 	// Variable global para controlar cuando se hace clic en filtrar
 	var filtroClickeado = false;
+
+	// Inicializar tooltips
+	$(document).ready(function() {
+		$('[data-toggle="tooltip"]').tooltip();
+	});
 
     function showModalSiigo(factura_id,codigo,fecha,cliente){
 
@@ -739,6 +763,8 @@
 			data.state_contrato = $('#state_contrato').val();
 			data.grupos_corte = $('#grupos_corte').val();
 			data.fact_siigo = $('#fact_siigo').val();
+			data.otras_opciones = $('#otras_opciones').val();
+			data.tipo_facturacion = $('#tipo_facturacion').val();
 			data.filtro = true;
 
 			// Solo enviar filtros_aplicados cuando se ha hecho clic en el botón filtrar
@@ -770,11 +796,56 @@
             }
         });
 
-        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo').on('change',function() {
+        $('#cliente, #municipio, #estado, #correo, #creacion, #vencimiento, #desde, #hasta, #barrio, #state_contrato, #grupos_corte, #fact_siigo, #tipo_facturacion').on('change',function() {
             filtroClickeado = true; // Marcar que se aplicó un filtro por cambio de dropdown
             getDataTable();
             return false;
         });
+
+		// Inicializar tooltip después de que selectpicker esté listo
+		$('#otras_opciones').on('loaded.bs.select', function() {
+			$(this).tooltip({
+				placement: 'top',
+				trigger: 'hover'
+			});
+		});
+
+		// Manejar tooltip y ejecución automática cuando cambie la selección
+		$('#otras_opciones').on('changed.bs.select', function() {
+			var selectedValue = $(this).val();
+
+			// Mostrar/ocultar icono de tooltip según la opción seleccionada
+			if (selectedValue === 'clientes_multiples_facturas') {
+				$('#tooltip_clientes_multiples').show();
+				// Reinicializar tippy para el nuevo elemento visible
+				// tippy se inicializa globalmente con .icono, pero necesitamos reinicializarlo para elementos dinámicos
+				if (typeof tippy !== 'undefined') {
+					setTimeout(function() {
+						var iconElement = document.querySelector('#tooltip_clientes_multiples .icono');
+						if (iconElement && !iconElement._tippy) {
+							tippy(iconElement, {
+								content(reference) {
+									return reference.getAttribute('data-tippy-content');
+								},
+								animation: 'perspective',
+								arrow: true,
+								arrowType: 'sharp',
+								interactive: true,
+								allowHTML: true
+							});
+						}
+					}, 100);
+				}
+			} else {
+				$('#tooltip_clientes_multiples').hide();
+			}
+
+			// Ejecutar filtro automáticamente si hay una opción seleccionada
+			if (selectedValue) {
+				filtroClickeado = true; // Marcar que se aplicó un filtro
+				getDataTable();
+			}
+		});
 
 		$('.vencimiento').datepicker({
 			locale: 'es-es',
@@ -1025,6 +1096,101 @@
                 }
             })
         });
+
+        $('#btn_eliminar').on('click', function(e) {
+            var table = $('#tabla-facturas').DataTable();
+            var nro = table.rows('.selected').data().length;
+
+            if(nro <= 0){
+                swal({
+                    title: 'ERROR',
+                    html: 'Para ejecutar esta acción, debe al menos seleccionar una factura.',
+                    type: 'error',
+                });
+                return false;
+            }
+
+            var facturas = [];
+            for (i = 0; i < nro; i++) {
+                facturas.push(table.rows('.selected').data()[i]['id']);
+            }
+
+            swal({
+                title: '⚠️ ACCIÓN PELIGROSA',
+                html: '¿Desea eliminar ' + nro + ' facturas?<br><br>' +
+                      '<strong style="color: #d33;">Esta acción es irreversible y no se puede retroceder.</strong><br><br>' +
+                      '<strong>IMPORTANTE:</strong> Recuerde que después de eliminar estas facturas, debe acomodar el siguiente número de facturación en numeraciones para que no queden saltos de facturas.',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+            }).then((result) => {
+                if (result.value) {
+                    cargando(true);
+
+                    var url = window.location.pathname.split("/")[1] === "software" ?
+                        `/software/empresa/facturas/eliminarmasiva/` + facturas.join(',') :
+                        `/empresa/facturas/eliminarmasiva/` + facturas.join(',');
+
+                    $.ajax({
+                        url: url,
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: function(data) {
+                            cargando(false);
+
+                            if(data.success == false){
+                                swal({
+                                    title: 'ERROR',
+                                    html: data.message || data.text || 'Ocurrió un error al eliminar las facturas',
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                                return false;
+                            }else{
+                                let html = data.text || 'Proceso de eliminación masiva terminado';
+                                if(data.errores && data.errores.length > 0){
+                                    html += '<br><br><strong>Facturas que no pudieron eliminarse:</strong><ul>';
+                                    data.errores.forEach(function(error) {
+                                        html += '<li>' + error + '</li>';
+                                    });
+                                    html += '</ul>';
+                                }
+
+                                swal({
+                                    title: 'PROCESO REALIZADO',
+                                    html: html,
+                                    type: 'success',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#1A59A1',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            }
+                            getDataTable();
+                        },
+                        error: function(xhr) {
+                            cargando(false);
+                            let errorMessage = 'No se pudo eliminar las facturas. Por favor, inténtelo de nuevo más tarde.';
+                            if(xhr.responseJSON && xhr.responseJSON.message){
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            swal({
+                                title: 'ERROR',
+                                html: errorMessage,
+                                type: 'error',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#d33',
+                                confirmButtonText: 'ACEPTAR',
+                            });
+                        }
+                    });
+                }
+            });
+        });
 	});
 
 	function getDataTable() {
@@ -1057,6 +1223,8 @@
 		$('#estado').val('').selectpicker('refresh');
 		$('#grupos_corte').val('').selectpicker('refresh');
 		$('#fact_siigo').val('').selectpicker('refresh');
+		$('#otras_opciones').val('').selectpicker('refresh');
+		$('#tipo_facturacion').val('').selectpicker('refresh');
 		$('#state_contrato').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
@@ -1081,6 +1249,8 @@
             'estado=' + encodeURIComponent($('#estado').val() || ''),
             'grupos_corte=' + encodeURIComponent($('#grupos_corte').val() || ''),
             'fact_siigo=' + encodeURIComponent($('#fact_siigo').val() || ''),
+            'otras_opciones=' + encodeURIComponent($('#otras_opciones').val() || ''),
+            'tipo_facturacion=' + encodeURIComponent($('#tipo_facturacion').val() || ''),
             'state_contrato=' + encodeURIComponent($('#state_contrato').val() || ''),
             'tipo=1'
         ].join('&');

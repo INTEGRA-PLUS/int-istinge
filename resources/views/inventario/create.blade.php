@@ -284,16 +284,15 @@
 				</span>
 			</div>
 
-			<div class="form-group col-md-4 {{ $type == 'TV' ? 'd-none' : '' }}">
+			<div class="form-group col-md-4">
 	  			<label class="control-label">Tipo <span class="text-danger">*</span></label>
 	  			<select class="form-control selectpicker" name="type" id="type" required="" title="Seleccione" data-live-search="true" data-size="5">
-	  			    <option value="MATERIAL">MATERIAL</option>
-	  			    <option value="MODEMS">EQUIPOS</option>
-	  			    <option value="HERRAMIENTA">HERRAMIENTA</option>
-	  			    <option value="OFICINA">OFICINA</option>
-	  			    @if($type == 'TV')
-	  			    <option value="TV" {{ $type == 'TV' ? 'selected' : '' }}>TV</option>
-	  			    @endif
+	  			    <option value="MATERIAL" {{ old('type') == 'MATERIAL' ? 'selected' : '' }}>MATERIAL</option>
+	  			    <option value="MODEMS" {{ old('type') == 'MODEMS' ? 'selected' : '' }}>EQUIPOS</option>
+	  			    <option value="HERRAMIENTA" {{ old('type') == 'HERRAMIENTA' ? 'selected' : '' }}>HERRAMIENTA</option>
+	  			    <option value="OFICINA" {{ old('type') == 'OFICINA' ? 'selected' : '' }}>OFICINA</option>
+	  			    <option value="TV" {{ old('type') == 'TV' || $type == 'TV' ? 'selected' : '' }}>TV</option>
+	  			    <option value="SERVICIO" {{ old('type') == 'SERVICIO' ? 'selected' : '' }}>SERVICIO</option>
                 </select>
 				<span class="help-block error">
 		        	<strong>{{ $errors->first('type') }}</strong>

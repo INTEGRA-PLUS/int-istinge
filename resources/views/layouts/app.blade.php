@@ -740,7 +740,7 @@
     @endif
 
     <div id="contenedor_carga">
-        <img id="carga" src="{{ asset('images/gif-tuerca.gif') }}">
+        <img id="carga" src="{{ asset('images/gif-tuerca.gif') }}" onerror="this.style.display='none'; document.getElementById('contenedor_carga').style.display='none';" onload="setTimeout(function(){ var contenedor = document.getElementById('contenedor_carga'); if(contenedor) { contenedor.style.visibility = 'hidden'; contenedor.style.opacity = '0'; } }, 100);">
     </div>
     <div class="loader"></div>
     <div class="container-scroller">
@@ -1117,11 +1117,28 @@
     </div>
 
     <script>
-        window.onload = function() {
+        // Función para ocultar el loader
+        function ocultarLoader() {
             var contenedor = document.getElementById('contenedor_carga');
-            contenedor.style.visibility = 'hidden';
-            contenedor.style.opacity = '0';
+            if (contenedor) {
+                contenedor.style.visibility = 'hidden';
+                contenedor.style.opacity = '0';
+                contenedor.style.display = 'none';
+            }
         }
+
+        // Ocultar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ocultarLoader);
+        } else {
+            ocultarLoader();
+        }
+
+        // Ocultar cuando la ventana termine de cargar
+        window.addEventListener('load', ocultarLoader);
+
+        // Timeout de seguridad: ocultar después de 3 segundos máximo
+        setTimeout(ocultarLoader, 3000);
     </script>
     <!-- container-scroller -->
 
@@ -1321,21 +1338,39 @@
                 $("#{{ $subseccion }}").addClass("active");
             @endif
 
-            // Muestra la alerta solo si la suscripción ha caducado
+            // Muestra la alerta solo si la suscripción ha caducado (excepto para usuarios rol 1)
             @if (Auth::check() &&
+                    Auth::user()->rol != 1 &&
                     Auth::user()->empresaObj &&
                     isset(Auth::user()->empresaObj->is_subscription_active) &&
                     !Auth::user()->empresaObj->is_subscription_active)
                 Swal.fire({
                     title: 'Suscripción Expirada',
-                    text: 'Su suscripción ha expirado. Por favor, pague su mensualidad para continuar.',
-                    icon: 'warning',
-                    confirmButtonText: 'Pagar ahora',
-                    showCancelButton: true,
-                    cancelButtonText: 'Más tarde',
+                    html: 'Su suscripción ha expirado. Por favor, pague su mensualidad para continuar.',
+                    type: 'warning',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Volver al Login',
+                    confirmButtonColor: '#3085d6',
+                    showCancelButton: false,
                     allowOutsideClick: false,
                     allowEscapeKey: false,
                     allowEnterKey: false,
+                }).then(function(result) {
+                    if (result.value) {
+                        // Hacer logout y redirigir al login
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '{{ route("logout") }}';
+
+                        const csrfToken = document.createElement('input');
+                        csrfToken.type = 'hidden';
+                        csrfToken.name = '_token';
+                        csrfToken.value = '{{ csrf_token() }}';
+
+                        form.appendChild(csrfToken);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
                 });
             @endif
         });

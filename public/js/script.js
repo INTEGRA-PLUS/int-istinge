@@ -103,12 +103,12 @@ var cardSlider = new Swiper(".card-slider", {
     },
 });
 
-/* BACK TO TOP BUTTON */
-// GET THE BUTTON
-myButton = document.getElementById("myBtn");
+// BACK TO TOP BUTTON
+let myButton = document.getElementById("myBtn");
 
-// WHEN THE USER SCROLLS DOWN 20PX FROM THE TOP OF THE DOCUMENT, SHOW THE BUTTON
 function scrollFunctionBTT() {
+    if (!myButton) return;
+
     if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
         myButton.style.display = "block";
     } else {

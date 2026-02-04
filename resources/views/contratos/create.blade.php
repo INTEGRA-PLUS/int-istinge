@@ -353,6 +353,7 @@
                                     <option value="4" {{ old('estrato') == 4 ? 'selected' : '' }}>4</option>
                                     <option value="5" {{ old('estrato') == 5 ? 'selected' : '' }}>5</option>
                                     <option value="6" {{ old('estrato') == 6 ? 'selected' : '' }}>6</option>
+                                    <option value="7" {{ old('estrato') == 7 ? 'selected' : '' }}>7</option>
                                 </select>
                                 <span class="help-block error">
                                     <strong>{{ $errors->first('estrato') }}</strong>
@@ -368,7 +369,7 @@
                                 <div class="input-group">
                                     <select class="form-control selectpicker" name="server_configuration_id"
                                         id="server_configuration_id" required="" title="Seleccione"
-                                        data-live-search="true" data-size="5" onchange="getPlanes(this.value);">
+                                        data-live-search="true" data-size="5" onchange="getPlanes(this.value, typeof consultasMk !== 'undefined' ? consultasMk : 1);">
                                         @foreach ($servidores as $servidor)
                                             <option value="{{ $servidor->id }}"
                                                 {{ old('server_configuration_id') == $servidor->id ? 'selected' : '' }}>
@@ -415,7 +416,7 @@
                                     value="{{ old('conexion') }}">
                             </div>
 
-                            <div class="col-md-4 form-group d-none" id="div_dhcp">
+                            <div class="col-md-4 form-group d-none" id="div_simple_queue">
                                 <label class="control-label">Simple Queue <span class="text-danger">*</span></label>
                                 <select class="form-control selectpicker" id="simple_queue" name="simple_queue"
                                     required="" title="Seleccione" data-live-search="true" data-size="5" onchange="toggleCamposDHCP();">
@@ -1369,6 +1370,10 @@
 
 @section('scripts')
     <script>
+        // Variable global para controlar si se deben hacer consultas a Mikrotik
+        var consultasMk = {{ Auth::user()->empresa()->consultas_mk ?? 0 }};
+    </script>
+    <script>
 
         $("#formGrupo").submit(function() {
             return false;
@@ -1380,6 +1385,19 @@
         $(document).on('change', 'input[type="file"]', function() {
             var fileName = this.files[0].name;
             var fileSize = this.files[0].size;
+            var fileInputId = $(this).attr('id');
+            var referenciaId = '';
+
+            // Mapear el adjunto a su referencia correspondiente
+            if (fileInputId === 'adjunto_a') {
+                referenciaId = 'referencia_a';
+            } else if (fileInputId === 'adjunto_b') {
+                referenciaId = 'referencia_b';
+            } else if (fileInputId === 'adjunto_c') {
+                referenciaId = 'referencia_c';
+            } else if (fileInputId === 'adjunto_d') {
+                referenciaId = 'referencia_d';
+            }
 
             if (fileSize > 512000) {
                 this.value = '';
@@ -1402,6 +1420,22 @@
                     case 'JPG':
                     case 'PNG':
                     case 'PDF':
+                        // Validar que si hay adjunto, también haya referencia
+                        if (referenciaId && this.files.length > 0) {
+                            var referenciaValue = $('#' + referenciaId).val();
+                            if (!referenciaValue || referenciaValue.trim() === '') {
+                                var letraAdjunto = fileInputId.replace('adjunto_', '').toUpperCase();
+                                Swal.fire({
+                                    title: 'Debe ingresar una Referencia ' + letraAdjunto,
+                                    text: 'Si ingresa un Adjunto ' + letraAdjunto + ', debe ingresar también una Referencia ' + letraAdjunto,
+                                    type: 'warning',
+                                    showCancelButton: false,
+                                    confirmButtonColor: '#3085d6',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                                $('#' + referenciaId).focus();
+                            }
+                        }
                         break;
                     default:
                         this.value = '';
@@ -1419,6 +1453,38 @@
             }
         });
 
+        // Validación antes de enviar el formulario
+        $('#form-contrato').on('submit', function(e) {
+            var adjuntos = ['adjunto_a', 'adjunto_b', 'adjunto_c', 'adjunto_d'];
+            var referencias = ['referencia_a', 'referencia_b', 'referencia_c', 'referencia_d'];
+            var errores = [];
+
+            for (var i = 0; i < adjuntos.length; i++) {
+                var adjuntoInput = document.getElementById(adjuntos[i]);
+                var referenciaInput = $('#' + referencias[i]);
+
+                if (adjuntoInput && adjuntoInput.files.length > 0) {
+                    var referenciaValue = referenciaInput.val();
+                    if (!referenciaValue || referenciaValue.trim() === '') {
+                        var letra = adjuntos[i].replace('adjunto_', '').toUpperCase();
+                        errores.push('Si ingresa un Adjunto ' + letra + ', debe ingresar también una Referencia ' + letra);
+                    }
+                }
+            }
+
+            if (errores.length > 0) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Validación de Adjuntos',
+                    html: errores.join('<br>'),
+                    type: 'error',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Aceptar'
+                });
+                return false;
+            }
+        });
+
         $(document).ready(function() {
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {
@@ -1428,6 +1494,10 @@
                 },
             });
 
+            // Ejecutar toggleCamposDHCP al cargar la página para manejar el estado inicial
+            if(typeof toggleCamposDHCP === 'function') {
+                toggleCamposDHCP();
+            }
         });
     </script>
 @endsection

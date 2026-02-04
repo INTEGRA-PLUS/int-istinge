@@ -2074,5 +2074,44 @@ class NotascreditoController extends Controller
         }
     }
 
+    /**
+     * Emisión masiva de notas de crédito electrónicas
+     * @param string $notas IDs de notas de crédito separados por comas
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function emisionMasivaXml($notas){
+        try {
+            $empresa = Auth::user()->empresaObj;
+            $notas = explode(",", $notas);
+            set_time_limit(0);
+
+            for ($i=0; $i < count($notas) ; $i++) {
+                $nota = NotaCredito::where('empresa', $empresa->id)->where('emitida', 0)->where('id', $notas[$i])->first();
+
+                if(isset($nota)){
+                    $nota->fecha = Carbon::now()->format('Y-m-d');
+                    $nota->save();
+
+                    if($empresa->proveedor == 2){
+                        $this->jsonDianNotaCredito($nota->id);
+                    }else{
+                        $this->xmlNotaCredito($nota->id);
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'text'    => 'Emisión masiva de notas de crédito electrónicas terminada',
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => false,
+                'text'    => 'Emisión en lote terminó con errores ' . $th->getMessage(),
+            ]);
+        }
+    }
+
 
 }

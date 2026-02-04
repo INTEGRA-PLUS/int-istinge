@@ -218,6 +218,7 @@ Route::get('lcotizaciones', 'CotizacionesController@cotizaciones');
 Route::get('lremisiones', 'RemisionesController@remisiones');
 Route::get('lproductos', 'ProductosController@productos');
 Route::get('auditoria_contratos', 'AuditoriaController@auditoria_contratos');
+Route::get('auditoria_facturas', 'AuditoriaController@auditoria_facturas');
 Route::get('gruposopcionesmasivas', 'GruposCorteController@gruposOpcionesMasivas');
 /*DATATABLE ORACLE*/
 
@@ -248,6 +249,7 @@ Route::post('configuracion_consultas_mikrotik', 'ConfiguracionController@consult
 Route::post('configuracion_chat_ia', 'ConfiguracionController@chatIA');
 Route::post('configuracion_facturacionAutomatica', 'ConfiguracionController@facturacionAutomatica');
 Route::post('configuracion_pagosiigo', 'ConfiguracionController@pagosSiigo');
+Route::post('configuracion_siigoemitida', 'ConfiguracionController@siigoEmitida');
 Route::post('configuracion_reconexiongenerica', 'ConfiguracionController@reconexionGenerica');
 Route::post('updatereconexiongenerica', 'ConfiguracionController@updateReconexionGenerica')->name('configuracion.updatereconexiongenerica');
 Route::post('configuracion_aplicacionsaldosfavor', 'ConfiguracionController@aplicacionSaldosFavor');
@@ -258,6 +260,12 @@ Route::post('configuracion_periodo_tirilla', 'ConfiguracionController@periodoTir
 Route::post('configuracion_envio_wpp_ingreso', 'ConfiguracionController@envioWppIngreso');
 Route::post('configuracion_limpiarCache', 'ConfiguracionController@limpiarCache');
 Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
+Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
+Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
+Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionController@registrarNumeroWhatsappMeta');
+Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -413,6 +421,7 @@ Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], functio
 	Route::group(['prefix' => 'empresas'], function () {
 		Route::post('desactivar/{id}', 'EmpresasController@desactivar')->name('empresas.desactivar');
 		Route::post('activar/{id}', 'EmpresasController@activar')->name('empresas.activar');
+		Route::post('cambiar-estado-suscripcion/{id}', 'EmpresasController@cambiarEstadoSuscripcion')->name('empresas.cambiar_estado_suscripcion');
 		Route::get('inactivas', 'EmpresasController@inactivas')->name('empresas.inactivas');
 		Route::get('ingresar/{email}', 'EmpresasController@ingresar')->name('empresas.ingresar');
 		Route::get('{id}/nomina', 'EmpresasController@nomina')->name('empresas.nomina');
@@ -463,7 +472,7 @@ Route::group(['prefix' => 'Olt'], function () {
 });
 
 Route::group(['prefix' => 'siigo'], function () {
-	Route::post('configuracion_siigo', 'SiigoController@configurarSiigo');
+	Route::get('configuracion_siigo', 'SiigoController@configurarSiigo');
 	Route::post('create_invoice', 'SiigoController@createInvoice')->name('siigo.create_invoice');
 	Route::get('get_modal_invoice', 'SiigoController@getModalInvoice');
 	Route::get('send_invoice', 'SiigoController@sendInvoice');
@@ -663,8 +672,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('descarga-efecty', 'FacturasController@downloadEfecty')->name('facturas.downloadefecty');
 		Route::get('convertirelectronica/{facturaid}', 'FacturasController@convertirelEctronica')->name('facturas.convertirelectronica');
 		Route::get('conversionmasiva/{facturas}', 'FacturasController@conversionmasivaElectronica');
+		Route::get('conversionmasiva-estandar/{facturas}', 'FacturasController@conversionmasivaEstandar');
 		Route::get('enviomasivosiigo/{facturas}', 'SiigoController@envioMasivoSiigo')->name('facturas.enviomasivosiigo');
 		Route::get('impresionmasiva/{facturas}', 'FacturasController@ImprimirMultiple');
+		Route::delete('eliminarmasiva/{facturas}', 'FacturasController@eliminarMasivaFacturas')->name('facturas.eliminarmasiva');
 		Route::get('exportar', 'FacturasController@exportar')->name('facturas.exportar');
 		Route::get('facturas_electronica/exportar', 'FacturasController@exportar');
 
@@ -695,6 +706,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// Eliminar factura
 	Route::delete('facturas/{factura}', 'FacturasController@destroy')->name('facturas.destroy');
+
+	// Validar y actualizar código de factura
+	Route::post('facturas/validar-codigo', 'FacturasController@validarCodigoFactura')->name('facturas.validar-codigo');
+	Route::post('facturas/actualizar-codigo', 'FacturasController@actualizarCodigoFactura')->name('facturas.actualizar-codigo');
+	Route::get('facturas/numeracion-prefijo/{id}', 'FacturasController@getNumeracionPrefijo')->name('facturas.numeracion-prefijo');
 
 
 	Route::group(['prefix' => 'recepcion'], function () {
@@ -972,6 +988,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 		Route::get('/movimiento/{id}', 'IngresosController@showMovimiento')->name('ingresos.showmovimiento');
 		Route::get('/tirillawpp/{id}', 'IngresosController@tirillaWpp')->name('ingresos.tirillawpp');
+		Route::post('/preview-next-invoice', 'IngresosController@previewNextInvoice')->name('ingresos.preview_next_invoice');
 	});
 
 	Route::resource('recurrentes', 'RecurrentesController');
@@ -993,6 +1010,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('jsondian/{id?}/{emails?}', 'NotascreditoController@jsonDianNotaCredito')->name('json.dian-notacredito');
 
 		Route::get('xml/{id}', 'NotascreditoController@xmlNotaCredito')->name('xml.notacredito');
+		Route::get('emisionmasivaxml/{notas}', 'NotascreditoController@emisionMasivaXml');
 		Route::get('descargar/{nro}', 'NotascreditoController@xml')->name('notascredito.xml');
 
 		Route::get('/{id}/imprimir', 'NotascreditoController@Imprimir')->name('notascredito.imprimir');
@@ -1117,6 +1135,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::post('/bancos/act_desac/{id}', 'CategoriasController@default')->name('bancos.act_desac');
 	Route::get('/bancos/ocultar/{id}', 'BancosController@ocultar')->name('bancos.ocultar');
 	Route::get('bancos/{bancos}/destroy_lote', 'BancosController@destroy_lote')->name('bancos.destroy_lote');
+	Route::get('/bancos/{id}/edit_limited', 'BancosController@edit_limited')->name('bancos.edit_limited');
+	Route::patch('/bancos/{id}/update_limited', 'BancosController@update_limited')->name('bancos.update_limited');
 	Route::resource('bancos', 'BancosController');
 
 	//PAGOS RECURRENTES
@@ -1313,6 +1333,9 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		});
 		Route::resource('integracion-whatsapp', 'IntegracionWhatsAppController');
 
+		//INSTANCIAS WHATSAPP META
+		Route::resource('instances', 'InstancesController')->only(['index', 'store', 'destroy']);
+
 		//INTEGRACION PASARELAS DE PAGO
 		Route::group(['prefix' => 'integracion-pasarelas'], function () {
 			Route::post('/{id}/act_desc', 'IntegracionPasarelaController@act_desc')->name('integracion-pasarelas.act_desc');
@@ -1358,6 +1381,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 			'/numeracion_equivalente/{id}/act_desc',
 			'ConfiguracionController@numeraciones_equivalente_act_desc'
 		)->name('numeraciones_equivalente.act_desc');
+
+		// Configuración plantilla WhatsApp Meta para facturas
+		Route::get('/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
+		Route::get('/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
+		Route::post('/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
 	});
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
@@ -1517,6 +1545,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('{id}/destroy_to_networksoft', 'ContratosController@destroy_to_networksoft')->name('contratos.destroy_to_networksoft');
 		Route::get('{id}/log', 'ContratosController@log')->name('contratos.log');
 		Route::get('{id}/pings', 'ContratosController@conexion')->name('contratos.ping');
+		Route::post('actualizar-fecha', 'ContratosController@actualizarFecha')->name('contratos.actualizar-fecha');
 		Route::get('{id}/ping_nuevo', 'ContratosController@ping_nuevo')->name('contratos.ping_nuevo');
 		Route::get('{id}/grafica-consumo', 'ContratosController@grafica_consumo')->name('contratos.grafica_consumo');
 		Route::get('{id}/grafica-proxy/{tipo}', 'ContratosController@grafica_proxy')->name('contratos.grafica_proxy');
@@ -1527,6 +1556,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('{id}/enviar_mk', 'ContratosController@enviar_mk')->name('contratos.enviar_mk');
 		Route::post('{id}/carga_adjuntos', 'ContratosController@carga_adjuntos')->name('contratos.carga_adjuntos');
 		Route::get('{contratos}/{state}/state_lote', 'ContratosController@state_lote')->name('contratos.state_lote');
+		Route::get('{contratos}/{state}/state_oltcatv_lote', 'ContratosController@state_oltcatv_lote')->name('contratos.state_oltcatv_lote');
 		Route::get('{contratos}/enviar_mk_lote', 'ContratosController@enviar_mk_lote')->name('contratos.enviar_mk_lote');
 		Route::get('{contratos}/{server_configuration_id}/{plan_id}/planes_lote', 'ContratosController@planes_lote')->name('contratos.planes_lote');
 		Route::get('{cliente}/json', 'ContratosController@json')->name('contratos.json');
@@ -1608,6 +1638,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('storeBack', 'PlanesVelocidadController@storeBack')->name('planes-velocidad.storeBack');
 		Route::get('/{planes}/{state}/state_lote', 'PlanesVelocidadController@state_lote')->name('planes-velocidad.state_lote');
 		Route::get('/{planes}/destroy_lote', 'PlanesVelocidadController@destroy_lote')->name('planes-velocidad.destroy_lote');
+		Route::get('/{planes}/crear-mikrotik/{mikrotik_id}', 'PlanesVelocidadController@crear_en_mikrotik')->name('planes-velocidad.crear_mikrotik');
 	});
 
 	Route::resource('planes-velocidad', 'PlanesVelocidadController');
@@ -1641,6 +1672,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	// AVISOS
 	Route::group(['prefix' => 'avisos'], function () {
+		// Ruta específica debe ir ANTES de las rutas con parámetros dinámicos para evitar conflictos
+		Route::get('/get-plantilla-meta/{id}', 'AvisosController@getPlantillaMeta')->name('avisos.get-plantilla-meta')->where('id', '[0-9]+');
 		Route::get('/envio/sms', 'AvisosController@sms')->name('avisos.envio.sms');
 		Route::get('/envio/email', 'AvisosController@email')->name('avisos.envio.email');
 		Route::get('/envio/whatsapp', 'AvisosController@whatsapp')->name('avisos.envio_whatsapp');
@@ -1799,10 +1832,20 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	//AUDITORIA
 	Route::group(['prefix' => 'auditoria'], function () {
 		Route::get('contratos', 'AuditoriaController@contratos')->name('auditoria.contratos');
+		Route::get('facturas', 'AuditoriaController@facturas')->name('auditoria.facturas');
 	});
 	Route::resource('auditoria', 'AuditoriaController');
 	Route::resource('barrios', 'BarriosController');
 	Route::post('/delete-barrio/{id}', 'BarriosController@delete');
+
+	// Logs de WhatsApp Meta
+	Route::group(['prefix' => 'whatsapp-meta-logs'], function () {
+		Route::get('/', 'WhatsappMetaLogController@index')->name('whatsapp-meta-logs.index');
+		Route::get('/datatable', 'WhatsappMetaLogController@datatable')->name('whatsapp-meta-logs.datatable');
+		Route::get('/contactos', 'WhatsappMetaLogController@getContactos')->name('whatsapp-meta-logs.contactos');
+		Route::get('/{id}', 'WhatsappMetaLogController@show')->name('whatsapp-meta-logs.show');
+		Route::post('/limpiar-filtros', 'WhatsappMetaLogController@limpiarFiltros')->name('whatsapp-meta-logs.limpiar-filtros');
+	});
 });
 
 

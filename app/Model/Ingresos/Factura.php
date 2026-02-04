@@ -156,78 +156,105 @@ class Factura extends Model
 
     public function estatus($class = false, $isId = false)
     {
-
+        // =========================
+        // Obtener estatus base
+        // =========================
         if (!isset($this->estatus)) {
-            $factura = DB::table('factura')->select('estatus as estado')->where('id', $this->id)->first();
+            $factura = DB::table('factura')
+                ->select('estatus as estado')
+                ->where('id', $this->id)
+                ->first();
+
             if (!$factura) {
                 return '';
             }
+
             $estatus = $factura->estado;
         } else {
             $estatus = $this->estatus;
         }
 
+        // =========================
+        // Variables cacheadas
+        // =========================
+        $totalObj   = $this->total();          // solo una vez
+        $total      = $totalObj->total ?? 0;
+        $subtotal   = $totalObj->subtotal ?? 0;
+        $descuento  = $totalObj->descuento ?? 0;
+        $pagado     = $this->pagado();         // solo una vez
+        $notas      = $this->notas_credito();  // solo una vez
 
+        // =========================
+        // Retorno de clase CSS
+        // =========================
         if ($class) {
             if ($estatus == 2) {
                 return 'warning';
             }
 
-            if($estatus ==1 && $this->pagado()){
+            if ($estatus == 1 && $pagado) {
                 return 'info';
             }
 
             return $estatus == 1 ? 'danger' : 'success';
         }
 
+        // =========================
+        // Factura anulada
+        // =========================
         if ($estatus == 2) {
-            if ($isId) {
-                return 2;
-            } else {
-                return 'Anulada';
-            }
+            return $isId ? 2 : 'Anulada';
         }
 
-        if ($this->notas_credito()) {
+        // =========================
+        // Notas crédito
+        // =========================
+        if ($notas) {
             $precioNotas = 0;
 
-            foreach ($this->notas_credito() as $notas) {
-
-                //Acumulado de total en notas creditos de la factura.
-                $precioNotas += $notas->nota()->total()->total;
+            foreach ($notas as $nota) {
+                $precioNotas += $nota->nota()->total()->total ?? 0;
             }
 
-            if ($precioNotas > 0 && $this->total()->total > $precioNotas && $estatus == 1 && $precioNotas + $this->pagado() < $this->total()->total) {
-                if ($isId) {
-                    return 3;
-                } else {
-                    return "Abierta con nota crédito";
-                }
-            } elseif ($this->total()->total == $precioNotas) {
-                if ($isId) {
-                    return 4;
-                } else {
-                    return "Cerrada con nota crédito";
-                }
-            } elseif ($precioNotas > 0 && $estatus == 1 && $precioNotas + $this->pagado() >= $this->total()->total) {
-                if ($isId) {
-                    return 3;
-                } else {
-                    return "Cerrada con nota crédito";
-                }
+            if (
+                $precioNotas > 0 &&
+                $estatus == 1 &&
+                $precioNotas + $pagado < $total
+            ) {
+                return $isId ? 3 : 'Abierta con nota crédito';
+            }
+
+            if (
+                $total == $precioNotas &&
+                $descuento != $subtotal
+            ) {
+                return $isId ? 4 : 'Cerrada con nota crédito';
+            }
+
+            if (
+                $precioNotas > 0 &&
+                $estatus == 1 &&
+                $precioNotas + $pagado >= $total
+            ) {
+                return $isId ? 3 : 'Cerrada con nota crédito';
             }
         }
 
-        if($estatus == 1 && $this->pagado()){
-                return "Abonada";
+        // =========================
+        // Factura abonada
+        // =========================
+        if ($estatus == 1 && $pagado) {
+            return 'Abonada';
         }
 
-        if ($isId) {
-            return $estatus == 1 ? 1 : 0;
-        } else {
-            return $estatus == 1 ? 'Abierta' : 'Cerrada';
-        }
+        // =========================
+        // Retorno final
+        // =========================
+        return $isId
+            ? ($estatus == 1 ? 1 : 0)
+            : ($estatus == 1 ? 'Abierta' : 'Cerrada');
     }
+
 
     public function total()
     {
@@ -1033,9 +1060,11 @@ public function forma_pago()
                     }
                   }
               }
-            }else{
-                $saldoMesAnterior+=$vencida->porpagar();
             }
+            //Se comenta por que no se necesita sumar facturas que no esten asociadas a un contrato.
+            // else{
+            //     $saldoMesAnterior+=$vencida->porpagar();
+            // }
         }
 
         $estadoCuenta['saldoMesAnterior'] = $saldoMesAnterior;
@@ -1375,11 +1404,7 @@ public function forma_pago()
             ->select('gc.*')->first();
         }
 
-        $empresa = Empresa::find($this->empresa);
-
-
         if($grupo){
-            $empresa = Empresa::find($this->empresa);
             $mesInicioCorte = $mesFinCorte = Carbon::parse($this->fecha)->format('m');
             $yearInicioCorte = $yearFinCorte = Carbon::parse($this->fecha)->format('Y');
 
@@ -1458,8 +1483,11 @@ public function forma_pago()
             /* Validacion de mes anticipado o mes vencido */
             $diaFac = Carbon::parse($this->fecha)->format('d');
 
+            // Usar periodo_facturacion del grupo de corte, con valor por defecto 1 (mes anticipado) si es null
+            $periodoFacturacion = $grupo->periodo_facturacion ?? 1;
+
             //si este caso ocurre es por que tengo que cobrar el mes pasado
-            if($empresa->periodo_facturacion == 2){
+            if($periodoFacturacion == 2){
                 // MES VENCIDO
                 $corteAnterior = Carbon::createFromDate(
                     Carbon::parse($this->fecha)->year,
@@ -1471,7 +1499,7 @@ public function forma_pago()
                 $finCorte    = $corteAnterior->copy()->subDay();   // fin un día antes del corte actual
             }
             else {
-                if ($empresa->periodo_facturacion == 1) {
+                if ($periodoFacturacion == 1) {
                     // MES ANTICIPADO
                     $corteActual = Carbon::createFromDate(
                         Carbon::parse($this->fecha)->year,
@@ -1482,7 +1510,7 @@ public function forma_pago()
                     $inicioCorte = $corteActual->copy();
                     $finCorte = $corteActual->copy()->addMonth()->subDay();
 
-                } else if ($empresa->periodo_facturacion == 3) {
+                } else if ($periodoFacturacion == 3) {
                     // MES ACTUAL
                     $corteActual = Carbon::createFromDate(
                         Carbon::parse($this->fecha)->year,
@@ -1699,6 +1727,11 @@ public function forma_pago()
                 //Si no se trata de la primer factura del contrato entonces hacemos el calculo con el grupo de corte normal (periodo completo)
                 $diasCobrados = $fechaInicio->diffInDays($fechaFin);
                 $diasCobrados++;
+
+                //validacion mes de febrero.
+                if($fechaFin->format('d') == 28 && $grupo->fecha_corte == 30 && $diasCobrados == 28){
+                    $diasCobrados = 30;
+                }
 
                 if($diasCobrados == 0){return 30;}
                 if($fechaInicio->endOfMonth()->day <=28 && $diasCobrados >= 28){$diasCobrados=30;}

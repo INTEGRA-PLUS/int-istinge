@@ -254,6 +254,7 @@
                                 <option value="opcion_3">Dos o más facturas abiertas</option>
                                 <option value="opcion_4">Dos o más facturas vencidas</option>
                                 <option value="opcion_5">Contratos sin facturas</option>
+                                <option value="opcion_6">Última factura creada vencida</option>
                             </select>
                         </div>
 
@@ -308,8 +309,10 @@
                         @endif
                         {{-- <a class="dropdown-item" href="javascript:void(0)" id="btn_mk"><i class="fas fa-server" style="margin-left:4px; "></i> Enviar Contratos a MK</a> --}}
                         <a class="dropdown-item" href="javascript:void(0)" data-toggle="modal" data-target="#miModal"><i class="fas fa-server" style="margin-left:4px; "></i> Enviar Contratos a MK</a>
-                        <a class="dropdown-item" href="javascript:void(0)" id="btn_enabled"><i class="fas fa-file-signature" style="margin-left:4px; "></i> Habilitar Contratos</a>
-                        <a class="dropdown-item" href="javascript:void(0)" id="btn_disabled"><i class="fas fa-file-signature" style="margin-left:4px; "></i> Deshabilitar Contratos</a>
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_enabled"><i class="fas fa-file-signature" style="margin-left:4px; "></i> Habilitar Contratos en Internet</a>
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_disabled"><i class="fas fa-file-signature" style="margin-left:4px; "></i> Deshabilitar Contratos en Internet</a>
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_enabled_tv"><i class="fas fa-tv" style="margin-left:4px; "></i> Habilitar Contratos TV</a>
+                        <a class="dropdown-item" href="javascript:void(0)" id="btn_disabled_tv"><i class="fas fa-tv" style="margin-left:4px; "></i> Deshabilitar Contratos TV</a>
                         <a class="dropdown-item" href="javascript:void(0)" id="btn_planes"><i class="fas fa-exchange-alt" style="margin-left:4px; "></i> Cambiar Plan de Internet</a>
                     </div>
                 </div>
@@ -577,6 +580,14 @@
             states('disabled');
         });
 
+        $('#btn_enabled_tv').click( function () {
+            states_catv('enabled');
+        });
+
+        $('#btn_disabled_tv').click( function () {
+            states_catv('disabled');
+        });
+
         $('#btn_mk').click( function () {
             mk_lote();
         });
@@ -694,6 +705,73 @@
                     var url = `/software/empresa/contratos/`+contratos+`/`+state+`/state_lote`;
                 }else{
                     var url = `/empresa/contratos/`+contratos+`/`+state+`/state_lote`;
+                }
+
+                $.ajax({
+                    url: url,
+                    method: 'GET',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    success: function(data) {
+
+                        cargando(false);
+                        swal({
+                            title: 'PROCESO REALIZADO',
+                            html: 'Exitosos: <strong>'+data.correctos+' contratos</strong><br>Fallidos: <strong>'+data.fallidos+' contratos</strong>',
+                            type: 'success',
+                            showConfirmButton: true,
+                            confirmButtonColor: '#1A59A1',
+                            confirmButtonText: 'ACEPTAR',
+                        });
+                        getDataTable();
+                    }
+                })
+            }
+        })
+    }
+
+    function states_catv(state){
+
+        var contratos = [];
+
+        var table = $('#tabla-contratos').DataTable();
+        var nro = table.rows('.selected').data().length;
+
+        if(nro<=0){
+            swal({
+                title: 'ERROR',
+                html: 'Para ejecutar esta acción, debe al menos seleccionar un contrato',
+                type: 'error',
+            });
+            return false;
+        }
+
+        for (i = 0; i < nro; i++) {
+            contratos.push(table.rows('.selected').data()[i]['id']);
+        }
+
+        if(state === 'enabled'){
+            var states = 'habilitar';
+        }else{
+            var states = 'deshabilitar';
+        }
+
+        swal({
+            title: '¿Desea '+states+' TV en '+nro+' contratos en lote?',
+            text: 'Esto puede demorar unos minutos. Al Aceptar, no podrá cancelar el proceso',
+            type: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#00ce68',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Aceptar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.value) {
+                cargando(true);
+
+                if (window.location.pathname.split("/")[1] === "software") {
+                    var url = `/software/empresa/contratos/`+contratos+`/`+state+`/state_oltcatv_lote`;
+                }else{
+                    var url = `/empresa/contratos/`+contratos+`/`+state+`/state_oltcatv_lote`;
                 }
 
                 $.ajax({

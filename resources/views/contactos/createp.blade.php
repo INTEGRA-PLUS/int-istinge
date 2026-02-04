@@ -28,8 +28,8 @@
 			</span>
 		</div>
 		<div class="form-group col-md-3">
-			<label class="control-label">Identificación <span class="text-danger">*</span><a><i data-tippy-content="Identificación de la persona" class="icono far fa-question-circle"></i></a></label>
-			<input type="text" class="form-control" name="nit" id="nit" required="" maxlength="10" value="{{old('nit')}}" onkeypress="return event.charCode >= 48 && event.charCode <=57">
+			<label class="control-label">Identificación <span class="text-danger">*</span></label>
+			<input type="text" class="form-control" name="nit" id="nit" required="" maxlength="20" value="{{old('nit')}}">
 			<span class="help-block error">
 				<strong>{{ $errors->first('nit') }}</strong>
 			</span>
@@ -43,7 +43,6 @@
 				<strong>{{ $errors->first('dv') }}</strong>
 			</span>
 		</div>
-
 		<div class="form-group col-md-3">
 			<label class="control-label">Nombres <span class="text-danger">*</span></label>
 			<input type="text" class="form-control" name="nombre" id="nombre" required="" maxlength="200" value="{{old('nombre')}}">
@@ -51,60 +50,37 @@
 				<strong>{{ $errors->first('nombre') }}</strong>
 			</span>
 		</div>
-        <div class="form-group col-md-3">
-            <label class="control-label">Apellido 1</label>
-            <input type="text" class="form-control" name="apellido1" id="apellido1" maxlength="200" value="{{old('apellido1')}}">
-            <span class="help-block error">
-                <strong>{{ $errors->first('apellido1') }}</strong>
-            </span>
-        </div>
-        <div class="form-group col-md-3">
-            <label class="control-label">Apellido 2</label>
-            <input type="text" class="form-control" name="apellido2" id="apellido2" maxlength="200" value="{{old('apellido2')}}">
-            <span class="help-block error">
-                <strong>{{ $errors->first('apellido2') }}</strong>
-            </span>
-        </div>
-	</div>
-	<div class="row" id="tipop" style="display: none;">
 		<div class="form-group col-md-3">
-			<label class="control-label">Tipo Persona<span class="text-danger">*</span></label>
-			<select class="form-control selectpicker" name="tipo_persona" id="tipo_persona" required="" title="Seleccione" onchange="tipopersona(this.value)">
-
-				<option {{old('tipo_persona')=='1'?'selected':''}} value="1">Persona Natural</option>
-				<option {{old('tipo_persona')=='2'?'selected':''}} value="2">Persona Juridica</option>
-			</select>
+			<label class="control-label">Apellido 1 <span class="text-danger" id="apellido1-required" style="display: none;">*</span></label>
+			<input type="text" class="form-control" name="apellido1" id="apellido1" maxlength="200" value="{{old('apellido1')}}">
 			<span class="help-block error">
-				<strong>{{ $errors->first('tipo_persona') }}</strong>
+				<strong>{{ $errors->first('apellido1') }}</strong>
 			</span>
 		</div>
-
 		<div class="form-group col-md-3">
-			<label class="control-label">Responsabilidad<span class="text-danger">*</span></label>
-			<select class="form-control selectpicker" name="responsable" id="responsabilidad" required="" title="Seleccione">
-				<option value="1">Responsable de IVA</option>
-				<option value="2">No Responsable de IVA</option>
-			</select>
+			<label class="control-label">Apellido 2</label>
+			<input type="text" class="form-control" name="apellido2" id="apellido2" maxlength="200" value="{{old('apellido2')}}">
 			<span class="help-block error">
-				<strong>{{ $errors->first('tipo_persona') }}</strong>
+				<strong>{{ $errors->first('apellido2') }}</strong>
 			</span>
 		</div>
 	</div>
+
 	<div class="row">
 		<div class="form-group col-md-3">
-			<label class="control-label">País</label>
+			<label class="control-label">País <span class="text-danger">*</span></label>
 			<select class="form-control selectpicker" name="pais" id="pais" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="validateCountry(this.value)">
 				@foreach($paises as $pais)
-				<option value="{{$pais->codigo}}" {{ $pais->codigo == 'CO' ? 'selected' : '' }}>{{$pais->nombre}}</option>
+				<option value="{{$pais->codigo}}" {{ old('pais', 'CO') == $pais->codigo ? 'selected' : '' }}>{{$pais->nombre}}</option>
 				@endforeach
 			</select>
 		</div>
 
 		<div class="form-group col-md-3" id="validatec1">
 			<label class="control-label">Departamento <span class="text-danger">*</span></label>
-			<select class="form-control selectpicker" name="departamento" id="departamento" required="" title="Seleccione" data-live-search="true" data-size="5" onchange="searchMunicipality(this.value)">
+			<select class="form-control selectpicker" name="departamento" id="departamento" title="Seleccione" data-live-search="true" data-size="5" onchange="searchMunicipality(this.value)" required="">
 				@foreach($departamentos as $departamento)
-				<option value="{{ $departamento->id }}">{{ $departamento->nombre }}</option>
+				<option value="{{ $departamento->id }}" {{ old('departamento', Auth::user()->empresa()->fk_iddepartamento) == $departamento->id ? 'selected' : '' }}>{{ $departamento->nombre }}</option>
 				@endforeach
 			</select>
 		</div>
@@ -116,20 +92,42 @@
 		</div>
 
 		<div class="form-group col-md-3" id="validatec3">
-			<label class="control-label">Código Postal
-				<a><i data-tippy-content="Si desconoces tu código postal <a target='_blank' href='http://visor.codigopostal.gov.co/472/visor/'>haz click aquí</a>" class="icono far fa-question-circle"></i></a>
-			</label>
+			<label class="control-label">Código Postal</label>
+			<a><i data-tippy-content="Si desconoces tu código postal <a target='_blank' href='http://visor.codigopostal.gov.co/472/visor/'>haz click aquí</a>" class="icono far fa-question-circle"></i></a>
 			<input type="text" class="form-control" id="cod_postal" name="cod_postal" maxlength="200" value="{{old('cod_postal')}}">
 		</div>
 
-		<div class="form-group col-md-9">
-			<label class="control-label">Dirección </label>
-			<input type="text" class="form-control" name="direccion" value="{{old('direccion')}}">
+		<div class="form-group col-md-6">
+			<label class="control-label">Dirección <span class="text-danger">*</span></label>
+			<input type="text" class="form-control" id="direccion" name="direccion" maxlength="200" required="" value="{{old('direccion')}}">
 			<span class="help-block error">
 				<strong>{{ $errors->first('direccion') }}</strong>
 			</span>
 		</div>
+		<div class="form-group col-md-3 d-none" id="vereda-container">
+			<label class="control-label">Corregimiento/Vereda</label>
+			<input type="text" class="form-control" id="vereda" name="vereda" maxlength="200" value="{{old('vereda')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('vereda') }}</strong>
+			</span>
+		</div>
 
+		<div class="col-md-3 form-group">
+			<label class="control-label">Barrio <span class="text-danger">*</span></label>
+			<select class="form-control selectpicker" id="barrio_id" name="barrio_id" title="seleccione el barrio" data-size="5" data-live-search="true" required="">
+				@foreach($barrios as $barrio)
+				<option value="{{$barrio->id}}" {{ old('barrio_id') == $barrio->id ? 'selected' : '' }}>{{$barrio->nombre}}</option>
+				@endforeach
+			</select>
+			<p class="text-left nomargin">
+				<a href="" data-toggle="modal" data-target="#modalbarrio" class="modalTr" tr="1">
+					<i class="fas fa-plus"></i> Nuevo barrio
+				</a>
+			</p>
+			<span class="help-block error">
+				<strong>{{ $errors->first('barrio_id') }}</strong>
+			</span>
+		</div>
 		<div class="form-group col-md-3">
 			<label class="control-label" for="email">Correo Electrónico </label>
 			<input type="email" class="form-control" id="email" name="email" data-error="Dirección de correo electrónico invalida" maxlength="100" value="{{old('email')}}" autocomplete="off">
@@ -139,13 +137,19 @@
 			</span>
 		</div>
 	</div>
-
 	<div class="row">
 		<div class="form-group col-md-3">
-			<label class="control-label">Teléfono <span class="text-danger">*</span></label>
-			<input type="text" class="form-control" id="telefono1" name="telefono1" required="" maxlength="15" value="{{old('telefono1')}}">
+			<label class="control-label">Teléfono</label>
+			<input type="text" class="form-control" id="telefono1" name="telefono1" maxlength="15" value="{{old('telefono1')}}">
 			<span class="help-block error">
 				<strong>{{ $errors->first('telefono1') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Celular</label>
+			<input type="text" class="form-control" id="celular" name="celular" maxlength="15" value="{{old('celular')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('celular') }}</strong>
 			</span>
 		</div>
 		<div class="form-group col-md-3">
@@ -163,15 +167,57 @@
 			</span>
 		</div>
 		<div class="form-group col-md-3">
-			<label class="control-label">Celular</label>
-			<input type="text" class="form-control" id="celular" name="celular" maxlength="15" value="{{old('celular')}}">
+			<label class="control-label">Feliz Cumpleaños</label>
+			<input type="text" class="form-control feliz_cumpleanos" id="feliz_cumpleanos" name="feliz_cumpleanos" value="{{old('feliz_cumpleanos')}}" autocomplete="off">
 			<span class="help-block error">
-				<strong>{{ $errors->first('celular') }}</strong>
+				<strong>{{ $errors->first('feliz_cumpleanos') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Monitoreo</label>
+			<input type="text" class="form-control" id="monitoreo" name="monitoreo" maxlength="15" value="{{old('monitoreo')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('monitoreo') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Refiere</label>
+			<input type="text" class="form-control" id="refiere" name="refiere" maxlength="15" value="{{old('refiere')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('refiere') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Combo INT y TV</label>
+			<input type="text" class="form-control" id="combo_int_tv" name="combo_int_tv" maxlength="15" value="{{old('combo_int_tv')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('combo_int_tv') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Referencia I</label>
+			<input type="text" class="form-control" id="referencia_1" name="referencia_1" maxlength="15" value="{{old('referencia_1')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('referencia_1') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Referencia II</label>
+			<input type="text" class="form-control" id="referencia_2" name="referencia_2" maxlength="15" value="{{old('referencia_2')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('referencia_2') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">Cierra Venta</label>
+			<input type="text" class="form-control" id="cierra_venta" name="cierra_venta" maxlength="15" value="{{old('cierra_venta')}}">
+			<span class="help-block error">
+				<strong>{{ $errors->first('cierra_venta') }}</strong>
 			</span>
 		</div>
 	</div>
 
-	<div class="row">
+	<div class="row" id="tipos-empresa-row" style="display: none;">
 		<div class="form-group col-md-3">
 			<label class="control-label">Tipos de Contactos <span class="text-danger">*</span><a><i data-tippy-content="Tipo empresa a la que pertenece el contacto" class="icono far fa-question-circle"></i></a></label>
 			<select class="form-control selectpicker" name="tipo_empresa" id="tipo_empresa" required="" title="Seleccione" data-live-search="true" data-size="5">
@@ -199,38 +245,74 @@
 				@endforeach
 			</select>
 		</div>
-		@if(Auth::user()->empresa()->oficina)
-		{{-- <div class="form-group col-md-3">
-  			<label class="control-label">Oficina Asociada <span class="text-danger">*</span></label>
-  			<select class="form-control selectpicker" name="oficina" id="oficina" required="" title="Seleccione" data-live-search="true" data-size="5">
-  				@foreach($oficinas as $oficina)
-  				  <option value="{{$oficina->id}}" {{ $oficina->id == auth()->user()->oficina ? 'selected' : '' }}>{{$oficina->nombre}}</option>
-  				@endforeach
-  			</select>
-  		</div> --}}
-  		@endif
 	</div>
 
 	<div class="row">
-	    <div class="form-group col-md-3 d-none">
+		<div class="form-group col-md-3">
 			<label class="control-label">Tipo de Contacto <span class="text-danger">*</span></label>
 			<div class="form-check form-check-flat">
 				<label class="form-check-label">
-					<input type="checkbox" class="form-check-input" name="tipo_contacto[]" value="0"> Cliente
-					<i class="input-helper"></i></label>
+					<input type="checkbox" class="form-check-input" name="tipo_contacto[]" value="0" id="tipo_contacto_cliente" {{ (old('tipo_contacto') && in_array('0', old('tipo_contacto'))) ? 'checked' : '' }}> Cliente
+					<i class="input-helper"></i>
+				</label>
 			</div>
 			<div class="form-check form-check-flat">
 				<label class="form-check-label">
-					<input type="checkbox" class="form-check-input" name="tipo_contacto[]" value="1" checked=""> Proveedor
-					<i class="input-helper"></i></label>
+					<input type="checkbox" class="form-check-input" name="tipo_contacto[]" value="1" id="tipo_contacto_proveedor" {{ (old('tipo_contacto') && in_array('1', old('tipo_contacto'))) || (!old('tipo_contacto')) ? 'checked' : '' }}> Proveedor
+					<i class="input-helper"></i>
+				</label>
 			</div>
 			<span class="help-block error">
 				<strong>{{ $errors->first('tipo_contacto') }}</strong>
 			</span>
 		</div>
-		<div class="form-group col-md-12">
+		<div class="form-group col-md-3 d-none" id="router-container">
+			<label class="control-label">¿El router fue regresado?</label>
+			<select class="form-control selectpicker" id="router" name="router" title="Seleccione">
+				<option value="Si" {{ old('router') == 'Si' ? 'selected':'' }}>Si</option>
+				<option value="No" {{ old('router', 'No') == 'No' ? 'selected':'' }}>No</option>
+				<option value="En servicio" {{ old('router') == 'En servicio' ? 'selected':'' }}>En servicio</option>
+			</select>
+			<span class="help-block error">
+				<strong>{{ $errors->first('router') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">¿Botones de emision disponibles en pagos?</label>
+			<select class="form-control selectpicker" id="boton_emision" name="boton_emision" title="Seleccione">
+				<option value="1" {{ old('boton_emision', 1) == 1 ? 'selected':'' }}>Si</option>
+				<option value="0" {{ old('boton_emision') == 0 ? 'selected':'' }}>No</option>
+			</select>
+			<span class="help-block error">
+				<strong>{{ $errors->first('boton_emision') }}</strong>
+			</span>
+		</div>
+		<div class="form-group col-md-3">
+			<label class="control-label">
+				Habilitar creacion de facturas estandar y electronicas
+				<a><i data-tippy-content="Si habilitas esta opcion podras crear facturacion estandar y electronica con este cliente sin importar el tipo de facturacion que se haya escogido en el contrato" class="icono far fa-question-circle"></i></a>
+			</label>
+			<select class="form-control selectpicker" id="factura_est_elec" name="factura_est_elec" title="Seleccione">
+				<option value="0" {{ old('factura_est_elec', 0) == 0 ? 'selected':'' }}>No</option>
+				<option value="1" {{ old('factura_est_elec') == 1 ? 'selected':'' }}>Si</option>
+			</select>
+			<span class="help-block error">
+				<strong>{{ $errors->first('factura_est_elec') }}</strong>
+			</span>
+		</div>
+		@if(Auth::user()->empresa()->oficina)
+		{{-- <div class="form-group col-md-3">
+			<label class="control-label">Oficina Asociada <span class="text-danger">*</span></label>
+			<select class="form-control selectpicker" name="oficina" id="oficina" required="" title="Seleccione" data-live-search="true" data-size="5">
+				@foreach($oficinas as $oficina)
+				<option value="{{$oficina->id}}" {{ $oficina->id == auth()->user()->oficina ? 'selected' : '' }}>{{$oficina->nombre}}</option>
+				@endforeach
+			</select>
+		</div> --}}
+		@endif
+		<div class="form-group col-md-6">
 			<label class="control-label">Observaciones</label>
-			<textarea class="form-control" name="observaciones">{{old('observaciones')}}</textarea>
+			<textarea class="form-control" name="observaciones" rows="10" cols="50">{{old('observaciones')}}</textarea>
 			<span class="help-block error">
 				<strong>{{ $errors->first('observaciones') }}</strong>
 			</span>
@@ -239,7 +321,6 @@
 
 	<small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
 	<hr>
-
 	<div class="row" style="text-align: right;">
 		<div class="col-md-12">
 			<a href="{{route('contactos.proveedores')}}" class="btn btn-outline-light">Cancelar</a>
@@ -248,86 +329,189 @@
 	</div>
 </form>
 
-<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-<script>
-	$(document).ready(function() {
-		let lastRegis = new URLSearchParams(window.location.search);
-		if (lastRegis.has('cnt')) {
-
-			let idCnt = lastRegis.get('cnt');
-
-			setTimeout(function() {
-				$('#tipo_empresa').val(idCnt).change();
-				clearTimeout(this);
-			}, 1000);
-		}
-
-		var correo = document.getElementById('email'),
-			intervalo;
-
-		correo.addEventListener('input', function() {
-			campo = event.target;
-			valido = document.getElementById('formato-correo');
-
-			emailRegex = /^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i;
-			//Se muestra un texto a modo de ejemplo, luego va a ser un icono
-			clearInterval(intervalo);
-			intervalo = setInterval(() => {
-
-				if (emailRegex.test(campo.value)) {
-					valido.innerText = "Formato de correo válido";
-					valido.style.color = "green";
-					$('#button-save').removeAttr('disabled', true);
-
-				} else {
-					valido.innerText = "Formato de correo incorrecto";
-					valido.style.color = "red";
-					$('#button-save').attr('disabled', true);
-
-				}
-
-				clearInterval(intervalo);
-			}, 1000);
-
-		}, false);
-	});
-</script>
-
+{{-- Modal barrio  --}}
+<div class="modal fade" id="modalbarrio" role="dialog">
+	<div class="modal-dialog modal-sm">
+		<input type="hidden" id="trFila" value="0">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h4 class="modal-title">Nuevo Barrio</h4>
+				<button type="button" class="close" data-dismiss="modal">&times;</button>
+			</div>
+			<div class="modal-body">
+				<div class="row">
+					<div class="col-md-12 form-group">
+						<label class="control-label">Nombre <span class="text-danger">*</span></label>
+						<input type="text" class="form-control" id="nombre_barrio" name="nombre_barrio" required="" value="{{old('nombre_barrio')}}" maxlength="200" autocomplete='off'>
+						<span class="help-block error">
+							<strong>{{ $errors->first('nombre_barrio') }}</strong>
+						</span>
+					</div>
+				</div>
+				<small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
+				<hr>
+				<div class="row">
+					<div class="col-sm-12" style="text-align: right;  padding-top: 1%;">
+						<button type="submit" id="submitcheck" onclick="nameBarrio()" value="barrio" class="btn btn-success">Guardar</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{{--/Modal Barrio  --}}
 @endsection
 
 @section('scripts')
-<script type="text/javascript">
-	$(document).ready(function() {
-		var option = document.getElementById('tip_iden').value;
+	<script src="{{asset('lowerScripts/guiaenvio/guiaenvio.js')}}"></script>
 
-		if (option == 6) {
-			searchDV($("#tip_iden").val());
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$('.feliz_cumpleanos').datepicker({
+				uiLibrary: 'bootstrap4',
+				iconsLibrary: 'fontawesome',
+				locale: 'es-es',
+				format: 'yyyy-mm-dd',
+			});
+
+			// Inicializar municipio con el de la empresa
+			$('#departamento').val({{ Auth::user()->empresa()->fk_iddepartamento }}).selectpicker('refresh');
+			searchMunicipality({{ Auth::user()->empresa()->fk_iddepartamento }}, {{ Auth::user()->empresa()->fk_idmunicipio }});
+
+			setTimeout(function () {
+				$("#municipio").val({{ Auth::user()->empresa()->fk_idmunicipio }});
+				$("#municipio").selectpicker('refresh');
+			}, 500);
+
+			// Verificar tipo de identificación para DV
+			var option = document.getElementById('tip_iden').value;
+			if (option == 6) {
+				searchDV($("#tip_iden").val());
+			}
+
+			// Manejar cambios en tipo de contacto
+			$('input[name="tipo_contacto[]"]').change(function() {
+				updateTipoContactoFields();
+			});
+
+			// Inicializar campos según tipo de contacto
+			updateTipoContactoFields();
+
+			// Validación de email
+			var correo = document.getElementById('email'),
+				intervalo;
+
+			correo.addEventListener('input', function() {
+				campo = event.target;
+				valido = document.getElementById('formato-correo');
+
+				emailRegex = /^[-\w.%+]{1,64}@(?:[A-Z0-9-]{1,63}\.){1,125}[A-Z]{2,63}$/i;
+				clearInterval(intervalo);
+				intervalo = setInterval(() => {
+					if (emailRegex.test(campo.value)) {
+						valido.innerText = "Formato de correo válido";
+						valido.style.color = "green";
+						$('#button-save').removeAttr('disabled', true);
+					} else if (campo.value == "") {
+						valido.innerText = "";
+						$('#button-save').removeAttr('disabled', true);
+					} else {
+						valido.innerText = "Formato de correo incorrecto";
+						valido.style.color = "red";
+						$('#button-save').attr('disabled', true);
+					}
+					clearInterval(intervalo);
+				}, 1000);
+			}, false);
+
+			// Prevenir espacios en email
+			$('#email').keydown(function(e) {
+				if (e.keyCode == 32) {
+					return false;
+				}
+			});
+
+			// Manejar parámetro cnt en URL
+			let lastRegis = new URLSearchParams(window.location.search);
+			if (lastRegis.has('cnt')) {
+				let idCnt = lastRegis.get('cnt');
+				setTimeout(function() {
+					$('#tipo_empresa').val(idCnt).change();
+					clearTimeout(this);
+				}, 1000);
+			}
+		});
+
+		function updateTipoContactoFields() {
+			var isCliente = $('#tipo_contacto_cliente').is(':checked');
+			var isProveedor = $('#tipo_contacto_proveedor').is(':checked');
+
+			// Mostrar/ocultar campo de router y vereda solo para clientes
+			if (isCliente) {
+				$('#router-container').removeClass('d-none');
+				$('#vereda-container').removeClass('d-none');
+				$('#apellido1').attr('required', 'required');
+				$('#apellido1-required').show();
+			} else {
+				$('#router-container').addClass('d-none');
+				$('#vereda-container').addClass('d-none');
+				$('#apellido1').removeAttr('required');
+				$('#apellido1-required').hide();
+			}
+
+			// Mostrar/ocultar sección de tipos de empresa solo para proveedores (no cuando es solo cliente)
+			if (isProveedor && !isCliente) {
+				$('#tipos-empresa-row').show();
+				$('#tipo_empresa').attr('required', 'required');
+			} else {
+				$('#tipos-empresa-row').hide();
+				$('#tipo_empresa').removeAttr('required');
+			}
 		}
-		$('#departamento').val({{ Auth::user()->empresa()->fk_iddepartamento }}).selectpicker('refresh');
-		searchMunicipality({{ Auth::user()->empresa()->fk_iddepartamento }}, {{ Auth::user()->empresa()->fk_idmunicipio }});
-	});
-	$('#email').keydown(function(e) {
-		if (e.keyCode == 32) {
-			return false;
+
+		function nameBarrio() {
+			let barrio = $("#nombre_barrio").val();
+
+			if (window.location.pathname.split("/")[1] === "software") {
+				var url = '/software/empresa/contactos/asociarbarrio'
+			} else {
+				var url = '/empresa/contactos/asociarbarrio'
+			}
+
+			if (barrio != "") {
+				$.ajax({
+					url: url,
+					headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+					method: 'POST',
+					data: { nombre: barrio },
+					success: function(campo) {
+						$('#modalbarrio').modal('hide');
+
+						if (campo.id == "") {
+							Swal.fire({
+								position: 'top-center',
+								type: 'error',
+								title: 'Campo ' + campo.nombre + ' ya ha sido creado',
+								showConfirmButton: false,
+								timer: 2500
+							})
+						} else {
+							Swal.fire({
+								position: 'top-center',
+								type: 'success',
+								title: 'Campo ' + campo.nombre + ' guardado correctamente',
+								showConfirmButton: false,
+								timer: 2500
+							})
+
+							$("#barrio_id").append('<option value=' + campo.id + ' selected>' + campo.nombre + '</option>');
+							$("#barrio_id").selectpicker('refresh');
+						}
+					}
+				});
+			} else {
+				alert("ingrese un nombre válido.")
+			}
 		}
-	});
-
-	function plazo() {
-		var dias = $('#plazo_credito option:selected').attr('dias');
-		let fechaActual = $('#vencimiento').val();
-		let fechaVencimiento = moment(fechaActual, "DD-MM-YYYY");
-		moment.locale('es');
-
-		if ($.isNumeric(dias)) {
-			let fecha = fechaVencimiento.add(parseInt(dias), 'days').format("DD-MM-YYYY");
-			$('#vencimiento').val(fecha);
-		}
-	}
-
-	setTimeout(function () {
-		$("#municipio").val({{ Auth::user()->empresa()->fk_idmunicipio }});
-		$("#municipio").selectpicker('refresh');
-    }, 500);
-</script>
-
+	</script>
 @endsection

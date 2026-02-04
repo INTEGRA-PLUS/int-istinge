@@ -26,6 +26,7 @@ use App\Integracion;
 use App\PlanesVelocidad;
 use App\Model\Ingresos\FacturaRetencion;
 use App\Producto;
+use App\Plantilla;
 use Auth;
 use App\Services\EmisionesService;
 
@@ -48,6 +49,8 @@ use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\WhatsappMetaLog;
+use App\Helpers\CamposDinamicosHelper;
 
 class CronController extends Controller
 {
@@ -211,6 +214,32 @@ class CronController extends Controller
     return "Duplicados eliminados: " . $eliminados;
     }
 
+    //***** Metodo para agregar el saldo a favor a las facturas de un dia de creacion especifico ***** //
+    public static function pagarFacturasSaldoFavor(){
+
+        $facturas = Factura::
+        leftJoin('contactos as c','c.id','factura.cliente')
+        ->select('factura.*')
+        ->where('factura.created_at','lIKE','%2026-01-07%')
+        ->where('factura.facturacion_automatica',1)
+        ->where('factura.estatus',1)
+        ->where('c.saldo_favor','>',0)
+        ->get();
+
+        $empresa = Empresa::Find(1);
+
+        if($empresa->aplicar_saldofavor == 1){
+            foreach($facturas as $factura){
+                self::pagoFacturaAutomatico($factura);
+            }
+        }else{
+            return "empresa no tiene la opcion habilitada.";
+        }
+
+        return "pagos generados correctamente.";
+
+    }
+
     public static function CrearFactura(){
 
         $fecha = Carbon::now()->format('Y-m-d');
@@ -278,7 +307,7 @@ class CronController extends Controller
                     $y = $y+1;
                     $m = 01;
                 }
-                $date_pagooportuno = $y . "-" . $m . "-" . $d;
+                $date_pagooportuno = self::validarFechaUltimoDiaMes($y, $m, $d);
                 //Fin calculo fecha de pago oportuno
 
                 //calculo fecha suspension
@@ -299,7 +328,7 @@ class CronController extends Controller
                         }
                     }
                 }
-                $date_suspension = $y . "-" . $m . "-" . $ds;
+                $date_suspension = self::validarFechaUltimoDiaMes($y, $m, $ds);
                 //Fin calculo fecha suspension
 
                 foreach ($contratos as $contrato) {
@@ -361,7 +390,8 @@ class CronController extends Controller
                     /* ** Validacion: si la actual es dif a la ultima fac pasa o sino
                     si son iguales y no tiene fact manual == 1(la ultima) y es manual y no automatica pasa */
                     if($mesActualFactura != $mesUltimaFactura ||
-                       $mesActualFactura == $mesUltimaFactura && $ultimaFactura->factura_mes_manual == 0 && $ultimaFactura->facturacion_automatica == 0)
+                       $mesActualFactura == $mesUltimaFactura && $ultimaFactura->factura_mes_manual == 0
+                       && $ultimaFactura->facturacion_automatica == 0)
                     {
                         ## Verificamos que el cliente no posea la ultima factura automática abierta, de tenerla no se le genera la nueva factura
                         if(isset($ultimaFactura->fecha)){
@@ -440,6 +470,7 @@ class CronController extends Controller
                                         $factura->vendedor      = 1;
                                         $factura->prorrateo_aplicado = 0;
                                         $factura->facturacion_automatica = 1;
+                                        $factura->factura_mes_manual = 1;
 
                                         if($contrato){
                                             $factura->contrato_id = $contrato->id;
@@ -805,6 +836,8 @@ class CronController extends Controller
         $precio = $factura->totalAPI($empresa)->total;
         $contacto = Contacto::Find($factura->cliente);
 
+        if($contacto->saldo_favor >= $factura->totalAPI($empresa)->total){
+
         //obtencion de numeración de el recibo de caja.
         $nro = Numeracion::where('empresa', $empresa)->first();
         $caja = $nro->caja;
@@ -842,6 +875,8 @@ class CronController extends Controller
         $items->factura = $factura->id;
         $items->puc_factura = $factura->cuenta_id;
 
+        $saldoAntes = $contacto->saldo_favor;
+
         if($contacto->saldo_favor >= $precio){
             $items->pagado = $precio; //asi exista mas dinero del  pagado ese se debe usar.
             $items->pago = self::precisionAPI($precio, $empresa);
@@ -866,11 +901,26 @@ class CronController extends Controller
             $contacto->save();
         }
 
+        $descripcion = 'Se creo un ingreso de factura con el recibo de caja nro ' . $ingreso->nro . ' por un total de $' . number_format($precio, 0, ',', '.');
+        $descripcion .= ' <br>Antes de aplicar el saldo a favor tenia: ' . round($saldoAntes);
+        $descripcion .= ' <br>Despues de aplicar el saldo a favor tiene: ' . round($contacto->saldo_favor);
+
+        //registro de que se creo un ingreso de factura
+        $movimiento = new MovimientoLOG();
+        $movimiento->contrato    = $factura->id;
+        $movimiento->modulo      = 8;
+        $movimiento->descripcion = $descripcion;
+        $movimiento->created_by  = 1;
+        $movimiento->empresa     = $factura->empresa;
+        $movimiento->save();
+
+
         //No vamos a regisrtrar por el momento un movimiento del puc ya que no sabemos esta informacion.
         // $ingreso->puc_banco = $request->forma_pago; //cuenta de forma de pago genérico del ingreso. (en memoria)
         // PucMovimiento::ingreso($ingreso,1,2,$request);
 
         self::up_transaccion_(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $precio, $ingreso->fecha, "Uso de saldo a favor automatico.",null,$empresa);
+     }
     }
 
     public static function cortarFacturasDiaEspecifico(){
@@ -891,6 +941,7 @@ class CronController extends Controller
         whereIn('f.tipo', [1,2])->
         where('contactos.status',1)->
         where('cs.state','enabled')->
+        where('f.fecha',$fecha)->
         where('cs.fecha_suspension','!=', null)->
         take(20)->
         get();
@@ -1226,7 +1277,10 @@ class CronController extends Controller
                 where('contactos.status',1)->
                 where('cs.state','enabled')->
                 whereIn('cs.grupo_corte',$grupos_corte_array)->
-                where('cs.fecha_suspension', null)->
+                where(function($sub){
+                    $sub->whereNull('cs.fecha_suspension')
+                    ->orWhere('cs.fecha_suspension',0);
+                })->
                 where('cs.server_configuration_id','!=',null)->
                 whereDate('f.vencimiento', '<=', now())->
                 where('f.id', function ($subquery) {
@@ -1235,7 +1289,14 @@ class CronController extends Controller
                         ->whereColumn('f2.cliente', 'contactos.id')
                         ->where('f2.estatus', 1)
                         ->whereIn('f2.tipo', [1, 2])
-                        ->whereDate('f2.vencimiento', '<=', now());
+                        ->whereDate('f2.vencimiento', '<=', now())
+                        ;
+                        //Habilitar cuando no se desee cortar por la ultima factura si no por otra fecha.
+                        // ->
+                        //     whereBetween('f2.created_at', [
+                        //         '2025-12-01 00:00:00',
+                        //         '2025-12-31 23:59:59'
+                        // ]);
                 })->
                 orderByRaw("FIELD(cs.grupo_corte, $whereOrder)")->
                 orderBy('contactos.updated_at', 'asc')->
@@ -1314,6 +1375,10 @@ class CronController extends Controller
                 where('cliente',$factura->cliente)
                 ->where('estatus','<>',2)
                 ->whereIn('contrato_id',$contratosId)
+                // ->whereBetween('created_at', [
+                //     '2025-12-01 00:00:00',
+                //     '2025-12-31 23:59:59'
+                // ])
                 ->orderBy('created_at', 'desc')
                 ->value('id');
 
@@ -1863,7 +1928,7 @@ class CronController extends Controller
 
         //Conectando login de siigo cada cierto tiempo
         $siigoLogin = new SiigoController();
-        $siigoLogin->configurarSiigo(request(), true);
+        $siigoLogin->configurarSiigo(null,null, true);
 
     }
 
@@ -2233,6 +2298,7 @@ class CronController extends Controller
         }
     }
 
+
     public function eventosWompi(Request $request){
         $empresa = Empresa::find(1);
         $request = (object) $request->all();
@@ -2270,15 +2336,19 @@ class CronController extends Controller
                     $ingreso->save();
 
                     # REGISTRAMOS EL INGRESO_FACTURA
-                    $precio         = $this->precisionAPI($request->amount_in_cents/100, $empresa->id);
+                    // Precio que pagó el cliente (incluye cobro_extra si existe)
+                    $precioPagado = $this->precisionAPI($request->amount_in_cents/100, $empresa->id);
+
+                    // Precio real de la factura (sin cobro_extra)
+                    $precioReal = $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id);
 
                     $items          = new IngresosFactura;
                     $items->ingreso = $ingreso->id;
                     $items->factura = $factura->id;
                     $items->pagado  = $factura->pagado();
-                    $items->pago    = $precio;
+                    $items->pago    = $precioReal;
 
-                    if ($precio >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
+                    if ($precioReal >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
                         $factura->estatus = 0;
                         $factura->save();
 
@@ -2377,7 +2447,7 @@ class CronController extends Controller
                                 $codigoFactura = $factura->codigo ?? $factura->nro;
                                 $valorFactura =  $factura->totalAPI($empresa->id)->total;
                                 $fechaVencimiento = date('d-m-Y', strtotime($factura->vencimiento));
-                                $pagoRecibido = Funcion::ParsearAPI($precio, $empresa->id);
+                                $pagoRecibido = Funcion::ParsearAPI($precioPagado, $empresa->id);
 
                                 $bulksms = $empresa->sms_pago;
                                 $bulksms = str_replace("{cliente}", $nombreCliente, $bulksms);
@@ -2389,7 +2459,7 @@ class CronController extends Controller
 
                                 $mensaje =  $bulksms;
                             }else{
-                                $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precio, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
+                                $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precioPagado, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
                             }
 
                             if($servicio->nombre == 'Hablame SMS'){
@@ -2470,6 +2540,276 @@ class CronController extends Controller
                 return response('false', 200);
             }
         }
+    }
+
+    public function eventosOnePay(Request $request){
+        $requestData = $request->all();
+
+        // Verificar que el evento sea payment.approved
+        if(isset($requestData['event']['type']) && $requestData['event']['type'] == 'payment.approved'){
+            $payment = $requestData['payment'];
+
+            // Buscar factura por provider_id (código de factura) o por onepay_invoice_id
+            $factura = null;
+
+            // Intentar buscar por provider_id primero
+            if(isset($payment['provider_id'])){
+                $factura = Factura::where('codigo', $payment['provider_id'])->first();
+            }
+
+            // Si no se encuentra, buscar por onepay_invoice_id usando el payment.id
+            if(!$factura && isset($payment['id'])){
+                $factura = Factura::where('onepay_invoice_id', $payment['id'])->first();
+            }
+
+            if($factura && $factura->estatus == 1){
+                $empresa = Empresa::find($factura->empresa);
+                $nro = Numeracion::where('empresa', $empresa->id)->first();
+                $caja = $nro->caja;
+
+                while (true) {
+                    $numero = Ingreso::where('empresa', $empresa->id)->where('nro', $caja)->count();
+                    if ($numero == 0) {
+                        break;
+                    }
+                    $caja++;
+                }
+
+                $banco = Banco::where('nombre', 'ONEPAY')->where('estatus', 1)->where('lectura', 1)->first();
+
+                // Si no existe el banco ONEPAY, crearlo o usar uno genérico
+                if(!$banco){
+                    // Buscar cualquier banco activo como fallback
+                    $banco = Banco::where('empresa', $empresa->id)->where('estatus', 1)->first();
+                }
+
+                # REGISTRAMOS EL INGRESO
+                $ingreso                = new Ingreso;
+                $ingreso->nro           = $caja;
+                $ingreso->empresa       = $empresa->id;
+                $ingreso->cliente       = $factura->cliente;
+                $ingreso->cuenta        = $banco ? $banco->id : 1;
+                $ingreso->metodo_pago   = 9;
+                $ingreso->tipo          = 1;
+                $ingreso->fecha         = date('Y-m-d');
+                $ingreso->observaciones = 'Pago OnePay ID: '.$payment['id'];
+                $ingreso->save();
+
+                # REGISTRAMOS EL INGRESO_FACTURA
+                // Precio que pagó el cliente (amount viene en centavos)
+                $precioPagado = $this->precisionAPI($payment['amount']/100, $empresa->id);
+
+                // Precio real de la factura (sin cobro_extra)
+                $precioReal = $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id);
+
+                $items          = new IngresosFactura;
+                $items->ingreso = $ingreso->id;
+                $items->factura = $factura->id;
+                $items->pagado  = $factura->pagado();
+                $items->pago    = $precioReal;
+
+                if ($precioReal >= $this->precisionAPI($factura->porpagarAPI($empresa->id), $empresa->id)) {
+                    $factura->estatus = 0;
+                    $factura->save();
+
+                    CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
+
+                    $crms = CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->get();
+                    foreach ($crms as $crm) {
+                        $crm->delete();
+                    }
+                }
+
+                $items->save();
+
+                # AUMENTAMOS LA NUMERACIÓN DE PAGOS
+                $nro->caja = $caja + 1;
+                $nro->save();
+
+                # REGISTRAMOS EL MOVIMIENTO
+                $ingreso = Ingreso::find($ingreso->id);
+
+                $this->up_transaccion_(1, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 1, $ingreso->pago(), $ingreso->fecha, $ingreso->descripcion,null, $empresa->id);
+
+                # REGISTRAR LOG DE PAGO CON ONEPAY
+                $movimiento = new MovimientoLOG();
+                $movimiento->contrato = $factura->id;
+                $movimiento->modulo = 8; // Módulo de facturas
+                $movimiento->descripcion = '<i class="fas fa-check text-success"></i> <b>Pago recibido</b> mediante OnePay por valor de '.Funcion::ParsearAPI($precioPagado, $empresa->id).' - ID: '.$payment['id'];
+                $movimiento->created_by = null; // Sistema
+                $movimiento->empresa = $empresa->id;
+                $movimiento->save();
+
+                if($factura->estatus == 0){
+                    # EJECUTAMOS COMANDOS EN MIKROTIK
+                    $cliente = Contacto::where('id', $factura->cliente)->first();
+                    $contrato = Contrato::where('client_id', $cliente->id)->first();
+
+                    if($contrato){
+                        $res = DB::table('contracts')->where('client_id', $cliente->id)->update(["state" => 'enabled']);
+
+                        $asignacion = Producto::where('contrato', $contrato->id)->where('venta', 1)->where('status', 2)->where('cuotas_pendientes', '>', 0)->get()->last();
+
+                        if ($asignacion) {
+                            $cuotas_pendientes = $asignacion->cuotas_pendientes -= 1;
+                            $asignacion->cuotas_pendientes = $cuotas_pendientes;
+                            if ($cuotas_pendientes == 0) {
+                                $asignacion->status = 1;
+                            }
+                            $asignacion->save();
+                        }
+
+                        # API MK
+                        if($contrato->server_configuration_id){
+                            $mikrotik = Mikrotik::where('id', $contrato->server_configuration_id)->first();
+
+                            $API = new RouterosAPI();
+                            $API->port = $mikrotik->puerto_api;
+
+                            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+                                $API->write('/ip/firewall/address-list/print', TRUE);
+                                $ARRAYS = $API->read();
+
+                                #ELIMINAMOS DE MOROSOS#
+                                $API->write('/ip/firewall/address-list/print', false);
+                                $API->write('?address='.$contrato->ip, false);
+                                $API->write("?list=morosos",false);
+                                $API->write('=.proplist=.id');
+                                $ARRAYS = $API->read();
+
+                                if(count($ARRAYS)>0){
+
+                                    $API->write('/ip/firewall/address-list/remove', false);
+                                    $API->write('=.id='.$ARRAYS[0]['.id']);
+                                    $READ = $API->read();
+
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+                                    $API->comm("/ip/firewall/address-list/add", array(
+                                        "address" => $contrato->ip,
+                                        "list" => 'ips_autorizadas'
+                                        )
+                                    );
+                                    #AGREGAMOS A IP_AUTORIZADAS#
+
+                                    $ingreso->revalidacion_enable_internet = 1;
+                                    $ingreso->save();
+
+                                    $contrato->state = 'enabled';
+                                    $contrato->save();
+                                }
+                                #ELIMINAMOS DE MOROSOS#
+                                $API->disconnect();
+
+                            }
+                        }else{
+                            $ingreso->revalidacion_enable_internet = 1;
+                            $ingreso->save();
+                        }
+                    }
+
+                    # ENVÍO SMS
+                    $servicio = Integracion::where('empresa', $empresa->id)->where('tipo', 'SMS')->where('status', 1)->first();
+                    if($servicio){
+                        $numero = str_replace('+','',$cliente->celular);
+                        $numero = str_replace(' ','',$numero);
+
+                        if($empresa->sms_pago && isset($factura)){
+                            $nombreCliente = $factura->cliente()->nombre.' '.$factura->cliente()->apellidos();
+                            $nombreEmpresa = $empresa->nombre;
+                            $codigoFactura = $factura->codigo ?? $factura->nro;
+                            $valorFactura =  $factura->totalAPI($empresa->id)->total;
+                            $fechaVencimiento = date('d-m-Y', strtotime($factura->vencimiento));
+                            $pagoRecibido = Funcion::ParsearAPI($precioPagado, $empresa->id);
+
+                            $bulksms = $empresa->sms_pago;
+                            $bulksms = str_replace("{cliente}", $nombreCliente, $bulksms);
+                            $bulksms = str_replace("{empresa}", $nombreEmpresa, $bulksms);
+                            $bulksms = str_replace("{factura}", $codigoFactura, $bulksms);
+                            $bulksms = str_replace("{valor}", $valorFactura, $bulksms);
+                            $bulksms = str_replace("{pagado}", $pagoRecibido, $bulksms);
+                            $bulksms = str_replace("{vencimiento}", $fechaVencimiento, $bulksms);
+
+                            $mensaje =  $bulksms;
+                        }else{
+                            $mensaje = "Estimado Cliente, le informamos que hemos recibido el pago de su factura por valor de ".Funcion::ParsearAPI($precioPagado, $empresa->id)." gracias por preferirnos. ".$empresa->slogan;
+                        }
+
+                        if($servicio->nombre == 'Hablame SMS'){
+                            if($servicio->api_key && $servicio->user && $servicio->pass){
+                                $post['numero'] = $numero;
+                                $post['sms'] = $mensaje;
+
+                                $curl = curl_init();
+                                curl_setopt_array($curl, array(
+                                    CURLOPT_URL => 'https://api103.hablame.co/api/sms/v3/send/marketing/bulk',
+                                    CURLOPT_RETURNTRANSFER => true,
+                                    CURLOPT_ENCODING => '',
+                                    CURLOPT_MAXREDIRS => 10,
+                                    CURLOPT_TIMEOUT => 0,
+                                    CURLOPT_FOLLOWLOCATION => true,
+                                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                                    CURLOPT_CUSTOMREQUEST => 'POST',CURLOPT_POSTFIELDS => json_encode($post),
+                                    CURLOPT_HTTPHEADER => array(
+                                        'account: '.$servicio->user,
+                                        'apiKey: '.$servicio->api_key,
+                                        'token: '.$servicio->pass,
+                                        'Content-Type: application/json'
+                                    ),
+                                ));
+                                $result = curl_exec ($curl);
+                                $err  = curl_error($curl);
+                                curl_close($curl);
+                            }
+                        }elseif($servicio->nombre == 'SmsEasySms'){
+                            if($servicio->user && $servicio->pass){
+                                $post['to'] = array('57'.$numero);
+                                $post['text'] = $mensaje;
+                                $post['from'] = "SMS";
+                                $login = $servicio->user;
+                                $password = $servicio->pass;
+
+                                $ch = curl_init();
+                                curl_setopt($ch, CURLOPT_URL, "https://sms.istsas.com/Api/rest/message");
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                curl_setopt($ch, CURLOPT_POST, 1);
+                                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post));
+                                curl_setopt($ch, CURLOPT_HTTPHEADER,
+                                    array(
+                                        "Accept: application/json",
+                                        "Authorization: Basic ".base64_encode($login.":".$password)));
+                                $result = curl_exec ($ch);
+                                $err  = curl_error($ch);
+                                curl_close($ch);
+                            }
+                        }else{
+                            if($servicio->user && $servicio->pass){
+                                $post['to'] = array('57'.$numero);
+                                $post['text'] = $mensaje;
+                                $post['from'] = "";
+                                $login = $servicio->user;
+                                $password = $servicio->pass;
+
+                                $ch = curl_init();
+                                curl_setopt($ch, CURLOPT_URL, "https://masivos.colombiared.com.co/Api/rest/message");
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                curl_setopt($ch, CURLOPT_POST, 1);
+                                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post));
+                                curl_setopt($ch, CURLOPT_HTTPHEADER,
+                                    array(
+                                        "Accept: application/json",
+                                        "Authorization: Basic ".base64_encode($login.":".$password)));
+                                $result = curl_exec ($ch);
+                                $err  = curl_error($ch);
+                                curl_close($ch);
+                            }
+                        }
+                    }
+                }
+                return response('success', 200);
+            }
+            return response('false', 200);
+        }
+        return response('false', 200);
     }
 
     public function eventosPayu(Request $request){
@@ -3992,6 +4332,45 @@ class CronController extends Controller
 
    }
 
+   public static function agregarIVA(){
+
+    //Agrega el iva solamente al item que es tv y no cambia el total de la factura, solo discrmina el iva.
+    $facturas = Factura::where('fecha','>=','2026-01-01')->where('tipo',2)->get();
+
+       foreach($facturas as $factura){
+
+            $items = $factura->itemsFactura()
+            ->where('descripcion', 'LIKE', '%TV%')
+            ->get();
+
+            foreach ($items as $i) {
+
+                if($i->id_impuesto != 1){
+                    $precio = (float) $i->precio; // precio con IVA
+                    $cant   = (float) $i->cant;
+
+                    $totalConIva = $precio * $cant;
+
+                    $base = $totalConIva / 1.19;
+                    $iva  = $totalConIva - $base;
+
+                    $i->precio = round($base, 2); // ahora precio SIN IVA
+                    $i->impuesto = round($iva, 2);
+                    $i->id_impuesto = 1; // 19%
+
+                    // return $i;
+                    $i->save(); // solo si quieres persistir
+                }
+
+
+            }
+       }
+
+       return "ok cambios";
+
+
+   }
+
     public function deleteFactura(){
 
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
@@ -4366,6 +4745,7 @@ class CronController extends Controller
             $instance = Instance::where('company_id', $empresa->id)
                 ->where('type', 1)
                 ->where('activo', 1)
+                ->where('meta', 0)
                 ->first();
 
             if (!$instance) {
@@ -4375,7 +4755,6 @@ class CronController extends Controller
 
             // ✅ Límite dinámico según modo
             $limit = ($instance->meta == 0) ? 45 : 15;
-            Log::info("Modo de envío detectado: " . ($instance->meta == 0 ? "WABA/Vibio (meta=0)" : "META directo (meta=1)") . " | Límite lote: {$limit}");
 
             // ===========================
             // ✅ Query de facturas (excluye pagas)
@@ -4399,10 +4778,9 @@ class CronController extends Controller
                 ->limit($limit)
                 ->get();
 
-            Log::info("Facturas seleccionadas para envío: " . $facturas->count());
 
             foreach ($facturas as $factura) {
-                Log::info("Procesando factura: {$factura->codigo}");
+
 
                 // ✅ Blindaje por si pagó entre selección y envío
                 $yaPago = DB::table('ingresos_factura')
@@ -4421,7 +4799,6 @@ class CronController extends Controller
                 $factura->save();
 
                 $contacto = $factura->cliente();
-                Log::info("Cliente asociado: {$contacto->nombre} {$contacto->apellido1}, NIT: {$contacto->nit}");
 
                 // Determinar número válido
                 $celular = null;
@@ -4451,16 +4828,13 @@ class CronController extends Controller
                 }
 
                 $telefonoCompleto = '+' . $prefijo . ltrim($celular, '0');
-                Log::info("Teléfono completo: {$telefonoCompleto}");
 
                 // =======================================================
                 // 🚀 ENVÍO META 0 (Vibio / Plantilla WABA)
                 // =======================================================
                 if ($instance->meta == 0) {
-                    Log::info("Usando modo WABA (Vibio API).");
 
                     $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
-                    Log::info("Respuesta canal: " . json_encode($canalResponse));
 
                     $canalData = json_decode($canalResponse->scalar ?? '{}');
 
@@ -4470,7 +4844,6 @@ class CronController extends Controller
                     }
 
                     $tipoCanal = $canalData->data->channel->type ?? null;
-                    Log::info("Tipo de canal detectado: {$tipoCanal}");
 
                     // Generar PDF temporal
                     $this->getFacturaTemp($factura->id, config('app.key'));
@@ -4489,21 +4862,74 @@ class CronController extends Controller
                     }
 
                     $urlFactura = url("storage/temp/{$fileName}");
-                    Log::info("Factura {$factura->codigo}: URL PDF => {$urlFactura}");
 
-                    // Construcción del mensaje
+                    // Buscar plantilla preferida para facturas
+                    $plantilla = Plantilla::where('preferida_cron_factura', 1)
+                        ->where('tipo', 3)
+                        ->where('status', 1)
+                        ->where('empresa', $empresa->id)
+                        ->first();
+
+                    // Variables para construir el mensaje
                     $estadoCuenta = $factura->estadoCuenta();
                     $total = $factura->total()->total;
                     $saldo = $estadoCuenta->saldoMesAnterior > 0
                         ? $estadoCuenta->saldoMesAnterior + $total
                         : $total;
 
-                    $body = [
-                        "phone" => $telefonoCompleto,
-                        "templateName" => "facturas",
-                        "languageCode" => "en",
-                        "components" => [
+                    // Si hay plantilla preferida, usar sus datos
+                    if ($plantilla) {
+
+                        // Procesar body_dinamic si existe
+                        $bodyTextParams = [];
+                        if ($plantilla->body_dinamic) {
+                            $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+                            if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                                $bodyDinamicArray = $bodyDinamicArray[0];
+                            }
+
+                            if (is_array($bodyDinamicArray)) {
+                                foreach ($bodyDinamicArray as $paramTemplate) {
+                                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+
+                                    // Usar helper para procesar campos dinámicos
+                                    $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
+
+                                    $bodyTextParams[] = $paramValue;
+                                }
+                            }
+                        } else {
+                            // Fallback: usar body_text si no hay body_dinamic
+                            $bodyTextArray = json_decode($plantilla->body_text, true);
+                            if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                                $bodyTextParams = $bodyTextArray[0];
+                            } else {
+                                // Valores por defecto si no hay configuración
+                                $bodyTextParams = [
+                                    "{$contacto->nombre} {$contacto->apellido1}",
+                                    $empresa->nombre,
+                                    number_format($saldo, 0, ',', '.')
+                                ];
+                            }
+                        }
+
+                        // Construir parámetros para components
+                        $parameters = [];
+                        foreach ($bodyTextParams as $paramValue) {
+                            $parameters[] = ["type" => "text", "text" => $paramValue];
+                        }
+
+                        // Construir components
+                        $components = [
                             [
+                                "type" => "body",
+                                "parameters" => $parameters
+                            ]
+                        ];
+
+                        // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
+                        if ($plantilla->body_header === 'DOCUMENT') {
+                            array_unshift($components, [
                                 "type" => "header",
                                 "parameters" => [
                                     [
@@ -4514,54 +4940,110 @@ class CronController extends Controller
                                         ]
                                     ]
                                 ]
-                            ],
-                            [
-                                "type" => "body",
-                                "parameters" => [
-                                    ["type" => "text", "text" => "{$contacto->nombre} {$contacto->apellido1}"],
-                                    ["type" => "text", "text" => $empresa->nombre],
-                                    ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                            ]);
+                        }
+
+                        $body = [
+                            "phone" => $telefonoCompleto,
+                            "templateName" => $plantilla->title,
+                            "languageCode" => $plantilla->language ?? 'en',
+                            "components" => $components
+                        ];
+                    } else {
+                        // Comportamiento por defecto si no hay plantilla preferida
+
+                        $body = [
+                            "phone" => $telefonoCompleto,
+                            "templateName" => "facturas",
+                            "languageCode" => "en",
+                            "components" => [
+                                [
+                                    "type" => "header",
+                                    "parameters" => [
+                                        [
+                                            "type" => "document",
+                                            "document" => [
+                                                "link" => $urlFactura,
+                                                "filename" => "Factura_{$factura->codigo}.pdf"
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                [
+                                    "type" => "body",
+                                    "parameters" => [
+                                        ["type" => "text", "text" => "{$contacto->nombre} {$contacto->apellido1}"],
+                                        ["type" => "text", "text" => $empresa->nombre],
+                                        ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
+                                    ]
                                 ]
                             ]
-                        ]
-                    ];
+                        ];
+                    }
 
-                    Log::info("Factura {$factura->codigo}: cuerpo mensaje => " . json_encode($body));
 
-                    $response = $tipoCanal === "waba"
-                        ? (object) $wapiService->sendTemplate($instance->uuid, $body)
-                        : (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
-                            "phone" => $telefonoCompleto,
-                            "caption" => "Factura {$factura->codigo} - {$empresa->nombre}",
-                            "document" => [
-                                "url" => $urlFactura,
-                                "filename" => "Factura_{$factura->codigo}.pdf"
-                            ]
-                        ]);
+                    if ($tipoCanal !== "waba") {
+                        Log::error("Canal no permitido: {$tipoCanal}. Solo se permite waba.");
+                        continue;
+                    }
 
-                    Log::info("Factura {$factura->codigo}: respuesta API => " . json_encode($response));
+                    $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
+
 
                     if (isset($response->statusCode) && $response->statusCode !== 200) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
                         continue;
                     }
 
-                    $response = json_decode($response->scalar ?? '{}');
+                    $responseData = json_decode($response->scalar ?? '{}');
+                    $responseOriginal = $response->scalar ?? json_encode($response);
 
-                    if (!isset($response->status) || $response->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($response));
+                    // Construir mensaje enviado
+                    $mensajeEnviado = '';
+                    if ($plantilla && isset($plantilla->contenido)) {
+                        $mensajeEnviado = $plantilla->contenido;
+                        // Reemplazar placeholders con valores reales
+                        foreach ($bodyTextParams as $index => $paramValue) {
+                            $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                        }
+                        if ($plantilla->body_header === 'DOCUMENT') {
+                            $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                        }
+                    } else {
+                        // Mensaje por defecto
+                        $mensajeEnviado = "{$empresa->nombre} le informa que su factura {$factura->codigo} tiene un valor de " . number_format($saldo, 0, ',', '.') . " pesos.";
+                    }
+
+                    // Determinar status
+                    $status = 'error';
+                    if (isset($responseData->status) && $responseData->status === "success") {
+                        $status = 'success';
+                    }
+
+                    // Registrar log
+                    WhatsappMetaLog::create([
+                        'status' => $status,
+                        'response' => $responseOriginal,
+                        'factura_id' => $factura->id,
+                        'contacto_id' => $contacto->id,
+                        'empresa' => $empresa->id,
+                        'mensaje_enviado' => $mensajeEnviado,
+                        'plantilla_id' => $plantilla ? $plantilla->id : null,
+                        'enviado_por' => null // Cron no tiene usuario
+                    ]);
+
+                    if (!isset($responseData->status) || $responseData->status !== "success") {
+                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($responseData));
                         continue;
                     }
 
                     $factura->whatsapp = 1;
                     $factura->save();
-                    Log::info("Factura {$factura->codigo}: marcada como enviada ✅");
 
                 } else {
                     // =======================================================
                     // 🚀 MODO META (directo, manual con base64)
                     // =======================================================
-                    Log::info("Usando modo META directo.");
 
                     if ($instance->status !== "PAIRED") {
                         Log::error("Instancia no conectada a WhatsApp (status: {$instance->status}).");
@@ -4594,10 +5076,7 @@ class CronController extends Controller
                         "media" => $file
                     ];
 
-                    Log::info("Factura {$factura->codigo}: cuerpo META => " . json_encode($body));
-
                     $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-                    Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
 
                     if (isset($response->statusCode)) {
                         Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
@@ -4605,37 +5084,51 @@ class CronController extends Controller
                         if ($response->statusCode == 500) {
                             $factura->whatsapp = 1;
                             $factura->save();
-                            Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
                         }
                         sleep(5);
                         continue;
                     }
 
                     if (isset($response->scalar)) {
-                        $response = json_decode($response->scalar);
+                        $responseDecoded = json_decode($response->scalar);
+                    } else {
+                        $responseDecoded = $response;
                     }
 
-                    if (!isset($response->status) || $response->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($response));
+                    // Actualizar status del log si se envió correctamente
+                    $statusLog = 'error';
+                    if (!isset($response->statusCode) || ($response->statusCode == 500) || (isset($responseDecoded->status) && $responseDecoded->status === "success")) {
+                        $statusLog = 'success';
+                    }
+
+                    // Actualizar log creado anteriormente
+                    $lastLog = WhatsappMetaLog::where('factura_id', $factura->id)
+                        ->where('empresa', $empresa->id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+                    if ($lastLog) {
+                        $lastLog->status = $statusLog;
+                        $lastLog->save();
+                    }
+
+                    if (!isset($responseDecoded->status) || $responseDecoded->status !== "success") {
+                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($responseDecoded));
                         sleep(5);
                         continue;
                     }
 
                     $factura->whatsapp = 1;
                     $factura->save();
-                    Log::info("Factura {$factura->codigo}: enviada por META ✅");
                     sleep(5);
                 }
             }
 
-            Log::info("✅ Lote completado correctamente.");
             $this->refreshCorteIntertTV();
 
         } catch (\Throwable $e) {
             Log::error("🔥 Error general en envioFacturaWpp: {$e->getMessage()} en línea {$e->getLine()}");
         }
 
-        Log::info("=== Fin de ejecución envioFacturaWpp() ===");
     }
 
     public function aplicateProrrateo(){
@@ -4895,7 +5388,7 @@ class CronController extends Controller
                     $notasDebito->update(['dian_service'=> 1]);
                     $nominas->update(['dian_service'=> 1]);
                 }
-                Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
+                // Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
 
             } catch (ClientException $e) {
                 if($e->getResponse()->getStatusCode() === 404) {
@@ -5128,6 +5621,11 @@ class CronController extends Controller
      */
     private static function eliminarFacturaCompleta($factura)
     {
+        // Eliminar registros de CRM que referencian esta factura
+        DB::table('crm')
+            ->where('factura', $factura->id)
+            ->delete();
+
         // Eliminar items_factura
         ItemsFactura::where('factura', $factura->id)->delete();
 
@@ -5461,7 +5959,7 @@ class CronController extends Controller
             if ($facturas_existentes->count() > 0) {
                 $facturas_ids = $facturas_existentes->toArray();
 
-                Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
+                // Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
 
                 // Eliminar en orden específico para evitar violaciones de integridad referencial
 
@@ -5693,5 +6191,47 @@ class CronController extends Controller
         $resultado = self::generarFacturasPersonalizadas($contratos_precios);
 
         return response()->json($resultado);
+    }
+
+    /**
+     * Valida y corrige una fecha si el día excede los días del mes
+     * Si el día es inválido para el mes, lo ajusta al último día del mes
+     *
+     * @param int|string $year Año
+     * @param int|string $month Mes (1-12)
+     * @param int|string $day Día
+     * @return string Fecha corregida en formato Y-m-d
+     */
+    private static function validarFechaUltimoDiaMes($year, $month, $day)
+    {
+        try {
+            // Convertir a enteros
+            $year = (int)$year;
+            $month = (int)$month;
+            $day = (int)$day;
+
+            // Intentar crear la fecha con el primer día del mes para obtener el último día válido
+            $fecha = Carbon::create($year, $month, 1);
+            $ultimoDiaMes = $fecha->endOfMonth()->day;
+
+            // Si el día excede el último día del mes, usar el último día
+            if ($day > $ultimoDiaMes) {
+                $day = $ultimoDiaMes;
+            }
+
+            // Crear y retornar la fecha corregida
+            $fechaCorregida = Carbon::create($year, $month, $day);
+            return $fechaCorregida->format('Y-m-d');
+
+        } catch (\Exception $e) {
+            // En caso de error, usar el último día del mes
+            try {
+                $fecha = Carbon::create($year, $month, 1);
+                return $fecha->endOfMonth()->format('Y-m-d');
+            } catch (\Exception $e2) {
+                // Si aún hay error, retornar fecha actual como fallback
+                return Carbon::now()->format('Y-m-d');
+            }
+        }
     }
 }

@@ -40,11 +40,13 @@ use App\PucMovimiento;
 include_once(app_path() .'/../public/routeros_api.class.php');
 use RouterosAPI;
 use App\Mikrotik;
+use App\Interfaz;
 use App\Model\Ingresos\FacturaRetencion;
 use App\Model\Ingresos\ItemsFactura;
 use App\PlanesVelocidad;
 use App\Services\BTWService;
 use App\TerminosPago;
+use App\Integracion;
 use Barryvdh\DomPDF\Facade as PDF;
 use Mail;
 
@@ -1139,6 +1141,20 @@ class Controller extends BaseController
             get()->last();
         }
 
+        // Obtener la primera pasarela activa con cobro_extra > 0
+        $pasarelaConCobro = Integracion::where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->where('cobro_extra', '>', 0)->first();
+
+        // Sumar cobro_extra al precio si existe
+        if($pasarelaConCobro && $pasarelaConCobro->cobro_extra > 0){
+            if(is_array($contrato) || (is_object($contrato) && method_exists($contrato, 'each'))){
+                foreach($contrato as $con){
+                    $con->price += $pasarelaConCobro->cobro_extra;
+                }
+            } else if(is_object($contrato)){
+                $contrato->price += $pasarelaConCobro->cobro_extra;
+            }
+        }
+
         $pasarelas = DB::table('integracion')->where('web', 1)->where('tipo', 'PASARELA')->where('status', 1)->get();
 
         return response()->json(['contrato' => $contrato, 'pasarelas' => $pasarelas]);
@@ -1429,14 +1445,36 @@ class Controller extends BaseController
     }
 
     public function getInterfaces($mikrotik){
-        $mikrotik = Mikrotik::where('id', $mikrotik)->first();
+        $mikrotikObj = Mikrotik::where('id', $mikrotik)->first();
         $ARRAY = '';
 
-        if ($mikrotik) {
-            $API = new RouterosAPI();
-            $API->port = $mikrotik->puerto_api;
+        if ($mikrotikObj) {
+            // Obtener la empresa desde la mikrotik
+            $empresaId = $mikrotikObj->empresa ?? null;
 
-            if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
+            if ($empresaId) {
+                // Verificar si la empresa tiene consultas_mk = 0
+                $empresa = Empresa::find($empresaId);
+                $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+                // Si consultas_mk == 0, obtener interfaces desde la base de datos
+                if ($consultasMk == 0) {
+                    $interfaces = Interfaz::all();
+                    $ARRAY = $interfaces->map(function($interfaz) {
+                        return [
+                            'name' => $interfaz->name,
+                            'type' => $interfaz->type
+                        ];
+                    })->toArray();
+                    return json_encode($this->convert_from_latin1_to_utf8_recursively($ARRAY));
+                }
+            }
+
+            // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
                 $API->write('/interface/getall');
                 $READ = $API->read(false);
                 $ARRAY = $API->parseResponse($READ);
@@ -1448,26 +1486,50 @@ class Controller extends BaseController
     }
 
     public function getPlanes($mikrotik){
-        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)->where('status', 1)->get();
-        $mikrotik = Mikrotik::find($mikrotik);
-        $API = new RouterosAPI();
-        $API->port = $mikrotik->puerto_api;
-        $registro = false;
-        $getall = '';
-        $profile = $API->port;
+        // Obtener la mikrotik primero para acceder a su empresa
+        $mikrotikObj = Mikrotik::find($mikrotik);
+
+        if (!$mikrotikObj) {
+            return response()->json(['error' => 'Mikrotik no encontrada'], 404);
+        }
+
+        // Obtener la empresa desde la mikrotik
+        $empresaId = $mikrotikObj->empresa ?? null;
+
+        if (!$empresaId) {
+            return response()->json(['error' => 'La mikrotik no tiene empresa asignada'], 400);
+        }
+
+        // Obtener planes relacionados a la mikrotik y empresa
+        $planes = PlanesVelocidad::where('mikrotik', $mikrotik)
+            ->where('status', 1)
+            ->where('empresa', $empresaId)
+            ->get();
+
+        $profile = [];
         $connectionError = false;
 
-        if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-            $API->write('/ppp/profile/getall');
-            $READ = $API->read(false);
-            $profile = $API->parseResponse($READ);
-            $API->disconnect();
-        } else {
-            $connectionError = true;
+        // Verificar si la empresa tiene consultas_mk = 0
+        $empresa = Empresa::find($empresaId);
+        $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+        // Solo hacer consulta a mikrotik si consultas_mk = 1 y la mikrotik existe
+        if ($consultasMk == 1 && $mikrotikObj) {
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
+                $API->write('/ppp/profile/getall');
+                $READ = $API->read(false);
+                $profile = $API->parseResponse($READ);
+                $API->disconnect();
+            } else {
+                $connectionError = true;
+            }
         }
 
         //   return "";
-        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotik,'profile' => $profile, 'connection_error' => $connectionError]);
+        return response()->json(['planes' => $planes, 'mikrotik' => $mikrotikObj, 'profile' => $profile, 'connection_error' => $connectionError]);
     }
 
     public function logsMK($mikrotik){
@@ -1706,45 +1768,62 @@ class Controller extends BaseController
     public function getIps($mikrotik){
         $ips = Contrato::where('status', 1)->select('ip', 'state')->orderBy('ip', 'asc')->get();
 
-$mikrotik = Mikrotik::find($mikrotik);
-if ($mikrotik) {
-    $API = new RouterosAPI();
-    $API->port = $mikrotik->puerto_api;
-
-    if ($API->connect($mikrotik->ip, $mikrotik->usuario, $mikrotik->clave)) {
-        $API->write("/queue/simple/getall");
-        $READ = $API->read(false);
-        $ARRAY = $API->parseResponse($READ);
-        $API->disconnect();
+        $mikrotikObj = Mikrotik::find($mikrotik);
         $sanitizedArray = [];
 
-        foreach ($ARRAY as $item) {
-            $sanitizedItem = [];
+        if ($mikrotikObj) {
+            // Obtener la empresa desde la mikrotik
+            $empresaId = $mikrotikObj->empresa ?? null;
 
-            foreach ($item as $key => $value) {
-                // Verificar si $value es una cadena antes de intentar convertirla
-                if (is_string($value)) {
-                    // Detectar la codificación
-                    $encoding = mb_detect_encoding($value, mb_list_encodings(), true);
-                    if ($encoding) {
-                        // Convertir a UTF-8 si se detecta la codificación
-                        $sanitizedItem[$key] = mb_convert_encoding($value, "UTF-8", $encoding);
-                    } else {
-                        // Sanitizar la cadena si la codificación no se detecta
-                        $sanitizedItem[$key] = iconv('UTF-8', 'UTF-8//IGNORE', $value);
-                    }
-                } else {
-                    $sanitizedItem[$key] = $value; // Si no es una cadena, mantener el valor original
+            if ($empresaId) {
+                // Verificar si la empresa tiene consultas_mk = 0
+                $empresa = Empresa::find($empresaId);
+                $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+                // Si consultas_mk == 0, retornar array vacío para mikrotik
+                if ($consultasMk == 0) {
+                    return response()->json(['software' => $ips, 'mikrotik' => []]);
                 }
             }
 
-            // Agregar el item sanitizado al array resultante
-            $sanitizedArray[] = $sanitizedItem;
+            // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
+            $API = new RouterosAPI();
+            $API->port = $mikrotikObj->puerto_api;
+
+            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
+                $API->write("/queue/simple/getall");
+                $READ = $API->read(false);
+                $ARRAY = $API->parseResponse($READ);
+                $API->disconnect();
+
+                foreach ($ARRAY as $item) {
+                    $sanitizedItem = [];
+
+                    foreach ($item as $key => $value) {
+                        // Verificar si $value es una cadena antes de intentar convertirla
+                        if (is_string($value)) {
+                            // Detectar la codificación
+                            $encoding = mb_detect_encoding($value, mb_list_encodings(), true);
+                            if ($encoding) {
+                                // Convertir a UTF-8 si se detecta la codificación
+                                $sanitizedItem[$key] = mb_convert_encoding($value, "UTF-8", $encoding);
+                            } else {
+                                // Sanitizar la cadena si la codificación no se detecta
+                                $sanitizedItem[$key] = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+                            }
+                        } else {
+                            $sanitizedItem[$key] = $value; // Si no es una cadena, mantener el valor original
+                        }
+                    }
+
+                    // Agregar el item sanitizado al array resultante
+                    $sanitizedArray[] = $sanitizedItem;
+                }
+            }
         }
 
         return response()->json(['software' => $ips, 'mikrotik' => $sanitizedArray]);
     }
-}
         /*$ips = Contrato::where('status', 1)->select('ip', 'state')->orderBy('ip', 'asc')->get();
 
         $mikrotik = Mikrotik::find($mikrotik);
@@ -1783,7 +1862,7 @@ if ($mikrotik) {
               /*  return response()->json(['software' => $ips, 'mikrotik' => $sanitizedArray]);
             }
         }*/
-    }
+    // }
 
     public function getSegmentos($mikrotik){
         $segmentos = Segmento::where('mikrotik', $mikrotik)->get()->toArray();
@@ -2331,18 +2410,32 @@ if ($mikrotik) {
 
     public static function createFacturaProrrateo($contrato, $facturaInicio = null){
 
-        $grupo_corte = GrupoCorte::find($contrato->grupo_corte);
+        // Obtener empresa del contrato
+        $empresaId = $contrato->empresa ?? 1;
         $fecha = Carbon::now()->format('Y-m-d');
+
+        // VALIDACIÓN: Verificar si ya existe una factura para este contrato hoy
+        $facturaExistente = DB::table('facturas_contratos')
+            ->whereDate('created_at', $fecha)
+            ->where('contrato_nro', $contrato->nro)
+            ->first();
+
+        if($facturaExistente){
+            return false; // Ya existe una factura para este contrato hoy
+        }
+
+        $grupo_corte = GrupoCorte::find($contrato->grupo_corte);
 
         if(!$grupo_corte){
             return false;
         }
 
-        $num = Factura::where('empresa',1)->orderby('id','asc')->get()->last();
+        // Corregir cálculo del número de factura usando empresa del contrato
+        $num = Factura::where('empresa', $empresaId)->orderby('id','asc')->get()->last();
         if($num){
-            $numero = $num->nro;
+            $numero = $num->nro + 1;
         }else{
-            $numero = 0;
+            $numero = 1;
         }
 
         //Calculo fecha pago oportuno.
@@ -2407,141 +2500,148 @@ if ($mikrotik) {
             $tipo = 2;
         }
 
-        $factura = new Factura;
-        $factura->nro           = $numero;
-        $factura->codigo        = $nro->prefijo.$inicio;
-        $factura->numeracion    = $nro->id;
-        $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
-        $factura->term_cond     = $contrato->terminos_cond;
-        $factura->facnotas      = $contrato->notas_fact;
-        $factura->empresa       = 1;
-        $factura->cliente       = $contrato->client_id;
-        $factura->fecha         = $fecha;
-        $factura->tipo          = $tipo;
-        $factura->vencimiento   = $date_suspension;
-        $factura->suspension    = $date_suspension;
-        $factura->pago_oportuno = $date_pagooportuno;
-        $factura->observaciones = 'Facturación Automática - Corte '.$grupo_corte->fecha_corte;
-        $factura->bodega        = 1;
-        $factura->vendedor      = 1;
-        $factura->prorrateo_aplicado = 0;
-        $factura->facturacion_automatica = 1;
-        $factura->contrato_id = $contrato->id;
-        $factura->save();
+        // Envolver en transacción para evitar condiciones de carrera
+        return DB::transaction(function () use ($contrato, $numero, $nro, $inicio, $plazo, $tipo, $fecha, $date_suspension, $date_pagooportuno, $grupo_corte, $empresaId, $facturaInicio) {
+            $factura = new Factura;
+            $factura->nro           = $numero;
+            $factura->codigo        = $nro->prefijo.$inicio;
+            $factura->numeracion    = $nro->id;
+            $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
+            $factura->term_cond     = $contrato->terminos_cond;
+            $factura->facnotas      = $contrato->notas_fact;
+            $factura->empresa       = $empresaId;
+            $factura->cliente       = $contrato->client_id;
+            $factura->fecha         = $fecha;
+            $factura->tipo          = $tipo;
+            $factura->vencimiento   = $date_suspension;
+            $factura->suspension    = $date_suspension;
+            $factura->pago_oportuno = $date_pagooportuno;
+            $factura->observaciones = 'Factura creada desde contrato - Corte '.$grupo_corte->fecha_corte;
+            $factura->bodega        = 1;
+            $factura->vendedor      = 1;
+            $factura->prorrateo_aplicado = 0;
+            $factura->facturacion_automatica = 1;
+            $factura->factura_mes_manual = 1;
+            $factura->contrato_id = $contrato->id;
+            $factura->save();
 
-        $descuentoPesos = 0;
+            $descuentoPesos = 0;
 
-        ## Se carga el item a la factura (Plan de Internet) ##
-        if($contrato->plan_id){
-            $plan = PlanesVelocidad::find($contrato->plan_id);
-            $item = Inventario::find($plan->item);
-            $item_reg = new ItemsFactura;
-            $item_reg->factura     = $factura->id;
-            $item_reg->producto    = $item->id;
-            $item_reg->ref         = $item->ref;
-            $item_reg->precio      = $item->precio;
-            $item_reg->descripcion = $plan->name;
-            $item_reg->id_impuesto = $item->id_impuesto;
-            $item_reg->impuesto    = $item->impuesto;
+            ## Se carga el item a la factura (Plan de Internet) ##
+            if($contrato->plan_id){
+                $plan = PlanesVelocidad::find($contrato->plan_id);
+                $item = Inventario::find($plan->item);
+                $item_reg = new ItemsFactura;
+                $item_reg->factura     = $factura->id;
+                $item_reg->producto    = $item->id;
+                $item_reg->ref         = $item->ref;
+                $item_reg->precio      = $item->precio;
+                $item_reg->descripcion = $plan->name;
+                $item_reg->id_impuesto = $item->id_impuesto;
+                $item_reg->impuesto    = $item->impuesto;
 
-            if($contrato->iva_factura == 1){
-                $item_reg->id_impuesto = 1;
-                $item_reg->impuesto = 19;
-            }
-            $item_reg->cant        = 1;
-            $item_reg->desc        = $contrato->descuento;
-
-            if($contrato->descuento_pesos != null && $descuentoPesos == 0){
-                $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
-                $descuentoPesos = 1;
-            }
-            $item_reg->save();
-        }
-
-        ## Se carga el item a la factura (Plan de Televisión) ##
-        if($contrato->servicio_tv){
-            $item = Inventario::find($contrato->servicio_tv);
-            $item_reg = new ItemsFactura;
-            $item_reg->factura     = $factura->id;
-            $item_reg->producto    = $item->id;
-            $item_reg->ref         = $item->ref;
-            $item_reg->precio      = $item->precio;
-            $item_reg->descripcion = $item->producto;
-            $item_reg->id_impuesto = $item->id_impuesto;
-            $item_reg->impuesto    = $item->impuesto;
-            $item_reg->cant        = 1;
-            $item_reg->desc        = $contrato->descuento;
-            if($contrato->descuento_pesos != null && $descuentoPesos == 0){
-                $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
-                $descuentoPesos = 1;
-            }
-            $item_reg->save();
-        }
-
-        ## Se carga el item de otro tipo de servicio ##
-        if($contrato->servicio_otro){
-            $item = Inventario::find($contrato->servicio_otro);
-            $item_reg = new ItemsFactura;
-            $item_reg->factura     = $factura->id;
-            $item_reg->producto    = $item->id;
-            $item_reg->ref         = $item->ref;
-            $item_reg->precio      = $item->precio;
-            $item_reg->descripcion = $item->producto;
-            $item_reg->id_impuesto = $item->id_impuesto;
-            $item_reg->impuesto    = $item->impuesto;
-            $item_reg->cant        = 1;
-            $item_reg->desc        = $contrato->descuento;
-            if($contrato->descuento_pesos != null && $descuentoPesos == 0){
-                $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
-                $descuentoPesos = 1;
-            }
-
-            if($contrato->rd_item_vencimiento == 1){
-
-                if($contrato->dt_item_hasta > now()){
-                    $item_reg->save();
+                if($contrato->iva_factura == 1){
+                    $item_reg->id_impuesto = 1;
+                    $item_reg->impuesto = 19;
                 }
-            }else{
+                $item_reg->cant        = 1;
+                $item_reg->desc        = $contrato->descuento;
+
+                if($contrato->descuento_pesos != null && $descuentoPesos == 0){
+                    $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
+                    $descuentoPesos = 1;
+                }
                 $item_reg->save();
             }
-        }
 
-        //guardamos en la tabla detalle para saber que esa factura tiene n contratos
-        DB::table('facturas_contratos')->insert([
-            'factura_id' => $factura->id,
-            'contrato_nro' => $contrato->nro,
-            'created_by' => 0,
-            'client_id' => $factura->cliente,
-            'is_cron' => 1,
-            'created_at' => Carbon::now()
-        ]);
-
-        //>>>>Posible aplicación de Prorrateo al total<<<<//
-        $dias = $factura->diasCobradosProrrateo(1,$facturaInicio); //forzamos el prorrateo asi la opcion de empresa este off
-        //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
-        if($dias != 30){
-
-            if($facturaInicio != null){
-                DB::table('factura')->where('id',$factura->id)->update([
-                    'prorrateo_aplicado' => 2
-                ]);
-            }else{
-                DB::table('factura')->where('id',$factura->id)->update([
-                    'prorrateo_aplicado' => 1
-                ]);
+            ## Se carga el item a la factura (Plan de Televisión) ##
+            if($contrato->servicio_tv){
+                $item = Inventario::find($contrato->servicio_tv);
+                $item_reg = new ItemsFactura;
+                $item_reg->factura     = $factura->id;
+                $item_reg->producto    = $item->id;
+                $item_reg->ref         = $item->ref;
+                $item_reg->precio      = $item->precio;
+                $item_reg->descripcion = $item->producto;
+                $item_reg->id_impuesto = $item->id_impuesto;
+                $item_reg->impuesto    = $item->impuesto;
+                $item_reg->cant        = 1;
+                $item_reg->desc        = $contrato->descuento;
+                if($contrato->descuento_pesos != null && $descuentoPesos == 0){
+                    $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
+                    $descuentoPesos = 1;
+                }
+                $item_reg->save();
             }
 
-            //si no se nombra la variable en la primer guardada se genera una copia
-            foreach($factura->itemsFactura as $item){
-                //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
-                $precioItemProrrateo = round($item->precio * $dias / 30, 2);
-                DB::table('items_factura')->where('id',$item->id)->update([
-                    'precio' => $precioItemProrrateo
-                ]);
+            ## Se carga el item de otro tipo de servicio ##
+            if($contrato->servicio_otro){
+                $item = Inventario::find($contrato->servicio_otro);
+                $item_reg = new ItemsFactura;
+                $item_reg->factura     = $factura->id;
+                $item_reg->producto    = $item->id;
+                $item_reg->ref         = $item->ref;
+                $item_reg->precio      = $item->precio;
+                $item_reg->descripcion = $item->producto;
+                $item_reg->id_impuesto = $item->id_impuesto;
+                $item_reg->impuesto    = $item->impuesto;
+                $item_reg->cant        = 1;
+                $item_reg->desc        = $contrato->descuento;
+                if($contrato->descuento_pesos != null && $descuentoPesos == 0){
+                    $item_reg->precio      = $item_reg->precio - $contrato->descuento_pesos;
+                    $descuentoPesos = 1;
+                }
+
+                if($contrato->rd_item_vencimiento == 1){
+
+                    if($contrato->dt_item_hasta > now()){
+                        $item_reg->save();
+                    }
+                }else{
+                    $item_reg->save();
+                }
             }
-        }
-        //>>>>Fin posible aplicación prorrateo al total<<<<//
-        return true;
+
+            //guardamos en la tabla detalle para saber que esa factura tiene n contratos
+            DB::table('facturas_contratos')->insert([
+                'factura_id' => $factura->id,
+                'contrato_nro' => $contrato->nro,
+                'created_by' => 0,
+                'client_id' => $factura->cliente,
+                'is_cron' => 1,
+                'created_at' => Carbon::now()
+            ]);
+
+            // Refrescar la factura para que tenga acceso a los items
+            $factura->refresh();
+
+            //>>>>Posible aplicación de Prorrateo al total<<<<//
+            $dias = $factura->diasCobradosProrrateo(1,$facturaInicio); //forzamos el prorrateo asi la opcion de empresa este off
+            //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
+            if($dias != 30){
+
+                if($facturaInicio != null){
+                    DB::table('factura')->where('id',$factura->id)->update([
+                        'prorrateo_aplicado' => 2
+                    ]);
+                }else{
+                    DB::table('factura')->where('id',$factura->id)->update([
+                        'prorrateo_aplicado' => 1
+                    ]);
+                }
+
+                //si no se nombra la variable en la primer guardada se genera una copia
+                foreach($factura->itemsFactura as $item){
+                    //dividimos el precio del item en 30 para saber cuanto vamos a cobrar en total restando los dias
+                    $precioItemProrrateo = round($item->precio * $dias / 30, 2);
+                    DB::table('items_factura')->where('id',$item->id)->update([
+                        'precio' => $precioItemProrrateo
+                    ]);
+                }
+            }
+            //>>>>Fin posible aplicación prorrateo al total<<<<//
+            return true;
+        });
     }
 
     public static function formatedResponseErrorBTW($message){

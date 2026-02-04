@@ -388,38 +388,25 @@ class ContactosController extends Controller
         $tipos_empresa = TipoEmpresa::where('empresa', Auth::user()->empresa)
             ->get();
 
-        $prefijos = DB::table('prefijos_telefonicos')->get();
-
-        $paises = DB::table('pais')->get();
+        $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
 
         $departamentos = DB::table('departamentos')->get();
 
-        $transportadora_id = TipoEmpresa::where('empresa', auth()->user()->empresa)
-            ->where('nombre', 'TRANSPORTADORA')
-            ->first();
-
-        if ($transportadora_id) {
-            $transportadoras = Contacto::where('empresa', auth()->user()->empresa)
-                ->where('tipo_empresa', $transportadora_id->id)
-                ->get();
-        } else {
-            $transportadoras = null;
-        }
-
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+        
+        $barrios = DB::table('barrios')->where('status',1)->get();
 
         view()->share(['title' => 'Nuevo Proveedor', 'subseccion' => 'proveedores', 'middel' => true]);
 
         return view('contactos.createp')->with(compact(
             'identificaciones',
             'tipos_empresa',
-            'prefijos',
             'vendedores',
             'listas',
             'paises',
             'departamentos',
-            'transportadoras',
-            'oficinas'
+            'oficinas',
+            'barrios'
         ));
     }
 
@@ -475,6 +462,7 @@ class ContactosController extends Controller
         $contacto->referencia_1 = $request->referencia_1;
         $contacto->referencia_2 = $request->referencia_2;
         $contacto->cierra_venta = $request->cierra_venta;
+        $contacto->factura_est_elec = $request->factura_est_elec ?? 0;
 
         if ($request->tipo_persona == null) {
             $contacto->responsableiva = 2;
@@ -665,6 +653,7 @@ class ContactosController extends Controller
             $contacto->referencia_1 = $request->referencia_1;
             $contacto->referencia_2 = $request->referencia_2;
             $contacto->cierra_venta = $request->cierra_venta;
+            $contacto->factura_est_elec = $request->factura_est_elec ?? 0;
             $contacto->plan_velocidad    = 0;
             $contacto->costo_instalacion = "a";
             $contacto->feliz_cumpleanos = $request->feliz_cumpleanos ? date("Y-m-d", strtotime($request->feliz_cumpleanos)) : '';
@@ -777,7 +766,7 @@ class ContactosController extends Controller
             if ($contacto->plan_id) {
                 $contacto = DB::select("SELECT C.id, C.nombre, C.boton_emision ,C.apellido1, C.apellido2, C.nit, C.tip_iden, C.telefono1, C.celular, C.estrato,
                 C.saldo_favor, C.saldo_favor2 ,CS.public_id as contrato, CS.facturacion, I.id as plan,
-                 GC.fecha_corte, GC.fecha_suspension, CS.servicio_tv, CS.servicio_otro FROM contactos AS C INNER JOIN contracts AS CS ON (C.id = CS.client_id)
+                 GC.fecha_corte, GC.fecha_suspension, CS.servicio_tv, CS.servicio_otro, C.factura_est_elec FROM contactos AS C INNER JOIN contracts AS CS ON (C.id = CS.client_id)
                  INNER JOIN planes_velocidad AS P ON (P.id = CS.plan_id) INNER JOIN inventario AS I ON (I.id = P.item)
                  INNER JOIN grupos_corte AS GC ON (GC.id = CS.grupo_corte)
                  WHERE C.status = '1' AND  C.id = '".$id."'");
@@ -798,7 +787,7 @@ class ContactosController extends Controller
     {
         $objPHPExcel = new PHPExcel();
         $tituloReporte = 'Reporte de Contactos de '.Auth::user()->empresa()->nombre;
-        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Observaciones', 'Tipo de Contacto', 'Contrato', 'Saldo a favor', 'Etiqueta'];
+        $titulosColumnas = ['Nombres', 'Apellido1', 'Apellido2', 'Tipo de identificacion', 'Identificacion', 'DV', 'Pais', 'Departamento', 'Municipio', 'Codigo postal', 'Telefono', 'Celular', 'Direccion', 'Verada/Corregimiento', 'Barrio', 'Ciudad', 'Correo Electronico', 'Observaciones', 'Tipo de Contacto', 'Contrato', 'Saldo a favor', 'Etiqueta', 'Total Debe']; // /// NUEVA COLUMNA: Total Debe
         $letras = range('A', 'Z');
 
         $objPHPExcel->getProperties()->setCreator('Sistema')
@@ -815,7 +804,9 @@ class ContactosController extends Controller
         $objPHPExcel->setActiveSheetIndex(0)->setCellValue('A2', 'Fecha '.date('d-m-Y'));
 
         $estilo = ['font' => ['bold' => true, 'size' => 12, 'name' => 'Times New Roman'], 'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]];
-        $objPHPExcel->getActiveSheet()->getStyle('A1:W3')->applyFromArray($estilo);
+        // /// Actualizado para incluir todas las columnas dinámicamente
+        $lastColumnHeader = $letras[count($titulosColumnas) - 1];
+        $objPHPExcel->getActiveSheet()->getStyle('A1:'.$lastColumnHeader.'3')->applyFromArray($estilo);
 
         $estilo = [
             'fill' => [
@@ -842,6 +833,68 @@ class ContactosController extends Controller
 
         $i = 4;
 
+        // /// ============================================================
+        // /// INICIO: CÁLCULO OPTIMIZADO DE SALDOS PENDIENTES POR CLIENTE
+        // /// ============================================================
+        // /// Esta sección calcula el total que debe cada cliente en facturas,
+        // /// descontando pagos, abonos y notas crédito.
+        // /// Si algo falla, eliminar desde aquí hasta el comentario "FIN"
+        // /// ============================================================
+
+        try {
+            // /// Subconsulta optimizada: Calcula saldo pendiente por cliente
+            // /// Usa agregaciones SQL para evitar N+1 queries
+            $saldosPendientes = DB::table('factura as f')
+                ->join('items_factura as itemsf', 'itemsf.factura', '=', 'f.id')
+                // /// Subconsulta para sumar pagos (excluyendo ingresos anulados)
+                ->leftJoin(DB::raw("(
+                    SELECT
+                        ing_fact.factura,
+                        COALESCE(SUM(ing_fact.pago), 0) as total_pagado
+                    FROM ingresos_factura as ing_fact
+                    INNER JOIN ingresos as i ON i.id = ing_fact.ingreso
+                    WHERE i.estatus <> 2
+                    GROUP BY ing_fact.factura
+                ) as pagos"), 'pagos.factura', '=', 'f.id')
+                // /// Subconsulta para sumar notas crédito
+                ->leftJoin(DB::raw("(
+                    SELECT
+                        nf.factura,
+                        COALESCE(SUM(nf.pago), 0) as total_notas_credito
+                    FROM notas_factura as nf
+                    GROUP BY nf.factura
+                ) as notas"), 'notas.factura', '=', 'f.id')
+                ->where('f.empresa', Auth::user()->empresa)
+                ->where('f.estatus', '<>', 2) // Excluir facturas anuladas
+                ->select('f.cliente')
+                // /// Cálculo del saldo: Total facturado - Pagos - Notas crédito
+                ->selectRaw('
+                    COALESCE(SUM(
+                        (
+                            (ROUND(itemsf.precio * itemsf.cant)) -
+                            IF(itemsf.desc > 0, (itemsf.precio * itemsf.cant) * (itemsf.desc / 100), 0)
+                        ) *
+                        IF(itemsf.impuesto > 0, 1 + (itemsf.impuesto / 100), 1)
+                    ), 0) -
+                    COALESCE(SUM(COALESCE(pagos.total_pagado, 0)), 0) -
+                    COALESCE(SUM(COALESCE(notas.total_notas_credito, 0)), 0) as saldo_pendiente
+                ')
+                ->groupBy('f.cliente')
+                ->pluck('saldo_pendiente', 'cliente')
+                ->toArray();
+        } catch (\Exception $e) {
+            // /// Si falla la consulta, inicializar array vacío para evitar errores
+            Log::error('Error al calcular saldos pendientes en exportación de contactos', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            $saldosPendientes = [];
+        }
+
+        // /// ============================================================
+        // /// FIN: CÁLCULO OPTIMIZADO DE SALDOS PENDIENTES POR CLIENTE
+        // /// ============================================================
+
         // 🔹 Cargar contactos con JOIN a etiquetas
         $contactos = Contacto::leftJoin('etiquetas', 'etiquetas.id', '=', 'contactos.etiqueta_id')
             ->where('contactos.empresa', Auth::user()->empresa)
@@ -854,6 +907,11 @@ class ContactosController extends Controller
         }
 
         foreach ($contactos as $contacto) {
+            // /// Obtener saldo pendiente del cliente (0 si no tiene facturas pendientes)
+            $saldoPendiente = isset($saldosPendientes[$contacto->id])
+                ? max(0, round($saldosPendientes[$contacto->id], 0)) // Asegurar que no sea negativo
+                : 0;
+
             $objPHPExcel->setActiveSheetIndex(0)
                 ->setCellValue($letras[0].$i, $contacto->nombre)
                 ->setCellValue($letras[1].$i, $contacto->apellido1)
@@ -876,7 +934,8 @@ class ContactosController extends Controller
                 ->setCellValue($letras[18].$i, $contacto->tipo_contacto())
                 ->setCellValue($letras[19].$i, strip_tags($contacto->contract() ?? 'N/A'))
                 ->setCellValue($letras[20].$i, $contacto->saldo_favor)
-                ->setCellValue($letras[21].$i, $contacto->etiqueta_nombre ?? 'Sin etiqueta'); // 🔹 aquí el cambio
+                ->setCellValue($letras[21].$i, $contacto->etiqueta_nombre ?? 'Sin etiqueta')
+                ->setCellValue($letras[22].$i, $saldoPendiente); // /// NUEVA COLUMNA: Total Debe
 
             $i++;
         }
@@ -891,7 +950,8 @@ class ContactosController extends Controller
             ],
             'alignment' => ['horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER]
         ];
-        $objPHPExcel->getActiveSheet()->getStyle('A3:W'.$i)->applyFromArray($estilo);
+        // /// Actualizado para incluir nueva columna (W -> X)
+        $objPHPExcel->getActiveSheet()->getStyle('A3:'.$letras[count($titulosColumnas) - 1].$i)->applyFromArray($estilo);
 
         // ✅ Estilo especial para columna Contrato (U)
         $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->applyFromArray([
@@ -909,7 +969,8 @@ class ContactosController extends Controller
         $objPHPExcel->getActiveSheet()->getStyle($letras[20].'4:'.$letras[20].($i-1))->getAlignment()->setWrapText(true);
         $objPHPExcel->getActiveSheet()->getColumnDimension($letras[20])->setAutoSize(true);
 
-        for ($j = 'A'; $j <= $letras[20]; $j++) {
+        // /// Actualizado para incluir todas las columnas incluyendo la nueva
+        for ($j = 'A'; $j <= $letras[count($titulosColumnas) - 1]; $j++) {
             $objPHPExcel->setActiveSheetIndex(0)->getColumnDimension($j)->setAutoSize(true);
         }
 

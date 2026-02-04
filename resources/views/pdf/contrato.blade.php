@@ -85,6 +85,31 @@
         .pl-2{
             padding-left: .75em;
         }
+        .imagen-container {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .imagen-row {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            margin-bottom: 15px;
+        }
+        .imagen-box {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 8px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            background-color: #f9f9f9;
+        }
+        .imagen-page {
+            page-break-before: always;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
     </style>
     <style media="print" type="text/css">
         @page {
@@ -624,4 +649,35 @@
             </tbody>
         </table>
     </div>
+
+    @php
+        $imagenes = [];
+        if($contact->imgA ?? $contract->imgA ?? null) $imagenes[] = ['letra' => 'A', 'ruta' => ($contact->imgA ?? $contract->imgA)];
+        if($contact->imgB ?? $contract->imgB ?? null) $imagenes[] = ['letra' => 'B', 'ruta' => ($contact->imgB ?? $contract->imgB)];
+        if($contact->imgC ?? $contract->imgC ?? null) $imagenes[] = ['letra' => 'C', 'ruta' => ($contact->imgC ?? $contract->imgC)];
+        if($contact->imgD ?? $contract->imgD ?? null) $imagenes[] = ['letra' => 'D', 'ruta' => ($contact->imgD ?? $contract->imgD)];
+        if($contact->imgE ?? $contract->imgE ?? null) $imagenes[] = ['letra' => 'E', 'ruta' => ($contact->imgE ?? $contract->imgE)];
+        if($contact->imgF ?? $contract->imgF ?? null) $imagenes[] = ['letra' => 'F', 'ruta' => ($contact->imgF ?? $contract->imgF)];
+        if($contact->imgG ?? $contract->imgG ?? null) $imagenes[] = ['letra' => 'G', 'ruta' => ($contact->imgG ?? $contract->imgG)];
+        if($contact->imgH ?? $contract->imgH ?? null) $imagenes[] = ['letra' => 'H', 'ruta' => ($contact->imgH ?? $contract->imgH)];
+    @endphp
+
+    @if(count($imagenes) > 0)
+    @foreach($imagenes as $index => $imagen)
+    <div style="{{ $index > 0 ? 'page-break-before: always;' : '' }} page-break-inside: avoid; page-break-after: avoid; margin: 0; padding: 0;">
+        <table width="100%" style="page-break-inside: avoid; width: 100%; margin: 0; padding: 0;">
+            <tbody>
+                <tr>
+                    <td style="text-align: center; vertical-align: middle; padding: 30px; width: 100%;">
+                        <p style="font-weight: bold; margin-bottom: 20px; margin-top: 0; padding: 8px; text-align: center;" class="small titulo-bg">Imagen {{ $imagen['letra'] }}</p>
+                        <div style="text-align: center; width: 100%; margin: 0; padding: 0;">
+                            <img src="{{ asset('adjuntos/documentos/'.$imagen['ruta']) }}" alt="Imagen {{ $imagen['letra'] }}">
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    @endforeach
+    @endif
 @endsection

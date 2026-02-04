@@ -220,14 +220,31 @@ class FacturaspController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['icon' =>'', 'title' => 'Nueva Facturas de Proveedores', 'subseccion' => 'facturas_proveedores']);
         $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
-        $inventario =
-        Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
-            DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
-            ->where('empresa',Auth::user()->empresa)
-            ->where('status', 1)
-            ->where('type', '<>', 'PLAN')
-            ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
-            ->get();
+
+        if (!$bodega) {
+            $inventario = collect();
+        } else {
+            $inventario =
+            Inventario::select('inventario.id','inventario.tipo_producto','inventario.producto','inventario.ref',
+                DB::raw('COALESCE(MAX(productos_bodegas.nro), 0) as nro'))
+                ->leftJoin('productos_bodegas', function($join) use ($bodega) {
+                    $join->on('productos_bodegas.producto', '=', 'inventario.id')
+                         ->where('productos_bodegas.bodega', '=', $bodega->id);
+                })
+                ->where('inventario.empresa', Auth::user()->empresa)
+                ->where('inventario.status', 1)
+                // ->where('type', '<>', 'PLAN')
+                ->where(function($query) use ($bodega) {
+                    $query->where('inventario.tipo_producto', '!=', 1)
+                          ->orWhereIn('inventario.id', function($subquery) use ($bodega) {
+                              $subquery->select('producto')
+                                      ->from('productos_bodegas')
+                                      ->where('bodega', $bodega->id);
+                          });
+                })
+                ->groupBy('inventario.id', 'inventario.tipo_producto', 'inventario.producto', 'inventario.ref')
+                ->get();
+        }
 
         //obtiene las formas de pago relacionadas con este modulo (Facturas)
         $relaciones = FormaPago::where('relacion',2)->orWhere('relacion',3)->get();
@@ -514,7 +531,7 @@ class FacturaspController extends Controller
             $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
                 ->where('empresa',Auth::user()->empresa)
                 ->where('status', 1)
-                ->where('type', '<>', 'PLAN')
+                // ->where('type', '<>', 'PLAN')
                 ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
                 ->get();
             $extras = CamposExtra::where('empresa',Auth::user()->empresa)->where('status', 1)->get();

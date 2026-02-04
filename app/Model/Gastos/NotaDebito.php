@@ -166,4 +166,14 @@ class NotaDebito extends Model
         return $this->hasMany(ItemsNotaDebito::class, 'nota');
     }
 
+    public function proveedorObj()
+    {
+        return $this->belongsTo(Contacto::class, 'proveedor');
+    }
+
+    public function facturaNotaDebito()
+    {
+        return $this->hasMany(NotaDebitoFactura::class, 'nota');
+    }
+
 }

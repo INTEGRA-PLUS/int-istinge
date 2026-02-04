@@ -78,8 +78,27 @@ class SiigoController extends Controller
     public function configurarSiigo(Request $request = null, $cron = null)
     {
         $empresa = Empresa::find(1);
+        $usuario_siigo = null;
+        $api_key_siigo = null;
 
-        if ($empresa && $cron == null) {
+        // Si se llama desde el método executeSiigoRequest, $request será null y $cron será true
+        if ($request === null && $cron === true) {
+            // Usar los datos guardados en la empresa para renovar el token
+            // No hacer nada aquí, el código del else if se encargará
+        } else {
+            // Si viene desde la ruta web, obtener el Request usando el helper
+            // Laravel puede no inyectar Request cuando tiene valor por defecto null
+            if ($request === null) {
+                $request = request();
+            }
+
+            // Obtener parámetros del request (query string para GET)
+            $usuario_siigo = $request->input('usuario_siigo');
+            $api_key_siigo = $request->input('api_key_siigo');
+            $cron = $request->input('cron', null);
+        }
+
+        if ($empresa && $cron == null && $usuario_siigo !== null && $api_key_siigo !== null) {
 
             //Probando conexion de la api.
             $curl = curl_init();
@@ -94,8 +113,8 @@ class SiigoController extends Controller
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
                 CURLOPT_POSTFIELDS => json_encode([
-                    'username' => $request->usuario_siigo,
-                    'access_key' => $request->api_key_siigo,
+                    'username' => $usuario_siigo,
+                    'access_key' => $api_key_siigo,
                 ]),
                 CURLOPT_HTTPHEADER => array(
                     'Content-Type: application/json'
@@ -107,8 +126,8 @@ class SiigoController extends Controller
             $response = json_decode($response);
 
             if (isset($response->access_token)) {
-                $empresa->usuario_siigo = $request->usuario_siigo;
-                $empresa->api_key_siigo = $request->api_key_siigo;
+                $empresa->usuario_siigo = $usuario_siigo;
+                $empresa->api_key_siigo = $api_key_siigo;
                 $empresa->token_siigo = $response->access_token;
                 $empresa->fecha_token_siigo = Carbon::now();
                 $empresa->save();
@@ -331,10 +350,29 @@ class SiigoController extends Controller
             $cliente_factura = $factura->cliente();
             $items_factura = ItemsFactura::join('inventario', 'inventario.id', 'items_factura.producto')
                 ->where('factura', $factura->id)
-                ->select('items_factura.precio','inventario.codigo_siigo','items_factura.cant',
+                ->select('items_factura.precio','inventario.codigo_siigo','inventario.siigo_id','items_factura.cant',
                 'items_factura.id_impuesto','items_factura.producto','inventario.ref',
                 'inventario.producto as nombreProducto','inventario.id')
                 ->get();
+
+            // Validar que todos los items tengan siigo_id asignado
+            $itemsSinMapeo = [];
+            foreach ($items_factura as $item) {
+                if (!isset($item->siigo_id) || $item->siigo_id == null || $item->siigo_id == '') {
+                    $itemsSinMapeo[] = $item->nombreProducto . ($item->ref ? ' (Ref: ' . $item->ref . ')' : '');
+                }
+            }
+
+            if (!empty($itemsSinMapeo)) {
+                $itemsLista = implode(', ', $itemsSinMapeo);
+                $mensaje = 'Los siguientes productos no tienen mapeo con Siigo: ' . $itemsLista . '. ';
+                $mensaje .= 'Por favor, vaya a <strong>Configuración > Siigo > Productos</strong> y realice el mapeo de los items antes de enviar la factura.';
+
+                return response()->json([
+                    'status' => 400,
+                    'error' => $mensaje
+                ], 400);
+            }
 
             $empresa = Empresa::Find(1);
             $departamento = $cliente_factura->departamento();
@@ -350,7 +388,7 @@ class SiigoController extends Controller
                     $respuesta = $this->createItem($item);
 
                     $item = Inventario::leftJoin('items_factura as if', 'if.producto', 'inventario.id')
-                        ->select('if.precio', 'inventario.codigo_siigo', 'if.cant', 'if.id_impuesto',
+                        ->select('if.precio', 'inventario.codigo_siigo', 'inventario.siigo_id', 'if.cant', 'if.id_impuesto',
                         'if.producto','inventario.ref', 'inventario.producto as nombreProducto')
                         ->where('inventario.id', $item->id)
                         ->first();
@@ -388,11 +426,17 @@ class SiigoController extends Controller
 
             $apellidos = $cliente_factura->apellido1 . ($cliente_factura->apellido2 != "" ?  " " . $cliente_factura->apellido2 : "");
 
+            // Determinar el valor de draft basado en la configuración siigo_emitida
+            // Si siigo_emitida == 1, entonces draft = false (factura emitida)
+            // Si siigo_emitida == 0 o no existe, entonces draft = true (factura como borrador)
+            $draftValue = (isset($empresa->siigo_emitida) && $empresa->siigo_emitida == 1) ? false : true;
+
             $data = [
                 "document" => [
                     "id" => $request->tipo_comprobante
                 ],
                 "date" => Carbon::now()->format('Y-m-d'),
+                "draft" => $draftValue,
                 "customer" => [
                     "person_type" => $cliente_factura->dv != null ? 'Company' : 'Person',
                     "id_type" => $cliente_factura->dv != null ? "31" : "13", //13 cedula 31 nit
@@ -443,6 +487,16 @@ class SiigoController extends Controller
                     ]
                 ]
             ];
+
+            // Si draft es false, agregar opciones para enviar a DIAN y por correo
+            if ($draftValue === false) {
+                $data["stamp"] = [
+                    "send" => true  // Enviar a DIAN
+                ];
+                $data["mail"] = [
+                    "send" => true  // Enviar por correo
+                ];
+            }
 
 
 
@@ -797,10 +851,36 @@ class SiigoController extends Controller
 
                 if($factura->siigo_id == null || $factura->siigo_id == ""){
                     $tiposPago = collect($this->getPaymentTypes());
+
+                    $tipoPagoCredito = $tiposPago->firstWhere('name', 'Crédito');
+                    $tipoPagoEfectivo = $tiposPago->firstWhere('name', 'Efectivo');
+
                     if($ingreso){
-                        $credito = $tiposPago->firstWhere('name', 'Efectivo')['id'];
+                        // Si es ingreso, usar Efectivo, pero si no existe, usar Crédito
+                        if($tipoPagoEfectivo){
+                            $credito = $tipoPagoEfectivo['id'];
+                        } elseif($tipoPagoCredito){
+                            $credito = $tipoPagoCredito['id'];
+                        } else {
+                            return response()->json([
+                                'success' => false,
+                                'text' => 'Error: No se encontró el tipo de pago "Efectivo" ni "Crédito" en Siigo. Por favor verifique la configuración de tipos de pago.',
+                                'resultados' => []
+                            ]);
+                        }
                     }else{
-                        $credito = $tiposPago->firstWhere('name', 'Crédito')['id'];
+                        // Si no es ingreso, usar Crédito, pero si no existe, usar Efectivo
+                        if($tipoPagoCredito){
+                            $credito = $tipoPagoCredito['id'];
+                        } elseif($tipoPagoEfectivo){
+                            $credito = $tipoPagoEfectivo['id'];
+                        } else {
+                            return response()->json([
+                                'success' => false,
+                                'text' => 'Error: No se encontró el tipo de pago "Crédito" ni "Efectivo" en Siigo. Por favor verifique la configuración de tipos de pago.',
+                                'resultados' => []
+                            ]);
+                        }
                     }
                     $servidor = $factura->servidor();
                     $sellerData = $this->getSeller();

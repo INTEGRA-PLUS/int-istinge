@@ -48,7 +48,7 @@ class NotasDebitoController extends Controller
         $this->middleware('auth');
         // $this->middleware('readingMode')->only(['create', 'store', 'edit', 'update']);
 
-        view()->share(['seccion' => 'gastos', 'title' => 'Notas Débito', 'icon' => 'fas fa-minus', 'subseccion' => 'debito']);
+        view()->share(['seccion' => 'debito', 'title' => 'Notas Débito', 'icon' => 'fas fa-minus', 'subseccion' => 'debito']);
     }
 
     /**
@@ -151,9 +151,10 @@ class NotasDebitoController extends Controller
             $numero = $notas->nro + 1;
         }
 
-        view()->share(['icon' => '', 'title' => "Nueva Nota Débito #{$numero}", 'subseccion' => 'debito']);
-
         $dataPro = (new InventarioController())->create();
+
+        // Establecer el título después de llamar a InventarioController para que no se sobrescriba
+        view()->share(['icon' => '', 'title' => "Nueva Nota Débito #{$numero}", 'subseccion' => 'debito']);
 
         $categorias2 = $dataPro->categorias;
         $unidades2 = $dataPro->unidades;
@@ -195,7 +196,14 @@ class NotasDebitoController extends Controller
      */
     public function store(Request $request)
     {
+
         $factura = FacturaProveedores::find($request->factura);
+
+        if (!$factura) {
+            return back()
+                ->withInput()
+                ->with('danger', 'ERROR: La factura de proveedor no existe.');
+        }
 
 /*         $NotaDebitoFactura = NotaDebitoFactura::where('factura', $factura->id)->get();
 
@@ -209,8 +217,9 @@ class NotasDebitoController extends Controller
 
         $empresa = auth()->user()->empresa;
 
-        if ($request->total_value > Funcion::precision($factura->total()->total)) {
+        if (isset($request->total_value) && $request->total_value > Funcion::precision($factura->total()->total)) {
             return back()
+                ->withInput()
                 ->with('danger', 'ERROR: tiene que hacer una Nota Débito igual o menor al valor de la Factura de Proveedor.');
         }
 
@@ -247,8 +256,6 @@ class NotasDebitoController extends Controller
             $notac->tipo = $request->tipo;
             $notac->save();
 
-            self::saveTrazabilidad($notac->id, 'NOTA DE DEBITO', self::saveTrazabilidad($factura->id, 'FACTURA DE COMPRA'));
-
             $bodega = Bodega::where('empresa', $empresa)->where('status', 1)->where('id', $request->bodega)->first();
             if (!$bodega) { //Si el valor seleccionado para bodega no existe, tomara la primera activa registrada
                 $bodega = Bodega::where('empresa', $empresa)->where('status', 1)->first();
@@ -266,52 +273,65 @@ class NotasDebitoController extends Controller
                 $items = new ItemsNotaDebito();
                 $items->nota = $notac->id;
 
-                if ($request->type[$i] == 'inv') {
+                // Determinar si es inventariable o categoría
+                $tipoItem = isset($request->type[$i]) ? $request->type[$i] : null;
+
+                // Si no viene el tipo, determinar basándome en el valor del item
+                if ($tipoItem === null) {
+                    $itemValue = $request->item[$i];
+                    // Si es numérico, es inventario; si contiene "cat_", es categoría
+                    if (is_numeric($itemValue)) {
+                        $tipoItem = 'inv';
+                    } else {
+                        $tipoItem = 'cat';
+                    }
+                }
+
+                if ($tipoItem == 'inv') {
                     $producto = Inventario::where('id', $request->item[$i])->first();
-                    $items->producto = $producto->id;
-                    $items->tipo_item = 1;
-                    //Si el producto es inventariable y existe esa bodega, agregara el valor registrado
-                    $ajuste = ProductosBodega::where('empresa', $empresa)->where('bodega', $bodega->id)
-                        ->where('producto', $producto->id)
-                        ->first();
-                    if ($ajuste) {
-                        $ajuste->nro -= $request->cant[$i];
-                        $ajuste->save();
+                    if ($producto) {
+                        $items->producto = $producto->id;
+                        $items->tipo_item = 1;
+                        //Si el producto es inventariable y existe esa bodega, agregara el valor registrado
+                        $ajuste = ProductosBodega::where('empresa', $empresa)->where('bodega', $bodega->id)
+                            ->where('producto', $producto->id)
+                            ->first();
+                        if ($ajuste) {
+                            $ajuste->nro -= $request->cant[$i];
+                            $ajuste->save();
+                        }
                     }
                 } else {
                     $item = $request->item[$i];
+                    // Si viene con prefijo "cat_", extraer el ID
+                    if (strpos($item, 'cat_') === 0) {
+                        $item = str_replace('cat_', '', $item);
+                    }
                     $categorias = Categoria::where('empresa', $empresa)->where('id', $item)->first();
-                    $items->producto = $categorias->id;
-                    $items->tipo_item = 2;
-                }
-
-                //MULTI IMPUESTOS
-                $data  = $request->all();
-                if (isset($data['impuesto' . $z])) {
-                    if ($data['impuesto' . $z]) {
-                        for ($x = 0; $x < count($data['impuesto' . $z]); $x++) {
-                            $id_cat = 'id_impuesto_' . $x;
-                            $cat = 'impuesto_' . $x;
-                            $impuesto = Impuesto::where('id', $data['impuesto' . $z][$x])->first();
-                            if ($impuesto) {
-                                if ($x == 0) {
-                                    $items->id_impuesto = $impuesto->id;
-                                    $items->impuesto = $impuesto->porcentaje;
-                                } elseif ($x > 0) {
-                                    $items->$id_cat = $impuesto->id;
-                                    $items->$cat = $impuesto->porcentaje;
-                                }
-                            }
-                        }
+                    if ($categorias) {
+                        $items->producto = $categorias->id;
+                        $items->tipo_item = 2;
                     }
                 }
-                //MULTI IMPUESTOS
-                $items->producto = $request->item[$i];
+
+                // IMPUESTO - El formulario envía impuesto[] como array simple
+                if (isset($request->impuesto[$i]) && $request->impuesto[$i]) {
+                    $impuesto = Impuesto::where('id', $request->impuesto[$i])->first();
+                    if ($impuesto) {
+                        $items->id_impuesto = $impuesto->id;
+                        $items->impuesto = $impuesto->porcentaje;
+                    }
+                } else {
+                    $items->id_impuesto = null;
+                    $items->impuesto = 0;
+                }
+
+                // No sobrescribir producto aquí, ya se estableció arriba según el tipo
                 $items->ref = isset($request->ref[$i]) ? $request->ref[$i] : '';
                 $items->precio = $this->precision($request->precio[$i]);
-                $items->descripcion = $request->descripcion[$i];
+                $items->descripcion = isset($request->descripcion[$i]) ? $request->descripcion[$i] : '';
                 $items->cant = $request->cant[$i];
-                $items->desc = $request->desc[$i];
+                $items->desc = isset($request->desc[$i]) ? $request->desc[$i] : 0;
                 $items->save();
                 $z++;
             }
@@ -340,7 +360,7 @@ class NotasDebitoController extends Controller
                 for ($i = 0; $i < count($request->precio); $i++) {
                     $montoFactura += ($request->cant[$i] * $request->precio[$i]);
 
-                    if ($request->desc[$i] != null) {
+                    if (isset($request->desc[$i]) && $request->desc[$i] != null && $request->desc[$i] != '') {
                         $descuento = ($request->precio[$i] * $request->cant[$i]) * $request->desc[$i] / 100;
                         $montoFactura -= $descuento;
                     }
@@ -473,7 +493,7 @@ class NotasDebitoController extends Controller
             ->select('notas_retenciones.*')
             ->get();
 
-        view()->share(['title' => 'Nota Débito #' . $nota->nro, 'invert' => true, 'icon' => '']);
+        view()->share(['icon' =>'', 'title' => 'Nueva Nota Débito', 'subseccion' => 'debito']);
 
         $items = ItemsNotaDebito::where('nota', $nota->id)->get();
         $facturas = NotaDebitoFactura::where('nota', $nota->id)->get();
@@ -614,8 +634,20 @@ class NotasDebitoController extends Controller
 
         $retenciones = Retencion::where('empresa', $empresa->id)->get();
 
-        $inventario = collect([]);
-
+        // Cargar inventario para el formulario de edición
+        $bodega = Bodega::where('empresa', $empresa->id)->where('id', $nota->bodega)->first();
+        if (!$bodega) {
+            $bodega = Bodega::where('empresa', $empresa->id)->where('status', 1)->first();
+        }
+        if ($bodega) {
+            $inventario = Inventario::select('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
+                ->where('empresa', $empresa->id)
+                ->where('status', 1)
+                ->havingRaw('if(inventario.tipo_producto=1, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')
+                ->get();
+        } else {
+            $inventario = collect([]);
+        }
 
         $bodegas = Bodega::where('empresa', $empresa->id)->where('status', 1)->get();
         $bancos = Banco::where('empresa', $empresa->id)->where('estatus', 1)->get();
@@ -662,27 +694,60 @@ class NotasDebitoController extends Controller
      */
     public function update($id, Request $request)
     {
-        $opt = 0;
-        $descuento = 0;
-        $impuestoTmp = 0;
-        $factura = FacturaProveedores::find($request->factura);
+        try {
+            $opt = 0;
+            $descuento = 0;
+            $impuestoTmp = 0;
 
+            // Validar campos requeridos - La factura es opcional en edición si ya está guardada
+            $factura = null;
+            if (isset($request->factura) && $request->factura) {
+                $factura = FacturaProveedores::find($request->factura);
 
-        if(!$factura){
-            $mensaje = 'ERROR: La factura de proveedor no existe.';
-            return back()->with('danger', $mensaje);
-        }
+                if(!$factura){
+                    $mensaje = 'ERROR: La factura de proveedor no existe.';
+                    return back()
+                        ->withInput()
+                        ->with('danger', $mensaje);
+                }
+            } else {
+                // Si no viene factura en el request, obtener la factura guardada
+                $facturas_reg = NotaDebitoFactura::where('nota', $id)->first();
+                if ($facturas_reg) {
+                    $factura = FacturaProveedores::find($facturas_reg->factura);
+                }
+            }
 
-        if ($request->total_value > Funcion::precision($factura->total()->total)) {
-            $mensaje = 'ERROR: Ud. tiene que hacer una Nota Débito igual o menor al valor de la Factura de Proveedor.';
-            return back()->with('danger', $mensaje);
-        }
+            if(!$factura){
+                $mensaje = 'ERROR: Debe seleccionar una factura o la nota debe tener una factura asociada.';
+                return back()
+                    ->withInput()
+                    ->with('danger', $mensaje);
+            }
 
-        $nota = NotaDebito::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+            if (isset($request->total_value) && $request->total_value > Funcion::precision($factura->total()->total)) {
+                $mensaje = 'ERROR: tiene que hacer una Nota Débito igual o menor al valor de la Factura de Proveedor.';
+                return back()
+                    ->withInput()
+                    ->with('danger', $mensaje);
+            }
+
+            if (!isset($request->item) || !is_array($request->item) || count($request->item) == 0) {
+                return back()
+                    ->withInput()
+                    ->with('danger', 'ERROR: Debe agregar al menos un ítem.');
+            }
+
+            $nota = NotaDebito::where('empresa', Auth::user()->empresa)->where('id', $id)->first();
+
+            if (!$nota) {
+                return back()
+                    ->withInput()
+                    ->with('danger', 'ERROR: No se encontró la nota de débito.');
+            }
         /* NotaDebitoFactura::where('nota', $nota->id)->delete(); */
-        $montoFactura = 0;
-        $montoRetenciones = 0;
-        if ($nota) {
+            $montoFactura = 0;
+            $montoRetenciones = 0;
             //Recoloco los items los productos en la bodega
             $items = ItemsNotaDebito::join('inventario as inv', 'inv.id', '=', 'items_notas_debito.producto')->select('items_notas_debito.*')->where('items_notas_debito.nota', $nota->id)->where('inv.tipo_producto', 1)->get();
             foreach ($items as $item) {
@@ -696,13 +761,13 @@ class NotasDebitoController extends Controller
 
             //Coloco el estatus de la factura en abierta
             $facturas_reg = NotaDebitoFactura::where('nota', $nota->id)->get();
-            foreach ($facturas_reg as $factura) {
-                /* $dato = $factura->factura();
+            foreach ($facturas_reg as $facturaNotaDeb) {
+                /* $dato = $facturaNotaDeb->factura();
                 //$dato->estatus=1;
                 $dato->save(); */
 
-                $factura->pago = $request->total_value;
-                $factura->save();
+                $facturaNotaDeb->pago = isset($request->total_value) ? $request->total_value : 0;
+                $facturaNotaDeb->save();
             }
 
             //Modifico los datos de la nota
@@ -785,45 +850,20 @@ class NotasDebitoController extends Controller
                     $montoFactura += $precioItem + $impuestoItem;
                 }*/
 
-                //MULTI IMPUESTOS
-                $items->id_impuesto = null;
-                $items->impuesto = null;
-                $items->id_impuesto_1 = null;
-                $items->impuesto_1 = null;
-                $items->id_impuesto_2 = null;
-                $items->impuesto_2 = null;
-                $items->id_impuesto_3 = null;
-                $items->impuesto_3 = null;
-                $items->id_impuesto_4 = null;
-                $items->impuesto_4 = null;
-                $items->id_impuesto_5 = null;
-                $items->impuesto_5 = null;
-                $items->id_impuesto_6 = null;
-                $items->impuesto_6 = null;
-                $items->id_impuesto_7 = null;
-                $items->impuesto_7 = null;
-
-                $data  = $request->all();
-
-                if (isset($data['impuesto' . $z])) {
-                    if ($data['impuesto' . $z]) {
-                        for ($x = 0; $x < count($data['impuesto' . $z]); $x++) {
-                            $id_cat = 'id_impuesto_' . $x;
-                            $cat = 'impuesto_' . $x;
-                            $impuesto = Impuesto::where('id', $data['impuesto' . $z][$x])->first();
-                            if ($impuesto) {
-                                if ($x == 0) {
-                                    $items->id_impuesto = $impuesto->id;
-                                    $items->impuesto = $impuesto->porcentaje;
-                                } elseif ($x > 0) {
-                                    $items->$id_cat = $impuesto->id;
-                                    $items->$cat = $impuesto->porcentaje;
-                                }
-                            }
-                        }
+                // IMPUESTO - El formulario envía impuesto[] como array simple
+                if (isset($request->impuesto[$i]) && $request->impuesto[$i]) {
+                    $impuesto = Impuesto::where('id', $request->impuesto[$i])->first();
+                    if ($impuesto) {
+                        $items->id_impuesto = $impuesto->id;
+                        $items->impuesto = $impuesto->porcentaje;
+                    } else {
+                        $items->id_impuesto = null;
+                        $items->impuesto = 0;
                     }
+                } else {
+                    $items->id_impuesto = null;
+                    $items->impuesto = 0;
                 }
-                //MULTI IMPUESTOS
 
                 $items->precio = $this->precision($request->precio[$i]);
                 $items->descripcion = $request->descripcion[$i];
@@ -998,6 +1038,12 @@ class NotasDebitoController extends Controller
 
             $mensaje = 'Se ha modificado satisfactoriamente la nota de débito';
             return redirect('empresa/notasdebito')->with('success', $mensaje)->with('nota_id', $nota->id);
+
+        } catch (\Throwable $th) {
+            \Log::error($th);
+            return back()
+                ->withInput()
+                ->with('danger', 'Error al actualizar la nota de débito: ' . $th->getMessage());
         }
     }
 
