@@ -482,6 +482,18 @@
 							<td>{{ $contrato->direccion }}</td>
 						</tr>
 						@endif
+						<tr>
+								<th>Contrato Registrado el</th>
+							<td>
+								<span id="fecha-registro-display">{{date('d-m-Y g:i:s A', strtotime($contrato->created_at))}}</span>
+								@if(isset($_SESSION['permisos']['406']))
+									<a href="javascript:abrirModalEditarFecha({{$contrato->id}}, '{{date('d-m-Y H:i:s', strtotime($contrato->created_at))}}')" style="font-size: 0.8em;margin-left: 10px;" title="Editar fecha">
+										<i class="fas fa-pencil-alt"></i>
+									</a>
+								@endif
+							</td>
+						</tr>
+						
 					</tbody>
 				</table>
 			</div>
