@@ -1483,48 +1483,23 @@ class IngresosController extends Controller
         $ingreso = Ingreso::where('empresa', Auth::user()->empresa)->where('nro', $nro)->first();
 
         if (!$ingreso) {
-            return back()->with('danger', 'No se encontró el ingreso especificado.');
+            return back()->with('error', 'No se encontró el ingreso especificado.');
         }
 
         // 1️⃣ Buscar instancia activa
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
-                            ->where('meta', 0) // El original filtraba meta 0 en la query, pero FacturasController filtra por meta 0 y luego hace un if/else para meta. Aqui mejor filtra meta 0 para instancia principal? FacturasController busca 'activo',1 -> 'meta',0. Pero IngresosController original tenia if(meta==0).
-                            // FacturasController: where('meta', 0)->first().
-                            // Si el usuario tiene SOLO una instancia META, esta query retornará null y dará error "aun no ha creado instancia".
-                            // FacturasController tiene ese BUG o feature. Seguiré la logica de FacturasController.
-                            // Espera, FacturasController::whatsapp dice: ->where('meta', 0)->first(). 
-                            // Luego hace if ($instance->meta == 0). Eso es redundante si ya filtro por 0.
-                            // Pero veo en el codigo que pegue de FacturasController: 
-                            // $instance = Instance::where(...)->where('meta', 0)->first();
-                            // if (is_null($instance)) { return back()->with('danger', ...) }
-                            // if ($instance->meta == 0) { ... } else { ... }
-                            // EL ELSE NUNCA SE EJECUTARÁ si filtro por meta=0.
-                            // A MENOS que FacturasController esté mal, o yo leí mal.
-                            // Leamos FacturasController de nuevo en step 16.
-                            // Lines 5696: ->where('meta', 0)
-                            // Lines 5722: if ($instance->meta == 0) ... else ...
-                            // Efectivamente, el código de FacturasController parece tener lógica inalcanzable para meta != 0 si la query filtra por 0.
-                            // PERO, el usuario pidió "Tenga la misma logica".
-                            // Si copio el bug, copio el bug.
-                            // Pero quizás debo ser mas inteligente.
-                            // Voy a quitar el ->where('meta', 0) para permitir que funcione con Meta si existe.
-                            // FacturasController tiene: Where 'activo', 1. Where 'meta', 0.
-                            // Si yo quito 'meta', 0, podré soportar ambos flujos.
-                            // El original de IngresosController NO tenia el filtro meta=0 en la query, pero si en el if.
-                            // Voy a quitar ->where('meta', 0) de mi query para que sea robusto.
+                            ->where('meta', 0) 
                             ->first();
 
         if (is_null($instance) || empty($instance)) {
-            // Intento buscar una instancia META si no encontré normal (o viceversa, si la query anterior trajo cualquiera)
-            // Mejor hago la query sin filtrar meta.
              $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
                             ->first();
         }
         
         if (is_null($instance) || empty($instance)) {
-            return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
+            return back()->with('error', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
         }
 
         $cliente = $ingreso->cliente();
@@ -1532,7 +1507,7 @@ class IngresosController extends Controller
             $cliente->celular = $cliente->telefono;
         }
         if (!$cliente->celular) {
-            return back()->with('danger', 'El cliente no tiene número de teléfono registrado.');
+            return back()->with('error', 'El cliente no tiene número de teléfono registrado.');
         }
 
         $prefijo = '57'; // valor por defecto (Colombia)
@@ -1559,7 +1534,7 @@ class IngresosController extends Controller
             $canalData = json_decode($canalResponse->scalar ?? '{}');
 
             if (!isset($canalData->status) || $canalData->status !== "success") {
-                return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
+                return back()->with('error', 'No se pudo verificar el tipo de canal de WhatsApp.');
             }
 
             $tipoCanal = $canalData->data->channel->type ?? null;
@@ -1583,7 +1558,7 @@ class IngresosController extends Controller
             }
 
             if (!file_exists($storagePath)) {
-                return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
+                return back()->with('error', 'No se pudo generar el archivo PDF temporal.');
             }
 
             // Generar la URL pública accesible
@@ -1597,7 +1572,7 @@ class IngresosController extends Controller
 
             // Buscar plantilla preferida para ingresos - Asumimos tipo 4 o default
             $plantilla = Plantilla::where('empresa', auth()->user()->empresa)
-                ->where('tipo', 4) // Asumiendo 4 para ingresos/recibos
+                ->where('tipo', 3) // Asumiendo 3 para ingresos/recibos
                 ->where('status', 1)
                 ->first();
 
@@ -1614,9 +1589,6 @@ class IngresosController extends Controller
                         foreach ($bodyDinamicArray as $paramTemplate) {
                             $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
                             // Procesar campos dinámicos
-                            // Nota: CamposDinamicosHelper::procesarCamposDinamicos espera ($valor, $contacto, $factura, $empresa)
-                            // Pasamos $ingreso en lugar de $factura esperando que el helper use métodos comunes o manejaremos error si no.
-                            // Asumiremos compatibilidad o strings simples.
                             $bodyTextParams[] = $paramValue; 
                         }
                     }
@@ -1744,11 +1716,17 @@ class IngresosController extends Controller
             ]);
 
             if (isset($response->statusCode) && $response->statusCode !== 200) {
-                return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
+                $errorMessage = 'Error al enviar el mensaje. Código: ' . $response->statusCode;
+                if(isset($response->th) && is_array($response->th) && isset($response->th['error'])){
+                    $errorMessage .= " - " . $response->th['error'];
+                } elseif(isset($response->errorMessage)){
+                    $errorMessage .= " - " . $response->errorMessage;
+                }
+                return back()->with('error', $errorMessage);
             }
 
             if (!isset($responseData['status']) || $responseData['status'] !== "success") {
-                return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
+                return back()->with('error', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
             }
 
             return back()->with('success', 'Mensaje enviado correctamente.');
@@ -1756,7 +1734,7 @@ class IngresosController extends Controller
         } else {
             // === FLUJO META (manual con PDF en base64) ===
             if ($instance->status !== "PAIRED") {
-                return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
+                return back()->with('error', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
             }
 
             // Generar PDF usando el helper
@@ -1771,7 +1749,7 @@ class IngresosController extends Controller
                 $pdfContent = file_get_contents($storagePath);
                 $pdf64 = base64_encode($pdfContent);
             } else {
-                 return back()->with('danger', 'No se pudo generar el documento.');
+                 return back()->with('error', 'No se pudo generar el documento.');
             }
 
             $file = [
@@ -1793,7 +1771,14 @@ class IngresosController extends Controller
             $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
 
             if (isset($response->statusCode)) {
-                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+                $errorMessage = 'No se pudo enviar el mensaje, por favor intente nuevamente.';
+                if(isset($response->statusCode) && $response->statusCode != 200){
+                    $errorMessage .= ' Código: '.$response->statusCode;
+                }
+                if(isset($response->th) && is_array($response->th) && isset($response->th['error'])){
+                    $errorMessage .= " - " . $response->th['error'];
+                }
+                 return back()->with('error', $errorMessage);
             }
             $responseScalar = isset($response->scalar) ? $response->scalar : json_encode($response);
             $responseData = json_decode($responseScalar);
@@ -1811,7 +1796,7 @@ class IngresosController extends Controller
             ]);
             
             if ($responseData->status != "success") {
-                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+                return back()->with('error', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
             }
             return back()->with('success', 'Mensaje enviado correctamente.');
         }
