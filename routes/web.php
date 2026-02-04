@@ -1393,7 +1393,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
 
-	Route::resource('configuracion', 'ConfiguracionController');
+	Route::resource('configuracion', 'ConfiguracionController')->except(['show']);
 	Route::resource('soporte', 'SoporteController');
 
 	//Reportes
