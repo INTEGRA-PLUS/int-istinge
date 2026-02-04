@@ -3147,7 +3147,7 @@ class ConfiguracionController extends Controller
             Log::error('Error al obtener plantillas Meta para tirillas: ' . $e->getMessage());
             return response()->json(['success' => 0, 'message' => 'Error al obtener plantillas'], 500);
         }
-    }
+    } 
 
     /**
      * Obtiene los datos de una plantilla Meta específica para tirillas
