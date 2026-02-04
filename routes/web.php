@@ -266,6 +266,9 @@ Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionContro
 Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
 Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
 Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
+Route::get('configuracion/get-plantillas-meta-tirilla', 'ConfiguracionController@getPlantillasMetaTirilla');
+Route::get('configuracion/get-plantilla-meta-tirilla/{id}', 'ConfiguracionController@getPlantillaMetaTirilla');
+Route::post('configuracion/guardar-plantilla-tirilla-whatsapp', 'ConfiguracionController@guardarPlantillaTirillaWhatsapp');
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');

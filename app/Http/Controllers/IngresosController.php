@@ -1573,6 +1573,7 @@ class IngresosController extends Controller
             // Buscar plantilla preferida para ingresos - Asumimos tipo 4 o default
             $plantilla = Plantilla::where('empresa', auth()->user()->empresa)
                 ->where('tipo', 3) // Asumiendo 3 para ingresos/recibos
+                ->where('preferida_tirilla', 1)
                 ->where('status', 1)
                 ->first();
 

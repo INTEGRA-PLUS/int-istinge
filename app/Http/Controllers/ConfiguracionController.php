@@ -3126,6 +3126,121 @@ class ConfiguracionController extends Controller
         }
     }
 
+    /**
+     * Obtiene las plantillas Meta disponibles para configurar como preferida para tirillas
+     */
+    public function getPlantillasMetaTirilla()
+    {
+        try {
+            $plantillas = \App\Plantilla::where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', Auth::user()->empresa)
+                ->select('id', 'title', 'preferida_tirilla')
+                ->orderBy('title', 'ASC')
+                ->get();
+
+            return response()->json([
+                'success' => 1,
+                'plantillas' => $plantillas
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas Meta para tirillas: ' . $e->getMessage());
+            return response()->json(['success' => 0, 'message' => 'Error al obtener plantillas'], 500);
+        }
+    }
+
+    /**
+     * Obtiene los datos de una plantilla Meta específica para tirillas
+     */
+    public function getPlantillaMetaTirilla($id)
+    {
+        try {
+            $plantilla = \App\Plantilla::where('id', $id)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json(['error' => 'Plantilla no encontrada o no es de tipo Meta'], 404);
+            }
+
+            // Parsear body_dinamic si existe
+            $bodyDinamic = null;
+            if ($plantilla->body_dinamic) {
+                $decoded = json_decode($plantilla->body_dinamic, true);
+                $bodyDinamic = $decoded !== null ? $decoded : $plantilla->body_dinamic;
+            }
+
+            return response()->json([
+                'id' => $plantilla->id,
+                'title' => $plantilla->title,
+                'contenido' => $plantilla->contenido,
+                'body_text' => json_decode($plantilla->body_text, true),
+                'language' => $plantilla->language,
+                'body_dinamic' => $bodyDinamic,
+                'body_header' => $plantilla->body_header
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantilla Meta para tirillas: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener plantilla'], 500);
+        }
+    }
+
+    /**
+     * Guarda la configuración de plantilla preferida para tirillas
+     */
+    public function guardarPlantillaTirillaWhatsapp(Request $request)
+    {
+        try {
+            $request->validate([
+                'plantilla_id' => 'required|exists:plantillas,id'
+            ]);
+
+            $plantillaId = $request->plantilla_id;
+            $bodyDinamicParams = $request->input('body_dinamic_params', []);
+
+            // Verificar que la plantilla sea de tipo Meta y pertenezca a la empresa
+            $plantilla = \App\Plantilla::where('id', $plantillaId)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La plantilla seleccionada no es válida'
+                ], 400);
+            }
+
+            // Desmarcar todas las plantillas como preferidas para esta empresa
+            \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->where('tipo', 3)
+                ->update(['preferida_tirilla' => 0]);
+
+            // Marcar la plantilla seleccionada como preferida
+            $plantilla->preferida_tirilla = 1;
+
+            // Guardar body_dinamic si se proporciona
+            if (!empty($bodyDinamicParams) && is_array($bodyDinamicParams)) {
+                $plantilla->body_dinamic = json_encode([$bodyDinamicParams]);
+            }
+
+            $plantilla->updated_by = Auth::user()->id;
+            $plantilla->save();
+
+            return response()->json([
+                'success' => 1,
+                'message' => 'Plantilla configurada correctamente como preferida para el envío de tirillas'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar plantilla preferida para tirillas: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al guardar la configuración: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function registrarNumeroWhatsappMeta(Request $request)
     {
         try {
