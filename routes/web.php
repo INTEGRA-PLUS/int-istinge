@@ -263,12 +263,7 @@ Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
 Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
 Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
 Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionController@registrarNumeroWhatsappMeta');
-Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
-Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
-Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
-Route::get('configuracion/get-plantillas-meta-tirilla', 'ConfiguracionController@getPlantillasMetaTirilla');
-Route::get('configuracion/get-plantilla-meta-tirilla/{id}', 'ConfiguracionController@getPlantillaMetaTirilla');
-Route::post('configuracion/guardar-plantilla-tirilla-whatsapp', 'ConfiguracionController@guardarPlantillaTirillaWhatsapp');
+
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -1389,6 +1384,11 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
 		Route::get('/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
 		Route::post('/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
+
+		// Configuración plantilla WhatsApp Meta para tirillas
+		Route::get('/get-plantillas-meta-tirilla', 'ConfiguracionController@getPlantillasMetaTirilla');
+		Route::get('/get-plantilla-meta-tirilla/{id}', 'ConfiguracionController@getPlantillaMetaTirilla');
+		Route::post('/guardar-plantilla-tirilla-whatsapp', 'ConfiguracionController@guardarPlantillaTirillaWhatsapp');
 	});
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
