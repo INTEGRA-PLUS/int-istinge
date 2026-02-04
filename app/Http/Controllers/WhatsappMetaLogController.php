@@ -42,7 +42,7 @@ class WhatsappMetaLogController extends Controller
             ->where('status', 1)
             ->orderBy('nombre', 'ASC')
             ->orderBy('apellido1', 'ASC')
-            ->limit(500)
+            // ->limit(500)
             ->get(['id', 'nombre', 'apellido1', 'apellido2', 'nit']);
 
         return view('whatsapp-meta-logs.index', compact('plantillas', 'fechaDesde', 'fechaHasta', 'contactos'));
