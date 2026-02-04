@@ -1589,6 +1589,11 @@ class IngresosController extends Controller
                     if (is_array($bodyDinamicArray)) {
                         foreach ($bodyDinamicArray as $paramTemplate) {
                             $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                            
+                            // Usar helper para procesar campos dinámicos
+                            // Pasamos factura como null y pasamos el objeto ingreso
+                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $cliente, null, $empresaObj, $ingreso);
+                            
                             // Procesar campos dinámicos
                             $bodyTextParams[] = $paramValue; 
                         }
