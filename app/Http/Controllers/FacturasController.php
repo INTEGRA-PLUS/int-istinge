@@ -3054,10 +3054,17 @@ class FacturasController extends Controller{
     public function anular($id){
         $factura = Factura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
         if ($factura) {
+            $onePayService = new OnePayService();
+
             if ($factura->estatus==1) {
                 $factura->estatus=2;
                 $factura->observaciones = $factura->observaciones.' | Factura Anulada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
                 $factura->save();
+
+                // Eliminar factura en OnePay si existe
+                if ($factura->onepay_invoice_id) {
+                    $onePayService->deleteInvoice($factura, 'Factura anulada por: '.Auth::user()->nombres);
+                }
 
                 CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
 
@@ -3066,6 +3073,16 @@ class FacturasController extends Controller{
                 $factura->estatus=1;
                 $factura->observaciones = $factura->observaciones.' | Factura Abierta por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
                 $factura->save();
+
+                // Crear factura en OnePay si está habilitado
+                if (OnePayService::isEnabled()) {
+                    try {
+                        $onePayService->createInvoice($factura, Auth::user()->empresa);
+                    } catch (\Exception $e) {
+                         Log::error('Error al recrear factura en OnePay al abrir: ' . $e->getMessage());
+                    }
+                }
+
                 return back()->with('success', 'Se cambiado a abierta la factura');
             }
             return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura no esta abierta');
@@ -7087,6 +7104,12 @@ class FacturasController extends Controller{
 
                     // Eliminar promesas de pago asociadas a la factura
                     PromesaPago::where('factura', $factura->id)->delete();
+
+                    // Eliminar factura en OnePay si existe
+                    if ($factura->onepay_invoice_id) {
+                        $onePayService = new OnePayService();
+                        $onePayService->deleteInvoice($factura, 'Factura eliminada masivamente por: '.Auth::user()->nombres);
+                    }
 
                     // Eliminar la factura misma
                     $factura->delete();
