@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v10 para stats de WhatsApp y detección de manuales no marcadas
-        $cacheKey = "cycle_stats_v10_{$grupoCorteId}_{$periodo}";
+        // Añadimos v11 para diagnóstico unificado y corrección de doble conteo
+        $cacheKey = "cycle_stats_v11_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -83,8 +83,6 @@ class BillingCycleAnalyzer
                 'tasa_exito' => $contratosEsperados->count() > 0 
                     ? round(($facturasGeneradas->count() / $contratosEsperados->count()) * 100, 2) 
                     : 0,
-                'facturas' => $facturasGeneradas,
-                'missing_reasons' => $missingAnalysis['reasons'],
                 'facturas' => $facturasGeneradas,
                 'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
@@ -229,64 +227,6 @@ class BillingCycleAnalyzer
                 'razon_title' => $razon['title'],
                 'razon_description' => $razon['description']
             ];
-
-            // 5. Validar estado (Habilitado/Deshabilitado)
-            if ($contrato->state == 'disabled' && $empresa->factura_contrato_off == 0) {
-                $details[] = [
-                    'contrato_id' => $contrato->id,
-                    'contrato_nro' => $contrato->nro,
-                    'cliente' => $contrato->cli_nombre . ' ' . $contrato->cli_ap1,
-                    'razon' => 'Contrato Deshabilitado (Config empresa no factura off)',
-                    'razon_code' => 'contract_disabled_off'
-                ];
-                $reasons['contract_disabled_off'] = $reasons['contract_disabled_off'] ?? [
-                    'code' => 'contract_disabled_off',
-                    'label' => 'Contrato Deshabilitado',
-                    'description' => 'El contrato está deshabilitado y la empresa no factura a deshabilitados.',
-                    'count' => 0
-                ];
-                $reasons['contract_disabled_off']['count']++;
-                continue;
-            }
-
-            // 6. NUEVA VALIDACIÓN: Factura manual existente pero no marcada
-            // Buscamos si existe alguna factura en este periodo para este contrato que NO haya sido contada
-            // Intentamos primero por contrato_id directo
-            $facturaManualNoMarcada = Factura::where('contrato_id', $contrato->id)
-                ->whereRaw("DATE_FORMAT(fecha, '%Y-%m') = ?", [$periodo])
-                ->where('estatus', 1) 
-                ->where('factura_mes_manual', 0)
-                ->first();
-
-            // Si no se encuentra, intentamos por la tabla pivote (facturas_contratos)
-            if (!$facturaManualNoMarcada) {
-                $facturaManualNoMarcada = Factura::join('facturas_contratos', 'factura.id', '=', 'facturas_contratos.factura_id')
-                    ->where('facturas_contratos.contrato_nro', $contrato->nro)
-                    ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$periodo])
-                    ->where('factura.estatus', 1)
-                    ->where('factura.factura_mes_manual', 0)
-                    ->select('factura.*')
-                    ->first();
-            }
-
-            if ($facturaManualNoMarcada) {
-                $details[] = [
-                    'contrato_id' => $contrato->id,
-                    'contrato_nro' => $contrato->nro,
-                    'cliente' => trim("{$contrato->cli_nombre} {$contrato->cli_ap1} {$contrato->cli_ap2}"),
-                    'razon' => 'Factura manual no marcada como factura del mes',
-                    'razon_code' => 'manual_invoice_not_marked',
-                    'extra_info' => $facturaManualNoMarcada->nro // Pasamos el número de la factura encontrada
-                ];
-                $reasons['manual_invoice_not_marked'] = $reasons['manual_invoice_not_marked'] ?? [
-                    'code' => 'manual_invoice_not_marked',
-                    'label' => 'Factura Manual No Vinculada',
-                    'description' => 'Existe una factura manual en el periodo, pero no se marcó como la factura del mes.',
-                    'count' => 0
-                ];
-                $reasons['manual_invoice_not_marked']['count']++;
-                continue;
-            }
         }
         
         return [
@@ -383,8 +323,16 @@ class BillingCycleAnalyzer
                     return [
                         'code' => 'invoice_month_exists',
                         'title' => 'Factura del mes ya existe',
-                        'description' => 'Ya tiene una factura generada para este mes con factura_mes_manual = 1',
+                        'description' => 'Ya tiene una factura generada para este mes con "Factura del Mes" = SI',
                         'color' => 'warning'
+                    ];
+                } else if ($ultimaFactura->facturacion_automatica == 0) {
+                    // Existe en el mes, pero es manual y no está marcada como mes_manual=1
+                    return [
+                        'code' => 'manual_invoice_unflagged',
+                        'title' => 'Factura manual hoy sin marcar',
+                        'description' => "Se detectó una factura manual creada hoy (#{$ultimaFactura->nro}) pero no tiene marcado el atributo 'Factura del Mes'. Por esto el sistema no la vincula al ciclo.",
+                        'color' => 'danger'
                     ];
                 }
             }
