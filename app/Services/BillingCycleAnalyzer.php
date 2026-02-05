@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v4 para incluir validación de numeración y fallback de problema no identificado
-        $cacheKey = "cycle_stats_v4_{$grupoCorteId}_{$periodo}";
+        // Añadimos v5 para corregir el bug de falsos positivos en "Status inactivo"
+        $cacheKey = "cycle_stats_v5_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -332,25 +332,14 @@ class BillingCycleAnalyzer
             ];
         }
         
-        // 6. Validación: Estado deshabilitado (líneas 153-155 del CronController)
-        // El 'state' puede ser 'enabled' o 'disabled'. Si es 'disabled' y no se permite facturar contratos OFF.
-        if ($contrato->state != 'enabled' && $empresa->factura_contrato_off != 1) {
+        // 6. Validación: Estado deshabilitado (state)
+        if ($contrato->state == 'disabled' && $empresa->factura_contrato_off != 1) {
             return [
                 'code' => 'contract_disabled_off',
                 'title' => 'El contrato tiene estado deshabilitado',
                 'description' => 'El contrato está deshabilitado y la empresa no permite facturar contratos OFF (factura_contrato_off = 0)',
                 'color' => 'danger',
                 'action_required' => 'enable_off_billing'
-            ];
-        }
-        
-        // 7. Validación: Status inactivo (columna status != 1)
-        if ($contrato->status != 1) {
-            return [
-                'code' => 'status_inactive',
-                'title' => 'El contrato está inactivo (Status)',
-                'description' => 'El contrato tiene el campo status diferente de 1',
-                'color' => 'danger'
             ];
         }
         
