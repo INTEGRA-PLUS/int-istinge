@@ -759,7 +759,7 @@ class InventarioController extends Controller{
         $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
         $inventario =
         Inventario::select('inventario.*',
-        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
+        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id limit 1) as nro'))
         ->where('empresa',Auth::user()->empresa)
         ->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
@@ -1140,19 +1140,7 @@ class InventarioController extends Controller{
                     'unidad' => 'required|exists:unidades_medida,id',
                     'costo_unidad' => 'required|numeric'
                 ]);
-                if ($request->bodega) {
-                    foreach ($request->bodega as $key => $value) {
-                        if ($request->bodegavalor[$key]) {
-                            $bodega = new ProductosBodega;
-                            $bodega->empresa=Auth::user()->empresa;
-                            $bodega->bodega=$value;
-                            $bodega->producto=$inventario->id;
-                            $bodega->nro=$request->bodegavalor[$key];
-                            $bodega->inicial=$request->bodegavalor[$key];
-                            $bodega->save();
-                        }
-                    }
-                }
+
                 $inventario->unidad=$request->unidad;
                 $inventario->costo_unidad=$this->precision($request->costo_unidad);
                 $inventario->save();
@@ -1183,9 +1171,9 @@ class InventarioController extends Controller{
                             $bodega->save();
                             $inserts[] = $bodega->id;
                         }
-                        if (count($inserts) > 0) {
-                            ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->whereNotIn('id', $inserts)->delete();
-                        }
+                    }
+                    if (count($inserts) > 0) {
+                        ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->whereNotIn('id', $inserts)->delete();
                     }
                 } else {
                     ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->delete();
@@ -1220,7 +1208,7 @@ class InventarioController extends Controller{
         if (!$bodega) {
             $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
         }
-        $select=array('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'));
+        $select=array('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id limit 1) as nro'));
         if ($request->precios) {
             $precios = ListaPrecios::where('empresa',Auth::user()->empresa)->where('status', 1)->where('id', $request->precios)->first();
             if ($precios) {
