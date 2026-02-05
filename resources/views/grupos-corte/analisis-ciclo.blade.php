@@ -105,12 +105,9 @@
                     <div class="col">
                         <small class="text-muted d-block">Período</small>
                         <span class="font-weight-bold">
-                            @if($grupo->periodo_facturacion == 1) Mensual
-                            @elseif($grupo->periodo_facturacion == 2) Bimestral
-                            @elseif($grupo->periodo_facturacion == 3) Trimestral
-                            @elseif($grupo->periodo_facturacion == 4) Semestral
-                            @elseif($grupo->periodo_facturacion == 5) Anual
-                            @elseif($grupo->periodo_facturacion == 6) Trimestre Anticipado
+                            @if($grupo->periodo_facturacion == 1) Mes anticipado
+                            @elseif($grupo->periodo_facturacion == 2) Mes vencido
+                            @elseif($grupo->periodo_facturacion == 3) Mes actual
                             @else {{ $grupo->periodo_facturacion }}
                             @endif
                         </span>
