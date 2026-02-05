@@ -621,6 +621,9 @@ class GruposCorteController extends Controller
             ->where('status', 1)
             ->get();
 
+        // Empresa
+        $empresa = Empresa::find(Auth::user()->empresa);
+
         return view('grupos-corte.analisis-ciclo', compact(
             'grupo', 
             'periodo', 
@@ -628,7 +631,8 @@ class GruposCorteController extends Controller
             'historicalData', 
             'promedioFacturas', 
             'variacionMesAnterior',
-            'grupos'
+            'grupos',
+            'empresa'
         ));
     }
 
@@ -748,6 +752,36 @@ class GruposCorteController extends Controller
                 'message' => 'Ocurrió un error: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Actualizar configuración de la empresa de forma genérica
+     */
+    public function updateEmpresaConfig(Request $request)
+    {
+        $field = $request->field;
+        $value = $request->value;
+        
+        $validFields = [
+            'factura_auto', 
+            'aplicar_saldofavor', 
+            'cron_fact_abiertas', 
+            'factura_contrato_off', 
+            'prorrateo'
+        ];
+        
+        if (!in_array($field, $validFields)) {
+            return response()->json(['success' => false, 'message' => 'Campo no válido.'], 400);
+        }
+        
+        $empresa = Empresa::find(Auth::user()->empresa);
+        $empresa->$field = $value;
+        $empresa->save();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Configuración actualizada correctamente.'
+        ]);
     }
 
 }
