@@ -1737,6 +1737,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('/api/habilitar-facturacion-off', 'GruposCorteController@habilitarFacturacionOff')->name('grupos-corte.habilitar-facturacion-off');
 		Route::post('/api/generar-facturas-faltantes', 'GruposCorteController@generarFacturasFaltantes')->name('grupos-corte.generar-facturas-faltantes');
 		Route::post('/api/update-empresa-config', 'GruposCorteController@updateEmpresaConfig')->name('grupos-corte.update-empresa-config');
+		Route::post('/api/marcar-facturas-mes-lote', 'GruposCorteController@marcarFacturasMesLote')->name('grupos-corte.marcar-facturas-mes-lote');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');

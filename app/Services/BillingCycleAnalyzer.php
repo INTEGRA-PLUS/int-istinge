@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v12 para refrescar el mensaje formateado de facturas manuales
-        $cacheKey = "cycle_stats_v12_{$grupoCorteId}_{$periodo}";
+        // Añadimos v13 para permitir la acción de marcado en lote
+        $cacheKey = "cycle_stats_v13_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -225,7 +225,9 @@ class BillingCycleAnalyzer
                 'cliente_nit' => $contrato->cli_nit,
                 'razon_code' => $razon['code'],
                 'razon_title' => $razon['title'],
-                'razon_description' => $razon['description']
+                'razon_description' => $razon['description'],
+                'factura_id' => $razon['factura_id'] ?? null,
+                'factura_nro' => $razon['factura_nro'] ?? null
             ];
         }
         
@@ -333,7 +335,9 @@ class BillingCycleAnalyzer
                         'code' => 'manual_invoice_unflagged',
                         'title' => 'Factura manual sin marcar',
                         'description' => "Se detectó una factura manual creada en la fecha {$fechaFormateada} (fecha de la factura) pero no tiene marcado el atributo 'Factura del Mes'. Por esto el sistema no la vincula al ciclo.",
-                        'color' => 'danger'
+                        'color' => 'danger',
+                        'factura_id' => $ultimaFactura->id,
+                        'factura_nro' => $ultimaFactura->nro
                     ];
                 }
             }
@@ -590,5 +594,30 @@ class BillingCycleAnalyzer
                 'sufficiency_months' => $mesesSuficiencia
             ]
         ];
+    }
+
+    /**
+     * Marca en lote las facturas manuales detectadas como "no vinculadas"
+     * 
+     * @param int $grupoCorteId
+     * @param string $periodo
+     * @return int Cantidad de facturas marcadas
+     */
+    public function marcarFacturasMesLote($grupoCorteId, $periodo)
+    {
+        $missingAnalysis = $this->getMissingInvoicesAnalysis($grupoCorteId, $periodo);
+        $idsToFix = [];
+
+        foreach ($missingAnalysis['details'] as $detail) {
+            if ($detail['razon_code'] === 'manual_invoice_unflagged' && !empty($detail['factura_id'])) {
+                $idsToFix[] = $detail['factura_id'];
+            }
+        }
+
+        if (empty($idsToFix)) {
+            return 0;
+        }
+
+        return Factura::whereIn('id', $idsToFix)->update(['factura_mes_manual' => 1]);
     }
 }
