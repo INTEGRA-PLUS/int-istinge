@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v11 para diagnóstico unificado y corrección de doble conteo
-        $cacheKey = "cycle_stats_v11_{$grupoCorteId}_{$periodo}";
+        // Añadimos v12 para refrescar el mensaje formateado de facturas manuales
+        $cacheKey = "cycle_stats_v12_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
