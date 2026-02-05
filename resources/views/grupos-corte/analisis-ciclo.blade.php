@@ -328,9 +328,18 @@
                     <h3 class="mb-0 text-success mr-2">{{ $cycleStats['whatsapp_stats']['sent'] ?? 0 }}</h3>
                 </div>
                 <div class="mt-2 text-left small border-top pt-1 text-muted">
-                    <div title="Enviadas"><i class="fab fa-whatsapp text-success"></i> Enviadas: <b>{{ $cycleStats['whatsapp_stats']['sent'] ?? 0 }}</b></div>
+                    <div title="Enviadas"><i class="fab fa-whatsapp text-success"></i> Env: <b>{{ $cycleStats['whatsapp_stats']['sent'] ?? 0 }}</b></div>
                     <div title="Pendientes"><i class="fab fa-whatsapp text-secondary"></i> Pend: <b>{{ $cycleStats['whatsapp_stats']['pending'] ?? 0 }}</b></div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card warning h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Tasa Éxito</h6>
+                <h3 class="mb-0 text-warning">{{ $cycleStats['tasa_exito'] ?? 0 }}%</h3>
+                <small class="text-muted small">Efectividad</small>
             </div>
         </div>
     </div>
@@ -338,8 +347,8 @@
 
 <!-- Métricas Comparativas -->
 <div class="row mb-4">
-    <div class="col-md-6 mb-3">
-        <div class="card shadow-sm">
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm h-100">
             <div class="card-body py-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <h6 class="text-muted mb-0">Variación vs Mes Anterior</h6>
@@ -351,8 +360,8 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6 mb-3">
-        <div class="card shadow-sm">
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm h-100">
             <div class="card-body py-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <h6 class="text-muted mb-0">vs Promedio General</h6>
@@ -362,6 +371,18 @@
                     <h4 class="mb-0 {{ $diff >= 0 ? 'text-success' : 'text-danger' }} font-weight-bold">
                         <i class="fas fa-{{ $diff >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
                         {{ abs(round($diff, 2)) }}%
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm h-100 card-stat-info">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="text-muted mb-0">Promedio Histórico</h6>
+                    <h4 class="mb-0 text-info font-weight-bold">
+                        {{ $promedioFacturas }}
                     </h4>
                 </div>
             </div>
