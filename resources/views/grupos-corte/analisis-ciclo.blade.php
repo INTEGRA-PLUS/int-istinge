@@ -80,15 +80,68 @@
     </div>
 </div>
 
+<!-- Información Detallada del Grupo -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-body py-2 px-3">
+                <div class="row text-center">
+                    <div class="col border-right">
+                        <small class="text-muted d-block">Día Factura</small>
+                        <span class="font-weight-bold">{{ $grupo->fecha_factura == 0 ? 'No Aplica' : $grupo->fecha_factura }}</span>
+                    </div>
+                    <div class="col border-right">
+                        <small class="text-muted d-block">Día Pago</small>
+                        <span class="font-weight-bold">{{ $grupo->fecha_pago == 0 ? 'No Aplica' : $grupo->fecha_pago }}</span>
+                    </div>
+                    <div class="col border-right">
+                        <small class="text-muted d-block">Día Corte</small>
+                        <span class="font-weight-bold">{{ $grupo->fecha_corte == 0 ? 'No Aplica' : $grupo->fecha_corte }}</span>
+                    </div>
+                    <div class="col border-right">
+                        <small class="text-muted d-block">Día Suspensión</small>
+                        <span class="font-weight-bold">{{ $grupo->fecha_suspension == 0 ? 'No Aplica' : $grupo->fecha_suspension }}</span>
+                    </div>
+                    <div class="col">
+                        <small class="text-muted d-block">Período</small>
+                        <span class="font-weight-bold">
+                            @if($grupo->periodo_facturacion == 1) Mensual
+                            @elseif($grupo->periodo_facturacion == 2) Bimestral
+                            @elseif($grupo->periodo_facturacion == 3) Trimestral
+                            @elseif($grupo->periodo_facturacion == 4) Semestral
+                            @elseif($grupo->periodo_facturacion == 5) Anual
+                            @elseif($grupo->periodo_facturacion == 6) Trimestre Anticipado
+                            @else {{ $grupo->periodo_facturacion }}
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Reporte de Cronología de Creación -->
 <div class="row mb-4">
     <div class="col-md-6 mb-3">
         <div class="card stat-card success h-100">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="text-muted mb-1">En Fecha Esperada (Día {{ $cycleStats['dia_esperado'] ?? '' }})</h6>
+                    <h6 class="text-muted mb-1">
+                        @if(($cycleStats['dia_esperado'] ?? 0) > 0)
+                            En Fecha Esperada (Día {{ $cycleStats['dia_esperado'] }})
+                        @else
+                            Facturas en el Mes (Día No Aplica)
+                        @endif
+                    </h6>
                     <h2 class="mb-0 text-success font-weight-bold">{{ $cycleStats['facturas_en_fecha'] ?? 0 }}</h2>
-                    <small class="text-muted">Facturas creadas en el día programmado</small>
+                    <small class="text-muted">
+                        @if(($cycleStats['dia_esperado'] ?? 0) > 0)
+                            Facturas creadas en el día programado
+                        @else
+                            Total de facturas detectadas para este período
+                        @endif
+                    </small>
                 </div>
                 <i class="fas fa-calendar-check fa-3x text-success opacity-25"></i>
             </div>
@@ -98,9 +151,21 @@
         <div class="card stat-card warning h-100">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="text-muted mb-1">En Otras Fechas</h6>
+                    <h6 class="text-muted mb-1">
+                        @if(($cycleStats['dia_esperado'] ?? 0) > 0)
+                            En Otras Fechas
+                        @else
+                            Reporte no disponible
+                        @endif
+                    </h6>
                     <h2 class="mb-0 text-warning font-weight-bold">{{ $cycleStats['facturas_fuera_fecha'] ?? 0 }}</h2>
-                    <small class="text-muted">Facturas creadas antes o después del día programmado</small>
+                    <small class="text-muted">
+                        @if(($cycleStats['dia_esperado'] ?? 0) > 0)
+                            Facturas creadas antes o después del día programado
+                        @else
+                            El grupo no tiene un día de factura fijo
+                        @endif
+                    </small>
                 </div>
                 <i class="fas fa-calendar-minus fa-3x text-warning opacity-25"></i>
             </div>
