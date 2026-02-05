@@ -689,4 +689,65 @@ class GruposCorteController extends Controller
         ]);
     }
 
+    /**
+     * Habilitar la facturación para contratos OFF
+     */
+    public function habilitarFacturacionOff()
+    {
+        $empresa = Empresa::find(1);
+        $empresa->factura_contrato_off = 1;
+        $empresa->save();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Configuración de empresa actualizada: Ahora se permiten facturas en contratos deshabilitados.'
+        ]);
+    }
+
+    /**
+     * Generar facturas faltantes de forma manual
+     */
+    public function generarFacturasFaltantes(Request $request)
+    {
+        $idGrupo = $request->idGrupo;
+        $periodo = $request->periodo;
+        
+        if (!$idGrupo || !$periodo) {
+            return response()->json(['success' => false, 'message' => 'Faltan parámetros requeridos.'], 400);
+        }
+
+        $grupo = GrupoCorte::find($idGrupo);
+        if (!$grupo) {
+            return response()->json(['success' => false, 'message' => 'Grupo no encontrado.'], 404);
+        }
+
+        list($year, $month) = explode('-', $periodo);
+        $dia = $grupo->fecha_factura;
+        if ($dia == 0) $dia = 1;
+        
+        $ultimoDiaMes = Carbon::create($year, $month, 1)->endOfMonth()->day;
+        if ($dia > $ultimoDiaMes) $dia = $ultimoDiaMes;
+        
+        $fechaRef = Carbon::create($year, $month, $dia)->format('Y-m-d');
+        
+        try {
+            CronController::CrearFactura($fechaRef, $idGrupo);
+            
+            // Invalidar caché
+            $cacheKey = "cycle_stats_v5_{$idGrupo}_{$periodo}";
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            
+            return response()->json([
+                'success' => true, 
+                'message' => 'Proceso de generación de facturas finalizado para el grupo ' . $grupo->nombre
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error en generación manual de facturas: " . $e->getMessage());
+            return response()->json([
+                'success' => false, 
+                'message' => 'Ocurrió un error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 }
