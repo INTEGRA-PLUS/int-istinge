@@ -933,9 +933,10 @@ function vincularFacturasManuales() {
             }
         }
     });
+            });
+        }
+    });
 }
-</script>
-@endsection
 
 /**
  * Eliminar una factura duplicada específica
@@ -1097,3 +1098,5 @@ function eliminarTodasDuplicadas() {
         }
     });
 }
+</script>
+@endsection
