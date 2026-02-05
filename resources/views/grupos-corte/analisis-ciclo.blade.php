@@ -208,11 +208,17 @@
                     </button>
                     @endif
 
-                    <!-- Botón: Corregir Numeración (Dinámico via JS) -->
                     <div id="actionFixNumbering" style="display: none;">
                         <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning mr-3 mb-2">
                             <i class="fas fa-list-ol"></i> Ir a corregir numeraciones vencidas/no asignadas
                         </a>
+                    </div>
+
+                    <!-- Botón: Vincular Facturas Manuales (Dinámico via JS) -->
+                    <div id="actionFixUnflaggedInvoices" style="display: none;">
+                        <button class="btn btn-outline-success mr-3 mb-2" onclick="vincularFacturasManuales()">
+                            <i class="fas fa-link"></i> Vincular facturas manuales hoy al ciclo actual
+                        </button>
                     </div>
                 </div>
             </div>
@@ -530,13 +536,14 @@
     $(function() {
         $('[data-toggle="tooltip"]').tooltip();
         
-        // Analizar razones para mostrar acciones adicionales
         if (typeof cycleStats !== 'undefined' && cycleStats.missing_reasons) {
             const hasOffBillingIssue = cycleStats.missing_reasons.some(r => r.code === 'contract_disabled_off');
             const hasNumberingIssue = cycleStats.missing_reasons.some(r => r.code === 'no_valid_numbering');
+            const hasUnflaggedIssue = cycleStats.missing_reasons.some(r => r.code === 'manual_invoice_unflagged');
 
             if (hasOffBillingIssue) $('#actionFixOffBilling').show();
             if (hasNumberingIssue) $('#actionFixNumbering').show();
+            if (hasUnflaggedIssue) $('#actionFixUnflaggedInvoices').show();
         }
     });
     
@@ -769,6 +776,41 @@ function updateConfig(field, value, title) {
                     swal("Error", "No se pudo actualizar la configuración.", "error");
                 }
             });
+        }
+    });
+}
+
+function vincularFacturasManuales() {
+    swal({
+        title: "¿Vincular facturas manuales?",
+        text: "Se marcarán como 'Factura del Mes' todas las facturas manuales detectadas para que el sistema las reconozca en este ciclo.",
+        type: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sí, vincular ahora",
+        cancelButtonText: "Cancelar",
+        confirmButtonClass: "btn-success",
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            return $.ajax({
+                url: "{{ route('grupos-corte.marcar-facturas-mes-lote') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}'
+                }
+            });
+        },
+        allowOutsideClick: () => !swal.isLoading()
+    }).then((result) => {
+        if (result.value) {
+            if (result.value.success) {
+                swal("¡Éxito!", result.value.message, "success").then(() => {
+                    location.reload();
+                });
+            } else {
+                swal("Error", result.value.message || "Ocurrió un error inesperado.", "error");
+            }
         }
     });
 }
