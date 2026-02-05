@@ -118,6 +118,25 @@
     </div>
 </div>
 
+    <!-- Sección: Estado de Numeración -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 font-weight-bold text-dark"><i class="fas fa-sort-numeric-up text-info"></i> Estado de Numeración</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="numberingStatusContainer">
+                       <!-- Se llena dinámicamente con JS -->
+                       <div class="col-12 text-center text-muted">
+                           <i class="fas fa-spinner fa-spin"></i> Verificando numeraciones...
+                       </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <!-- Acciones a Realizar (Sugerencias Dinámicas) -->
 <div class="row mb-4">
     <div class="col-md-12">
@@ -486,10 +505,13 @@
 
 @section('scripts')
 <script>
-const cycleStats = @json($cycleStats);
-const grupoId = {{ $grupo->id }};
-
-// Mostrar detalles de razón
+    // Convertir el JSON de PHP a objetos JS
+    var cycleStats = @json($cycleStats);
+    var historicalData = @json($historicalData);
+    var grupoId = {{ $grupo->id }};
+    var numberingHealth = cycleStats && cycleStats.numbering_health ? cycleStats.numbering_health : null;
+    
+    console.log('Stats:', cycleStats);
 function showReasonDetails(reasonCode) {
     const reason = cycleStats.missing_reasons.find(r => r.code === reasonCode);
     const details = cycleStats.missing_details.filter(d => d.razon_code === reasonCode);
@@ -571,6 +593,36 @@ $(document).ready(function() {
 
     if (hasOffBillingIssue) $('#actionFixOffBilling').show();
     if (hasNumberingIssue) $('#actionFixNumbering').show();
+
+    // Renderizar estado de numeración
+    if (numberingHealth) {
+        const container = $('#numberingStatusContainer');
+        container.empty();
+        
+        // Función auxiliar para generar HTML de estado
+        const getStatusHtml = (type, title, data) => {
+            let icon = data.status === 'ok' ? 'fa-check-circle text-success' : (data.status === 'warning' ? 'fa-exclamation-triangle text-warning' : 'fa-times-circle text-danger');
+            let borderClass = data.status === 'ok' ? 'border-success' : (data.status === 'warning' ? 'border-warning' : 'border-danger');
+            
+            return `
+                <div class="col-md-6 mb-2">
+                    <div class="d-flex align-items-center p-3 border rounded ${borderClass} bg-light">
+                        <i class="fas ${icon} fa-2x mr-3"></i>
+                        <div>
+                            <h6 class="mb-1 font-weight-bold">${title}</h6>
+                            <p class="mb-0 text-muted small">${data.message}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        let html = '';
+        html += getStatusHtml('standard', 'Facturación Estándar', numberingHealth.standard);
+        html += getStatusHtml('electronic', 'Facturación Electrónica', numberingHealth.electronic);
+        
+        container.html(html);
+    }
 });
 
 function confirmarGeneracionManual() {
