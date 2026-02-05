@@ -684,6 +684,7 @@ class BillingCycleAnalyzer
                             'codigo' => $f->codigo,
                             'fecha' => $f->fecha,
                             'total' => $f->totalAPI(1)->total ?? 0,
+                            'estatus' => $f->estatus,
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
                         ];
                     })->toArray()
@@ -696,5 +697,74 @@ class BillingCycleAnalyzer
             'contratos_duplicados' => $duplicates,
             'conteo_duplicados' => count($duplicates)
         ];
+    }
+
+    /**
+     * Obtiene el query builder para las facturas generadas (para DataTables)
+     */
+    public function getGeneratedInvoicesQuery($grupoCorteId, $periodo)
+    {
+        $grupoCorte = GrupoCorte::find($grupoCorteId);
+        if (!$grupoCorte) {
+            return null;
+        }
+        
+        $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
+        $yearMonth = Carbon::parse($fechaCiclo)->format('Y-m');
+        
+        // Query 1: Facturas vinculadas directamente
+        $query1 = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+            ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
+            ->select(
+                'factura.id', 
+                'factura.nro', 
+                'factura.codigo', 
+                'factura.fecha', 
+                'factura.vencimiento', 
+                'factura.estatus', 
+                'factura.whatsapp', 
+                'factura.total',
+                'cli.nombre as nombre_cliente', 
+                'c.nro as contrato_nro'
+            )
+            ->where('c.grupo_corte', $grupoCorteId)
+            ->where('factura.estatus', '!=', 2)
+            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+            ->where(function($query) {
+                $query->where('factura.facturacion_automatica', 1)
+                      ->orWhere(function($q) {
+                          $q->where('factura.facturacion_automatica', 0)
+                            ->where('factura.factura_mes_manual', 1);
+                      });
+            });
+
+        // Query 2: Facturas vinculadas por pivot
+        $query2 = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
+            ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
+            ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
+            ->select(
+                'factura.id', 
+                'factura.nro', 
+                'factura.codigo', 
+                'factura.fecha', 
+                'factura.vencimiento', 
+                'factura.estatus', 
+                'factura.whatsapp', 
+                'factura.total',
+                'cli.nombre as nombre_cliente', 
+                'c.nro as contrato_nro'
+            )
+            ->where('c.grupo_corte', $grupoCorteId)
+            ->where('factura.estatus', '!=', 2)
+            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+            ->where(function($query) {
+                $query->where('factura.facturacion_automatica', 1)
+                      ->orWhere(function($q) {
+                          $q->where('factura.facturacion_automatica', 0)
+                            ->where('factura.factura_mes_manual', 1);
+                      });
+            });
+
+        return $query1->union($query2);
     }
 }

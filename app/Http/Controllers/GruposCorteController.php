@@ -918,8 +918,27 @@ class GruposCorteController extends Controller
             }
 
             foreach ($contratos_duplicados as $dup) {
-                // Ordenar facturas por fecha (más recientes primero) para mantener la más antigua
-                $facturas = collect($dup['facturas'])->sortByDesc('fecha')->values();
+                // Ordenar facturas para determinar cuál conservar (Índice 0)
+                // Criterios:
+                // 1. Estatus: Preferir facturas NO anuladas (estatus != 2)
+                // 2. Fecha: Preferir la más reciente
+                // 3. ID: En caso de empate, preferir ID mayor
+                $facturas = collect($dup['facturas'])->sort(function($a, $b) {
+                    $aAnulada = (isset($a['estatus']) && $a['estatus'] == 2);
+                    $bAnulada = (isset($b['estatus']) && $b['estatus'] == 2);
+                    
+                    // Si una está anulada y la otra no, la NO anulada va primero
+                    if ($aAnulada !== $bAnulada) {
+                        return $aAnulada ? 1 : -1;
+                    }
+                    
+                    // Si ambas tienen mismo status, la más reciente va primero
+                    if ($a['fecha'] != $b['fecha']) {
+                        return ($a['fecha'] > $b['fecha']) ? -1 : 1;
+                    }
+                    
+                    return $b['id'] - $a['id'];
+                })->values();
                 
                 // Saltar la primera (más reciente, la mantenemos)
                 for ($i = 1; $i < $facturas->count(); $i++) {
@@ -992,6 +1011,113 @@ class GruposCorteController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Caché limpiado correctamente'
+        ]);
+    }
+
+    /**
+     * DataTables para facturas generadas (Server Side)
+     */
+    public function datatableGeneratedInvoices(Request $request)
+    {
+        $idGrupo = $request->grupo_id;
+        $periodo = $request->periodo;
+
+        $analyzer = new \App\Services\BillingCycleAnalyzer();
+        // Obtener el query builder (Union)
+        $query = $analyzer->getGeneratedInvoicesQuery($idGrupo, $periodo);
+
+        if (!$query) {
+             return response()->json([
+                'draw' => intval($request->draw),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => []
+            ]);
+        }
+
+        // Para filtrar/ordenar sobre un UNION en Laravel, usamos un subquery
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+        
+        $wrappedQuery = DB::table(DB::raw("({$sql}) as sub"))
+            ->mergeBindings($query->getQuery()); // Trick for eloquent union bindings
+
+        $totalRecords = $wrappedQuery->count();
+        $filteredRecords = $totalRecords;
+
+        // Búsqueda
+        if ($request->has('search') && !empty($request->search['value'])) {
+            $searchValue = $request->search['value'];
+            $wrappedQuery->where(function($q) use ($searchValue) {
+                $q->where('codigo', 'like', "%{$searchValue}%")
+                  ->orWhere('nro', 'like', "%{$searchValue}%")
+                  ->orWhere('nombre_cliente', 'like', "%{$searchValue}%")
+                  ->orWhere('contrato_nro', 'like', "%{$searchValue}%");
+            });
+            $filteredRecords = $wrappedQuery->count();
+        }
+
+        // Ordenamiento
+        $columns = ['codigo', 'nombre_cliente', 'contrato_nro', 'fecha', 'vencimiento', 'total', 'whatsapp', 'estatus'];
+        if ($request->has('order') && isset($request->order[0])) {
+            $colIndex = $request->order[0]['column'];
+            $dir = $request->order[0]['dir'];
+            if (isset($columns[$colIndex])) {
+                $wrappedQuery->orderBy($columns[$colIndex], $dir);
+            }
+        } else {
+            $wrappedQuery->orderBy('fecha', 'desc');
+        }
+
+        // Paginación
+        $start = $request->start ?? 0;
+        $length = $request->length ?? 10;
+        
+        $data = $wrappedQuery->skip($start)->take($length)->get();
+
+        $mappedData = [];
+        foreach ($data as $row) {
+            // Procesar columnas
+            
+            // Fecha formato
+            $fecha = \Carbon\Carbon::parse($row->fecha)->format('d-m-Y');
+            
+            // Vencimiento con alerta
+            $venc = \Carbon\Carbon::parse($row->vencimiento);
+            $isOverdue = $venc->isPast() || $venc->isToday();
+            $vencHtml = $isOverdue ? '<span class="text-danger font-weight-bold">'.$venc->format('d-m-Y').'</span>' : $venc->format('d-m-Y');
+            
+            // Whatsapp
+            $wppHtml = ($row->whatsapp == 1) 
+                ? '<i class="fab fa-whatsapp text-success fa-lg" title="Enviado"></i>'
+                : '<i class="fab fa-whatsapp text-secondary fa-lg" title="No enviado"></i>';
+                
+            // Estado
+            $estadoHtml = ($row->estatus == 1)
+                ? '<span class="badge badge-success">Abierta</span>'
+                : '<span class="badge badge-secondary">Cerrada</span>';
+                
+            // Acciones
+            $accionesHtml = '<a href="'.route('facturas.show', $row->id).'" target="_blank" class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i></a>';
+
+            $mappedData[] = [
+                $row->codigo ?? $row->nro,
+                $row->nombre_cliente,
+                $row->contrato_nro,
+                $fecha,
+                $vencHtml,
+                '$' . number_format($row->total, 0, ',', '.'),
+                '<div class="text-center">'.$wppHtml.'</div>',
+                $estadoHtml,
+                $accionesHtml
+            ];
+        }
+
+        return response()->json([
+            'draw' => intval($request->draw),
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $filteredRecords,
+            'data' => $mappedData
         ]);
     }
 }

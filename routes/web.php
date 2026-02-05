@@ -1741,6 +1741,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('/api/eliminar-factura-duplicada', 'GruposCorteController@eliminarFacturaDuplicada')->name('grupos-corte.eliminar-factura-duplicada');
 		Route::post('/api/eliminar-masivo-duplicados', 'GruposCorteController@eliminarMasivoDuplicados')->name('grupos-corte.eliminar-masivo-duplicados');
 		Route::post('/api/limpiar-cache-ciclo', 'GruposCorteController@limpiarCacheCiclo')->name('grupos-corte.limpiar-cache-ciclo');
+		Route::get('/api/generated-invoices-datatable', 'GruposCorteController@datatableGeneratedInvoices')->name('grupos-corte.dt-generated-invoices');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');
