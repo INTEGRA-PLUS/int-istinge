@@ -395,6 +395,24 @@
     </div>
 </div>
 
+<!-- Análisis de Facturas Faltantes -->
+@if($cycleStats && isset($cycleStats['missing_reasons']) && count($cycleStats['missing_reasons']) > 0)
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="mb-3 font-weight-bold text-dark"><i class="fas fa-search-minus text-warning"></i> ¿Por qué faltaron facturas?</h5>
+    </div>
+    
+    @foreach($cycleStats['missing_reasons'] as $reason)
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card reason-card h-100" onclick="showReasonDetails('{{ $reason['code'] }}')">
+            <div class="card-body text-center p-3">
+                <div class="badge badge-{{ $reason['color'] }} px-3 mb-2" style="font-size: 0.9rem;">{{ $reason['count'] }}</div>
+                <h6 class="mb-0 text-dark" style="font-size: 0.85rem;">{{ $reason['title'] }}</h6>
+            </div>
+        </div>
+    </div>
+    @endforeach
+</div>
 @endif
 
 <!-- Análisis de Facturas Duplicadas / Excedentes -->
