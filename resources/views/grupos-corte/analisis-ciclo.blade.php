@@ -134,12 +134,60 @@
                     </button>
                     @endif
 
-                    <!-- Botón: Habilitar facturación OFF (Sólo si hay contratos afectados por esto) -->
-                    <div id="actionFixOffBilling" style="display: none;">
-                        <button class="btn btn-outline-danger mr-3 mb-2" onclick="habilitarFacturacionOff()">
-                            <i class="fas fa-toggle-on"></i> Habilitar la creación de facturas en contratos deshabilitados
-                        </button>
-                    </div>
+                    <!-- Facturación Automática -->
+                    @if($empresa->factura_auto == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('factura_auto', 0, '¿Deshabilitar Facturación Automática?')">
+                        <i class="fas fa-stop-circle"></i> Deshabilitar Facturación Automática
+                    </button>
+                    @else
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('factura_auto', 1, '¿Habilitar Facturación Automática?')">
+                        <i class="fas fa-play-circle"></i> Habilitar Facturación Automática
+                    </button>
+                    @endif
+
+                    <!-- Saldos a Favor -->
+                    @if($empresa->aplicar_saldofavor == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('aplicar_saldofavor', 0, '¿Deshabilitar aplicación de saldos a favor automático?')">
+                        <i class="fas fa-minus-circle"></i> Deshabilitar aplicación de saldos a favor automático
+                    </button>
+                    @else
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('aplicar_saldofavor', 1, '¿Habilitar aplicación de saldos a favor automático?')">
+                        <i class="fas fa-plus-circle"></i> Habilitar aplicación de saldos a favor automático
+                    </button>
+                    @endif
+
+                    <!-- Facturacion Abiertas -->
+                    @if($empresa->cron_fact_abiertas == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('cron_fact_abiertas', 0, '¿Deshabilitar facturación automatica fact. abiertas?')">
+                        <i class="fas fa-folder"></i> Deshabilitar facturacion automatica fact. abiertas
+                    </button>
+                    @else
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('cron_fact_abiertas', 1, '¿Habilitar facturacion automatica fact. abiertas?')">
+                        <i class="fas fa-folder-open"></i> Habilitar facturacion automatica fact. abiertas
+                    </button>
+                    @endif
+
+                    <!-- Contratos OFF -->
+                    @if($empresa->factura_contrato_off == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('factura_contrato_off', 0, '¿Deshabilitar facturas en contratos deshabilitados?')">
+                        <i class="fas fa-user-slash"></i> Deshabilitar facturas en contratos deshabilitados
+                    </button>
+                    @else
+                    <button class="btn btn-outline-danger mr-3 mb-2" onclick="updateConfig('factura_contrato_off', 1, '¿Habilitar la creación de facturas en contratos deshabilitados?')">
+                        <i class="fas fa-user-check"></i> Habilitar la creación de facturas en contratos deshabilitados
+                    </button>
+                    @endif
+
+                    <!-- Prorrateo -->
+                    @if($empresa->prorrateo == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('prorrateo', 0, '¿Deshabilitar Prorrateo?')">
+                        <i class="fas fa-calendar-minus"></i> Deshabilitar Prorrateo
+                    </button>
+                    @else
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('prorrateo', 1, '¿Habilitar Prorrateo?')">
+                        <i class="fas fa-calendar-plus"></i> Habilitar Prorrateo
+                    </button>
+                    @endif
 
                     <!-- Botón: Corregir Numeración (Dinámico via JS) -->
                     <div id="actionFixNumbering" style="display: none;">
@@ -561,23 +609,31 @@ function ejecutarGeneracionManual() {
 }
 
 function habilitarFacturacionOff() {
+    updateConfig('factura_contrato_off', 1, '¿Habilitar la creación de facturas en contratos deshabilitados?');
+}
+
+function updateConfig(field, value, title) {
     swal({
-        title: "¿Habilitar facturación OFF?",
-        text: "Esto permitirá que se generen facturas para todos los contratos deshabilitados de la empresa.",
+        title: title,
+        text: "Este cambio afectará a toda la empresa inmediatamente.",
         type: "warning",
         showCancelButton: true,
-        confirmButtonClass: "btn-danger",
-        confirmButtonText: "Sí, habilitar",
+        confirmButtonClass: value == 1 ? "btn-success" : "btn-danger",
+        confirmButtonText: "Sí, realizar cambio",
         cancelButtonText: "Cancelar",
         closeOnConfirm: false
     }, function() {
         $.ajax({
-            url: "{{ route('grupos-corte.habilitar-facturacion-off') }}",
+            url: "{{ route('grupos-corte.update-empresa-config') }}",
             method: 'POST',
-            data: { _token: '{{ csrf_token() }}' },
+            data: { 
+                _token: '{{ csrf_token() }}',
+                field: field,
+                value: value
+            },
             success: function(response) {
                 swal("Actualizado", response.message, "success");
-                setTimeout(() => location.reload(), 1500);
+                setTimeout(() => location.reload(), 1200);
             },
             error: function() {
                 swal("Error", "No se pudo actualizar la configuración.", "error");
