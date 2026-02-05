@@ -143,7 +143,7 @@
 
                     <!-- Botón: Corregir Numeración (Dinámico via JS) -->
                     <div id="actionFixNumbering" style="display: none;">
-                        <a href="{{ route('numeracion-factura.index') }}" class="btn btn-outline-warning mr-3 mb-2">
+                        <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning mr-3 mb-2">
                             <i class="fas fa-list-ol"></i> Ir a corregir numeraciones vencidas/no asignadas
                         </a>
                     </div>
