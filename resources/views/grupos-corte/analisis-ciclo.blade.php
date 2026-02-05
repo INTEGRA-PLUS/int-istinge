@@ -1,7 +1,8 @@
 @extends('layouts.app')
 
 @section('boton')
-<a href="{{ route('grupos-corte.show', $grupo->id) }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Grupo</a>
+<a href="{{ route('grupos-corte.index') }}" class="btn btn-outline-danger btn-sm"><i class="fas fa-backward"></i> Regresar al Listado</a>
+<a href="{{ route('grupos-corte.show', $grupo->id) }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye"></i> Ver Grupo</a>
 @endsection
 
 @section('styles')
@@ -9,6 +10,7 @@
 .stat-card {
     border-left: 4px solid;
     transition: transform 0.2s;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 .stat-card:hover {
     transform: translateY(-5px);
@@ -22,41 +24,54 @@
 .reason-card {
     cursor: pointer;
     transition: all 0.3s;
+    border: 1px solid rgba(0,0,0,0.1);
 }
 .reason-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.chart-container {
-    position: relative;
-    height: 300px;
+.text-danger-bold {
+    color: #dc3545 !important;
+    font-weight: bold;
 }
 
-@media (max-width: 768px) {
-    .chart-container {
-        height: 250px;
-    }
+.bg-light-blue {
+    background-color: #f0f7ff;
+}
+
+.opacity-25 {
+    opacity: 0.25;
 }
 </style>
 @endsection
 
 @section('content')
 
-<!-- Header con Selector de Período -->
+<!-- Header con Selectores de Navegación -->
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card">
+        <div class="card border-0 shadow-sm bg-light-blue">
             <div class="card-body">
                 <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <h4 class="mb-0"><i class="fas fa-chart-bar text-primary"></i> {{ $grupo->nombre }}</h4>
-                        <small class="text-muted">Análisis de Ciclos de Facturación</small>
+                    <div class="col-md-4">
+                        <h4 class="mb-0 text-primary font-weight-bold"><i class="fas fa-chart-line"></i> Análisis de Ciclo</h4>
+                        <p class="mb-0 text-muted">Grupo: <strong>{{ $grupo->nombre }}</strong> | Período: <strong>{{ $periodo }}</strong></p>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="form-group mb-0">
-                            <label for="periodoSelector"><strong>Seleccionar Período:</strong></label>
-                            <input type="month" id="periodoSelector" class="form-control" value="{{ $periodo }}" max="{{  Carbon\Carbon::now()->format('Y-m') }}">
+                            <label for="grupoSelector" class="small font-weight-bold">Cambiar Grupo de Corte:</label>
+                            <select id="grupoSelector" class="form-control selectpicker" data-live-search="true" data-style="btn-white">
+                                @foreach($grupos as $g)
+                                    <option value="{{ $g->id }}" {{ $g->id == $grupo->id ? 'selected' : '' }}>{{ $g->nombre }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-0">
+                            <label for="periodoSelector" class="small font-weight-bold">Seleccionar Período:</label>
+                            <input type="month" id="periodoSelector" class="form-control" value="{{ $periodo }}" max="{{ Carbon\Carbon::now()->format('Y-m') }}">
                         </div>
                     </div>
                 </div>
@@ -65,81 +80,81 @@
     </div>
 </div>
 
-<!-- Cards de Estadísticas Generales -->
+<!-- Reporte de Cronología de Creación -->
 <div class="row mb-4">
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card stat-card info h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Total Contratos</h6>
-                <h2 class="mb-0 text-info" id="totalContratos">{{ $cycleStats['total_contratos'] ?? 0 }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-sm-6 mb-3">
+    <div class="col-md-6 mb-3">
         <div class="card stat-card success h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Generadas</h6>
-                <h2 class="mb-0 text-success" id="facturasGeneradas">{{ $cycleStats['facturas_generadas'] ?? 0 }}</h2>
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">En Fecha Esperada (Día {{ $cycleStats['dia_esperado'] ?? '' }})</h6>
+                    <h2 class="mb-0 text-success font-weight-bold">{{ $cycleStats['facturas_en_fecha'] ?? 0 }}</h2>
+                    <small class="text-muted">Facturas creadas en el día programmado</small>
+                </div>
+                <i class="fas fa-calendar-check fa-3x text-success opacity-25"></i>
             </div>
         </div>
     </div>
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card stat-card primary h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Esperadas</h6>
-                <h2 class="mb-0 text-primary" id="facturasEsperadas">{{ $cycleStats['facturas_esperadas'] ?? 0 }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card stat-card danger h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Faltantes</h6>
-                <h2 class="mb-0 text-danger" id="facturasFaltantes">{{ $cycleStats['facturas_faltantes'] ?? 0 }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-sm-6 mb-3">
+    <div class="col-md-6 mb-3">
         <div class="card stat-card warning h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Tasa de Éxito</h6>
-                <h2 class="mb-0 text-warning" id="tasaExito">{{ $cycleStats['tasa_exito'] ?? 0 }}%</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card stat-card info h-100">
-            <div class="card-body text-center">
-                <h6 class="text-muted mb-2">Promedio</h6>
-                <h2 class="mb-0 text-info" id="promedioFacturas">{{ $promedioFacturas }}</h2>
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-muted mb-1">En Otras Fechas</h6>
+                    <h2 class="mb-0 text-warning font-weight-bold">{{ $cycleStats['facturas_fuera_fecha'] ?? 0 }}</h2>
+                    <small class="text-muted">Facturas creadas antes o después del día programmado</small>
+                </div>
+                <i class="fas fa-calendar-minus fa-3x text-warning opacity-25"></i>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Gráficas -->
+<!-- Cards de Estadísticas Generales -->
 <div class="row mb-4">
-    <div class="col-md-8 mb-3">
-        <div class="card h-100">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Facturas Generadas vs Esperadas (Últimos 6 Meses)</h5>
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="barChart"></canvas>
-                </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card info h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Contratos Totales</h6>
+                <h3 class="mb-0 text-info">{{ $cycleStats['total_contratos'] ?? 0 }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-4 mb-3">
-        <div class="card h-100">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Distribución de Razones</h5>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card success h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Generadas</h6>
+                <h3 class="mb-0 text-success">{{ $cycleStats['facturas_generadas'] ?? 0 }}</h3>
             </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="doughnutChart"></canvas>
-                </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card primary h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Esperadas</h6>
+                <h3 class="mb-0 text-primary">{{ $cycleStats['facturas_esperadas'] ?? 0 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card danger h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Faltantes</h6>
+                <h3 class="mb-0 text-danger">{{ $cycleStats['facturas_faltantes'] ?? 0 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card warning h-100">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Tasa Éxito</h6>
+                <h3 class="mb-0 text-warning">{{ $cycleStats['tasa_exito'] ?? 0 }}%</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4 mb-3">
+        <div class="card stat-card info h-100" title="Promedio últimos 6 meses">
+            <div class="card-body text-center p-3">
+                <h6 class="text-muted mb-2 small font-weight-bold">Promedio Hist.</h6>
+                <h3 class="mb-0 text-info">{{ $promedioFacturas }}</h3>
             </div>
         </div>
     </div>
@@ -148,27 +163,31 @@
 <!-- Métricas Comparativas -->
 <div class="row mb-4">
     <div class="col-md-6 mb-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">Variación vs Mes Anterior</h6>
-                <h3 class="{{ $variacionMesAnterior >= 0 ? 'text-success' : 'text-danger' }}">
-                    <i class="fas fa-{{ $variacionMesAnterior >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
-                    {{ abs($variacionMesAnterior) }}%
-                </h3>
+        <div class="card shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="text-muted mb-0">Variación vs Mes Anterior</h6>
+                    <h4 class="mb-0 {{ $variacionMesAnterior >= 0 ? 'text-success' : 'text-danger' }} font-weight-bold">
+                        <i class="fas fa-{{ $variacionMesAnterior >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
+                        {{ abs($variacionMesAnterior) }}%
+                    </h4>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-6 mb-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">vs Promedio General</h6>
-                <h3 id="vsPromedio" class="text-info">
+        <div class="card shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="text-muted mb-0">vs Promedio General</h6>
                     @php
                         $diff = $cycleStats && $promedioFacturas > 0 ? (($cycleStats['facturas_generadas'] - $promedioFacturas) / $promedioFacturas) * 100 : 0;
                     @endphp
-                    <i class="fas fa-{{ $diff >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
-                    {{ abs(round($diff, 2)) }}%
-                </h3>
+                    <h4 class="mb-0 {{ $diff >= 0 ? 'text-success' : 'text-danger' }} font-weight-bold">
+                        <i class="fas fa-{{ $diff >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
+                        {{ abs(round($diff, 2)) }}%
+                    </h4>
+                </div>
             </div>
         </div>
     </div>
@@ -178,15 +197,15 @@
 @if($cycleStats && isset($cycleStats['missing_reasons']) && count($cycleStats['missing_reasons']) > 0)
 <div class="row mb-4">
     <div class="col-12">
-        <h4 class="mb-3"><i class="fas fa-exclamation-triangle text-warning"></i> Análisis de Facturas Faltantes</h4>
+        <h5 class="mb-3 font-weight-bold text-dark"><i class="fas fa-search-minus text-warning"></i> ¿Por qué faltaron facturas?</h5>
     </div>
     
     @foreach($cycleStats['missing_reasons'] as $reason)
     <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card reason-card border-{{ $reason['color'] }}" data-reason-code="{{ $reason['code'] }}" onclick="showReasonDetails('{{ $reason['code'] }}')">
-            <div class="card-body text-center">
-                <span class="badge badge-{{ $reason['color'] }} mb-2">{{ $reason['count'] }} contratos</span>
-                <h6 class="mb-0">{{ $reason['title'] }}</h6>
+        <div class="card reason-card h-100" onclick="showReasonDetails('{{ $reason['code'] }}')">
+            <div class="card-body text-center p-3">
+                <div class="badge badge-{{ $reason['color'] }} px-3 mb-2" style="font-size: 0.9rem;">{{ $reason['count'] }}</div>
+                <h6 class="mb-0 text-dark" style="font-size: 0.85rem;">{{ $reason['title'] }}</h6>
             </div>
         </div>
     </div>
@@ -197,9 +216,9 @@
 <!-- Tabla de Facturas Generadas -->
 <div class="row">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Facturas Generadas en el Ciclo</h5>
+        <div class="card shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="mb-0 font-weight-bold text-primary"><i class="fas fa-file-invoice"></i> Facturas Generadas en el Ciclo</h5>
             </div>
             <div class="card-body">
                 <table class="table table-striped table-hover w-100" id="facturasTable">
@@ -208,7 +227,7 @@
                             <th>Código</th>
                             <th>Cliente</th>
                             <th>Contrato</th>
-                            <th>Fecha</th>
+                            <th>Fecha Creación</th>
                             <th>Total</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -231,7 +250,7 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('facturas.show', $factura->id) }}" target="_blank" class="btn btn-sm btn-info">
+                                    <a href="{{ route('facturas.show', $factura->id) }}" target="_blank" class="btn btn-sm btn-outline-info">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
@@ -248,26 +267,28 @@
 <!-- Modal para Detalles de Razones -->
 <div class="modal fade" id="reasonDetailsModal" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="reasonModalTitle">Detalles</h5>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title font-weight-bold" id="reasonModalTitle">Detalles</h5>
                 <button type="button" class="close" data-dismiss="modal">
                     <span>&times;</span>
                 </button>
             </div>
-            <div class="modal-body">
-                <table class="table table-striped" id="reasonDetailsTable">
-                    <thead>
-                        <tr>
-                            <th>Contrato</th>
-                            <th>Cliente</th>
-                            <th>Descripción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reasonDetailsBody">
-                        <!-- Populated by JavaScript -->
-                    </tbody>
-                </table>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0" id="reasonDetailsTable">
+                        <thead class="bg-secondary text-white">
+                            <tr>
+                                <th>Contrato</th>
+                                <th>Cliente</th>
+                                <th>Descripción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reasonDetailsBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -276,137 +297,9 @@
 @endsection
 
 @section('scripts')
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
 <script>
-let barChart, doughnutChart;
-const historicalData = @json($historicalData);
 const cycleStats = @json($cycleStats);
 const grupoId = {{ $grupo->id }};
-
-// Inicializar gráficas
-function initCharts() {
-    // Gráfica de Barras
-    const barCtx = document.getElementById('barChart').getContext('2d');
-    const labels = historicalData.map(d => d.periodo_label);
-    const generadas = historicalData.map(d => d.generadas);
-    const esperadas = historicalData.map(d => d.esperadas);
-    
-    barChart = new Chart(barCtx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Generadas',
-                data: generadas,
-                backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                borderColor: 'rgba(40, 167, 69, 1)',
-                borderWidth: 1
-            }, {
-                label: 'Esperadas',
-                data: esperadas,
-                backgroundColor: 'rgba(0, 123, 255, 0.7)',
-                borderColor: 'rgba(0, 123, 255, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-    
-    // Gráfica de Dona
-    if (cycleStats && cycleStats.missing_reasons && cycleStats.missing_reasons.length > 0) {
-        const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
-        const reasonLabels = cycleStats.missing_reasons.map(r => r.title);
-        const reasonCounts = cycleStats.missing_reasons.map(r => r.count);
-        const reasonColors = cycleStats.missing_reasons.map(r => {
-            const colorMap = {
-                'info': 'rgba(23, 162, 184, 0.7)',
-                'warning': 'rgba(255, 193, 7, 0.7)',
-                'primary': 'rgba(0, 123, 255, 0.7)',
-                'danger': 'rgba(220, 53, 69, 0.7)',
-                'success': 'rgba(40, 167, 69, 0.7)',
-                'secondary': 'rgba(108, 117, 125, 0.7)'
-            };
-            return colorMap[r.color] || 'rgba(108, 117, 125, 0.7)';
-        });
-        
-        doughnutChart = new Chart(doughnutCtx, {
-            type: 'doughnut',
-            data: {
-                labels: reasonLabels,
-                datasets: [{
-                    data: reasonCounts,
-                    backgroundColor: reasonColors
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                    }
-                }
-            }
-        });
-    }
-}
-
-// Cargar datos de un período  specific
-function loadCycleData(periodo) {
-    fetch(`/empresa/grupos-corte/api/${grupoId}/cycle-data/${periodo}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Actualizar cards
-                document.getElementById('totalContratos').textContent = data.cycleStats.total_contratos;
-                document.getElementById('facturasGeneradas').textContent = data.cycleStats.facturas_generadas;
-                document.getElementById('facturasEsperadas').textContent = data.cycleStats.facturas_esperadas;
-                document.getElementById('facturasFaltantes').textContent = data.cycleStats.facturas_faltantes;
-                document.getElementById('tasaExito').textContent = data.cycleStats.tasa_exito + '%';
-                document.getElementById('promedioFacturas').textContent = data.metricas.promedio_facturas;
-                
-                // Actualizar gráficas
-                updateCharts(data.historicalData, data.cycleStats);
-                
-                // Recargar tabla (mejor recargar la página completa para simplicidad)
-                location.href = `/empresa/grupos-corte/analisis-ciclo/${grupoId}/${periodo}`;
-            }
-        })
-        .catch(error => console.error('Error cargando datos:', error));
-}
-
-// Actualizar gráficas
-function updateCharts(historical, stats) {
-    // Actualizar gráfica de barras
-    if (barChart) {
-        barChart.data.labels = historical.map(d => d.periodo_label);
-        barChart.data.datasets[0].data = historical.map(d => d.generadas);
-        barChart.data.datasets[1].data = historical.map(d => d.esperadas);
-        barChart.update();
-    }
-    
-    // Actualizar gráfica de dona
-    if (doughnutChart && stats.missing_reasons) {
-        doughnutChart.data.labels = stats.missing_reasons.map(r => r.title);
-        doughnutChart.data.datasets[0].data = stats.missing_reasons.map(r => r.count);
-        doughnutChart.update();
-    }
-}
 
 // Mostrar detalles de razón
 function showReasonDetails(reasonCode) {
@@ -419,11 +312,21 @@ function showReasonDetails(reasonCode) {
     tbody.innerHTML = '';
     
     details.forEach(detail => {
+        // Mejoramos el wording y estilo para contratos deshabilitados
+        let description = detail.razon_description;
+        if (reasonCode === 'status_inactive') {
+            description = '<span class="text-danger-bold">El contrato tiene estado deshabilitado</span>';
+        }
+
+        // Generamos dinámicamente las rutas usando route() o una base URL segura
+        const contratoUrl = "{{ route('contratos.show', ':id') }}".replace(':id', detail.contrato_id);
+        const clienteUrl = "{{ route('contactos.show', ':id') }}".replace(':id', detail.cliente_id);
+
         const row = `
             <tr>
-                <td><a href="/empresa/contratos/${detail.contrato_id}" target="_blank">${detail.contrato_nro}</a></td>
-                <td><a href="/empresa/contactos/${detail.cliente_id}" target="_blank">${detail.cliente_nombre}</a></td>
-                <td>${detail.razon_description}</td>
+                <td><a href="${contratoUrl}" target="_blank" class="font-weight-bold">${detail.contrato_nro}</a></td>
+                <td><a href="${clienteUrl}" target="_blank">${detail.cliente_nombre}</a></td>
+                <td>${description}</td>
             </tr>
         `;
         tbody.innerHTML += row;
@@ -434,23 +337,34 @@ function showReasonDetails(reasonCode) {
 
 // Document ready
 $(document).ready(function() {
-    // Inicializar gráficas
-    initCharts();
-    
-    // Inicializar DataTable
+    // Inicializar DataTable con paginación
     $('#facturasTable').DataTable({
         responsive: true,
+        pageLength: 25,
         language: {
             'url': '/vendors/DataTables/es.json'
         },
         order: [[3, "desc"]]
     });
     
-    // Selector de período
+    // Recarga automática al cambiar período
     $('#periodoSelector').on('change', function() {
         const periodo = $(this).val();
         if (periodo) {
-            loadCycleData(periodo);
+            let url = "{{ route('grupos-corte.analisis-ciclo', ['idGrupo' => 'ID_PLACEHOLDER', 'periodo' => 'PERIODO_PLACEHOLDER']) }}";
+            url = url.replace('ID_PLACEHOLDER', grupoId).replace('PERIODO_PLACEHOLDER', periodo);
+            window.location.href = url;
+        }
+    });
+
+    // Recarga automática al cambiar grupo
+    $('#grupoSelector').on('change', function() {
+        const selectedId = $(this).val();
+        const periodo = $('#periodoSelector').val();
+        if (selectedId) {
+            let url = "{{ route('grupos-corte.analisis-ciclo', ['idGrupo' => 'ID_PLACEHOLDER', 'periodo' => 'PERIODO_PLACEHOLDER']) }}";
+            url = url.replace('ID_PLACEHOLDER', selectedId).replace('PERIODO_PLACEHOLDER', periodo);
+            window.location.href = url;
         }
     });
 });

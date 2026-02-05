@@ -42,6 +42,19 @@ class BillingCycleAnalyzer
             // Análisis de facturas faltantes
             $missingAnalysis = $this->getMissingInvoicesAnalysis($grupoCorteId, $periodo);
             
+            // Reporte de Cronología
+            $onDateCount = 0;
+            $outDateCount = 0;
+            $diaEsperado = $this->calcularDiaEsperado($grupoCorte, $periodo);
+            
+            foreach ($facturasGeneradas as $factura) {
+                if (Carbon::parse($factura->fecha)->day == $diaEsperado) {
+                    $onDateCount++;
+                } else {
+                    $outDateCount++;
+                }
+            }
+            
             return [
                 'grupo_corte' => $grupoCorte,
                 'periodo' => $periodo,
@@ -50,6 +63,9 @@ class BillingCycleAnalyzer
                 'facturas_generadas' => $facturasGeneradas->count(),
                 'facturas_esperadas' => $contratosEsperados->count(),
                 'facturas_faltantes' => $missingAnalysis['total'],
+                'facturas_en_fecha' => $onDateCount,
+                'facturas_fuera_fecha' => $outDateCount,
+                'dia_esperado' => $diaEsperado,
                 'tasa_exito' => $contratosEsperados->count() > 0 
                     ? round(($facturasGeneradas->count() / $contratosEsperados->count()) * 100, 2) 
                     : 0,
@@ -58,6 +74,17 @@ class BillingCycleAnalyzer
                 'missing_details' => $missingAnalysis['details']
             ];
         });
+    }
+
+    /**
+     * Calcula el día esperado para el ciclo, manejando fin de mes
+     */
+    private function calcularDiaEsperado($grupoCorte, $periodo)
+    {
+        list($year, $month) = explode('-', $periodo);
+        $dia = $grupoCorte->fecha_factura;
+        $ultimoDiaMes = Carbon::create($year, $month, 1)->endOfMonth()->day;
+        return ($dia > $ultimoDiaMes) ? $ultimoDiaMes : $dia;
     }
 
     /**
@@ -304,8 +331,8 @@ class BillingCycleAnalyzer
         if ($contrato->status != 1) {
             return [
                 'code' => 'status_inactive',
-                'title' => 'Status inactivo',
-                'description' => 'El contrato tiene status != 1',
+                'title' => 'El contrato tiene estado deshabilitado',
+                'description' => 'El contrato tiene estado deshabilitado',
                 'color' => 'danger'
             ];
         }
