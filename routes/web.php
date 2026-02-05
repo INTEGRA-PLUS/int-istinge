@@ -1738,6 +1738,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::post('/api/generar-facturas-faltantes', 'GruposCorteController@generarFacturasFaltantes')->name('grupos-corte.generar-facturas-faltantes');
 		Route::post('/api/update-empresa-config', 'GruposCorteController@updateEmpresaConfig')->name('grupos-corte.update-empresa-config');
 		Route::post('/api/marcar-facturas-mes-lote', 'GruposCorteController@marcarFacturasMesLote')->name('grupos-corte.marcar-facturas-mes-lote');
+		Route::post('/api/eliminar-factura-duplicada', 'GruposCorteController@eliminarFacturaDuplicada')->name('grupos-corte.eliminar-factura-duplicada');
+		Route::post('/api/eliminar-masivo-duplicados', 'GruposCorteController@eliminarMasivoDuplicados')->name('grupos-corte.eliminar-masivo-duplicados');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');

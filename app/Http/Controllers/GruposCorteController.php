@@ -19,6 +19,7 @@ use App\Contrato;
 use App\GrupoCorte;
 use App\Campos;
 use App\Model\Ingresos\Factura;
+use App\Model\Ingresos\ItemsFactura;
 use App\Contacto;
 use App\Services\BillingCycleAnalyzer;
 
@@ -813,6 +814,155 @@ class GruposCorteController extends Controller
             return response()->json([
                 'success' => false, 
                 'message' => 'Ocurrió un error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Eliminar facturas duplicadas de manera segura
+     */
+    public function eliminarFacturaDuplicada(Request $request)
+    {
+        $facturaId = $request->factura_id;
+
+        if (!$facturaId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ID de factura requerido'
+            ], 400);
+        }
+
+        try {
+            $factura = Factura::find($facturaId);
+            
+            if (!$factura) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Factura no encontrada'
+                ], 404);
+            }
+
+            // Validar que la factura no tenga pagos asociados
+            if ($factura->pagado() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede eliminar una factura con pagos asociados'
+                ], 400);
+            }
+
+            // Eliminar dependencias
+            DB::table('facturas_contratos')->where('factura_id', $factura->id)->delete();
+            ItemsFactura::where('factura', $factura->id)->delete();
+            DB::table('crm')->where('factura', $factura->id)->delete();
+
+            // Eliminar factura
+            $factura->delete();
+
+            // Limpiar caché
+            \Cache::tags(['cycle_stats'])->flush();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Factura eliminada correctamente'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar factura duplicada: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Eliminar masivamente todas las facturas duplicadas de un ciclo
+     */
+    public function eliminarMasivoDuplicados(Request $request)
+    {
+        $idGrupo = $request->idGrupo;
+        $periodo = $request->periodo;
+        $contratoId = $request->contrato_id; // Opcional: eliminar solo duplicados de un contrato específico
+
+        if (!$idGrupo || !$periodo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Faltan parámetros requeridos'
+            ], 400);
+        }
+
+        try {
+            $analyzer = new \App\Services\BillingCycleAnalyzer();
+            $cycleStats = $analyzer->getCycleStats($idGrupo, $periodo);
+            
+            if (!isset($cycleStats['duplicates_analysis']) || 
+                $cycleStats['duplicates_analysis']['total_excedentes'] == 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No se encontraron facturas duplicadas para eliminar',
+                    'eliminadas' => 0
+                ]);
+            }
+
+            $eliminadas = 0;
+            $noPudoEliminar = 0;
+            $contratos_duplicados = $cycleStats['duplicates_analysis']['contratos_duplicados'];
+
+            // Si se especifica un contrato, filtrar solo ese
+            if ($contratoId) {
+                $contratos_duplicados = array_filter($contratos_duplicados, function($dup) use ($contratoId) {
+                    return $dup['contrato_id'] == $contratoId;
+                });
+            }
+
+            foreach ($contratos_duplicados as $dup) {
+                // Ordenar facturas por fecha (más recientes primero) para mantener la más antigua
+                $facturas = collect($dup['facturas'])->sortByDesc('fecha')->values();
+                
+                // Saltar la primera (más reciente, la mantenemos)
+                for ($i = 1; $i < $facturas->count(); $i++) {
+                    $facturaId = $facturas[$i]['id'];
+                    $factura = Factura::find($facturaId);
+                    
+                    if (!$factura) {
+                        continue;
+                    }
+
+                    // Validar que no tenga pagos
+                    if ($factura->pagado() > 0) {
+                        $noPudoEliminar++;
+                        continue;
+                    }
+
+                    // Eliminar dependencias
+                    DB::table('facturas_contratos')->where('factura_id', $factura->id)->delete();
+                    ItemsFactura::where('factura', $factura->id)->delete();
+                    DB::table('crm')->where('factura', $factura->id)->delete();
+
+                    // Eliminar factura
+                    $factura->delete();
+                    $eliminadas++;
+                }
+            }
+
+            // Limpiar caché
+            \Cache::tags(['cycle_stats'])->flush();
+
+            $mensaje = "Se eliminaron {$eliminadas} facturas duplicadas correctamente";
+            if ($noPudoEliminar > 0) {
+                $mensaje .= ". {$noPudoEliminar} facturas no se pudieron eliminar por tener pagos asociados";
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'eliminadas' => $eliminadas,
+                'no_pudieron_eliminar' => $noPudoEliminar
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar masivamente duplicados: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
         }
     }

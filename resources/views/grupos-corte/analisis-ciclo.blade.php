@@ -419,7 +419,12 @@
 @if($cycleStats && isset($cycleStats['duplicates_analysis']) && $cycleStats['duplicates_analysis']['total_excedentes'] > 0)
 <div class="row mb-4">
     <div class="col-12">
-        <h5 class="mb-3 font-weight-bold text-dark"><i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas</h5>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 font-weight-bold text-dark"><i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas</h5>
+            <button class="btn btn-danger btn-sm" onclick="eliminarTodasDuplicadas()">
+                <i class="fas fa-trash-alt"></i> Eliminar Todos los Duplicados ({{ $cycleStats['duplicates_analysis']['total_excedentes'] }})
+            </button>
+        </div>
         <div class="alert alert-warning border-0 shadow-sm">
             <i class="fas fa-info-circle"></i> Se detectaron <b>{{ $cycleStats['duplicates_analysis']['total_excedentes'] }}</b> facturas adicionales a los contratos esperados. A continuación se listan los contratos que tienen más de una factura en este ciclo.
         </div>
@@ -442,11 +447,16 @@
                 </div>
                 <div class="bg-light p-2 rounded small">
                     <ul class="list-unstyled mb-0">
-                        @foreach($dup['facturas'] as $f)
+                        @foreach($dup['facturas'] as $index => $f)
                         <li class="d-flex justify-content-between mb-1">
                             <div>
                                 <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
                                 <small class="text-muted ml-1">({{ \Carbon\Carbon::parse($f['fecha'])->translatedFormat('d-M') }})</small>
+                                @if($index > 0)
+                                <a href="javascript:void(0)" onclick="eliminarFacturaDuplicada({{ $f['id'] }}, {{ $dup['contrato_id'] }})" class="text-danger ml-2" title="Eliminar esta factura">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                                @endif
                             </div>
                             <div class="text-right">
                                 <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
@@ -455,6 +465,13 @@
                         </li>
                         @endforeach
                     </ul>
+                    @if($dup['cantidad'] > 1)
+                    <div class="text-center mt-2">
+                        <button class="btn btn-outline-danger btn-sm btn-block" onclick="eliminarDuplicadosContrato({{ $dup['contrato_id'] }})">
+                            <i class="fas fa-trash-alt"></i> Eliminar Duplicados de Este Contrato
+                        </button>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -919,3 +936,164 @@ function vincularFacturasManuales() {
 }
 </script>
 @endsection
+
+/**
+ * Eliminar una factura duplicada específica
+ */
+function eliminarFacturaDuplicada(facturaId, contratoId) {
+    swal({
+        title: '¿Eliminar esta factura?',
+        text: 'Esta acción eliminará la factura y sus dependencias. Esta acción no se puede deshacer.',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-trash-alt"></i> Sí, eliminar',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar',
+        confirmButtonClass: 'btn-danger',
+        cancelButtonClass: 'btn-secondary'
+    }).then((result) => {
+        if (result.value) {
+            $.ajax({
+                url: "{{ route('grupos-corte.eliminar-factura-duplicada') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    factura_id: facturaId
+                },
+                success: function(response) {
+                    swal({
+                        title: '¡Éxito!',
+                        text: response.message,
+                        type: 'success'
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Error al eliminar la factura';
+                    swal({
+                        title: 'Error',
+                        text: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Eliminar duplicados de un contrato específico
+ */
+function eliminarDuplicadosContrato(contratoId) {
+    swal({
+        title: '¿Eliminar duplicados de este contrato?',
+        html: 'Se eliminarán todas las facturas duplicadas de este contrato, manteniendo solo la más reciente.<br><br><strong>Las facturas con pagos asociados no serán eliminadas.</strong>',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-trash-alt"></i> Sí, eliminar',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar',
+        confirmButtonClass: 'btn-danger',
+        cancelButtonClass: 'btn-secondary'
+    }).then((result) => {
+        if (result.value) {
+            $.ajax({
+                url: "{{ route('grupos-corte.eliminar-masivo-duplicados') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}',
+                    contrato_id: contratoId
+                },
+                success: function(response) {
+                    let icon = 'success';
+                    if (response.eliminadas === 0) {
+                        icon = 'info';
+                    }
+                    swal({
+                        title: response.eliminadas > 0 ? '¡Éxito!' : 'Información',
+                        text: response.message,
+                        type: icon
+                    }).then(() => {
+                        if (response.eliminadas > 0) {
+                            location.reload();
+                        }
+                    });
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Error al eliminar duplicados';
+                    swal({
+                        title: 'Error',
+                        text: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Eliminar TODOS los duplicados del ciclo
+ */
+function eliminarTodasDuplicadas() {
+    swal({
+        title: '¿Eliminar TODOS los duplicados del ciclo?',
+        html: 'Se eliminarán <strong>todas</strong> las facturas duplicadas del ciclo actual, manteniendo solo la más reciente de cada contrato.<br><br><strong>Las facturas con pagos asociados no serán eliminadas.</strong>',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-trash-alt"></i> Sí, eliminar todas',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar',
+        confirmButtonClass: 'btn-danger',
+        cancelButtonClass: 'btn-secondary'
+    }).then((result) => {
+        if (result.value) {
+            // Mostrar loading
+            swal({
+                title: 'Procesando...',
+                text: 'Eliminando facturas duplicadas',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                onOpen: () => {
+                    swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('grupos-corte.eliminar-masivo-duplicados') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}'
+                },
+                success: function(response) {
+                    swal({
+                        title: response.eliminadas > 0 ? '¡Éxito!' : 'Información',
+                        html: `<div class="text-left">
+                            <p><strong>${response.message}</strong></p>
+                            <ul>
+                                <li>Facturas eliminadas: <strong>${response.eliminadas}</strong></li>
+                                ${response.no_pudieron_eliminar > 0 ? `<li class="text-warning">No eliminadas (con pagos): <strong>${response.no_pudieron_eliminar}</strong></li>` : ''}
+                            </ul>
+                        </div>`,
+                        type: response.eliminadas > 0 ? 'success' : 'info'
+                    }).then(() => {
+                        if (response.eliminadas > 0) {
+                            location.reload();
+                        }
+                    });
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Error al eliminar duplicados';
+                    swal({
+                        title: 'Error',
+                        text: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
