@@ -933,9 +933,6 @@ function vincularFacturasManuales() {
             }
         }
     });
-            });
-        }
-    });
 }
 
 /**
