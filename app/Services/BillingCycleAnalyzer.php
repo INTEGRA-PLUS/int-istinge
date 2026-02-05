@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v15 para corregir error de LogicException en total
-        $cacheKey = "cycle_stats_v15_{$grupoCorteId}_{$periodo}";
+        // Añadimos v16 para mostrar códigos de factura en lugar de IDs
+        $cacheKey = "cycle_stats_v16_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -648,6 +648,7 @@ class BillingCycleAnalyzer
                         return [
                             'id' => $f->id,
                             'nro' => $f->nro,
+                            'codigo' => $f->codigo,
                             'fecha' => $f->fecha,
                             'total' => $f->totalAPI(1)->total ?? 0,
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'

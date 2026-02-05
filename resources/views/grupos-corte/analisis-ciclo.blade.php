@@ -440,7 +440,7 @@
                     <ul class="list-unstyled mb-0">
                         @foreach($dup['facturas'] as $f)
                         <li class="d-flex justify-content-between mb-1">
-                            <span><i class="fas fa-file-invoice text-muted"></i> #{{ $f['nro'] }} ({{ $f['tipo_operacion'] }})</span>
+                            <span><i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }} ({{ $f['tipo_operacion'] }})</span>
                             <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
                         </li>
                         @endforeach
