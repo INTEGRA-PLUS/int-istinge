@@ -292,7 +292,12 @@
         <div class="card stat-card success h-100">
             <div class="card-body text-center p-3">
                 <h6 class="text-muted mb-2 small font-weight-bold">Generadas</h6>
-                <h3 class="mb-0 text-success">{{ $cycleStats['facturas_generadas'] ?? 0 }}</h3>
+                <div class="d-flex justify-content-center align-items-baseline">
+                    <h3 class="mb-0 text-success">{{ $cycleStats['facturas_generadas'] ?? 0 }}</h3>
+                    @if(isset($cycleStats['duplicates_analysis']) && $cycleStats['duplicates_analysis']['total_excedentes'] > 0)
+                        <span class="ml-2 badge badge-danger" data-toggle="tooltip" title="Se detectaron {{ $cycleStats['duplicates_analysis']['total_excedentes'] }} facturas de más (excedentes)"><i class="fas fa-exclamation-circle"></i> +{{ $cycleStats['duplicates_analysis']['total_excedentes'] }}</span>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -390,19 +395,39 @@
     </div>
 </div>
 
-<!-- Análisis de Facturas Faltantes -->
-@if($cycleStats && isset($cycleStats['missing_reasons']) && count($cycleStats['missing_reasons']) > 0)
+@endif
+
+<!-- Análisis de Facturas Duplicadas / Excedentes -->
+@if($cycleStats && isset($cycleStats['duplicates_analysis']) && $cycleStats['duplicates_analysis']['total_excedentes'] > 0)
 <div class="row mb-4">
     <div class="col-12">
-        <h5 class="mb-3 font-weight-bold text-dark"><i class="fas fa-search-minus text-warning"></i> ¿Por qué faltaron facturas?</h5>
+        <h5 class="mb-3 font-weight-bold text-dark"><i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas</h5>
+        <div class="alert alert-warning border-0 shadow-sm">
+            <i class="fas fa-info-circle"></i> Se detectaron <b>{{ $cycleStats['duplicates_analysis']['total_excedentes'] }}</b> facturas adicionales a los contratos esperados. A continuación se listan los contratos que tienen más de una factura en este ciclo.
+        </div>
     </div>
     
-    @foreach($cycleStats['missing_reasons'] as $reason)
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card reason-card h-100" onclick="showReasonDetails('{{ $reason['code'] }}')">
-            <div class="card-body text-center p-3">
-                <div class="badge badge-{{ $reason['color'] }} px-3 mb-2" style="font-size: 0.9rem;">{{ $reason['count'] }}</div>
-                <h6 class="mb-0 text-dark" style="font-size: 0.85rem;">{{ $reason['title'] }}</h6>
+    @foreach($cycleStats['duplicates_analysis']['contratos_duplicados'] as $dup)
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm border-left border-danger">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="font-weight-bold mb-0 text-dark">{{ $dup['cliente_nombre'] }}</h6>
+                        <small class="text-muted">Contrato: #{{ $dup['contrato_nro'] }}</small>
+                    </div>
+                    <span class="badge badge-danger">{{ $dup['cantidad'] }} facturas</span>
+                </div>
+                <div class="bg-light p-2 rounded small">
+                    <ul class="list-unstyled mb-0">
+                        @foreach($dup['facturas'] as $f)
+                        <li class="d-flex justify-content-between mb-1">
+                            <span><i class="fas fa-file-invoice text-muted"></i> #{{ $f['nro'] }} ({{ $f['tipo_operacion'] }})</span>
+                            <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
