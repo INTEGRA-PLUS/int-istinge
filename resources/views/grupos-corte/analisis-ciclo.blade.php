@@ -602,7 +602,18 @@ function ejecutarGeneracionManual() {
         },
         error: function(xhr) {
             const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error desconocido';
-            swal("Error", msg, "error");
+            swal({
+                title: "Atención",
+                text: "Hubo un problema con la respuesta del servidor (" + msg + "), pero es posible que el proceso se haya ejecutado en segundo plano. Te recomendamos recargar para verificar.",
+                type: "warning",
+                confirmButtonText: "Recargar Págna",
+                showCancelButton: true,
+                cancelButtonText: "Cerrar"
+            }).then((result) => {
+                if(result.value) {
+                    location.reload();
+                }
+            });
             btn.prop('disabled', false).html('<i class="fas fa-check"></i> Sí, Generar Ahora');
         }
     });
