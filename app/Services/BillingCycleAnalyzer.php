@@ -22,7 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        $cacheKey = "cycle_stats_{$grupoCorteId}_{$periodo}";
+        // Añadimos v2 al cache key para invalidar versiones anteriores con el bug de fecha_factura=0
+        $cacheKey = "cycle_stats_v2_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -48,7 +49,8 @@ class BillingCycleAnalyzer
             $diaEsperado = $this->calcularDiaEsperado($grupoCorte, $periodo);
             
             foreach ($facturasGeneradas as $factura) {
-                if (Carbon::parse($factura->fecha)->day == $diaEsperado) {
+                // Si el día esperado es 0 (No aplica), las contamos todas en el primer contador (Detectadas)
+                if ($diaEsperado == 0 || Carbon::parse($factura->fecha)->day == $diaEsperado) {
                     $onDateCount++;
                 } else {
                     $outDateCount++;
@@ -83,6 +85,11 @@ class BillingCycleAnalyzer
     {
         list($year, $month) = explode('-', $periodo);
         $dia = $grupoCorte->fecha_factura;
+        
+        if ($dia == 0) {
+            return 0; // No aplica
+        }
+        
         $ultimoDiaMes = Carbon::create($year, $month, 1)->endOfMonth()->day;
         return ($dia > $ultimoDiaMes) ? $ultimoDiaMes : $dia;
     }
@@ -95,6 +102,10 @@ class BillingCycleAnalyzer
     {
         list($year, $month) = explode('-', $periodo);
         $dia = $grupoCorte->fecha_factura;
+        
+        if ($dia == 0) {
+            $dia = 1; // Si no aplica, usamos el día 1 para referenciar el mes correctamente
+        }
         
         // Obtener último día del mes
         $ultimoDiaMes = Carbon::create($year, $month, 1)->endOfMonth()->day;
