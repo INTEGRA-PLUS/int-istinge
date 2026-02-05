@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v17 para incluir cliente_id en duplicados
-        $cacheKey = "cycle_stats_v17_{$grupoCorteId}_{$periodo}";
+        // Añadimos v18 para soporte de tabla pivot facturas_contratos
+        $cacheKey = "cycle_stats_v18_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -165,10 +165,12 @@ class BillingCycleAnalyzer
     {
         $yearMonth = Carbon::parse($fechaCiclo)->format('Y-m');
         
-        return Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+        // 1. Facturas vinculadas directamente por contrato_id
+        $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro')
+            ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
             ->where('c.grupo_corte', $grupoCorteId)
+            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
             ->where(function($query) {
                 $query->where('factura.facturacion_automatica', 1)
                       ->orWhere(function($q) {
@@ -176,9 +178,27 @@ class BillingCycleAnalyzer
                             ->where('factura.factura_mes_manual', 1);
                       });
             })
-            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
-            ->orderBy('factura.id', 'desc')
             ->get();
+            
+        // 2. Facturas vinculadas mediante tabla pivot facturas_contratos
+        $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
+            ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
+            ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
+            ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
+            ->where('c.grupo_corte', $grupoCorteId)
+            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+            ->where(function($query) {
+                $query->where('factura.facturacion_automatica', 1)
+                      ->orWhere(function($q) {
+                          $q->where('factura.facturacion_automatica', 0)
+                            ->where('factura.factura_mes_manual', 1);
+                      });
+            })
+            ->get();
+            
+        return $directas->merge($viaPivot)->unique(function($item) {
+            return $item->id . '-' . $item->contrato_id;
+        });
     }
 
     /**
@@ -193,12 +213,12 @@ class BillingCycleAnalyzer
         $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
         $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
         
-        // Obtener nros de contratos que ya facturaron
-        $contratosConFactura = $facturasGeneradas->pluck('contrato_nro')->unique()->toArray();
+        // Obtener nros de contratos que ya facturaron (usando contrato_id para mayor precisión)
+        $idsGenerados = $facturasGeneradas->pluck('contrato_id')->unique()->toArray();
         
         // Contratos que no facturaron
-        $contratosSinFactura = $contratosEsperados->filter(function($contrato) use ($contratosConFactura) {
-            return !in_array($contrato->nro, $contratosConFactura);
+        $contratosSinFactura = $contratosEsperados->filter(function($contrato) use ($idsGenerados) {
+            return !in_array($contrato->id, $idsGenerados);
         });
         
         $reasons = [];
@@ -304,13 +324,7 @@ class BillingCycleAnalyzer
         }
         
         // 2. Validación: Factura del mes ya existe (líneas 362-388)
-        $ultimaFactura = DB::table('facturas_contratos')
-            ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
-            ->where('facturas_contratos.contrato_nro', $contrato->nro)
-            ->where('factura.estatus', '!=', 2)
-            ->select('factura.*')
-            ->orderBy('factura.fecha', 'desc')
-            ->first();
+        $ultimaFactura = $this->getUltimoHistorialFacturacion($contrato);
         
         $mesActualFactura = date('Y-m', strtotime($fechaCiclo));
         
@@ -358,32 +372,27 @@ class BillingCycleAnalyzer
             }
         }
         
-        // 4. Validación: Sin numeración asignada (línea 415-417)
-        $nro = NumeracionFactura::tipoNumeracion($contrato);
-        if (is_null($nro)) {
-            return [
-                'code' => 'no_numbering',
-                'title' => 'Sin numeración asignada',
-                'description' => 'El contrato no tiene una numeración de facturas asignada',
-                'color' => 'danger'
-            ];
-        }
-        
         // 5. Validación: Ya se creó factura para esta fecha (líneas 422-424)
-        // Corregido: Validamos contra la fecha de la factura, no el created_at, para soportar ejecuciones manuales/tardías
-        $existeFactura = DB::table('facturas_contratos')
+        // Buscamos tanto en enlace directo como en tabla pivot
+        $existeFacturaDirecto = DB::table('factura')
+            ->whereDate('fecha', $fechaCiclo)
+            ->where('contrato_id', $contrato->id)
+            ->where('estatus', '!=', 2)
+            ->first();
+            
+        $existeFacturaPivot = DB::table('facturas_contratos')
             ->join('factura', 'factura.id', '=', 'facturas_contratos.factura_id')
             ->whereDate('factura.fecha', $fechaCiclo)
             ->where('facturas_contratos.contrato_nro', $contrato->nro)
-            ->where('facturas_contratos.is_cron', 1)
+            ->where('factura.estatus', '!=', 2)
             ->first();
 
-        if ($existeFactura) {
+        if ($existeFacturaDirecto || $existeFacturaPivot) {
             return [
                 'code' => 'duplicate_today',
                 'title' => 'Factura ya generada',
-                'description' => 'Ya existe una factura automática para este contrato con la fecha del ciclo',
-                'color' => 'success' // Cambiado a success porque significa que SÍ funcionó
+                'description' => 'Ya existe una factura para este contrato con la fecha del ciclo',
+                'color' => 'success'
             ];
         }
         
@@ -620,6 +629,27 @@ class BillingCycleAnalyzer
         }
 
         return Factura::whereIn('id', $idsToFix)->update(['factura_mes_manual' => 1]);
+    }
+
+    /**
+     * Busca la última factura de un contrato consultando tanto el enlace directo como la tabla pivot
+     */
+    private function getUltimoHistorialFacturacion($contrato)
+    {
+        $f1 = DB::table('factura')
+            ->where('contrato_id', $contrato->id)
+            ->where('estatus', '!=', 2) // Excepto anuladas
+            ->select('id', 'fecha', 'nro', 'codigo', 'factura_mes_manual', 'facturacion_automatica')
+            ->get();
+            
+        $f2 = DB::table('factura')
+            ->join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
+            ->where('fc.contrato_nro', $contrato->nro)
+            ->where('factura.estatus', '!=', 2)
+            ->select('factura.id', 'factura.fecha', 'factura.nro', 'factura.codigo', 'factura.factura_mes_manual', 'factura.facturacion_automatica')
+            ->get();
+            
+        return $f1->concat($f2)->sortByDesc('fecha')->first();
     }
 
     /**
