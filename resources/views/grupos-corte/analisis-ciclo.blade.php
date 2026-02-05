@@ -307,26 +307,24 @@
                 </div>
                 @if(isset($cycleStats['missing_breakdown']))
                 <div class="mt-2 text-left small border-top pt-1 text-muted">
-                    <div title="Falta por crear {{ $cycleStats['missing_breakdown']['standard'] }} facturas estandar"><i class="fas fa-file-invoice"></i> Estándar: <b>{{ $cycleStats['missing_breakdown']['standard'] }}</b></div>
-                    <div title="Falta por crear {{ $cycleStats['missing_breakdown']['electronic'] }} numeraciones de facturas electronicas."> Electrónica: <b>{{ $cycleStats['missing_breakdown']['electronic'] }}</b></div>
+                    <div data-toggle="tooltip" title="Falta por crear {{ $cycleStats['missing_breakdown']['standard'] }} facturas estandar"><i class="fas fa-file-invoice"></i> Estándar: <b>{{ $cycleStats['missing_breakdown']['standard'] }}</b></div>
+                    <div data-toggle="tooltip" title="Falta por crear {{ $cycleStats['missing_breakdown']['electronic'] }} numeraciones de facturas electronicas." ><i class="fas fa-file-invoice"></i> Electrónica: <b>{{ $cycleStats['missing_breakdown']['electronic'] }}</b></div>
                 </div>
                 @endif
             </div>
         </div>
     </div>
     <div class="col-md-2 col-sm-4 mb-3">
-        <div class="card stat-card warning h-100">
+        <div class="card stat-card success h-100">
             <div class="card-body text-center p-3">
-                <h6 class="text-muted mb-2 small font-weight-bold">Tasa Éxito</h6>
-                <h3 class="mb-0 text-warning">{{ $cycleStats['tasa_exito'] ?? 0 }}%</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-sm-4 mb-3">
-        <div class="card stat-card info h-100" title="Promedio últimos 6 meses">
-            <div class="card-body text-center p-3">
-                <h6 class="text-muted mb-2 small font-weight-bold">Promedio Hist.</h6>
-                <h3 class="mb-0 text-info">{{ $promedioFacturas }}</h3>
+                <h6 class="text-muted mb-1 small font-weight-bold">Whatsapp</h6>
+                <div class="d-flex justify-content-center align-items-baseline">
+                    <h3 class="mb-0 text-success mr-2">{{ $cycleStats['whatsapp_stats']['sent'] ?? 0 }}</h3>
+                </div>
+                <div class="mt-2 text-left small border-top pt-1 text-muted">
+                    <div title="Enviadas"><i class="fab fa-whatsapp text-success"></i> Enviadas: <b>{{ $cycleStats['whatsapp_stats']['sent'] ?? 0 }}</b></div>
+                    <div title="Pendientes"><i class="fab fa-whatsapp text-secondary"></i> Pend: <b>{{ $cycleStats['whatsapp_stats']['pending'] ?? 0 }}</b></div>
+                </div>
             </div>
         </div>
     </div>
@@ -402,6 +400,7 @@
                             <th>Fecha Creación</th>
                             <th>Vencimiento</th>
                             <th>Total</th>
+                            <th>Whatsapp</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -422,6 +421,13 @@
                                     {{ $vencimiento->format('d-m-Y') }}
                                 </td>
                                 <td>${{ number_format($factura->totalAPI(1)->total ?? 0, 0, ',', '.') }}</td>
+                                <td class="text-center">
+                                    @if($factura->whatsapp == 1)
+                                        <i class="fab fa-whatsapp text-success fa-lg" title="Enviado"></i>
+                                    @else
+                                        <i class="fab fa-whatsapp text-secondary fa-lg" title="No enviado"></i>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($factura->estatus == 1)
                                         <span class="badge badge-success">Abierta</span>
@@ -521,6 +527,8 @@
 
 @section('scripts')
 <script>
+    $('[data-toggle="tooltip"]').tooltip();
+    
     // Convertir el JSON de PHP a objetos JS
     var cycleStats = @json($cycleStats);
     var historicalData = @json($historicalData);
