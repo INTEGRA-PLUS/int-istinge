@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v14 para detección de duplicados (excedentes)
-        $cacheKey = "cycle_stats_v14_{$grupoCorteId}_{$periodo}";
+        // Añadimos v15 para corregir error de LogicException en total
+        $cacheKey = "cycle_stats_v15_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -649,7 +649,7 @@ class BillingCycleAnalyzer
                             'id' => $f->id,
                             'nro' => $f->nro,
                             'fecha' => $f->fecha,
-                            'total' => $f->total,
+                            'total' => $f->totalAPI(1)->total ?? 0,
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
                         ];
                     })->toArray()
