@@ -970,4 +970,28 @@ class GruposCorteController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Limpiar caché de un ciclo específico
+     */
+    public function limpiarCacheCiclo(Request $request)
+    {
+        $idGrupo = $request->idGrupo;
+        $periodo = $request->periodo;
+        
+        if (!$idGrupo || !$periodo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Faltan parámetros requeridos'
+            ], 400);
+        }
+        
+        $cacheKey = "cycle_stats_v19_{$idGrupo}_{$periodo}";
+        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Caché limpiado correctamente'
+        ]);
+    }
 }
