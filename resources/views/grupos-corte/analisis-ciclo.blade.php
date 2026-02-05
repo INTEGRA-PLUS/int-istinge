@@ -527,7 +527,18 @@
 
 @section('scripts')
 <script>
-    $('[data-toggle="tooltip"]').tooltip();
+    $(function() {
+        $('[data-toggle="tooltip"]').tooltip();
+        
+        // Analizar razones para mostrar acciones adicionales
+        if (typeof cycleStats !== 'undefined' && cycleStats.missing_reasons) {
+            const hasOffBillingIssue = cycleStats.missing_reasons.some(r => r.code === 'contract_disabled_off');
+            const hasNumberingIssue = cycleStats.missing_reasons.some(r => r.code === 'no_valid_numbering');
+
+            if (hasOffBillingIssue) $('#actionFixOffBilling').show();
+            if (hasNumberingIssue) $('#actionFixNumbering').show();
+        }
+    });
     
     // Convertir el JSON de PHP a objetos JS
     var cycleStats = @json($cycleStats);
@@ -611,12 +622,6 @@ $(document).ready(function() {
         });
     });
 
-    // Analizar razones para mostrar acciones adicionales
-    const hasOffBillingIssue = cycleStats.missing_reasons.some(r => r.code === 'contract_disabled_off');
-    const hasNumberingIssue = cycleStats.missing_reasons.some(r => r.code === 'no_valid_numbering');
-
-    if (hasOffBillingIssue) $('#actionFixOffBilling').show();
-    if (hasNumberingIssue) $('#actionFixNumbering').show();
 
     // Renderizar estado de numeración
     if (numberingHealth) {
