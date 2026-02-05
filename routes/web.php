@@ -1730,6 +1730,10 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{grupo}/destroy_lote', 'GruposCorteController@destroy_lote')->name('grupos-corte.destroy_lote');
 		Route::get('/opcionmasiva', 'GruposCorteController@opcion_masiva')->name('grupos-corte.opcionmasiva');
 		Route::get('/estados-del-corte/{idGrupo?}/{fecha?}', 'GruposCorteController@estadosGruposCorte')->name('grupos-corte.estados');
+		// Análisis de ciclos de facturación
+		Route::get('/analisis-ciclo/{idGrupo}/{periodo?}', 'GruposCorteController@analisisCiclo')->name('grupos-corte.analisis-ciclo');
+		Route::get('/api/{idGrupo}/ciclos-disponibles', 'GruposCorteController@getCiclosDisponibles')->name('grupos-corte.ciclos-disponibles');
+		Route::get('/api/{idGrupo}/cycle-data/{periodo}', 'GruposCorteController@getCycleData')->name('grupos-corte.cycle-data');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');

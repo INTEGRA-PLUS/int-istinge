@@ -19,6 +19,7 @@ use App\GrupoCorte;
 use App\Campos;
 use App\Model\Ingresos\Factura;
 use App\Contacto;
+use App\Services\BillingCycleAnalyzer;
 
 class GruposCorteController extends Controller
 {
@@ -561,5 +562,124 @@ class GruposCorteController extends Controller
         return view('grupos-corte.estados', compact('contactos', 'gruposFaltantes', 'perdonados', 'grupo', 'fecha', 'totalFacturas', 'grupos_corte', 'facturasCortadas', 'request', 'facturasGeneradas', 'cantidadContratos'));
     }
 
+    /**
+     * Vista principal de análisis de ciclos de facturación
+     */
+    public function analisisCiclo($idGrupo, $periodo = null)
+    {
+        $this->getAllPermissions(Auth::user()->id);
+        
+        view()->share([
+            'inicio' => 'master', 
+            'seccion' => 'zonas', 
+            'subseccion' => 'analisis_ciclo', 
+            'title' => 'Análisis de Ciclos de Facturación', 
+            'icon' => 'fas fa-chart-bar'
+        ]);
+
+        $grupo = GrupoCorte::find($idGrupo);
+        
+        if (!$grupo) {
+            return redirect('empresa/grupos-corte')->with('danger', 'GRUPO DE CORTE NO ENCONTRADO');
+        }
+
+        // Si no se especifica período, usar el mes actual
+        if (!$periodo) {
+            $periodo = Carbon::now()->format('Y-m');
+        }
+
+        $analyzer = new BillingCycleAnalyzer();
+        
+        // Obtener estadísticas del ciclo
+        $cycleStats = $analyzer->getCycleStats($idGrupo, $periodo);
+        
+        // Obtener datos históricos para gráficas (últimos 6 meses)
+        $historicalData = $analyzer->getHistoricalData($idGrupo, 6);
+        
+        // Calcular métricas comparativas
+        $promedioFacturas = count($historicalData) > 0 
+            ? round(collect($historicalData)->avg('generadas'), 2) 
+            : 0;
+        
+        // Variación vs mes anterior
+        $variacionMesAnterior = 0;
+        if (count($historicalData) >= 2) {
+            $mesActual = end($historicalData);
+            $mesAnterior = $historicalData[count($historicalData) - 2];
+            
+            if ($mesAnterior['generadas'] > 0) {
+                $variacionMesAnterior = round(
+                    (($mesActual['generadas'] - $mesAnterior['generadas']) / $mesAnterior['generadas']) * 100, 
+                    2
+                );
+            }
+        }
+
+        return view('grupos-corte.analisis-ciclo', compact(
+            'grupo', 
+            'periodo', 
+            'cycleStats', 
+            'historicalData', 
+            'promedioFacturas', 
+            'variacionMesAnterior'
+        ));
+    }
+
+    /**
+     * API: Obtiene lista de ciclos disponibles para el selector
+     */
+    public function getCiclosDisponibles($idGrupo)
+    {
+        $analyzer = new BillingCycleAnalyzer();
+        $ciclos = $analyzer->getAvailableCycles($idGrupo);
+        
+        return response()->json([
+            'success' => true,
+            'ciclos' => $ciclos
+        ]);
+    }
+
+    /**
+     * API: Obtiene datos completos de un ciclo específico
+     */
+    public function getCycleData($idGrupo, $periodo)
+    {
+        $analyzer = new BillingCycleAnalyzer();
+        
+        // Estadísticas del ciclo
+        $cycleStats = $analyzer->getCycleStats($idGrupo, $periodo);
+        
+        // Datos históricos
+        $historicalData = $analyzer->getHistoricalData($idGrupo, 6);
+        
+        // Métricas comparativas
+        $promedioFacturas = count($historicalData) > 0 
+            ? round(collect($historicalData)->avg('generadas'), 2) 
+            : 0;
+        
+        $variacionMesAnterior = 0;
+        if (count($historicalData) >= 2) {
+            $ultimoIndice = count($historicalData) - 1;
+            $mesActual = $historicalData[$ultimoIndice];
+            $mesAnterior = $historicalData[$ultimoIndice - 1];
+            
+            if ($mesAnterior['generadas'] > 0) {
+                $variacionMesAnterior = round(
+                    (($mesActual['generadas'] - $mesAnterior['generadas']) / $mesAnterior['generadas']) * 100, 
+                    2
+                );
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'cycleStats' => $cycleStats,
+            'historicalData' => $historicalData,
+            'metricas' => [
+                'promedio_facturas' => $promedioFacturas,
+                'variacion_mes_anterior' => $variacionMesAnterior
+            ]
+        ]);
+    }
 
 }
