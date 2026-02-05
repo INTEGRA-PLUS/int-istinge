@@ -240,9 +240,9 @@ class CronController extends Controller
 
     }
 
-    public static function CrearFactura(){
+    public static function CrearFactura($fechaRef = null, $idGrupo = null){
 
-        $fecha = Carbon::now()->format('Y-m-d');
+        $fecha = $fechaRef ? $fechaRef : Carbon::now()->format('Y-m-d');
 
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
@@ -253,15 +253,22 @@ class CronController extends Controller
 
         if($empresa->factura_auto == 1){
             $i=0;
-            $date = getdate()['mday'] * 1;
+            $date = $fechaRef ? (int)Carbon::parse($fechaRef)->format('d') : getdate()['mday'] * 1;
             $numeros = [];
             $bulk = '';
             $horaActual = date('H:i');
 
-            $grupos_corte = GrupoCorte::
-            where('fecha_factura', $date)
-            ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
-            ->where('status', 1)->get();
+            $query = GrupoCorte::query();
+            
+            if ($idGrupo) {
+                $query->where('id', $idGrupo);
+            } else {
+                $query->where('fecha_factura', $date)
+                      ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
+                      ->where('status', 1);
+            }
+            
+            $grupos_corte = $query->get();
 
 
             $state = ['enabled'];
@@ -385,6 +392,12 @@ class CronController extends Controller
                                 continue; //salte esta iteracion entonces por que es la factura del mes manual.
                             }
                         }
+
+                        if($ultimaFactura->factura_mes_manual == null){
+                            $ultimaFactura->factura_mes_manual = 0;
+                            DB::table('factura')->where('id',$ultimaFactura->id)->update(['factura_mes_manual'=>0]);
+                        }
+                        
                     }
 
                     /* ** Validacion: si la actual es dif a la ultima fac pasa o sino
