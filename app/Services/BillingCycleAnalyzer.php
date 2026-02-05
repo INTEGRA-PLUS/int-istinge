@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v16 para mostrar códigos de factura en lugar de IDs
-        $cacheKey = "cycle_stats_v16_{$grupoCorteId}_{$periodo}";
+        // Añadimos v17 para incluir cliente_id en duplicados
+        $cacheKey = "cycle_stats_v17_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -642,6 +642,7 @@ class BillingCycleAnalyzer
                 $duplicates[] = [
                     'contrato_id' => $contratoId,
                     'contrato_nro' => $facturas->first()->contrato_nro,
+                    'cliente_id' => $facturas->first()->cliente,
                     'cliente_nombre' => $facturas->first()->nombre_cliente,
                     'cantidad' => $facturas->count(),
                     'facturas' => $facturas->map(function($f) {
