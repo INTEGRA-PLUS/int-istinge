@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v7 para incluir health check de numeraciones
-        $cacheKey = "cycle_stats_v7_{$grupoCorteId}_{$periodo}";
+        // Añadimos v8 para analytics avanzados de numeración (proyección y detalles)
+        $cacheKey = "cycle_stats_v8_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -73,8 +73,10 @@ class BillingCycleAnalyzer
                     : 0,
                 'facturas' => $facturasGeneradas,
                 'missing_reasons' => $missingAnalysis['reasons'],
+                'facturas' => $facturasGeneradas,
+                'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
-                'numbering_health' => $this->checkNumberingHealth()
+                'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count())
             ];
         });
     }
@@ -432,15 +434,20 @@ class BillingCycleAnalyzer
     }
 
     /**
-     * Verifica la salud de las numeraciones de facturación
-     * Requisito: Debe haber numeración preferida (tipo 1 y 2) activa y no próxima a vencerse/agotarse
+     * Verifica la salud de las numeraciones de facturación con proyección de consumo
+     * 
+     * @param int $consumoEstimadoMensual Cantidad de facturas promedio que se generan por mes (base contratos activos)
      */
-    public function checkNumberingHealth()
+    public function checkNumberingHealth($consumoEstimadoMensual = 0)
     {
-        $empresaId = 1; // Asumimos empresa 1 o Auth::user()->empresa si estuviera disponible en contexto
+        $empresaId = 1; 
         if (auth()->check()) {
             $empresaId = auth()->user()->empresa;
         }
+
+        // Si el consumo estimado es 0 (ej: grupo vacío/nuevo), asumimos un mínimo de 1 para evitar división por cero
+        // O mejor, usamos un valor base razonable si no hay contratos, pero aquí la proyección es contextual
+        $consumoBase = $consumoEstimadoMensual > 0 ? $consumoEstimadoMensual : 100;
 
         $health = [
             'standard' => ['status' => 'ok', 'message' => 'Numeración Estándar OK'],
@@ -456,31 +463,7 @@ class BillingCycleAnalyzer
             ->where('nomina', 0)
             ->first();
 
-        if (!$estandar) {
-            $health['standard'] = ['status' => 'error', 'message' => 'No hay numeración estándar preferida activa'];
-        } else {
-            // Verificar vencimiento (menos de 30 días)
-            $diasVencimiento = Carbon::now()->diffInDays(Carbon::parse($estandar->hasta), false);
-            if ($diasVencimiento < 0) {
-                $health['standard'] = ['status' => 'error', 'message' => 'Numeración estándar vencida'];
-            } elseif ($diasVencimiento < 30) {
-                $health['standard'] = ['status' => 'warning', 'message' => "Numeración estándar vence en $diasVencimiento días"];
-            }
-
-            // Verificar agotamiento (consecutivo)
-            if ($estandar->inicio >= $estandar->final) {
-                $health['standard'] = ['status' => 'error', 'message' => 'Numeración estándar agotada'];
-            } else {
-                $restantes = $estandar->final - $estandar->inicio;
-                // Alerta si quedan menos de 50 facturas o menos del 5% del rango
-                $rangoTotal = $estandar->final - $estandar->inicioverdadero;
-                $porcentajeRestante = ($rangoTotal > 0) ? ($restantes / $rangoTotal) * 100 : 0;
-                
-                if ($restantes < 50 || $porcentajeRestante < 5) {
-                    $health['standard'] = ['status' => 'warning', 'message' => "Quedan solo $restantes facturas estándar"];
-                }
-            }
-        }
+        $health['standard'] = $this->analyzeNumbering($estandar, 'Estándar', $consumoBase);
 
         // 2. Numeración Electrónica (Tipo 2)
         $electronica = NumeracionFactura::where('empresa', $empresaId)
@@ -491,31 +474,77 @@ class BillingCycleAnalyzer
             ->where('nomina', 0)
             ->first();
 
-        if (!$electronica) {
-            $health['electronic'] = ['status' => 'error', 'message' => 'No hay numeración electrónica preferida activa'];
-        } else {
-             // Verificar vencimiento (menos de 30 días)
-             $diasVencimiento = Carbon::now()->diffInDays(Carbon::parse($electronica->hasta), false);
-             if ($diasVencimiento < 0) {
-                 $health['electronic'] = ['status' => 'error', 'message' => 'Numeración electrónica vencida'];
-             } elseif ($diasVencimiento < 30) {
-                 $health['electronic'] = ['status' => 'warning', 'message' => "Numeración electrónica vence en $diasVencimiento días"];
-             }
- 
-             // Verificar agotamiento
-             if ($electronica->inicio >= $electronica->final) {
-                 $health['electronic'] = ['status' => 'error', 'message' => 'Numeración electrónica agotada'];
-             } else {
-                 $restantes = $electronica->final - $electronica->inicio;
-                 $rangoTotal = $electronica->final - $electronica->inicioverdadero;
-                 $porcentajeRestante = ($rangoTotal > 0) ? ($restantes / $rangoTotal) * 100 : 0;
-                 
-                 if ($restantes < 50 || $porcentajeRestante < 5) {
-                     $health['electronic'] = ['status' => 'warning', 'message' => "Quedan solo $restantes facturas electrónicas"];
-                 }
-             }
-        }
+        $health['electronic'] = $this->analyzeNumbering($electronica, 'Electrónica', $consumoBase);
 
         return $health;
+    }
+
+    /**
+     * Analiza una numeración específica y genera su reporte de salud
+     */
+    private function analyzeNumbering($numeracion, $tipo, $consumoEstimado)
+    {
+        if (!$numeracion) {
+            return [
+                'status' => 'error', 
+                'message' => "No hay numeración $tipo preferida activa",
+                'details' => null
+            ];
+        }
+
+        $restantes = $numeracion->final - $numeracion->inicio;
+        $diasVencimiento = Carbon::now()->diffInDays(Carbon::parse($numeracion->hasta), false);
+        $status = 'ok';
+        $message = "Numeración $tipo operativa";
+        $recommendation = "La numeración es suficiente para la operación actual.";
+
+        // Proyección de suficiencia (meses)
+        $mesesSuficiencia = $consumoEstimado > 0 ? floor($restantes / $consumoEstimado) : 999;
+
+        // Validaciones
+        if ($diasVencimiento < 0) {
+            $status = 'error';
+            $message = "Resolución vencida (Venció el " . Carbon::parse($numeracion->hasta)->format('d/m/Y') . ")";
+            $recommendation = "Solicitar nueva resolución inmediatamente.";
+        } elseif ($numeracion->inicio >= $numeracion->final) {
+            $status = 'error';
+            $message = "Consecutivos agotados (Llegó al límite: {$numeracion->final})";
+            $recommendation = "Solicitar nueva resolución inmediatamente.";
+        } elseif ($diasVencimiento < 30) {
+            $status = 'warning';
+            $message = "Resolución vence pronto ({$diasVencimiento} días)";
+            $recommendation = "Tramitar renovación antes del " . Carbon::parse($numeracion->hasta)->format('d/m/Y') . ".";
+        } elseif ($restantes < $consumoEstimado) {
+            // No alcanza para un ciclo completo estimado
+            $status = 'warning';
+            $message = "Insuficiente para próximo ciclo completo";
+            $recommendation = "Quedan $restantes folios. Se requieren aprox $consumoEstimado para un ciclo completo.";
+        } elseif ($restantes < 50) {
+            $status = 'warning';
+            $message = "Quedan pocos consecutivos ($restantes)";
+            $recommendation = "Solicitar nueva resolución pronto.";
+        }
+
+        // Si todo está OK, dar una proyección positiva
+        if ($status == 'ok') {
+            if ($mesesSuficiencia < 3) {
+                $recommendation = "Suficiente para aprox. $mesesSuficiencia ciclos de facturación.";
+            } else {
+                $recommendation = "Numeración saludable. Cobertura estimada para +3 ciclos.";
+            }
+        }
+
+        return [
+            'status' => $status,
+            'message' => $message,
+            'recommendation' => $recommendation,
+            'details' => [
+                'expiration' => Carbon::parse($numeracion->hasta)->format('d/m/Y'),
+                'current' => $numeracion->inicio,
+                'limit' => $numeracion->final,
+                'remaining' => $restantes,
+                'sufficiency_months' => $mesesSuficiencia
+            ]
+        ];
     }
 }

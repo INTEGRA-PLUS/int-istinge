@@ -392,6 +392,7 @@
                             <th>Cliente</th>
                             <th>Contrato</th>
                             <th>Fecha Creación</th>
+                            <th>Vencimiento</th>
                             <th>Total</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -405,6 +406,13 @@
                                 <td>{{ $factura->nombre_cliente }}</td>
                                 <td>{{ $factura->contrato_nro }}</td>
                                 <td>{{ \Carbon\Carbon::parse($factura->fecha)->format('d-m-Y') }}</td>
+                                @php
+                                    $vencimiento = \Carbon\Carbon::parse($factura->vencimiento);
+                                    $isOverdue = $vencimiento->isPast() || $vencimiento->isToday();
+                                @endphp
+                                <td class="{{ $isOverdue ? 'text-danger font-weight-bold' : '' }}">
+                                    {{ $vencimiento->format('d-m-Y') }}
+                                </td>
                                 <td>${{ number_format($factura->totalAPI(1)->total ?? 0, 0, ',', '.') }}</td>
                                 <td>
                                     @if($factura->estatus == 1)
@@ -599,7 +607,7 @@ $(document).ready(function() {
         const container = $('#numberingStatusContainer');
         container.empty();
         
-        // Función auxiliar para generar HTML de estado
+        // Función auxiliar para generar HTML de estado con detalles avanzados
         const getStatusHtml = (type, title, data) => {
             let icon = data.status === 'ok' ? 'fa-check-circle text-success' : (data.status === 'warning' ? 'fa-exclamation-triangle text-warning' : 'fa-times-circle text-danger');
             let borderClass = data.status === 'ok' ? 'border-success' : (data.status === 'warning' ? 'border-warning' : 'border-danger');
@@ -607,7 +615,7 @@ $(document).ready(function() {
             let actionLink = '';
             if (data.status !== 'ok') {
                 actionLink = `
-                    <div class="mt-2">
+                    <div class="mt-2 text-right">
                         <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-sm btn-outline-dark">
                             <i class="fas fa-cog"></i> Configurar Numeración
                         </a>
@@ -615,15 +623,40 @@ $(document).ready(function() {
                 `;
             }
 
+            let detailsHtml = '';
+            if (data.details) {
+                detailsHtml = `
+                    <div class="mt-2 pt-2 border-top small">
+                        <div class="row">
+                            <div class="col-6">
+                                <span class="text-muted">Vence:</span> 
+                                <span class="font-weight-bold text-dark">${data.details.expiration}</span>
+                            </div>
+                            <div class="col-6 text-right">
+                                <span class="text-muted">Rango:</span> 
+                                <span class="font-weight-bold text-dark">${data.details.current} / ${data.details.limit}</span>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <span class="text-muted">Proyección:</span> 
+                                <span class="font-italic ${data.status === 'ok' ? 'text-success' : 'text-danger'}">${data.recommendation}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             return `
                 <div class="col-md-6 mb-2">
-                    <div class="d-flex align-items-center p-3 border rounded ${borderClass} bg-light">
-                        <i class="fas ${icon} fa-2x mr-3"></i>
-                        <div class="w-100">
-                            <h6 class="mb-1 font-weight-bold">${title}</h6>
-                            <p class="mb-0 text-muted small">${data.message}</p>
-                            ${actionLink}
+                    <div class="h-100 p-3 border rounded ${borderClass} bg-light">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas ${icon} fa-2x mr-3"></i>
+                            <div class="w-100">
+                                <h6 class="mb-0 font-weight-bold text-dark">${title}</h6>
+                                <p class="mb-0 text-secondary small">${data.message}</p>
+                            </div>
                         </div>
+                        ${detailsHtml}
+                        ${actionLink}
                     </div>
                 </div>
             `;
