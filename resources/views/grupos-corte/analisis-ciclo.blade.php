@@ -604,13 +604,25 @@ $(document).ready(function() {
             let icon = data.status === 'ok' ? 'fa-check-circle text-success' : (data.status === 'warning' ? 'fa-exclamation-triangle text-warning' : 'fa-times-circle text-danger');
             let borderClass = data.status === 'ok' ? 'border-success' : (data.status === 'warning' ? 'border-warning' : 'border-danger');
             
+            let actionLink = '';
+            if (data.status !== 'ok') {
+                actionLink = `
+                    <div class="mt-2">
+                        <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-sm btn-outline-dark">
+                            <i class="fas fa-cog"></i> Configurar Numeración
+                        </a>
+                    </div>
+                `;
+            }
+
             return `
                 <div class="col-md-6 mb-2">
                     <div class="d-flex align-items-center p-3 border rounded ${borderClass} bg-light">
                         <i class="fas ${icon} fa-2x mr-3"></i>
-                        <div>
+                        <div class="w-100">
                             <h6 class="mb-1 font-weight-bold">${title}</h6>
                             <p class="mb-0 text-muted small">${data.message}</p>
+                            ${actionLink}
                         </div>
                     </div>
                 </div>
