@@ -170,6 +170,7 @@ class BillingCycleAnalyzer
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
             ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
             ->where('c.grupo_corte', $grupoCorteId)
+            ->where('factura.estatus', '!=', 2)
             ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
             ->where(function($query) {
                 $query->where('factura.facturacion_automatica', 1)
@@ -186,6 +187,7 @@ class BillingCycleAnalyzer
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
             ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
             ->where('c.grupo_corte', $grupoCorteId)
+            ->where('factura.estatus', '!=', 2)
             ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
             ->where(function($query) {
                 $query->where('factura.facturacion_automatica', 1)

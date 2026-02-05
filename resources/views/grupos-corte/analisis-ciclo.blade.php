@@ -153,6 +153,11 @@
                     </button>
                     @endif
 
+                    <!-- Botón: Refrescar Análisis -->
+                    <button class="btn btn-info mr-3 mb-2" onclick="refrescarAnalisis()">
+                        <i class="fas fa-sync-alt"></i> Refrescar Análisis
+                    </button>
+
                     <!-- Facturación Automática -->
                     @if($empresa->factura_auto == 1)
                     <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('factura_auto', 0, '¿Deshabilitar Facturación Automática?')">
@@ -1087,6 +1092,63 @@ function eliminarTodasDuplicadas() {
                 },
                 error: function(xhr) {
                     const message = xhr.responseJSON?.message || 'Error al eliminar duplicados';
+                    swal({
+                        title: 'Error',
+                        text: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Refrescar análisis del ciclo (limpiar caché)
+ */
+function refrescarAnalisis() {
+    swal({
+        title: '¿Refrescar análisis?',
+        text: 'Esto limpiará la caché y recalculará las estadísticas del ciclo.',
+        type: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-sync-alt"></i> Sí, refrescar',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar'
+    }).then((result) => {
+        if (result.value) {
+            // Mostrar loading
+            swal({
+                title: 'Limpiando caché...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                onOpen: () => {
+                    swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('grupos-corte.limpiar-cache-ciclo') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}'
+                },
+                success: function(response) {
+                    swal({
+                        title: '¡Éxito!',
+                        text: 'Caché limpiado. Recargando página...',
+                        type: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'No se pudo limpiar la caché';
                     swal({
                         title: 'Error',
                         text: message,
