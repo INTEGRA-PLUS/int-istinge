@@ -859,7 +859,10 @@ class GruposCorteController extends Controller
             $factura->delete();
 
             // Limpiar caché
-            \Cache::tags(['cycle_stats'])->flush();
+            if ($request->has('idGrupo') && $request->has('periodo')) {
+                $cacheKey = "cycle_stats_v19_{$request->idGrupo}_{$request->periodo}";
+                \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            }
 
             return response()->json([
                 'success' => true,
@@ -945,7 +948,8 @@ class GruposCorteController extends Controller
             }
 
             // Limpiar caché
-            \Cache::tags(['cycle_stats'])->flush();
+            $cacheKey = "cycle_stats_v19_{$idGrupo}_{$periodo}";
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
 
             $mensaje = "Se eliminaron {$eliminadas} facturas duplicadas correctamente";
             if ($noPudoEliminar > 0) {
