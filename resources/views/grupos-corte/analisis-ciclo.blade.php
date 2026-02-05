@@ -596,7 +596,7 @@ function ejecutarGeneracionManual() {
                 type: "success",
                 confirmButtonClass: "btn-success",
                 confirmButtonText: "Ok",
-            }, function() {
+            }).then(() => {
                 location.reload();
             });
         },
@@ -621,24 +621,26 @@ function updateConfig(field, value, title) {
         confirmButtonClass: value == 1 ? "btn-success" : "btn-danger",
         confirmButtonText: "Sí, realizar cambio",
         cancelButtonText: "Cancelar",
-        closeOnConfirm: false
-    }, function() {
-        $.ajax({
-            url: "{{ route('grupos-corte.update-empresa-config') }}",
-            method: 'POST',
-            data: { 
-                _token: '{{ csrf_token() }}',
-                field: field,
-                value: value
-            },
-            success: function(response) {
-                swal("Actualizado", response.message, "success");
-                setTimeout(() => location.reload(), 1200);
-            },
-            error: function() {
-                swal("Error", "No se pudo actualizar la configuración.", "error");
-            }
-        });
+    }).then((result) => {
+        if (result.value) {
+            $.ajax({
+                url: "{{ route('grupos-corte.update-empresa-config') }}",
+                method: 'POST',
+                data: { 
+                    _token: '{{ csrf_token() }}',
+                    field: field,
+                    value: value
+                },
+                success: function(response) {
+                    swal("Actualizado", response.message, "success").then(() => {
+                        location.reload();
+                    });
+                },
+                error: function() {
+                    swal("Error", "No se pudo actualizar la configuración.", "error");
+                }
+            });
+        }
     });
 }
 </script>
