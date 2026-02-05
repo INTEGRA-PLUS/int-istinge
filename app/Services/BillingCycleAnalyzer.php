@@ -328,10 +328,11 @@ class BillingCycleAnalyzer
                     ];
                 } else if ($ultimaFactura->facturacion_automatica == 0) {
                     // Existe en el mes, pero es manual y no está marcada como mes_manual=1
+                    $fechaFormateada = Carbon::parse($ultimaFactura->fecha)->translatedFormat('j \d\e F - Y');
                     return [
                         'code' => 'manual_invoice_unflagged',
-                        'title' => 'Factura manual hoy sin marcar',
-                        'description' => "Se detectó una factura manual creada hoy (#{$ultimaFactura->nro}) pero no tiene marcado el atributo 'Factura del Mes'. Por esto el sistema no la vincula al ciclo.",
+                        'title' => 'Factura manual sin marcar',
+                        'description' => "Se detectó una factura manual creada en la fecha {$fechaFormateada} (fecha de la factura) pero no tiene marcado el atributo 'Factura del Mes'. Por esto el sistema no la vincula al ciclo.",
                         'color' => 'danger'
                     ];
                 }
