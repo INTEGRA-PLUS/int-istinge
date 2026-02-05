@@ -508,43 +508,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @if($cycleStats && isset($cycleStats['facturas']))
-                            @foreach($cycleStats['facturas'] as $factura)
-                            <tr>
-                                <td>{{ $factura->codigo ?? $factura->nro }}</td>
-                                <td>{{ $factura->nombre_cliente }}</td>
-                                <td>{{ $factura->contrato_nro }}</td>
-                                <td>{{ \Carbon\Carbon::parse($factura->fecha)->format('d-m-Y') }}</td>
-                                @php
-                                    $vencimiento = \Carbon\Carbon::parse($factura->vencimiento);
-                                    $isOverdue = $vencimiento->isPast() || $vencimiento->isToday();
-                                @endphp
-                                <td class="{{ $isOverdue ? 'text-danger font-weight-bold' : '' }}">
-                                    {{ $vencimiento->format('d-m-Y') }}
-                                </td>
-                                <td>${{ number_format($factura->totalAPI(1)->total ?? 0, 0, ',', '.') }}</td>
-                                <td class="text-center">
-                                    @if($factura->whatsapp == 1)
-                                        <i class="fab fa-whatsapp text-success fa-lg" title="Enviado"></i>
-                                    @else
-                                        <i class="fab fa-whatsapp text-secondary fa-lg" title="No enviado"></i>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($factura->estatus == 1)
-                                        <span class="badge badge-success">Abierta</span>
-                                    @else
-                                        <span class="badge badge-secondary">Cerrada</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <a href="{{ route('facturas.show', $factura->id) }}" target="_blank" class="btn btn-sm btn-outline-info">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            @endforeach
-                        @endif
+                        <!-- Data loaded via DataTables Server Side -->
                     </tbody>
                 </table>
             </div>
@@ -687,13 +651,34 @@ function showReasonDetails(reasonCode) {
 // Document ready
 $(document).ready(function() {
     // Inicializar DataTable con paginación
+    // Inicializar DataTable con paginación optimizada (Server Side)
     $('#facturasTable').DataTable({
+        processing: true,
+        serverSide: true,
         responsive: true,
         pageLength: 25,
+        ajax: {
+            url: "{{ route('grupos-corte.dt-generated-invoices') }}",
+            data: function (d) {
+                d.grupo_id = "{{ $grupo->id }}";
+                d.periodo = "{{ $periodo }}";
+            }
+        },
         language: {
             'url': '/vendors/DataTables/es.json'
         },
-        order: [[3, "desc"]]
+        order: [[3, "desc"]],
+        columns: [
+            { data: 0, name: 'codigo' },
+            { data: 1, name: 'nombre_cliente' },
+            { data: 2, name: 'contrato_nro' },
+            { data: 3, name: 'fecha' },
+            { data: 4, name: 'vencimiento' },
+            { data: 5, name: 'total' },
+            { data: 6, orderable: false, searchable: false },
+            { data: 7, name: 'estatus' },
+            { data: 8, orderable: false, searchable: false }
+        ]
     });
     
     // Recarga automática al cambiar período
