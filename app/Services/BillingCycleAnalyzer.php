@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v8 para analytics avanzados de numeración (proyección y detalles)
-        $cacheKey = "cycle_stats_v8_{$grupoCorteId}_{$periodo}";
+        // Añadimos v9 para filtro de status=1 y desglose de facturación
+        $cacheKey = "cycle_stats_v9_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -76,6 +76,7 @@ class BillingCycleAnalyzer
                 'facturas' => $facturasGeneradas,
                 'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
+                'missing_breakdown' => $missingAnalysis['missing_breakdown'],
                 'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count())
             ];
         });
@@ -140,6 +141,7 @@ class BillingCycleAnalyzer
             ->select('contracts.*', 'c.nombre as cli_nombre', 'c.apellido1 as cli_ap1', 'c.apellido2 as cli_ap2', 'c.nit as cli_nit')
             ->where('contracts.grupo_corte', $grupoCorteId)
             ->where('contracts.created_at', '<=', $fechaCiclo)
+            ->where('contracts.status', 1) // REQ: Solo contratos activos (status=1)
             ->get();
 
         return $contratos;
@@ -220,8 +222,31 @@ class BillingCycleAnalyzer
         return [
             'total' => $contratosSinFactura->count(),
             'reasons' => array_values($reasons),
-            'details' => $details
+            'details' => $details,
+            'missing_breakdown' => $this->calculateMissingBreakdown($contratosSinFactura)
         ];
+    }
+
+    /**
+     * Calcula el desglose de contratos por tipo de facturación
+     */
+    private function calculateMissingBreakdown($contratos)
+    {
+        $breakdown = [
+            'standard' => 0,
+            'electronic' => 0
+        ];
+
+        foreach ($contratos as $contrato) {
+            // Lógica basada en NumeracionFactura::tipoNumeracion
+            if (isset($contrato->facturacion) && $contrato->facturacion == 3) {
+                $breakdown['electronic']++;
+            } else {
+                $breakdown['standard']++;
+            }
+        }
+
+        return $breakdown;
     }
 
     /**

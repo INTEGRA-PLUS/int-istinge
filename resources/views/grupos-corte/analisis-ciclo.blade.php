@@ -301,8 +301,16 @@
     <div class="col-md-2 col-sm-4 mb-3">
         <div class="card stat-card danger h-100">
             <div class="card-body text-center p-3">
-                <h6 class="text-muted mb-2 small font-weight-bold">Faltantes</h6>
-                <h3 class="mb-0 text-danger">{{ $cycleStats['facturas_faltantes'] ?? 0 }}</h3>
+                <h6 class="text-muted mb-1 small font-weight-bold">Faltantes</h6>
+                <div class="d-flex justify-content-center align-items-baseline">
+                    <h3 class="mb-0 text-danger mr-2">{{ $cycleStats['facturas_faltantes'] ?? 0 }}</h3>
+                </div>
+                @if(isset($cycleStats['missing_breakdown']))
+                <div class="mt-2 text-left small border-top pt-1 text-muted">
+                    <div title="Facturación Estándar"><i class="fas fa-file-invoice"></i> Est: <b>{{ $cycleStats['missing_breakdown']['standard'] }}</b></div>
+                    <div title="Facturación Electrónica"><i class="fas fa-bolt"></i> Elec: <b>{{ $cycleStats['missing_breakdown']['electronic'] }}</b></div>
+                </div>
+                @endif
             </div>
         </div>
     </div>
