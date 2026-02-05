@@ -1058,11 +1058,12 @@ class GruposCorteController extends Controller
         }
 
         // Ordenamiento
-        $columns = ['codigo', 'nombre_cliente', 'contrato_nro', 'fecha', 'vencimiento', 'total', 'whatsapp', 'estatus'];
+        // Nota: 'total' (índice 5) se calcula en PHP, no se puede ordenar por SQL fácilmente.
+        $columns = ['codigo', 'nombre_cliente', 'contrato_nro', 'fecha', 'vencimiento', null, 'whatsapp', 'estatus'];
         if ($request->has('order') && isset($request->order[0])) {
             $colIndex = $request->order[0]['column'];
             $dir = $request->order[0]['dir'];
-            if (isset($columns[$colIndex])) {
+            if (isset($columns[$colIndex]) && $columns[$colIndex] !== null) {
                 $wrappedQuery->orderBy($columns[$colIndex], $dir);
             }
         } else {
@@ -1077,6 +1078,11 @@ class GruposCorteController extends Controller
 
         $mappedData = [];
         foreach ($data as $row) {
+            // Calcular total desde el modelo
+            // Nota: Esto hace 1 query extra por fila, pero es aceptable para paginación (10-25 items)
+            $facturaModel = \App\Model\Ingresos\Factura::find($row->id);
+            $total = $facturaModel ? ($facturaModel->totalAPI(1)->total ?? 0) : 0;
+
             // Procesar columnas
             
             // Fecha formato
@@ -1106,7 +1112,7 @@ class GruposCorteController extends Controller
                 $row->contrato_nro,
                 $fecha,
                 $vencHtml,
-                '$' . number_format($row->total, 0, ',', '.'),
+                '$' . number_format($total, 0, ',', '.'),
                 '<div class="text-center">'.$wppHtml.'</div>',
                 $estadoHtml,
                 $accionesHtml
