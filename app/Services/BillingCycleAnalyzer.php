@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v13 para permitir la acción de marcado en lote
-        $cacheKey = "cycle_stats_v13_{$grupoCorteId}_{$periodo}";
+        // Añadimos v14 para detección de duplicados (excedentes)
+        $cacheKey = "cycle_stats_v14_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -87,6 +87,7 @@ class BillingCycleAnalyzer
                 'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
                 'missing_breakdown' => $missingAnalysis['missing_breakdown'],
+                'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas),
                 'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count())
             ];
         });
@@ -619,5 +620,47 @@ class BillingCycleAnalyzer
         }
 
         return Factura::whereIn('id', $idsToFix)->update(['factura_mes_manual' => 1]);
+    }
+
+    /**
+     * Analiza si existen contratos con múltiples facturas en el mismo ciclo
+     * 
+     * @param Collection $facturasGeneradas
+     * @return array
+     */
+    private function getDuplicateInvoicesAnalysis($facturasGeneradas)
+    {
+        $duplicates = [];
+        $totalExcedentes = 0;
+        
+        // Agrupar por contrato_id
+        $grouped = $facturasGeneradas->groupBy('contrato_id');
+        
+        foreach ($grouped as $contratoId => $facturas) {
+            if ($facturas->count() > 1) {
+                $totalExcedentes += ($facturas->count() - 1);
+                $duplicates[] = [
+                    'contrato_id' => $contratoId,
+                    'contrato_nro' => $facturas->first()->contrato_nro,
+                    'cliente_nombre' => $facturas->first()->nombre_cliente,
+                    'cantidad' => $facturas->count(),
+                    'facturas' => $facturas->map(function($f) {
+                        return [
+                            'id' => $f->id,
+                            'nro' => $f->nro,
+                            'fecha' => $f->fecha,
+                            'total' => $f->total,
+                            'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
+                        ];
+                    })->toArray()
+                ];
+            }
+        }
+        
+        return [
+            'total_excedentes' => $totalExcedentes,
+            'contratos_duplicados' => $duplicates,
+            'conteo_duplicados' => count($duplicates)
+        ];
     }
 }
