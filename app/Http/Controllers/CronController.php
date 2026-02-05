@@ -385,12 +385,19 @@ class CronController extends Controller
                         }else{
                             $mesUltimaFactura = date('Y-m',strtotime($ultimaFactura->fecha));
                         }
-
                         //Validacion nueva: mirar si la ultima factura generada tiene la opcion de factura del mes actual.
                         if($mesActualFactura == $mesUltimaFactura){
                             if($ultimaFactura->factura_mes_manual == 1){
                                 continue; //salte esta iteracion entonces por que es la factura del mes manual.
                             }
+
+                            //Esto lo hacemos por que si estoy ejecutando un periodo de 2 de enero y la factura manual es del 4 pues lo mas logico es
+                            //que esa factura seal periodo ya que esto nos esta trayendo demasiadas fallas.
+                            elseif(date('d',strtotime($fecha)) <= date('d',strtotime($ultimaFactura->fecha))){
+                                DB::table('factura')->where('id',$ultimaFactura->id)->update(['factura_mes_manual'=>1]);
+                                continue;
+                            }
+
                         }
 
                         if($ultimaFactura->factura_mes_manual == null){
