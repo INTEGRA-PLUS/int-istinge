@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v18 para soporte de tabla pivot facturas_contratos
-        $cacheKey = "cycle_stats_v18_{$grupoCorteId}_{$periodo}";
+        // Añadimos v19 para corregir error de propiedad tipo en historial
+        $cacheKey = "cycle_stats_v19_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -639,14 +639,14 @@ class BillingCycleAnalyzer
         $f1 = DB::table('factura')
             ->where('contrato_id', $contrato->id)
             ->where('estatus', '!=', 2) // Excepto anuladas
-            ->select('id', 'fecha', 'nro', 'codigo', 'factura_mes_manual', 'facturacion_automatica')
+            ->select('id', 'fecha', 'nro', 'codigo', 'factura_mes_manual', 'facturacion_automatica', 'tipo', 'created_at', 'estatus', 'vencimiento')
             ->get();
             
         $f2 = DB::table('factura')
             ->join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
             ->where('fc.contrato_nro', $contrato->nro)
             ->where('factura.estatus', '!=', 2)
-            ->select('factura.id', 'factura.fecha', 'factura.nro', 'factura.codigo', 'factura.factura_mes_manual', 'factura.facturacion_automatica')
+            ->select('factura.id', 'factura.fecha', 'factura.nro', 'factura.codigo', 'factura.factura_mes_manual', 'factura.facturacion_automatica', 'factura.tipo', 'factura.created_at', 'factura.estatus', 'factura.vencimiento')
             ->get();
             
         return $f1->concat($f2)->sortByDesc('fecha')->first();
