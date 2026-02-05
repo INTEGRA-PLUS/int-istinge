@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v3 al cache key para incluir nombres completos, nit y corregir prioridad de validación
-        $cacheKey = "cycle_stats_v3_{$grupoCorteId}_{$periodo}";
+        // Añadimos v4 para incluir validación de numeración y fallback de problema no identificado
+        $cacheKey = "cycle_stats_v4_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -132,12 +132,10 @@ class BillingCycleAnalyzer
             $state[] = 'disabled';
         }
 
-        // Obtener contratos del grupo que estaban activos en la fecha del ciclo + info del cliente
+        // Obtener contratos del grupo (incluyendo deshabilitados para poder diagnosticar)
         $contratos = Contrato::join('contactos as c', 'c.id', '=', 'contracts.client_id')
             ->select('contracts.*', 'c.nombre as cli_nombre', 'c.apellido1 as cli_ap1', 'c.apellido2 as cli_ap2', 'c.nit as cli_nit')
             ->where('contracts.grupo_corte', $grupoCorteId)
-            ->where('contracts.status', 1)
-            ->whereIn('contracts.state', $state)
             ->where('contracts.created_at', '<=', $fechaCiclo)
             ->get();
 
@@ -334,39 +332,50 @@ class BillingCycleAnalyzer
             ];
         }
         
-        // 6. Validación: Estado deshabilitado (líneas 268-270, 284)
-        $state = ['enabled'];
-        if ($empresa->factura_contrato_off == 1) {
-            $state[] = 'disabled';
+        // 6. Validación: Estado deshabilitado (líneas 153-155 del CronController)
+        // El 'state' puede ser 'enabled' o 'disabled'. Si es 'disabled' y no se permite facturar contratos OFF.
+        if ($contrato->state != 'enabled' && $empresa->factura_contrato_off != 1) {
+            return [
+                'code' => 'contract_disabled_off',
+                'title' => 'El contrato tiene estado deshabilitado',
+                'description' => 'El contrato está deshabilitado y la empresa no permite facturar contratos OFF (factura_contrato_off = 0)',
+                'color' => 'danger',
+                'action_required' => 'enable_off_billing'
+            ];
         }
         
-        if (!in_array($contrato->state, $state)) {
+        // 7. Validación: Status inactivo (columna status != 1)
+        if ($contrato->status != 1) {
             return [
-                'code' => 'contract_disabled',
-                'title' => 'Estado deshabilitado',
-                'description' => 'El contrato está deshabilitado y la empresa no permite facturar contratos deshabilitados',
+                'code' => 'status_inactive',
+                'title' => 'El contrato está inactivo (Status)',
+                'description' => 'El contrato tiene el campo status diferente de 1',
                 'color' => 'danger'
             ];
         }
         
-        // 7. Validación: Status inactivo (línea 281)
-        if ($contrato->status != 1) {
+        // 8. Validación COMPLETADA (Numeración): (Líneas 415-417 CronController)
+        // Obtenemos el número depende del contrato que tenga asignado (con fact electrónica o estándar).
+        $nro_numeracion = NumeracionFactura::tipoNumeracion($contrato);
+        if (is_null($nro_numeracion)) {
             return [
-                'code' => 'status_inactive',
-                'title' => 'El contrato tiene estado deshabilitado',
-                'description' => 'El contrato tiene estado deshabilitado',
-                'color' => 'danger'
+                'code' => 'no_valid_numbering',
+                'title' => 'Numeración no asignada o vencida',
+                'description' => 'El contrato no tiene una numeración de facturas asignada, está vencida o no es preferida',
+                'color' => 'danger',
+                'action_required' => 'fix_numbering'
             ];
         }
         
         // 8. Validación removida (movida al inicio por prioridad)
         
-        // Si no coincide con ninguna validación conocida, es "Otra razón"
+        // Si llegamos aquí y no tiene factura, es un problema no identificado pero cumple condiciones básicas
         return [
-            'code' => 'other',
-            'title' => 'Otra razón',
-            'description' => 'No se pudo determinar la razón específica por la lógica actual',
-            'color' => 'secondary'
+            'code' => 'unidentified_issue',
+            'title' => 'Problema no identificado',
+            'description' => 'El contrato cumple con las condiciones básicas para generar factura pero el sistema no detectó una razón específica de omisión. Se recomienda intentar la generación manual.',
+            'color' => 'secondary',
+            'action_required' => 'manual_generation'
         ];
     }
 

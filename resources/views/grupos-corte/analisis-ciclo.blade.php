@@ -118,6 +118,41 @@
     </div>
 </div>
 
+<!-- Acciones a Realizar (Sugerencias Dinámicas) -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 font-weight-bold text-dark"><i class="fas fa-magic text-primary"></i> Acciones a realizar</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap" id="dynamicActionsContainer">
+                    <!-- Botón: Generar Facturas Faltantes (Siempre visible si hay faltantes) -->
+                    @if($cycleStats['facturas_faltantes'] > 0)
+                    <button class="btn btn-primary mr-3 mb-2" onclick="confirmarGeneracionManual()">
+                        <i class="fas fa-play-circle"></i> Generar Facturas faltantes del periodo {{ $cycleStats['dia_esperado'] ?: '1' }} {{ \Carbon\Carbon::parse($periodo)->locale('es')->isoFormat('MMMM') }}
+                    </button>
+                    @endif
+
+                    <!-- Botón: Habilitar facturación OFF (Sólo si hay contratos afectados por esto) -->
+                    <div id="actionFixOffBilling" style="display: none;">
+                        <button class="btn btn-outline-danger mr-3 mb-2" onclick="habilitarFacturacionOff()">
+                            <i class="fas fa-toggle-on"></i> Habilitar la creación de facturas en contratos deshabilitados
+                        </button>
+                    </div>
+
+                    <!-- Botón: Corregir Numeración (Dinámico via JS) -->
+                    <div id="actionFixNumbering" style="display: none;">
+                        <a href="{{ route('numeracion-factura.index') }}" class="btn btn-outline-warning mr-3 mb-2">
+                            <i class="fas fa-list-ol"></i> Ir a corregir numeraciones vencidas/no asignadas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Reporte de Cronología de Creación -->
 <div class="row mb-4">
     <div class="col-md-6 mb-3">
@@ -365,6 +400,40 @@
     </div>
 </div>
 
+<!-- Modal de Confirmación para Generación Manual -->
+<div class="modal fade" id="confirmGenerationModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title font-weight-bold"><i class="fas fa-exclamation-triangle"></i> Confirmar Generación</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-file-invoice-dollar fa-4x text-primary opacity-25"></i>
+                </div>
+                <h5>¿Estás seguro de iniciar la generación manual?</h5>
+                <p class="text-muted">Se intentarán crear las <strong>{{ $cycleStats['facturas_faltantes'] }}</strong> facturas faltantes para el día de facturación del grupo en el periodo seleccionado.</p>
+                <div class="alert alert-info text-left small">
+                    <ul class="mb-0">
+                        <li>Solo se procesarán contratos del grupo <strong>{{ $grupo->nombre }}</strong>.</li>
+                        <li>Se usará la fecha de proceso: <strong>{{ $cycleStats['fecha_ciclo'] }}</strong>.</li>
+                        <li>Contratos que ya tienen factura en este mes serán omitidos automáticamente.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary px-4" id="btnRunGeneration" onclick="ejecutarGeneracionManual()">
+                    <i class="fas fa-check"></i> Sí, Generar Ahora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -447,6 +516,74 @@ $(document).ready(function() {
             $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
         });
     });
+
+    // Analizar razones para mostrar acciones adicionales
+    const hasOffBillingIssue = cycleStats.missing_reasons.some(r => r.code === 'contract_disabled_off');
+    const hasNumberingIssue = cycleStats.missing_reasons.some(r => r.code === 'no_valid_numbering');
+
+    if (hasOffBillingIssue) $('#actionFixOffBilling').show();
+    if (hasNumberingIssue) $('#actionFixNumbering').show();
 });
+
+function confirmarGeneracionManual() {
+    $('#confirmGenerationModal').modal('show');
+}
+
+function ejecutarGeneracionManual() {
+    const btn = $('#btnRunGeneration');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
+
+    $.ajax({
+        url: "{{ route('grupos-corte.generar-facturas-faltantes') }}",
+        method: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}',
+            idGrupo: grupoId,
+            periodo: '{{ $periodo }}'
+        },
+        success: function(response) {
+            swal({
+                title: "¡Proceso Finalizado!",
+                text: response.message,
+                type: "success",
+                confirmButtonClass: "btn-success",
+                confirmButtonText: "Ok",
+            }, function() {
+                location.reload();
+            });
+        },
+        error: function(xhr) {
+            const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error desconocido';
+            swal("Error", msg, "error");
+            btn.prop('disabled', false).html('<i class="fas fa-check"></i> Sí, Generar Ahora');
+        }
+    });
+}
+
+function habilitarFacturacionOff() {
+    swal({
+        title: "¿Habilitar facturación OFF?",
+        text: "Esto permitirá que se generen facturas para todos los contratos deshabilitados de la empresa.",
+        type: "warning",
+        showCancelButton: true,
+        confirmButtonClass: "btn-danger",
+        confirmButtonText: "Sí, habilitar",
+        cancelButtonText: "Cancelar",
+        closeOnConfirm: false
+    }, function() {
+        $.ajax({
+            url: "{{ route('grupos-corte.habilitar-facturacion-off') }}",
+            method: 'POST',
+            data: { _token: '{{ csrf_token() }}' },
+            success: function(response) {
+                swal("Actualizado", response.message, "success");
+                setTimeout(() => location.reload(), 1500);
+            },
+            error: function() {
+                swal("Error", "No se pudo actualizar la configuración.", "error");
+            }
+        });
+    });
+}
 </script>
 @endsection

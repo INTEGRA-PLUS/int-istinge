@@ -1734,6 +1734,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/analisis-ciclo/{idGrupo}/{periodo?}', 'GruposCorteController@analisisCiclo')->name('grupos-corte.analisis-ciclo');
 		Route::get('/api/{idGrupo}/ciclos-disponibles', 'GruposCorteController@getCiclosDisponibles')->name('grupos-corte.ciclos-disponibles');
 		Route::get('/api/{idGrupo}/cycle-data/{periodo}', 'GruposCorteController@getCycleData')->name('grupos-corte.cycle-data');
+		Route::post('/api/habilitar-facturacion-off', 'GruposCorteController@habilitarFacturacionOff')->name('grupos-corte.habilitar-facturacion-off');
+		Route::post('/api/generar-facturas-faltantes', 'GruposCorteController@generarFacturasFaltantes')->name('grupos-corte.generar-facturas-faltantes');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');

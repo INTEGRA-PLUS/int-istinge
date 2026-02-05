@@ -13,7 +13,8 @@ use DB;
 use Session;
 
 use App\Mikrotik;
-use App\User;
+use App\Empresa;
+use App\Http\Controllers\CronController;
 use App\Contrato;
 use App\GrupoCorte;
 use App\Campos;
