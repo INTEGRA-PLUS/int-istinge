@@ -431,7 +431,11 @@
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <h6 class="font-weight-bold mb-0 text-dark">{{ $dup['cliente_nombre'] }}</h6>
+                        <h6 class="font-weight-bold mb-0 text-dark">
+                            <a href="{{ route('contactos.show', $dup['cliente_id']) }}" target="_blank" class="text-primary text-decoration-none">
+                                {{ $dup['cliente_nombre'] }} <i class="fas fa-external-link-alt small"></i>
+                            </a>
+                        </h6>
                         <small class="text-muted">Contrato: #{{ $dup['contrato_nro'] }}</small>
                     </div>
                     <span class="badge badge-danger">{{ $dup['cantidad'] }} facturas</span>
@@ -440,8 +444,14 @@
                     <ul class="list-unstyled mb-0">
                         @foreach($dup['facturas'] as $f)
                         <li class="d-flex justify-content-between mb-1">
-                            <span><i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }} ({{ $f['tipo_operacion'] }})</span>
-                            <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
+                            <div>
+                                <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
+                                <small class="text-muted ml-1">({{ \Carbon\Carbon::parse($f['fecha'])->translatedFormat('d-M') }})</small>
+                            </div>
+                            <div class="text-right">
+                                <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
+                                <div class="small text-muted" style="font-size: 0.75rem;">{{ $f['tipo_operacion'] }}</div>
+                            </div>
                         </li>
                         @endforeach
                     </ul>
@@ -770,15 +780,18 @@ function ejecutarGeneracionManual() {
     const btn = $('#btnRunGeneration');
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
-    $.ajax({
+    let timeoutId;
+    let ajaxRequest = $.ajax({
         url: "{{ route('grupos-corte.generar-facturas-faltantes') }}",
         method: 'POST',
+        timeout: 30000, // 30 segundos
         data: {
             _token: '{{ csrf_token() }}',
             idGrupo: grupoId,
             periodo: '{{ $periodo }}'
         },
         success: function(response) {
+            clearTimeout(timeoutId);
             swal({
                 title: "¡Proceso Finalizado!",
                 text: response.message,
@@ -789,13 +802,39 @@ function ejecutarGeneracionManual() {
                 location.reload();
             });
         },
-        error: function(xhr) {
+        error: function(xhr, status, error) {
+            clearTimeout(timeoutId);
+            
+            // Si es un timeout de AJAX
+            if (status === 'timeout') {
+                swal({
+                    title: "Proceso en Ejecución",
+                    html: "El proceso está ejecutándose en segundo plano y puede tardar unos minutos más.<br><br>Puedes recargar la página para verificar el progreso o seguir esperando.",
+                    type: "info",
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-sync"></i> Recargar Página',
+                    cancelButtonText: '<i class="fas fa-clock"></i> Seguir Esperando',
+                    confirmButtonClass: "btn-primary",
+                    cancelButtonClass: "btn-secondary",
+                }).then((result) => {
+                    if (result.value) {
+                        location.reload();
+                    } else {
+                        // Extender el timeout y reintentar
+                        btn.html('<i class="fas fa-spinner fa-spin"></i> Esperando respuesta...');
+                        ejecutarGeneracionManual();
+                    }
+                });
+                return;
+            }
+            
+            // Otros errores
             const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error desconocido';
             swal({
                 title: "Atención",
                 text: "Hubo un problema con la respuesta del servidor (" + msg + "), pero es posible que el proceso se haya ejecutado en segundo plano. Te recomendamos recargar para verificar.",
                 type: "warning",
-                confirmButtonText: "Recargar Págna",
+                confirmButtonText: "Recargar Página",
                 showCancelButton: true,
                 cancelButtonText: "Cerrar"
             }).then((result) => {
