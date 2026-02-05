@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v5 para corregir el bug de falsos positivos en "Status inactivo"
-        $cacheKey = "cycle_stats_v5_{$grupoCorteId}_{$periodo}";
+        // Añadimos v6 para corrección de detección de facturas manuales (fecha factura vs created_at)
+        $cacheKey = "cycle_stats_v6_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -317,18 +317,21 @@ class BillingCycleAnalyzer
             ];
         }
         
-        // 5. Validación: Ya se creó factura hoy (líneas 422-424)
-        $hoy = $fechaCiclo;
-        if (DB::table('facturas_contratos')
-            ->whereDate('created_at', $hoy)
-            ->where('contrato_nro', $contrato->nro)
-            ->where('is_cron', 1)
-            ->first()) {
+        // 5. Validación: Ya se creó factura para esta fecha (líneas 422-424)
+        // Corregido: Validamos contra la fecha de la factura, no el created_at, para soportar ejecuciones manuales/tardías
+        $existeFactura = DB::table('facturas_contratos')
+            ->join('factura', 'factura.id', '=', 'facturas_contratos.factura_id')
+            ->whereDate('factura.fecha', $fechaCiclo)
+            ->where('facturas_contratos.contrato_nro', $contrato->nro)
+            ->where('facturas_contratos.is_cron', 1)
+            ->first();
+
+        if ($existeFactura) {
             return [
                 'code' => 'duplicate_today',
-                'title' => 'Factura duplicada del día',
-                'description' => 'Ya se creó una factura automática para este contrato en la fecha del ciclo',
-                'color' => 'secondary'
+                'title' => 'Factura ya generada',
+                'description' => 'Ya existe una factura automática para este contrato con la fecha del ciclo',
+                'color' => 'success' // Cambiado a success porque significa que SÍ funcionó
             ];
         }
         
