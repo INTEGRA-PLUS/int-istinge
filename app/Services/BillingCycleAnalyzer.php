@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v2 al cache key para invalidar versiones anteriores con el bug de fecha_factura=0
-        $cacheKey = "cycle_stats_v2_{$grupoCorteId}_{$periodo}";
+        // Añadimos v3 al cache key para incluir nombres completos, nit y corregir prioridad de validación
+        $cacheKey = "cycle_stats_v3_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -132,9 +132,9 @@ class BillingCycleAnalyzer
             $state[] = 'disabled';
         }
 
-        // Obtener contratos del grupo que estaban activos en la fecha del ciclo
+        // Obtener contratos del grupo que estaban activos en la fecha del ciclo + info del cliente
         $contratos = Contrato::join('contactos as c', 'c.id', '=', 'contracts.client_id')
-            ->select('contracts.*')
+            ->select('contracts.*', 'c.nombre as cli_nombre', 'c.apellido1 as cli_ap1', 'c.apellido2 as cli_ap2', 'c.nit as cli_nit')
             ->where('contracts.grupo_corte', $grupoCorteId)
             ->where('contracts.status', 1)
             ->whereIn('contracts.state', $state)
@@ -208,7 +208,8 @@ class BillingCycleAnalyzer
                 'contrato_nro' => $contrato->nro,
                 'contrato_id' => $contrato->id,
                 'cliente_id' => $contrato->client_id,
-                'cliente_nombre' => $contrato->cliente()->nombre ?? 'N/A',
+                'cliente_nombre' => trim("{$contrato->cli_nombre} {$contrato->cli_ap1} {$contrato->cli_ap2}"),
+                'cliente_nit' => $contrato->cli_nit,
                 'razon_code' => $razon['code'],
                 'razon_title' => $razon['title'],
                 'razon_description' => $razon['description']
@@ -228,6 +229,16 @@ class BillingCycleAnalyzer
      */
     private function analyzeContractValidations($contrato, $fechaCiclo, $empresa, $grupoCorte)
     {
+        // 0. Validación PRIORITARIA: Grupo de corte deshabilitado (línea 264)
+        if ($grupoCorte->status != 1) {
+            return [
+                'code' => 'billing_group_disabled',
+                'title' => 'Grupo de corte deshabilitado',
+                'description' => 'El grupo de corte no está activo',
+                'color' => 'danger'
+            ];
+        }
+
         // 1. Validación: Primera factura del contrato (líneas 336-359)
         $creacion_contrato = Carbon::parse($contrato->created_at);
         $dia_creacion_contrato = $creacion_contrato->day;
@@ -348,15 +359,7 @@ class BillingCycleAnalyzer
             ];
         }
         
-        // 8. Validación: Grupo de corte deshabilitado (línea 264)
-        if ($grupoCorte->status != 1) {
-            return [
-                'code' => 'billing_group_disabled',
-                'title' => 'Grupo de corte deshabilitado',
-                'description' => 'El grupo de corte no está activo',
-                'color' => 'danger'
-            ];
-        }
+        // 8. Validación removida (movida al inicio por prioridad)
         
         // Si no coincide con ninguna validación conocida, es "Otra razón"
         return [

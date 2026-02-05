@@ -337,11 +337,20 @@
                 </button>
             </div>
             <div class="modal-body p-0">
-                <div class="table-responsive">
+                <div class="px-3 py-2 bg-light border-bottom">
+                    <div class="input-group input-group-sm">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        </div>
+                        <input type="text" id="modalSearch" class="form-control" placeholder="Buscar por nombre, identificación o contrato...">
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                     <table class="table table-striped mb-0" id="reasonDetailsTable">
                         <thead class="bg-secondary text-white">
                             <tr>
                                 <th>Contrato</th>
+                                <th>Identificación</th>
                                 <th>Cliente</th>
                                 <th>Descripción</th>
                             </tr>
@@ -374,19 +383,18 @@ function showReasonDetails(reasonCode) {
     tbody.innerHTML = '';
     
     details.forEach(detail => {
-        // Mejoramos el wording y estilo para contratos deshabilitados
         let description = detail.razon_description;
         if (reasonCode === 'status_inactive') {
             description = '<span class="text-danger-bold">El contrato tiene estado deshabilitado</span>';
         }
 
-        // Generamos dinámicamente las rutas usando route() o una base URL segura
         const contratoUrl = "{{ route('contratos.show', ':id') }}".replace(':id', detail.contrato_id);
         const clienteUrl = "{{ route('contactos.show', ':id') }}".replace(':id', detail.cliente_id);
 
         const row = `
             <tr>
                 <td><a href="${contratoUrl}" target="_blank" class="font-weight-bold">${detail.contrato_nro}</a></td>
+                <td>${detail.cliente_nit || 'N/A'}</td>
                 <td><a href="${clienteUrl}" target="_blank">${detail.cliente_nombre}</a></td>
                 <td>${description}</td>
             </tr>
@@ -394,6 +402,8 @@ function showReasonDetails(reasonCode) {
         tbody.innerHTML += row;
     });
     
+    // Limpiar buscador y mostrar modal
+    document.getElementById('modalSearch').value = '';
     $('#reasonDetailsModal').modal('show');
 }
 
@@ -428,6 +438,14 @@ $(document).ready(function() {
             url = url.replace('ID_PLACEHOLDER', selectedId).replace('PERIODO_PLACEHOLDER', periodo);
             window.location.href = url;
         }
+    });
+
+    // Buscador en tiempo real para el modal
+    $('#modalSearch').on('keyup', function() {
+        const value = $(this).val().toLowerCase();
+        $("#reasonDetailsBody tr").filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
     });
 });
 </script>
