@@ -674,7 +674,7 @@ $(document).ready(function() {
             { data: 2, name: 'contrato_nro' },
             { data: 3, name: 'fecha' },
             { data: 4, name: 'vencimiento' },
-            { data: 5, name: 'total' },
+            { data: 5, name: 'total', orderable: false, searchable: false },
             { data: 6, orderable: false, searchable: false },
             { data: 7, name: 'estatus' },
             { data: 8, orderable: false, searchable: false }

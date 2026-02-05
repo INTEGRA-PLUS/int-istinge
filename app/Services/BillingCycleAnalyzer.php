@@ -723,7 +723,6 @@ class BillingCycleAnalyzer
                 'factura.vencimiento', 
                 'factura.estatus', 
                 'factura.whatsapp', 
-                'factura.total',
                 'cli.nombre as nombre_cliente', 
                 'c.nro as contrato_nro'
             )
@@ -750,7 +749,6 @@ class BillingCycleAnalyzer
                 'factura.vencimiento', 
                 'factura.estatus', 
                 'factura.whatsapp', 
-                'factura.total',
                 'cli.nombre as nombre_cliente', 
                 'c.nro as contrato_nro'
             )
