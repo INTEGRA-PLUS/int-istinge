@@ -251,13 +251,23 @@ class BillingCycleAnalyzer
 
             // 6. NUEVA VALIDACIÓN: Factura manual existente pero no marcada
             // Buscamos si existe alguna factura en este periodo para este contrato que NO haya sido contada
-            // es decir, facturacion_automatica=0 y factura_mes_manual=0
+            // Intentamos primero por contrato_id directo
             $facturaManualNoMarcada = Factura::where('contrato_id', $contrato->id)
                 ->whereRaw("DATE_FORMAT(fecha, '%Y-%m') = ?", [$periodo])
-                ->where('estatus', 1) // Solo facturas activas (no anuladas)
-                ->where('facturacion_automatica', 0)
+                ->where('estatus', 1) 
                 ->where('factura_mes_manual', 0)
                 ->first();
+
+            // Si no se encuentra, intentamos por la tabla pivote (facturas_contratos)
+            if (!$facturaManualNoMarcada) {
+                $facturaManualNoMarcada = Factura::join('facturas_contratos', 'factura.id', '=', 'facturas_contratos.factura_id')
+                    ->where('facturas_contratos.contrato_nro', $contrato->nro)
+                    ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$periodo])
+                    ->where('factura.estatus', 1)
+                    ->where('factura.factura_mes_manual', 0)
+                    ->select('factura.*')
+                    ->first();
+            }
 
             if ($facturaManualNoMarcada) {
                 $details[] = [
