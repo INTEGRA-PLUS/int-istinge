@@ -615,13 +615,19 @@ class GruposCorteController extends Controller
             }
         }
 
+        // Obtener lista completa de grupos para la navegación
+        $grupos = GrupoCorte::where('empresa', Auth::user()->empresa)
+            ->where('status', 1)
+            ->get();
+
         return view('grupos-corte.analisis-ciclo', compact(
             'grupo', 
             'periodo', 
             'cycleStats', 
             'historicalData', 
             'promedioFacturas', 
-            'variacionMesAnterior'
+            'variacionMesAnterior',
+            'grupos'
         ));
     }
 
