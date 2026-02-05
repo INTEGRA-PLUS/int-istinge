@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v6 para corrección de detección de facturas manuales (fecha factura vs created_at)
-        $cacheKey = "cycle_stats_v6_{$grupoCorteId}_{$periodo}";
+        // Añadimos v7 para incluir health check de numeraciones
+        $cacheKey = "cycle_stats_v7_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -73,7 +73,8 @@ class BillingCycleAnalyzer
                     : 0,
                 'facturas' => $facturasGeneradas,
                 'missing_reasons' => $missingAnalysis['reasons'],
-                'missing_details' => $missingAnalysis['details']
+                'missing_details' => $missingAnalysis['details'],
+                'numbering_health' => $this->checkNumberingHealth()
             ];
         });
     }
@@ -428,5 +429,93 @@ class BillingCycleAnalyzer
         }
         
         return array_reverse($ciclos); // Más recientes primero
+    }
+
+    /**
+     * Verifica la salud de las numeraciones de facturación
+     * Requisito: Debe haber numeración preferida (tipo 1 y 2) activa y no próxima a vencerse/agotarse
+     */
+    public function checkNumberingHealth()
+    {
+        $empresaId = 1; // Asumimos empresa 1 o Auth::user()->empresa si estuviera disponible en contexto
+        if (auth()->check()) {
+            $empresaId = auth()->user()->empresa;
+        }
+
+        $health = [
+            'standard' => ['status' => 'ok', 'message' => 'Numeración Estándar OK'],
+            'electronic' => ['status' => 'ok', 'message' => 'Numeración Electrónica OK']
+        ];
+
+        // 1. Numeración Estándar (Tipo 1)
+        $estandar = NumeracionFactura::where('empresa', $empresaId)
+            ->where('preferida', 1)
+            ->where('estado', 1)
+            ->where('tipo', 1)
+            ->where('num_equivalente', 0)
+            ->where('nomina', 0)
+            ->first();
+
+        if (!$estandar) {
+            $health['standard'] = ['status' => 'error', 'message' => 'No hay numeración estándar preferida activa'];
+        } else {
+            // Verificar vencimiento (menos de 30 días)
+            $diasVencimiento = Carbon::now()->diffInDays(Carbon::parse($estandar->hasta), false);
+            if ($diasVencimiento < 0) {
+                $health['standard'] = ['status' => 'error', 'message' => 'Numeración estándar vencida'];
+            } elseif ($diasVencimiento < 30) {
+                $health['standard'] = ['status' => 'warning', 'message' => "Numeración estándar vence en $diasVencimiento días"];
+            }
+
+            // Verificar agotamiento (consecutivo)
+            if ($estandar->inicio >= $estandar->final) {
+                $health['standard'] = ['status' => 'error', 'message' => 'Numeración estándar agotada'];
+            } else {
+                $restantes = $estandar->final - $estandar->inicio;
+                // Alerta si quedan menos de 50 facturas o menos del 5% del rango
+                $rangoTotal = $estandar->final - $estandar->inicioverdadero;
+                $porcentajeRestante = ($rangoTotal > 0) ? ($restantes / $rangoTotal) * 100 : 0;
+                
+                if ($restantes < 50 || $porcentajeRestante < 5) {
+                    $health['standard'] = ['status' => 'warning', 'message' => "Quedan solo $restantes facturas estándar"];
+                }
+            }
+        }
+
+        // 2. Numeración Electrónica (Tipo 2)
+        $electronica = NumeracionFactura::where('empresa', $empresaId)
+            ->where('preferida', 1)
+            ->where('estado', 1)
+            ->where('tipo', 2)
+            ->where('num_equivalente', 0)
+            ->where('nomina', 0)
+            ->first();
+
+        if (!$electronica) {
+            $health['electronic'] = ['status' => 'error', 'message' => 'No hay numeración electrónica preferida activa'];
+        } else {
+             // Verificar vencimiento (menos de 30 días)
+             $diasVencimiento = Carbon::now()->diffInDays(Carbon::parse($electronica->hasta), false);
+             if ($diasVencimiento < 0) {
+                 $health['electronic'] = ['status' => 'error', 'message' => 'Numeración electrónica vencida'];
+             } elseif ($diasVencimiento < 30) {
+                 $health['electronic'] = ['status' => 'warning', 'message' => "Numeración electrónica vence en $diasVencimiento días"];
+             }
+ 
+             // Verificar agotamiento
+             if ($electronica->inicio >= $electronica->final) {
+                 $health['electronic'] = ['status' => 'error', 'message' => 'Numeración electrónica agotada'];
+             } else {
+                 $restantes = $electronica->final - $electronica->inicio;
+                 $rangoTotal = $electronica->final - $electronica->inicioverdadero;
+                 $porcentajeRestante = ($rangoTotal > 0) ? ($restantes / $rangoTotal) * 100 : 0;
+                 
+                 if ($restantes < 50 || $porcentajeRestante < 5) {
+                     $health['electronic'] = ['status' => 'warning', 'message' => "Quedan solo $restantes facturas electrónicas"];
+                 }
+             }
+        }
+
+        return $health;
     }
 }
