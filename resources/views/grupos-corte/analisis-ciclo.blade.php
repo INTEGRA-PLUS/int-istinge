@@ -307,8 +307,8 @@
                 </div>
                 @if(isset($cycleStats['missing_breakdown']))
                 <div class="mt-2 text-left small border-top pt-1 text-muted">
-                    <div title="Facturación Estándar"><i class="fas fa-file-invoice"></i> Est: <b>{{ $cycleStats['missing_breakdown']['standard'] }}</b></div>
-                    <div title="Facturación Electrónica"><i class="fas fa-bolt"></i> Elec: <b>{{ $cycleStats['missing_breakdown']['electronic'] }}</b></div>
+                    <div title="Falta por crear {{ $cycleStats['missing_breakdown']['standard'] }} facturas estandar"><i class="fas fa-file-invoice"></i> Estándar: <b>{{ $cycleStats['missing_breakdown']['standard'] }}</b></div>
+                    <div title="Falta por crear {{ $cycleStats['missing_breakdown']['electronic'] }} numeraciones de facturas electronicas."> Electrónica: <b>{{ $cycleStats['missing_breakdown']['electronic'] }}</b></div>
                 </div>
                 @endif
             </div>
