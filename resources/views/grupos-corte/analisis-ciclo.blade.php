@@ -955,7 +955,9 @@ function eliminarFacturaDuplicada(facturaId, contratoId) {
                 method: 'POST',
                 data: {
                     _token: '{{ csrf_token() }}',
-                    factura_id: facturaId
+                    factura_id: facturaId,
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}'
                 },
                 success: function(response) {
                     swal({
