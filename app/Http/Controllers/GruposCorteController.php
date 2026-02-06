@@ -806,8 +806,7 @@ class GruposCorteController extends Controller
             $marcadas = $analyzer->marcarFacturasMesLote($idGrupo, $periodo);
             
             // Invalidar caché
-            $cacheKey = "cycle_stats_v13_{$idGrupo}_{$periodo}";
-            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            $analyzer->clearCycleCache($idGrupo, $periodo);
             
             return response()->json([
                 'success' => true, 
@@ -864,8 +863,8 @@ class GruposCorteController extends Controller
 
             // Limpiar caché
             if ($request->has('idGrupo') && $request->has('periodo')) {
-                $cacheKey = "cycle_stats_v19_{$request->idGrupo}_{$request->periodo}";
-                \Illuminate\Support\Facades\Cache::forget($cacheKey);
+                $analyzer = new \App\Services\BillingCycleAnalyzer();
+                $analyzer->clearCycleCache($request->idGrupo, $request->periodo);
             }
 
             return response()->json([
@@ -971,8 +970,7 @@ class GruposCorteController extends Controller
             }
 
             // Limpiar caché
-            $cacheKey = "cycle_stats_v19_{$idGrupo}_{$periodo}";
-            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            $analyzer->clearCycleCache($idGrupo, $periodo);
 
             $mensaje = "Se eliminaron {$eliminadas} facturas duplicadas correctamente";
             if ($noPudoEliminar > 0) {
@@ -1009,8 +1007,8 @@ class GruposCorteController extends Controller
             ], 400);
         }
         
-        $cacheKey = "cycle_stats_v19_{$idGrupo}_{$periodo}";
-        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+        $analyzer = new \App\Services\BillingCycleAnalyzer();
+        $analyzer->clearCycleCache($idGrupo, $periodo);
         
         return response()->json([
             'success' => true,
@@ -1162,6 +1160,10 @@ class GruposCorteController extends Controller
             
             if ($ids->count() > 0) {
                 Factura::whereIn('id', $ids)->update(['factura_mes_manual' => 1]);
+                
+                // Limpiar caché
+                $analyzer = new \App\Services\BillingCycleAnalyzer();
+                $analyzer->clearCycleCache($idGrupo, $periodo);
             }
                 
         } catch (\Exception $e) {

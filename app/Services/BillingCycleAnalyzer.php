@@ -14,6 +14,15 @@ use Illuminate\Support\Facades\Cache;
 class BillingCycleAnalyzer
 {
     /**
+     * Limpiar caché de un ciclo específico
+     */
+    public function clearCycleCache($grupoCorteId, $periodo)
+    {
+        $cacheKey = "cycle_stats_v22_{$grupoCorteId}_{$periodo}";
+        Cache::forget($cacheKey);
+    }
+
+    /**
      * Obtiene estadísticas completas de un ciclo de facturación
      * 
      * @param int $grupoCorteId
@@ -22,8 +31,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v21 para forzar recálculo con la lógica de facturas mes siguiente
-        $cacheKey = "cycle_stats_v21_{$grupoCorteId}_{$periodo}";
+        // Añadimos v22 para forzar recálculo con la lógica de facturas mes siguiente
+        $cacheKey = "cycle_stats_v22_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
