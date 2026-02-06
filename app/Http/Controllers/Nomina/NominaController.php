@@ -3455,14 +3455,50 @@ class NominaController extends Controller
 
     public function eliminarNominaPeriodo($id)
     {
-        $nominasPeriodos = NominaPeriodos::where('fk_idnomina', $id)->get()->keyBy('id')->keys()->all();
-        NominaCuentasGeneralDetalle::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
-        NominaDetalleUno::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
-        NominaCalculoFijo::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
-        NominaPrestacionSocial::where('fk_idnomina', $id)->delete();
-        NominaPeriodos::where('fk_idnomina', $id)->delete();
-        Nomina::where('id', $id)->delete();
+        $nominaBase = Nomina::find($id);
 
-        return redirect()->back()->with('success', 'Se ha eliminado la nómina correctamente');
+        if (!$nominaBase) {
+            return redirect()->back()->with('error', 'No se encontró la nómina base.');
+        }
+
+        // Obtener todas las nóminas del mismo periodo y empresa
+        $nominas = Nomina::where('periodo', $nominaBase->periodo)
+            ->where('year', $nominaBase->year)
+            ->where('fk_idempresa', $nominaBase->fk_idempresa)
+            ->get();
+
+        $countEliminadas = 0;
+        $countOmitidas = 0;
+
+        foreach ($nominas as $nomina) {
+            // Verificar si el estado impide la eliminación
+            // 1= emitida, 3= anulada emitida, 5= ajuste emitido, 6=eliminada
+            if (in_array($nomina->emitida, [Nomina::EMITIDA, Nomina::ANULADA_EMITIDA, Nomina::AJUSTE_EMITIDO, Nomina::ELIMINADA])) {
+                $countOmitidas++;
+                continue;
+            }
+
+            $idNomina = $nomina->id;
+            $nominasPeriodos = NominaPeriodos::where('fk_idnomina', $idNomina)->get()->keyBy('id')->keys()->all();
+            
+            NominaCuentasGeneralDetalle::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+            NominaDetalleUno::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+            NominaCalculoFijo::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+            NominaPrestacionSocial::where('fk_idnomina', $idNomina)->delete();
+            NominaPeriodos::where('fk_idnomina', $idNomina)->delete();
+            $nomina->delete();
+
+            $countEliminadas++;
+        }
+
+        if ($countEliminadas > 0) {
+            $message = 'Se han eliminado ' . $countEliminadas . ' nóminas correctamente.';
+            if ($countOmitidas > 0) {
+                $message .= ' ' . $countOmitidas . ' nóminas no se eliminaron porque ya han sido emitidas.';
+            }
+            return redirect()->back()->with('success', $message);
+        } else {
+            return redirect()->back()->with('error', 'No se eliminó ninguna nómina. Es posible que todas ya hayan sido emitidas.');
+        }
     }
 }
