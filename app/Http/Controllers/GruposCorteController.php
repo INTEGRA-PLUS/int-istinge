@@ -1140,14 +1140,28 @@ class GruposCorteController extends Controller
             // Asegurar que el periodo sea válido
             $fecha = Carbon::createFromFormat('Y-m', $periodo);
             
-            // Update masivo
-            Factura::join('contracts', 'contracts.id', '=', 'factura.contrato_id')
+            // Obtener IDs de facturas a actualizar
+            // Buscamos por fecha de factura en el mes, O por fecha de suspensión en el mes
+            // Esto cubre facturas generadas a finales del mes anterior para el ciclo actual
+            $ids = Factura::join('contracts', 'contracts.id', '=', 'factura.contrato_id')
                 ->where('contracts.grupo_corte', $idGrupo)
-                ->whereYear('factura.fecha', $fecha->year)
-                ->whereMonth('factura.fecha', $fecha->month)
+                ->where(function($query) use ($fecha) {
+                    $query->where(function($q) use ($fecha) {
+                        $q->whereYear('factura.fecha', $fecha->year)
+                          ->whereMonth('factura.fecha', $fecha->month);
+                    })
+                    ->orWhere(function($q) use ($fecha) {
+                        $q->whereYear('factura.suspension', $fecha->year)
+                          ->whereMonth('factura.suspension', $fecha->month);
+                    });
+                })
                 ->where('factura.facturacion_automatica', 1)
                 ->whereNull('factura.factura_mes_manual')
-                ->update(['factura.factura_mes_manual' => 1]);
+                ->pluck('factura.id');
+            
+            if ($ids->count() > 0) {
+                Factura::whereIn('id', $ids)->update(['factura_mes_manual' => 1]);
+            }
                 
         } catch (\Exception $e) {
             Log::error("Error updating factura_mes_manual: " . $e->getMessage());
