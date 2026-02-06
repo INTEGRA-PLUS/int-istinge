@@ -1024,8 +1024,6 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 
 		Route::get('/facturaasociada', 'NotascreditoController@facturaAsociada');
-        
-        Route::get('empresa/nomina/periodos-eliminar/{id}', 'Nomina\NominaController@eliminarNominaPeriodo')->name('nomina.eliminar.periodo');
 	});
 	Route::resource('notascredito', 'NotascreditoController');
 

@@ -205,6 +205,7 @@
                             {{-- @endif --}}
                             {{-- @if(isset($_SESSION['permisos']['157']) || auth()->user()->username == 'gestordepartes') --}}
                             <a href="{{ route('nomina-dian.emitir', ['periodo' => $periodo->periodo, 'year'=> $periodo->year]) }}" title="Emitir Nómina"><i class="fas fa-sitemap color"></i></a>
+                            <a href="{{route('nomina.eliminar.periodo', $periodo->id)}}" title="Eliminar Nómina" onclick="return confirm('¿Está seguro de eliminar este periodo de nómina? esta acción no se puede deshacer');"><i class="fas fa-trash color"></i></a>
                             {{-- @endif --}}
                         </td>
                     </tr>
