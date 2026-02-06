@@ -153,6 +153,11 @@
                     </button>
                     @endif
 
+                    <!-- Botón: Eliminar Facturación del Ciclo -->
+                    <button class="btn btn-outline-danger mr-3 mb-2" onclick="eliminarCiclo()">
+                        <i class="fas fa-trash-alt"></i> Eliminar facturación del ciclo
+                    </button>
+
                     <!-- Botón: Refrescar Análisis -->
                     <button class="btn btn-info mr-3 mb-2" onclick="refrescarAnalisis()">
                         <i class="fas fa-sync-alt"></i> Refrescar Análisis
@@ -1091,6 +1096,65 @@ function eliminarTodasDuplicadas() {
                     swal({
                         title: 'Error',
                         text: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Eliminar facturación del ciclo
+ */
+function eliminarCiclo() {
+    swal({
+        title: '¿Eliminar facturación del ciclo?',
+        html: 'Esta acción <strong>eliminará todas las facturas</strong> generadas para este ciclo y restaurará la numeración.<br><br><span class="text-danger font-weight-bold">¡Esta acción NO se puede deshacer!</span>',
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: '<i class="fas fa-trash-alt"></i> Sí, eliminar todo',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar'
+    }).then((result) => {
+        if (result.value) {
+            swal({
+                title: 'Eliminando...',
+                text: 'Por favor espere mientras eliminamos las facturas y restablecemos la numeración.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                onOpen: () => {
+                    swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('grupos-corte.eliminar-ciclo') }}",
+                method: 'POST',
+                data: {
+                    idGrupo: grupoId,
+                    periodo: '{{ $periodo }}',
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    swal({
+                        title: 'Éxito',
+                        html: response.message,
+                        type: 'success'
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    let message = 'Error desconocido';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    swal({
+                        title: 'Error',
+                        html: message,
                         type: 'error'
                     });
                 }
