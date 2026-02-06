@@ -3453,4 +3453,16 @@ class NominaController extends Controller
 
     }
 
+    public function eliminarNominaPeriodo($id)
+    {
+        $nominasPeriodos = NominaPeriodos::where('fk_idnomina', $id)->get()->keyBy('id')->keys()->all();
+        NominaCuentasGeneralDetalle::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+        NominaDetalleUno::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+        NominaCalculoFijo::whereIn('fk_nominaperiodo', $nominasPeriodos)->delete();
+        NominaPrestacionSocial::where('fk_idnomina', $id)->delete();
+        NominaPeriodos::where('fk_idnomina', $id)->delete();
+        Nomina::where('id', $id)->delete();
+
+        return redirect()->back()->with('success', 'Se ha eliminado la nómina correctamente');
+    }
 }
