@@ -147,11 +147,16 @@ class BillingCycleAnalyzer
             $state[] = 'disabled';
         }
 
+        // Calcular fin de mes del periodo analizado
+        $yearMonth = explode('-', $periodo);
+        $fechaFinMes = Carbon::create($yearMonth[0], $yearMonth[1], 1)->endOfMonth()->format('Y-m-d');
+
         // Obtener contratos del grupo (incluyendo deshabilitados para poder diagnosticar)
         $contratos = Contrato::join('contactos as c', 'c.id', '=', 'contracts.client_id')
             ->select('contracts.*', 'c.nombre as cli_nombre', 'c.apellido1 as cli_ap1', 'c.apellido2 as cli_ap2', 'c.nit as cli_nit')
             ->where('contracts.grupo_corte', $grupoCorteId)
-            ->where('contracts.created_at', '<=', $fechaCiclo)
+            // Usamos fin de mes para incluir contratos creados DESPUÉS del día de corte pero en el mismo mes
+            ->where('contracts.created_at', '<=', $fechaFinMes)
             ->where('contracts.status', 1) // REQ: Solo contratos activos (status=1)
             ->get();
 
