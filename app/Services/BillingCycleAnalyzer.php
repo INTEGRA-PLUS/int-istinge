@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v20 para forzar recálculo con la nueva lógica de contratos fin de mes
-        $cacheKey = "cycle_stats_v20_{$grupoCorteId}_{$periodo}";
+        // Añadimos v21 para forzar recálculo con la lógica de facturas mes siguiente
+        $cacheKey = "cycle_stats_v21_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -169,6 +169,7 @@ class BillingCycleAnalyzer
     private function getGeneratedInvoices($grupoCorteId, $fechaCiclo)
     {
         $yearMonth = Carbon::parse($fechaCiclo)->format('Y-m');
+        $nextMonth = Carbon::parse($fechaCiclo)->addMonth()->format('Y-m');
         
         // 1. Facturas vinculadas directamente por contrato_id
         $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
@@ -176,7 +177,15 @@ class BillingCycleAnalyzer
             ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
-            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+            ->where(function ($query) use ($yearMonth, $nextMonth) {
+                // Opción A: Es del mes del ciclo
+                $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+                    // Opción B: Es del mes siguiente pero marcada manual (facturación vencida/tardía)
+                    ->orWhere(function ($q) use ($nextMonth) {
+                        $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
+                          ->where('factura.factura_mes_manual', 1);
+                    });
+            })
             ->where(function($query) {
                 $query->where('factura.facturacion_automatica', 1)
                       ->orWhere(function($q) {
@@ -193,7 +202,15 @@ class BillingCycleAnalyzer
             ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
-            ->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+            ->where(function ($query) use ($yearMonth, $nextMonth) {
+                // Opción A: Es del mes del ciclo
+                $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+                    // Opción B: Es del mes siguiente pero marcada manual (facturación vencida/tardía)
+                    ->orWhere(function ($q) use ($nextMonth) {
+                        $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
+                          ->where('factura.factura_mes_manual', 1);
+                    });
+            })
             ->where(function($query) {
                 $query->where('factura.facturacion_automatica', 1)
                       ->orWhere(function($q) {
