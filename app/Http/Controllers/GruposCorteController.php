@@ -590,6 +590,9 @@ class GruposCorteController extends Controller
             $periodo = Carbon::now()->format('Y-m');
         }
 
+        // Actualizar facturas automáticas que deberían ser del mes
+        $this->fixFacturasMesManual($idGrupo, $periodo);
+
         $analyzer = new BillingCycleAnalyzer();
         
         // Obtener estadísticas del ciclo
@@ -1125,5 +1128,29 @@ class GruposCorteController extends Controller
             'recordsFiltered' => $filteredRecords,
             'data' => $mappedData
         ]);
+    }
+
+    /**
+     * Actualiza factura_mes_manual = 1 para facturas automáticas del grupo y periodo
+     * que no tengan el flag establecido.
+     */
+    private function fixFacturasMesManual($idGrupo, $periodo)
+    {
+        try {
+            // Asegurar que el periodo sea válido
+            $fecha = Carbon::createFromFormat('Y-m', $periodo);
+            
+            // Update masivo
+            Factura::join('contracts', 'contracts.id', '=', 'factura.contrato_id')
+                ->where('contracts.grupo_corte', $idGrupo)
+                ->whereYear('factura.fecha', $fecha->year)
+                ->whereMonth('factura.fecha', $fecha->month)
+                ->where('factura.facturacion_automatica', 1)
+                ->whereNull('factura.factura_mes_manual')
+                ->update(['factura.factura_mes_manual' => 1]);
+                
+        } catch (\Exception $e) {
+            Log::error("Error updating factura_mes_manual: " . $e->getMessage());
+        }
     }
 }
