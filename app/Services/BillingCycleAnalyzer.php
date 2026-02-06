@@ -22,8 +22,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v19 para corregir error de propiedad tipo en historial
-        $cacheKey = "cycle_stats_v19_{$grupoCorteId}_{$periodo}";
+        // Añadimos v20 para forzar recálculo con la nueva lógica de contratos fin de mes
+        $cacheKey = "cycle_stats_v20_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
