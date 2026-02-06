@@ -887,7 +887,7 @@ class NominaController extends Controller
             if (isset($vPeriodo)) {
                 $tipo = $vPeriodo->periodo;
             } else {
-                return back()->with('error', 'Error al general la nomina del mes ' . $periodo);
+                return back()->with('error', 'Error al general la nomina del mes ' . $vPeriodo);
             }
         }
 
