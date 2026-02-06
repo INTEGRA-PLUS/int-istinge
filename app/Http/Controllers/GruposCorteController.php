@@ -771,7 +771,8 @@ class GruposCorteController extends Controller
             'aplicar_saldofavor', 
             'cron_fact_abiertas', 
             'factura_contrato_off', 
-            'prorrateo'
+            'prorrateo',
+            'contrato_factura_pro'
         ];
         
         if (!in_array($field, $validFields)) {

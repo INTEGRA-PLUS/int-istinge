@@ -7061,10 +7061,9 @@ class FacturasController extends Controller{
                     continue;
                 }
 
-                // Validar que no tenga pagos ni abonos
-                $tienePagos = IngresosFactura::where('factura', $factura->id)->exists();
-                if($tienePagos){
-                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene pagos registrados";
+                // Validar que no tenga pagos
+                if($factura->pagado() != 0){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene pagos registrados o abonos";
                     continue;
                 }
 
@@ -7075,9 +7074,9 @@ class FacturasController extends Controller{
                     continue;
                 }
 
-                // Para facturas tipo 2 (electrónicas), validar que no esté emitida
-                if($factura->tipo == 2 && $factura->emitida == 1){
-                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque está emitida";
+                // Validar que no esté emitida (legal ante la dian)
+                if($factura->emitida == 1){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque ya es legal ante la DIAN (está emitida)";
                     continue;
                 }
 
@@ -7100,6 +7099,9 @@ class FacturasController extends Controller{
 
                     // Eliminar notas_factura relacionadas
                     DB::table('notas_factura')->where('factura', $factura->id)->delete();
+
+                    //Elimnar registros del CRM
+                    CRM::where('factura', $factura->id)->delete();
 
                     // Eliminar promesas de pago asociadas a la factura
                     PromesaPago::where('factura', $factura->id)->delete();

@@ -213,6 +213,17 @@
                     </button>
                     @endif
 
+                    <!-- Prorrateo en Contratos Nuevos -->
+                    @if($empresa->contrato_factura_pro == 1)
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('contrato_factura_pro', 0, '¿Deshabilitar creación de facturas con prorrateo en contratos nuevos?')">
+                        <i class="fas fa-file-invoice-dollar"></i> Deshabilitar creación de facturas con prorrateo en contratos nuevos
+                    </button>
+                    @else
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('contrato_factura_pro', 1, '¿Habilitar creación de facturas con prorrateo en contratos nuevos?')">
+                        <i class="fas fa-file-invoice-dollar"></i> Habilitar creación de facturas con prorrateo en contratos nuevos
+                    </button>
+                    @endif
+
                     <div id="actionFixNumbering" style="display: none;">
                         <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning mr-3 mb-2">
                             <i class="fas fa-list-ol"></i> Ir a corregir numeraciones vencidas/no asignadas
