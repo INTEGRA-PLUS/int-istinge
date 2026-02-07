@@ -660,7 +660,12 @@
                                     </tr>
                                     <tr>
                                         <td><strong>Base de cálculo:</strong></td>
-                                        <td>30 días (mes completo)</td>
+                                        <td>30 días (Mes Comercial)</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" class="text-muted small" style="font-style: italic;">
+                                            * El cálculo asume todos los meses de 30 días.
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>

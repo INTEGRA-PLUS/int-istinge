@@ -1698,26 +1698,46 @@ public function forma_pago()
                     $fechaFin = $yearContrato . "-" . $mesContrato . "-" .  $grupo->fecha_corte;
                 }
 
-                $diasCobrados = $fechaContrato->diffInDays($fechaFin)+$diasdeMas +1;
-                //le agregamos un dia mas por que se debe cobrar desde el mismo dia de instalacion
-
                 /*
-                    si la fecha no está entre el rango de la creacion del contrato y la fecha de corte entonces cojemos esos dias de
-                    entre: creacion contrato difff fecha corte + el siguiente dia de la fecha de corte hasta la fecha de la factura
+                 * Lógica de días comerciales (30/360) para prorrateo
+                 * El usuario requiere que para un inicio el día 8 y corte el 1, sean 22 días.
+                 * Esto coincide con 30 - 8 = 22 (excluyendo el día de inicio o usando base 30 simple).
+                 */
+                
+                $d1 = $fechaContrato->day;
+                $m1 = $fechaContrato->month;
+                $y1 = $fechaContrato->year;
 
-                    si entra al if entonces ya tenemos la suma de los dias hasta la fecha de corte ahora sumamos los otros días del siguiente
-                    dia
-                */
-                    if($diaFac < $diaContrato && $diaFac < $grupo->fecha_corte && $grupo->fecha_corte > $diaContrato){
-                            $fechaInicioNuevoCorte = Carbon::parse($fechaFin)->addDay();
-                            $diasFacturaNuevo = $fechaInicioNuevoCorte->diffInDays($this->fecha);
-                            $diasCobrados+=$diasFacturaNuevo;
+                $d2 = $fechaFin->day;
+                $m2 = $fechaFin->month;
+                $y2 = $fechaFin->year;
+
+                // Ajustes para base 30 y febrero
+                if ($d1 == 31 || ($m1 == 2 && $d1 >= 28)) $d1 = 30;
+                if ($d2 == 31 || ($m2 == 2 && $d2 >= 28)) $d2 = 30;
+
+                // Ajuste especial: Si el corte es el día 1, se considera el fin del mes anterior (día 30)
+                if ($grupo->fecha_corte == 1) {
+                    // Si la fecha fin cae en día 1, la movemos al 30 del mes anterior
+                    if ($fechaFin->day == 1) {
+                        $fechaAux = $fechaFin->copy()->subDay();
+                        $d2 = 30;
+                        $m2 = $fechaAux->month;
+                        $y2 = $fechaAux->year;
                     }
+                }
 
+                // Cálculo 30/360
+                $diasCobrados = (($y2 - $y1) * 360) + (($m2 - $m1) * 30) + ($d2 - $d1);
 
+                // Asegurar que no sea negativo ni exceda 30 si es solo un mes de diferencia
+                if ($diasCobrados < 0) $diasCobrados = 0;
+                
+                // Si el cálculo da 30, perfecto. Si da más de 30, se ajustará abajo.
+                
                 if($diasCobrados == 0){return 30;}
                 if($diasCobrados > 30 && $diasdeMas==0){$diasCobrados=30;}
-                $diasCobrados=$diasCobrados;
+                // $diasCobrados=$diasCobrados; // Redundante
             }else{
 
                 //Validamos si viene desde ingreso la factura
