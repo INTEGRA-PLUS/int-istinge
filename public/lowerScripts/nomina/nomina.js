@@ -1,15 +1,15 @@
-function validateDianNomina(id, rutasuccess, codigo,tipo) {
+function validateDianNomina(id, rutasuccess, codigo, tipo) {
 
     let messageTipo = "";
-    if(tipo == 1){
+    if (tipo == 1) {
         messageTipo = "¿Emitir Nómina a la Dian?"
-    }else if(tipo == 2){
+    } else if (tipo == 2) {
         messageTipo = "¿Emitir Ajuste de Nómina?"
-    }else if(tipo==3){
+    } else if (tipo == 3) {
         messageTipo = "¿Emitir Nómina de cancelación?"
     }
 
-    $titleswal = codigo + '<br>'+ messageTipo;
+    $titleswal = codigo + '<br>' + messageTipo;
     $textswal = "No podrás retroceder esta acción";
     $confirmswal = "Si, emitir";
 
@@ -43,19 +43,21 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
             })
 
             if (window.location.pathname.split("/")[1] === "software") {
-                var url='/software/empresa';
-                }else{
+                var url = '/software/empresa';
+            } else {
                 var url = '/empresa';
             }
 
             $.ajax({
-                url: url+ '/nominadian/validatedian',
+                url: url + '/nominadian/validatedian',
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'get',
                 dataType: 'json',
-                data: { id: id,
-                tipo: tipo },
-                success: function(response) {
+                data: {
+                    id: id,
+                    tipo: tipo
+                },
+                success: function (response) {
 
                     console.log(response);
 
@@ -67,6 +69,11 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
                     if (response == 'nomina-vencida') {
                         $mensaje = "Para emitir a la Dian se debe tener un inicio en la numeración de la factura.";
                         $footer = "<a target='_blank' href='/empresa/configuracion/numeraciones_nomina_electronica/lista'>Configura tus numeraciones</a>";
+                        $img = "gif-tuerca.gif";
+                        messageValidateDian($mensaje, $footer, $img);
+                    } else if (response == 'nomina-sin-numeracion') {
+                        $mensaje = "No existe una numeración configurada para este tipo de nómina. Debes crear una numeración activa para poder emitir.";
+                        $footer = "<a target='_blank' href='/empresa/configuracion/numeraciones_nomina_electronica/lista'>Configurar Numeración</a>";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
                     } else if (response == 'nomina-consecutivo-limite') {
@@ -84,17 +91,17 @@ function validateDianNomina(id, rutasuccess, codigo,tipo) {
                         $footer = "";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
-                    }else if (response == 'error-numeracion') {
+                    } else if (response == 'error-numeracion') {
                         $mensaje = "Se debe escoger una numeración para poder emitir.";
                         $footer = "";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
-                    }else if(response == 'eventos-rapidos'){
+                    } else if (response == 'eventos-rapidos') {
                         $mensaje = "Ya se emitió un evento hace muy poco tiempo, intente nuevamente.";
                         $footer = "";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
-                    }else if (response.statusCode == 409 || response.statusCode == 400 || response.statusCode == 500) {
+                    } else if (response.statusCode == 409 || response.statusCode == 400 || response.statusCode == 500) {
 
                         motivo = "";
                         i = 1;
