@@ -43,10 +43,44 @@
 .opacity-25 {
     opacity: 0.25;
 }
+@keyframes pulse-warning {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
+.pulse-animation {
+    animation: pulse-warning 2s infinite;
+}
+.border-left-warning {
+    border-left: 5px solid #ffc107 !important;
+}
 </style>
 @endsection
 
 @section('content')
+
+<!-- Alerta de Inconsistencia (Hidden by default) -->
+<div class="row mb-4" id="inconsistencyAlert" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-warning border-left-warning shadow-sm bg-white">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mr-4"></i>
+                <div>
+                    <h4 class="alert-heading font-weight-bold text-dark">¡Atención! Datos Desactualizados</h4>
+                    <p class="mb-1 text-dark">
+                        El reporte indica que hay <strong>0 facturas generadas</strong>, pero el sistema ha detectado que <strong>sí existen facturas</strong> en la base de datos para este ciclo.
+                    </p>
+                    <p class="mb-0 text-muted small">Esto ocurre cuando la información en caché es antigua y no refleja los cambios recientes.</p>
+                </div>
+                <div class="ml-auto">
+                    <button class="btn btn-warning font-weight-bold shadow-sm pulse-animation" onclick="refrescarAnalisis()">
+                        <i class="fas fa-sync-alt border-right border-dark pr-2 mr-2"></i> REFRESCAR REPORTE AHORA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Header con Selectores de Navegación -->
 <div class="row mb-4">
@@ -680,6 +714,18 @@ $(document).ready(function() {
             'url': '/vendors/DataTables/es.json'
         },
         order: [[3, "desc"]],
+        drawCallback: function(settings) {
+            var api = this.api();
+            var recordsTotal = api.page.info().recordsTotal;
+            
+            // Lógica de detección de inconsistencia:
+            // Si el reporte (caché) dice 0 generadas, pero el DataTable (BD real) trae registros
+            if (cycleStats && parseInt(cycleStats.facturas_generadas) === 0 && recordsTotal > 0) {
+                $('#inconsistencyAlert').slideDown();
+                // Resaltar también el botón en la barra de acciones
+                $('button[onclick="refrescarAnalisis()"]').removeClass('btn-info').addClass('btn-warning pulse-animation font-weight-bold');
+            }
+        },
         columns: [
             { data: 0, name: 'codigo' },
             { data: 1, name: 'nombre_cliente' },
