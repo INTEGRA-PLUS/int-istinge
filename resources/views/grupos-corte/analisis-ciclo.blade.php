@@ -294,18 +294,14 @@
     <div class="col-md-2 col-sm-4 mb-3">
         <div class="card stat-card info h-100">
             <div class="card-body text-center p-3">
-                <h6 class="text-muted mb-2 small font-weight-bold">Contratos Totales</h6>
-                <h3 class="mb-1 text-info">{{ $cycleStats['total_contratos'] ?? 0 }}</h3>
-                <div class="d-flex justify-content-around border-top pt-2 mt-2">
-                    <div class="text-center">
-                        <small class="text-muted d-block small" style="font-size: 0.7rem;">Prorrateo</small>
-                        <span class="font-weight-bold text-dark small">{{ $cycleStats['prorrateo_stats']['con_prorrateo'] ?? 0 }}</span>
-                    </div>
-                    <div class="text-center border-left pl-2">
-                        <small class="text-muted d-block small" style="font-size: 0.7rem;">Sin Prorrateo</small>
-                        <span class="font-weight-bold text-dark small">{{ $cycleStats['prorrateo_stats']['sin_prorrateo'] ?? 0 }}</span>
-                    </div>
+                <h6 class="text-muted mb-1 small font-weight-bold">Contratos Totales</h6>
+                <h3 class="mb-0 text-info">{{ $cycleStats['total_contratos'] ?? 0 }}</h3>
+                @if(isset($cycleStats['prorrateo_stats']))
+                <div class="mt-2 text-left small border-top pt-1 text-muted">
+                    <div>Prorrateo: <b>{{ $cycleStats['prorrateo_stats']['con_prorrateo'] ?? 0 }}</b></div>
+                    <div>Sin Prorrateo: <b>{{ $cycleStats['prorrateo_stats']['sin_prorrateo'] ?? 0 }}</b></div>
                 </div>
+                @endif
             </div>
         </div>
     </div>
