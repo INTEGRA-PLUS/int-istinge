@@ -283,7 +283,8 @@ class CronController extends Controller
                 'contracts.state', 'contracts.fecha_corte', 'contracts.fecha_suspension', 'contracts.facturacion',
                 'contracts.plan_id', 'contracts.descuento', 'c.nombre', 'c.nit', 'c.celular', 'c.telefono1',
                 'c.saldo_favor','contracts.created_at','contracts.fact_primer_mes',
-                'e.terminos_cond', 'e.notas_fact', 'contracts.servicio_tv', 'contracts.factura_individual','contracts.nro')
+                'e.terminos_cond', 'e.notas_fact', 'contracts.servicio_tv', 
+                'contracts.factura_individual','contracts.nro','contracts.prorrateo')
                 ->where('contracts.grupo_corte',$grupo_corte->id)->
                 where('contracts.status',1)->
                 // whereIn('contracts.client_id',[645])->
@@ -714,7 +715,7 @@ class CronController extends Controller
                                         }
 
                                         //>>>>Posible aplicación de Prorrateo al total<<<<//
-                                        if($empresa->prorrateo == 1){
+                                        if($contrato->prorrateo == 1){
                                             $dias = $factura->diasCobradosProrrateo();
                                             //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
                                             //Se agrego la solucion de que sea menor.

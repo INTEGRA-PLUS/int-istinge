@@ -2410,6 +2410,10 @@ class Controller extends BaseController
 
     public static function createFacturaProrrateo($contrato, $facturaInicio = null){
 
+        if ($contrato->prorrateo == 0) {
+            return false;
+        }
+
         // Obtener empresa del contrato
         $empresaId = $contrato->empresa ?? 1;
         $fecha = Carbon::now()->format('Y-m-d');
