@@ -1155,6 +1155,7 @@ class ContratosController extends Controller
             }
 
             $contrato = new Contrato();
+            $contrato->prorrateo                 = $request->prorrateo;
             $contrato->plan_id                 = $request->plan_id;
             $contrato->nro                     = $nro_contrato;
             $contrato->servicio                = $this->normaliza($servicio) . '-' . $nro_contrato;
@@ -1267,10 +1268,15 @@ class ContratosController extends Controller
             }
 
 
+            // Handle tipo_suspension_no toggle
             if ($request->tipo_suspension_no == 1) {
                 $contrato->tipo_nosuspension = 1;
                 $contrato->fecha_desde_nosuspension = $request->fecha_desde_nosuspension;
                 $contrato->fecha_hasta_nosuspension = $request->fecha_hasta_nosuspension;
+            } else {
+                $contrato->tipo_nosuspension = 0;
+                $contrato->fecha_desde_nosuspension = null;
+                $contrato->fecha_hasta_nosuspension = null;
             }
 
             if ($request->factura_individual) {
@@ -1596,7 +1602,8 @@ class ContratosController extends Controller
             'contracts.dt_item_hasta',
             'contracts.pago_siigo_contrato',
             'contracts.cajanap_id',
-            'contracts.cajanap_puerto'
+            'contracts.cajanap_puerto',
+            'contracts.prorrateo'
         )
             ->where('contracts.id', $id)->where('contracts.empresa', Auth::user()->empresa)->first();
 
@@ -2025,6 +2032,7 @@ class ContratosController extends Controller
                     }
                     $contrato->grupo_corte = $request->grupo_corte;
                     $contrato->facturacion = $request->facturacion;
+                    $contrato->prorrateo = $request->prorrateo;
 
                     /*$descripcion .= ($contrato->fecha_corte == $request->fecha_corte) ? '' : '<i class="fas fa-check text-success"></i> <b>Cambio Fecha de Corte</b> de '.$contrato->fecha_corte.' a '.$request->fecha_corte.'<br>';
                     $contrato->fecha_corte = $request->fecha_corte;*/
@@ -2224,10 +2232,15 @@ class ContratosController extends Controller
                         $contrato->factura_individual = $request->factura_individual;
                     }
 
+                    // Handle tipo_suspension_no toggle
                     if ($request->tipo_suspension_no == 1) {
                         $contrato->tipo_nosuspension = 1;
                         $contrato->fecha_desde_nosuspension = $request->fecha_desde_nosuspension;
                         $contrato->fecha_hasta_nosuspension = $request->fecha_hasta_nosuspension;
+                    } else {
+                        $contrato->tipo_nosuspension = 0;
+                        $contrato->fecha_desde_nosuspension = null;
+                        $contrato->fecha_hasta_nosuspension = null;
                     }
 
                     if ($request->oficina) {

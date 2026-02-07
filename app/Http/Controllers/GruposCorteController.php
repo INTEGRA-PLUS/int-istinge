@@ -1256,7 +1256,7 @@ class GruposCorteController extends Controller
                 if ($numeracion) {
                     // Buscar el máximo número (consecutivo) actualmente en uso para esta resolución
                     $maxNumero = Factura::where('empresa', $empresa)
-                        ->where('numeracion_factura', $numeracionId)
+                        ->where('numeracion', $numeracionId)
                         // Incluir anuladas? El usuario quiere "ultimo numero creado". 
                         // Si anuladas consumen numero, maxNumero las tendrá.
                         // estatus=2 es anulada.

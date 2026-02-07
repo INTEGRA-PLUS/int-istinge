@@ -2161,8 +2161,10 @@ class ConfiguracionController extends Controller
     if($empresa){
         if($request->prorrateo == 0){
           $empresa->prorrateo = 1;
+          DB::table('contracts')->where('empresa', $empresa->id)->update(['prorrateo' => 1]);
         }else{
           $empresa->prorrateo = 0;
+          DB::table('contracts')->where('empresa', $empresa->id)->update(['prorrateo' => 0]);
         }
         $empresa->save();
         return $empresa->prorrateo;
