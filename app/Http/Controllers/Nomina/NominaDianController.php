@@ -678,7 +678,13 @@ class NominaDianController extends Controller
                 ->exists();
 
             if(!$existeConfiguracion){
-                 if(request()->ajax() || request()->lote){
+                 if(request()->ajax() && !request()->lote){
+                    // Flash error al Blade y retornar respuesta para reload en JS
+                    session()->flash('error', 'No existe una numeración configurada para este tipo de nómina. Por favor configure una nueva.');
+                    return ['reload' => true];
+                 }
+
+                 if(request()->lote){
                     return response()->json([
                         'success' => false,
                         'status' => 200,
