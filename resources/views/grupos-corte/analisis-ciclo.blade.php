@@ -209,25 +209,15 @@
 
                     <!-- Prorrateo -->
                     @if($empresa->prorrateo == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('prorrateo', 0, '¿Deshabilitar Prorrateo?')">
+                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="prorrateoExtra()">
                         <i class="fas fa-calendar-minus"></i> Deshabilitar Prorrateo
                     </button>
                     @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('prorrateo', 1, '¿Habilitar Prorrateo?')">
+                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="prorrateoExtra()">
                         <i class="fas fa-calendar-plus"></i> Habilitar Prorrateo
                     </button>
                     @endif
-
-                    <!-- Prorrateo en Contratos Nuevos -->
-                    @if($empresa->contrato_factura_pro == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('contrato_factura_pro', 0, '¿Deshabilitar creación de facturas con prorrateo en contratos nuevos?')">
-                        <i class="fas fa-file-invoice-dollar"></i> Deshabilitar creación de facturas con prorrateo en contratos nuevos
-                    </button>
-                    @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('contrato_factura_pro', 1, '¿Habilitar creación de facturas con prorrateo en contratos nuevos?')">
-                        <i class="fas fa-file-invoice-dollar"></i> Habilitar creación de facturas con prorrateo en contratos nuevos
-                    </button>
-                    @endif
+                    <input type="hidden" id="prorrateoid" value="{{ $empresa->prorrateo }}">
 
                     <div id="actionFixNumbering" style="display: none;">
                         <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning mr-3 mb-2">
@@ -900,6 +890,66 @@ function updateConfig(field, value, title) {
                 },
                 error: function() {
                     swal("Error", "No se pudo actualizar la configuración.", "error");
+                }
+            });
+        }
+    });
+}
+
+function prorrateoExtra() {
+    var url = '/prorrateo';
+    if (window.location.pathname.split("/")[1] === "software") {
+        url = '/software/prorrateo';
+    }
+
+    var isChecked = $("#prorrateoid").val();
+    var titleswal = "";
+    var text = "";
+
+    if (isChecked == 0) {
+        titleswal = "¿Desea habilitar el prorrateo de las facturas?";
+        text = "Al habilitar esta opción, el sistema habilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo habilitada.";
+    } else {
+        titleswal = "¿Desea deshabilitar el prorrateo de las facturas?";
+        text = "Al deshabilitar esta opción, el sistema deshabilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo deshabilitada.";
+    }
+
+    swal({
+        title: titleswal,
+        text: text,
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'Aceptar',
+    }).then((result) => {
+        if (result.value) {
+            $.ajax({
+                url: url,
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                method: 'post',
+                data: { prorrateo: isChecked },
+                success: function(data) {
+                    if (data == 1) {
+                        swal({
+                            title: 'Prorrateo para facturas ha sido habilitado.',
+                            type: 'success',
+                            showConfirmButton: false,
+                            timer: 5000
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        swal({
+                            title: 'Prorrateo para facturas ha sido deshabilitado',
+                            type: 'success',
+                            showConfirmButton: false,
+                            timer: 5000
+                        }).then(() => {
+                            location.reload();
+                        });
+                    }
                 }
             });
         }
