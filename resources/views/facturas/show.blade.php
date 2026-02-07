@@ -582,6 +582,7 @@
                     @php
                         $diasCobrados = $factura->diasCobradosProrrateo();
                         $contrato = App\Contrato::find($factura->contrato_id);
+                        $grupoCorte = $contrato ? $contrato->grupo_corte() : null;
                         
                         // Determinar el tipo de prorrateo
                         $tipoProrrateo = '';
@@ -589,12 +590,35 @@
                         
                         if($factura->prorrateo_aplicado == 1 && $contrato) {
                             $tipoProrrateo = 'Primera Factura del Contrato';
-                            $razonProrrateo = 'Esta factura corresponde a la primera facturación de su contrato. El cálculo se realizó desde la fecha de inicio de su servicio hasta la fecha de corte correspondiente.';
+                            $fechaCorteTexto = $grupoCorte ? $grupoCorte->fecha_corte : 'N/A';
+                            $razonProrrateo = 'Esta factura corresponde a la primera facturación de su contrato. El cálculo se realizó desde la fecha de inicio de su servicio hasta la fecha de corte correspondiente (día ' . $fechaCorteTexto . ' de cada mes).';
                         } elseif($factura->prorrateo_aplicado == 2) {
                             $tipoProrrateo = 'Ajuste por Período Personalizado';
                             $razonProrrateo = 'Esta factura se generó con un período de cobro personalizado, calculando únicamente los días de servicio efectivos.';
                         }
                     @endphp
+
+                    {{-- Información del Contrato --}}
+                    @if($contrato)
+                    <div class="alert alert-secondary mb-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mb-2"><i class="fa fa-file-contract"></i> <strong>Contrato</strong></h6>
+                                <p class="mb-0">
+                                    Número de Contrato: <strong><a href="{{ route('contratos.show', $contrato->id) }}" target="_blank">{{ $contrato->id }}</a></strong>
+                                </p>
+                            </div>
+                            @if($grupoCorte)
+                            <div class="col-md-6">
+                                <h6 class="mb-2"><i class="fa fa-calendar-check"></i> <strong>Grupo de Corte</strong></h6>
+                                <p class="mb-0">
+                                    {{ $grupoCorte->nombre }} - <strong>Corte día {{ $grupoCorte->fecha_corte }}</strong> de cada mes
+                                </p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- ¿Qué es el prorrateo? --}}
                     <div class="alert alert-info">
