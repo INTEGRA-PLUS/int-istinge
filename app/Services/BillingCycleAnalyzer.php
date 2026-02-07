@@ -31,8 +31,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v22 para forzar recálculo con la lógica de facturas mes siguiente
-        $cacheKey = "cycle_stats_v22_{$grupoCorteId}_{$periodo}";
+        // Añadimos v23 para forzar recálculo con la lógica de prorrateo
+        $cacheKey = "cycle_stats_v23_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -97,7 +97,11 @@ class BillingCycleAnalyzer
                 'missing_details' => $missingAnalysis['details'],
                 'missing_breakdown' => $missingAnalysis['missing_breakdown'],
                 'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas),
-                'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count())
+                'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count()),
+                'prorrateo_stats' => [
+                    'con_prorrateo' => $contratosEsperados->where('prorrateo', 1)->count(),
+                    'sin_prorrateo' => $contratosEsperados->where('prorrateo', 0)->count(),
+                ]
             ];
         });
     }
