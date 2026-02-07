@@ -71,11 +71,6 @@ function validateDianNomina(id, rutasuccess, codigo, tipo) {
                         $footer = "<a target='_blank' href='/empresa/configuracion/numeraciones_nomina_electronica/lista'>Configura tus numeraciones</a>";
                         $img = "gif-tuerca.gif";
                         messageValidateDian($mensaje, $footer, $img);
-                    } else if (response == 'nomina-sin-numeracion') {
-                        $mensaje = "No existe una numeración configurada para este tipo de nómina. Debes crear una numeración activa para poder emitir.";
-                        $footer = "<a target='_blank' href='/empresa/configuracion/numeraciones_nomina_electronica/lista'>Configurar Numeración</a>";
-                        $img = "gif-tuerca.gif";
-                        messageValidateDian($mensaje, $footer, $img);
                     } else if (response == 'nomina-consecutivo-limite') {
                         $mensaje = "La numeración ha superado el limite de consecutivos";
                         $footer = "<a target='_blank' href='/empresa/configuracion/numeraciones_nomina_electronica/lista'>Configura tus numeraciones</a>";
