@@ -1232,9 +1232,9 @@ class GruposCorteController extends Controller
                 if (!$factura) continue;
 
                 // Guardar tipo para reset de numeración
-                if (!in_array($factura->numeracion_factura, $tiposNumeracionAfectados)) {
-                    if ($factura->numeracion_factura) {
-                        $tiposNumeracionAfectados[] = $factura->numeracion_factura;
+                if (!in_array($factura->numeracion, $tiposNumeracionAfectados)) {
+                    if ($factura->numeracion) {
+                        $tiposNumeracionAfectados[] = $factura->numeracion;
                     }
                 }
 
