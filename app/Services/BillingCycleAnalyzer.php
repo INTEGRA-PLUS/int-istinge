@@ -18,7 +18,7 @@ class BillingCycleAnalyzer
      */
     public function clearCycleCache($grupoCorteId, $periodo)
     {
-        $cacheKey = "cycle_stats_v22_{$grupoCorteId}_{$periodo}";
+        $cacheKey = "cycle_stats_v25_{$grupoCorteId}_{$periodo}";
         Cache::forget($cacheKey);
     }
 
@@ -31,8 +31,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v23 para forzar recálculo con la lógica de prorrateo
-        $cacheKey = "cycle_stats_v23_{$grupoCorteId}_{$periodo}";
+        // Añadimos v25 para forzar recálculo con alineación de consultas y arreglos de empresa
+        $cacheKey = "cycle_stats_v25_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -154,7 +154,7 @@ class BillingCycleAnalyzer
         $grupoCorte = GrupoCorte::find($grupoCorteId);
         $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
         
-        $empresa = Empresa::find(1);
+        $empresa = Empresa::find($grupoCorte->empresa);
         $state = ['enabled'];
         if ($empresa->factura_contrato_off == 1) {
             $state[] = 'disabled';
@@ -183,17 +183,15 @@ class BillingCycleAnalyzer
     {
         $yearMonth = Carbon::parse($fechaCiclo)->format('Y-m');
         $nextMonth = Carbon::parse($fechaCiclo)->addMonth()->format('Y-m');
-        
+
         // 1. Facturas vinculadas directamente por contrato_id
         $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where(function ($query) use ($yearMonth, $nextMonth) {
-                // Opción A: Es del mes del ciclo
                 $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
-                    // Opción B: Es del mes siguiente pero marcada manual (facturación vencida/tardía)
                     ->orWhere(function ($q) use ($nextMonth) {
                         $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
                           ->where('factura.factura_mes_manual', 1);
@@ -212,13 +210,11 @@ class BillingCycleAnalyzer
         $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
             ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.*', 'cli.nombre as nombre_cliente', 'c.nro as contrato_nro', 'c.id as contrato_id')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where(function ($query) use ($yearMonth, $nextMonth) {
-                // Opción A: Es del mes del ciclo
                 $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
-                    // Opción B: Es del mes siguiente pero marcada manual (facturación vencida/tardía)
                     ->orWhere(function ($q) use ($nextMonth) {
                         $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
                           ->where('factura.factura_mes_manual', 1);
@@ -245,7 +241,7 @@ class BillingCycleAnalyzer
     {
         $grupoCorte = GrupoCorte::find($grupoCorteId);
         $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
-        $empresa = Empresa::find(1);
+        $empresa = Empresa::find($grupoCorte->empresa);
         
         $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
         $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
