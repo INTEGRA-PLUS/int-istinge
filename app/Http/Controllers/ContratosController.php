@@ -1350,7 +1350,7 @@ class ContratosController extends Controller
             $nro->save();
 
             //Opcion de crear factrua con prorrateo
-            if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+            if($contrato->prorrateo == 1){
                 $this->createFacturaProrrateo($contrato);
             }
 
@@ -1504,7 +1504,7 @@ class ContratosController extends Controller
             $nro->save();
 
             //Opcion de crear factrua con prorrateo
-            if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+            if ($contrato->prorrateo == 1) {
                 $this->createFacturaProrrateo($contrato);
             }
 
