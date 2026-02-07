@@ -61,6 +61,11 @@
                         @if($factura->emitida != 1 && isset($_SESSION['permisos']['43']))
                             <a class="btn btn-outline-primary btn-sm" href="{{route('facturas.edit',$factura->id)}}" target="_blank"><i class="fas fa-edit"></i> Editar</a>
                         @endif
+                        @if($factura->prorrateo_aplicado == 1 || $factura->prorrateo_aplicado == 2)
+                            <button type="button" class="btn btn-outline-info btn-sm" data-toggle="modal" data-target="#modalProrrateo">
+                                <i class="fas fa-calculator"></i> Ver Cálculo de Prorrateo
+                            </button>
+                        @endif
                         @if($empresa->estado_dian != 1)
                             <form action="{{ route('factura.anular',$factura->id) }}" method="POST" class="delete_form" style="display: none;" id="anular-factura{{$factura->id}}">
                                 {{ csrf_field() }}
@@ -559,5 +564,167 @@
             </div>
         </div>
     </div>
+
+    {{-- Modal de Cálculo de Prorrateo --}}
+    @if($factura->prorrateo_aplicado == 1 || $factura->prorrateo_aplicado == 2)
+    <div class="modal fade" id="modalProrrateo" tabindex="-1" role="dialog" aria-labelledby="modalProrrateoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="modalProrrateoLabel">
+                        <i class="fas fa-calculator"></i> Cálculo de Prorrateo - Factura #{{ $factura->codigo }}
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    @php
+                        $diasCobrados = $factura->diasCobradosProrrateo();
+                        $contrato = App\Contrato::find($factura->contrato_id);
+                        
+                        // Determinar el tipo de prorrateo
+                        $tipoProrrateo = '';
+                        $razonProrrateo = '';
+                        
+                        if($factura->prorrateo_aplicado == 1 && $contrato) {
+                            $tipoProrrateo = 'Primera Factura del Contrato';
+                            $razonProrrateo = 'Esta factura corresponde a la primera facturación de su contrato. El cálculo se realizó desde la fecha de inicio de su servicio hasta la fecha de corte correspondiente.';
+                        } elseif($factura->prorrateo_aplicado == 2) {
+                            $tipoProrrateo = 'Ajuste por Período Personalizado';
+                            $razonProrrateo = 'Esta factura se generó con un período de cobro personalizado, calculando únicamente los días de servicio efectivos.';
+                        }
+                    @endphp
+
+                    {{-- ¿Qué es el prorrateo? --}}
+                    <div class="alert alert-info">
+                        <h6 class="mb-2"><i class="fa fa-info-circle"></i> <strong>¿Qué es el prorrateo?</strong></h6>
+                        <p class="mb-0">
+                            El prorrateo es un ajuste proporcional que se realiza cuando el servicio no se utiliza durante un período completo de 30 días. 
+                            Esto garantiza que solo pague por los días efectivos de servicio.
+                        </p>
+                    </div>
+
+                    {{-- Tipo de Prorrateo --}}
+                    <div class="mb-3">
+                        <h6 class="text-info"><i class="fa fa-receipt"></i> Tipo de Prorrateo</h6>
+                        <p class="mb-1"><strong>{{ $tipoProrrateo }}</strong></p>
+                        <p class="text-muted mb-0">{{ $razonProrrateo }}</p>
+                    </div>
+
+                    <hr>
+
+                    {{-- Detalle del Cálculo --}}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-info"><i class="fa fa-calendar-alt"></i> Detalle del Cálculo</h6>
+                            <table class="table table-sm table-bordered">
+                                <tbody>
+                                    @if($contrato && $factura->prorrateo_aplicado == 1)
+                                    <tr>
+                                        <td><strong>Fecha de inicio del servicio:</strong></td>
+                                        <td>{{ \Carbon\Carbon::parse($contrato->created_at)->format('d/m/Y') }}</td>
+                                    </tr>
+                                    @endif
+                                    <tr>
+                                        <td><strong>Fecha de facturación:</strong></td>
+                                        <td>{{ \Carbon\Carbon::parse($factura->fecha)->format('d/m/Y') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Días cobrados:</strong></td>
+                                        <td><span class="badge badge-success">{{ $diasCobrados }} días</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Base de cálculo:</strong></td>
+                                        <td>30 días (mes completo)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-info"><i class="fa fa-calculator"></i> Fórmula de Cálculo</h6>
+                            <div class="alert alert-light border">
+                                <p class="mb-2"><strong>Cálculo aplicado a cada servicio:</strong></p>
+                                <div class="bg-white p-3 rounded border text-center">
+                                    <code style="font-size: 14px;">
+                                        Precio Prorrateado = (Precio Original × {{ $diasCobrados }}) ÷ 30
+                                    </code>
+                                </div>
+                                
+                                @if($factura->itemsFactura->count() > 0)
+                                    @php
+                                        $primerItem = $factura->itemsFactura->first();
+                                        // Calcular el precio original antes del prorrateo
+                                        $precioOriginal = round(($primerItem->precio * 30) / $diasCobrados, 2);
+                                    @endphp
+                                    <p class="mt-3 mb-2"><strong>Ejemplo con un servicio:</strong></p>
+                                    <div class="bg-white p-3 rounded border">
+                                        <p class="mb-1">Servicio: <strong>{{ $primerItem->descripcion }}</strong></p>
+                                        <p class="mb-1">Precio mensual: <strong>{{$empresa->moneda}}{{ number_format($precioOriginal, 2, ',', '.') }}</strong></p>
+                                        <p class="mb-1">Cálculo: ({{$empresa->moneda}}{{ number_format($precioOriginal, 2, ',', '.') }} × {{ $diasCobrados }}) ÷ 30</p>
+                                        <p class="mb-0">Precio final: <strong class="text-success">{{$empresa->moneda}}{{ number_format($primerItem->precio, 2, ',', '.') }}</strong></p>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    {{-- Servicios Incluidos --}}
+                    <div class="mb-3">
+                        <h6 class="text-info"><i class="fa fa-list"></i> Servicios Incluidos en esta Factura</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Descripción</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-right">Precio Mensual</th>
+                                        <th class="text-right">Precio Prorrateado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($factura->itemsFactura as $item)
+                                        @php
+                                            // Calcular el precio original antes del prorrateo
+                                            $precioMensual = round(($item->precio * 30) / $diasCobrados, 2);
+                                        @endphp
+                                        <tr>
+                                            <td>{{ $item->descripcion }}</td>
+                                            <td class="text-center">{{ $item->cant }}</td>
+                                            <td class="text-right">{{$empresa->moneda}}{{ number_format($precioMensual, 2, ',', '.') }}</td>
+                                            <td class="text-right"><strong class="text-success">{{$empresa->moneda}}{{ number_format($item->precio, 2, ',', '.') }}</strong></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Resumen --}}
+                    <div class="alert alert-success">
+                        <h6 class="mb-2"><i class="fa fa-check-circle"></i> <strong>Resumen</strong></h6>
+                        <p class="mb-0">
+                            Esta factura ha sido calculada proporcionalmente para cobrar únicamente <strong>{{ $diasCobrados }} días de servicio</strong> 
+                            de los 30 días del período completo. Esto se ha aplicado automáticamente según las políticas de facturación 
+                            {{ $factura->prorrateo_aplicado == 1 ? 'para nuevos contratos' : 'para períodos personalizados' }}.
+                        </p>
+                    </div>
+
+                    @if($empresa->precision)
+                    <div class="text-muted small">
+                        <i class="fa fa-info-circle"></i> Los valores han sido redondeados a {{ $empresa->precision }} decimales según la configuración de la empresa.
+                    </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
 @endsection
