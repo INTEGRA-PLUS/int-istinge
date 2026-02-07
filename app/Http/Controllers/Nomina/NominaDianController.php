@@ -678,10 +678,15 @@ class NominaDianController extends Controller
                 ->exists();
 
             if(!$existeConfiguracion){
-                 if(request()->ajax() && !request()->lote){
+                if(request()->ajax() && !request()->lote){
                     // Flash error al Blade y retornar respuesta para reload en JS
                     session()->flash('error', 'No existe una numeración configurada para este tipo de nómina. Por favor configure una nueva.');
-                    return ['reload' => true];
+                    session()->save(); 
+                    return [
+                        'success' => true,
+                        // El mensaje será visible brevemente antes del reload
+                        'mesagge' => 'Numeración no encontrada. Recargando para mostrar detalles...' 
+                    ];
                  }
 
                  if(request()->lote){
