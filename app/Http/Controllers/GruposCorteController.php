@@ -743,8 +743,9 @@ class GruposCorteController extends Controller
             CronController::CrearFactura($fechaRef, $idGrupo);
             
             // Invalidar caché
-            $cacheKey = "cycle_stats_v5_{$idGrupo}_{$periodo}";
-            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+            // Invalidar caché usando el analyzer (Re- aplicado)
+            $analyzer = new \App\Services\BillingCycleAnalyzer();
+            $analyzer->clearCycleCache($idGrupo, $periodo);
             
             return response()->json([
                 'success' => true, 
