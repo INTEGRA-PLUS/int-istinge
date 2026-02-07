@@ -907,11 +907,11 @@ function prorrateoExtra() {
     var text = "";
 
     if (isChecked == 0) {
-        titleswal = "¿Desea habilitar el prorrateo de las facturas?";
-        text = "Al habilitar esta opción, el sistema habilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo habilitada.";
+        titleswal = "¿Desea habilitar el prorrateo de las facturas de este grupo de corte?";
+        text = "Al habilitar esta opción, el sistema habilitará el cobro de prorrateo para todos los contratos del grupo de corte seleccionado. (Si desea hacerlo para todos los contratos del sistema dirijase a configuraciones del sistema)";
     } else {
-        titleswal = "¿Desea deshabilitar el prorrateo de las facturas?";
-        text = "Al deshabilitar esta opción, el sistema deshabilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo deshabilitada.";
+        titleswal = "¿Desea deshabilitar el prorrateo de las facturas de este grupo de corte?";
+        text = "Al deshabilitar esta opción, el sistema deshabilitará el cobro de prorrateo para todos los contratos del grupo de corte seleccionado. (Si desea hacerlo para todos los contratos del sistema dirijase a configuraciones del sistema)"; 
     }
 
     swal({
