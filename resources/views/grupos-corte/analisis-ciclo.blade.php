@@ -929,7 +929,10 @@ function prorrateoExtra() {
                 url: url,
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'post',
-                data: { prorrateo: isChecked },
+                data: { 
+                    prorrateo: isChecked,
+                    grupo_id: grupoId 
+                },
                 success: function(data) {
                     if (data == 1) {
                         swal({

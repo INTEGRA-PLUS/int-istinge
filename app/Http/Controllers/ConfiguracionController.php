@@ -2155,21 +2155,25 @@ class ConfiguracionController extends Controller
   }
 
   public function actDescProrrateo(Request $request){
+  $empresa = Empresa::find(Auth::user()->empresa);
 
-    $empresa = Empresa::find(Auth::user()->empresa);
-
-    if($empresa){
-        if($request->prorrateo == 0){
-          $empresa->prorrateo = 1;
-          DB::table('contracts')->where('empresa', $empresa->id)->update(['prorrateo' => 1]);
-        }else{
-          $empresa->prorrateo = 0;
-          DB::table('contracts')->where('empresa', $empresa->id)->update(['prorrateo' => 0]);
-        }
-        $empresa->save();
-        return $empresa->prorrateo;
-    }
+  if($empresa){
+      $newValue = ($request->prorrateo == 0) ? 1 : 0;
+      $empresa->prorrateo = $newValue;
+      
+      $query = DB::table('contracts')->where('empresa', $empresa->id);
+      
+      // Si se especifica un grupo, solo modificamos los contratos de ese grupo
+      if ($request->has('grupo_id')) {
+          $query->where('grupo_corte', $request->grupo_id);
+      }
+      
+      $query->update(['prorrateo' => $newValue]);
+      
+      $empresa->save();
+      return $empresa->prorrateo;
   }
+}
 
   public function actDescEfecty(Request $request){
     $empresa = Empresa::find(Auth::user()->empresa);
