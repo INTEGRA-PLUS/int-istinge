@@ -300,8 +300,8 @@ class CronController extends Controller
                 }
 
                 //Calculo fecha pago oportuno.
-                $y = Carbon::now()->format('Y');
-                $m = Carbon::now()->format('m');
+                $y = Carbon::parse($fecha)->format('Y');
+                $m = Carbon::parse($fecha)->format('m');
                 $d = substr(str_repeat(0, 2).$grupo_corte->fecha_pago, - 2);
                 if($d == 0){
                     $d = 30;
@@ -319,10 +319,10 @@ class CronController extends Controller
                 //Fin calculo fecha de pago oportuno
 
                 //calculo fecha suspension
-                $y = Carbon::now()->format('Y');
-                $m = Carbon::now()->format('m');
+                $y = Carbon::parse($fecha)->format('Y');
+                $m = Carbon::parse($fecha)->format('m');
                 $ds = substr(str_repeat(0, 2).$grupo_corte->fecha_suspension, - 2);
-                $da = Carbon::now()->format('d')*1;
+                $da = Carbon::parse($fecha)->format('d')*1;
                  if($da > $grupo_corte->fecha_suspension && $m!=12){
                     $m=$m+1;
                 }
