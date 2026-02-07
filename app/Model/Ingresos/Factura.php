@@ -1704,6 +1704,11 @@ public function forma_pago()
                  * Esto coincide con 30 - 8 = 22 (excluyendo el día de inicio o usando base 30 simple).
                  */
                 
+                // Asegurar que fechaFin sea Carbon (puede venir como string)
+                if (!($fechaFin instanceof Carbon)) {
+                    $fechaFin = Carbon::parse($fechaFin);
+                }
+
                 $d1 = $fechaContrato->day;
                 $m1 = $fechaContrato->month;
                 $y1 = $fechaContrato->year;
