@@ -762,8 +762,13 @@ class CronController extends Controller
                 $nro->save();
             }
 
-             /* Enviar correo funcional */
+             /* Enviar correo funcional y Limpiar Caché (Re-aplicado) */
+             $periodoCache = date('Y-m', strtotime($fecha));
+             $analyzer = new \App\Services\BillingCycleAnalyzer();
+
              foreach($grupos_corte as $grupo_corte){
+                // Limpiar caché del ciclo para este grupo
+                $analyzer->clearCycleCache($grupo_corte->id, $periodoCache);
                 $fechaInvoice = Carbon::now()->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
                 self::sendInvoices($fechaInvoice);
             }
