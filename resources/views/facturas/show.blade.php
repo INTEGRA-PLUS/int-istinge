@@ -683,16 +683,20 @@
                                 
                                 @if($factura->itemsFactura->count() > 0)
                                     @php
-                                        $primerItem = $factura->itemsFactura->first();
-                                        // Calcular el precio original antes del prorrateo
-                                        $precioOriginal = round(($primerItem->precio * 30) / $diasCobrados, 2);
+                                        // Calcular el total mensual original y el total prorrateado sumando todos los items
+                                        $totalMensualOriginal = 0;
+                                        $totalProrrateado = 0;
+                                        foreach($factura->itemsFactura as $item) {
+                                            $precioMensual = round(($item->precio * 30) / $diasCobrados, 2);
+                                            $totalMensualOriginal += $precioMensual * $item->cant;
+                                            $totalProrrateado += $item->precio * $item->cant;
+                                        }
                                     @endphp
-                                    <p class="mt-3 mb-2"><strong>Ejemplo con un servicio:</strong></p>
+                                    <p class="mt-3 mb-2"><strong>Cálculo aplicado:</strong></p>
                                     <div class="bg-white p-3 rounded border">
-                                        <p class="mb-1">Servicio: <strong>{{ $primerItem->descripcion }}</strong></p>
-                                        <p class="mb-1">Precio mensual: <strong>{{$empresa->moneda}}{{ number_format($precioOriginal, 2, ',', '.') }}</strong></p>
-                                        <p class="mb-1">Cálculo: ({{$empresa->moneda}}{{ number_format($precioOriginal, 2, ',', '.') }} × {{ $diasCobrados }}) ÷ 30</p>
-                                        <p class="mb-0">Precio final: <strong class="text-success">{{$empresa->moneda}}{{ number_format($primerItem->precio, 2, ',', '.') }}</strong></p>
+                                        <p class="mb-1">Total servicios (mensual): <strong>{{$empresa->moneda}}{{ number_format($totalMensualOriginal, 2, ',', '.') }}</strong></p>
+                                        <p class="mb-1">Cálculo: ({{$empresa->moneda}}{{ number_format($totalMensualOriginal, 2, ',', '.') }} × {{ $diasCobrados }}) ÷ 30</p>
+                                        <p class="mb-0">Total prorrateado: <strong class="text-success">{{$empresa->moneda}}{{ number_format($totalProrrateado, 2, ',', '.') }}</strong></p>
                                     </div>
                                 @endif
                             </div>
