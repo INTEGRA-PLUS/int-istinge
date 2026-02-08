@@ -1735,12 +1735,13 @@ public function forma_pago()
                 // Cálculo 30/360
                 $diasCobrados = (($y2 - $y1) * 360) + (($m2 - $m1) * 30) + ($d2 - $d1);
 
-                // Asegurar que no sea negativo ni exceda 30 si es solo un mes de diferencia
-                if ($diasCobrados < 0) $diasCobrados = 0;
+                // Asegurar mínimo 1 día (caso: contrato día 30, corte día 1 = 1 día)
+                // Si el cálculo da 0 o negativo, significa que el período es muy corto pero al menos 1 día
+                if ($diasCobrados <= 0) {
+                    return 1; // Mínimo 1 día facturable
+                }
                 
-                // Si el cálculo da 30, perfecto. Si da más de 30, se ajustará abajo.
-                
-                if($diasCobrados == 0){return 30;}
+                // Si excede 30 días y no hay días extra por ciclo anterior, limitar a 30
                 if($diasCobrados > 30 && $diasdeMas==0){$diasCobrados=30;}
                 // $diasCobrados=$diasCobrados; // Redundante
             }else{
