@@ -629,6 +629,9 @@ class GruposCorteController extends Controller
         // Empresa
         $empresa = Empresa::find(Auth::user()->empresa);
 
+        // Obtener contratos deshabilitados elegibles para habilitación
+        $contratosDeshabilitados = $this->getContratosDeshabilitadosElegibles($idGrupo);
+
         return view('grupos-corte.analisis-ciclo', compact(
             'grupo', 
             'periodo', 
@@ -637,7 +640,8 @@ class GruposCorteController extends Controller
             'promedioFacturas', 
             'variacionMesAnterior',
             'grupos',
-            'empresa'
+            'empresa',
+            'contratosDeshabilitados'
         ));
     }
 
@@ -1294,6 +1298,171 @@ class GruposCorteController extends Controller
             DB::rollBack();
             Log::error("Error eliminando ciclo: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error fatal: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Obtener contratos deshabilitados elegibles para habilitación
+     * (status = 1, state = 'disabled', con última factura cerrada o sin facturas)
+     */
+    private function getContratosDeshabilitadosElegibles($idGrupo)
+    {
+        $empresa = Auth::user()->empresa;
+        
+        // Contratos del grupo con status = 1 y state = 'disabled'
+        $contratos = Contrato::where('grupo_corte', $idGrupo)
+            ->where('empresa', $empresa)
+            ->where('status', 1)
+            ->where('state', 'disabled')
+            ->get();
+
+        $conFacturaCerrada = [];
+        $sinFactura = [];
+
+        foreach ($contratos as $contrato) {
+            $ultimaFactura = Factura::where('cliente', $contrato->client_id)
+                ->where('contrato_id', $contrato->id)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if (!$ultimaFactura) {
+                // Sin factura
+                $sinFactura[] = [
+                    'id' => $contrato->id,
+                    'nro' => $contrato->nro,
+                    'cliente_id' => $contrato->client_id,
+                    'servicio' => $contrato->servicio
+                ];
+            } elseif ($ultimaFactura->estatus == 0) {
+                // Última factura cerrada (estatus = 0)
+                $conFacturaCerrada[] = [
+                    'id' => $contrato->id,
+                    'nro' => $contrato->nro,
+                    'cliente_id' => $contrato->client_id,
+                    'servicio' => $contrato->servicio,
+                    'ultima_factura' => [
+                        'id' => $ultimaFactura->id,
+                        'codigo' => $ultimaFactura->codigo,
+                        'fecha' => $ultimaFactura->fecha
+                    ]
+                ];
+            }
+        }
+
+        return [
+            'con_factura_cerrada' => $conFacturaCerrada,
+            'sin_factura' => $sinFactura,
+            'total' => count($conFacturaCerrada) + count($sinFactura)
+        ];
+    }
+
+    /**
+     * API: Habilitar masivamente contratos deshabilitados con última factura cerrada o sin facturas
+     */
+    public function habilitarContratosDeshabilitados(Request $request)
+    {
+        $idGrupo = $request->idGrupo;
+
+        if (!$idGrupo) {
+            return response()->json(['success' => false, 'message' => 'Falta el ID del grupo.'], 400);
+        }
+
+        try {
+            $datos = $this->getContratosDeshabilitadosElegibles($idGrupo);
+
+            if ($datos['total'] == 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No hay contratos elegibles para habilitar.',
+                    'habilitados' => 0
+                ]);
+            }
+
+            $habilitados = 0;
+            $errores = 0;
+            $empresa = Auth::user()->empresa();
+
+            // Combinar ambas listas
+            $contratosParaHabilitar = array_merge(
+                $datos['con_factura_cerrada'],
+                $datos['sin_factura']
+            );
+
+            foreach ($contratosParaHabilitar as $contratoData) {
+                $contrato = Contrato::find($contratoData['id']);
+                
+                if (!$contrato) {
+                    $errores++;
+                    continue;
+                }
+
+                // Habilitar el contrato (simplificado, sin interacción MikroTik)
+                // El método state() del ContratosController es un toggle y requiere conexión MikroTik
+                // Aquí hacemos una habilitación directa solo a nivel de base de datos
+                if ($empresa && $empresa->consultas_mk == 1 && $contrato->server_configuration_id) {
+                    // Si la empresa tiene integración MikroTik, usamos el proceso completo
+                    // pero lo hacemos directo aquí para evitar redirecciones HTTP
+                    $mikrotik = \App\Mikrotik::find($contrato->server_configuration_id);
+                    
+                    if ($mikrotik) {
+                        $API = new \PEAR2\Net\RouterOS\Client($mikrotik->ip, $mikrotik->usuario, $mikrotik->clave);
+                        
+                        try {
+                            // Intentar eliminar de morosos
+                            $request = new \PEAR2\Net\RouterOS\Request('/ip/firewall/address-list/print');
+                            $request->setArgument('?address', $contrato->ip);
+                            $request->setArgument('?list', 'morosos');
+                            
+                            $responses = $API->sendSync($request);
+                            
+                            foreach ($responses as $response) {
+                                if ($response->getType() === \PEAR2\Net\RouterOS\Response::TYPE_DATA) {
+                                    $removeRequest = new \PEAR2\Net\RouterOS\Request('/ip/firewall/address-list/remove');
+                                    $removeRequest->setArgument('.id', $response->getProperty('.id'));
+                                    $API->sendSync($removeRequest);
+                                }
+                            }
+
+                            // Agregar a IPs autorizadas
+                            $addRequest = new \PEAR2\Net\RouterOS\Request('/ip/firewall/address-list/add');
+                            $addRequest->setArgument('address', $contrato->ip);
+                            $addRequest->setArgument('list', 'ips_autorizadas');
+                            $API->sendSync($addRequest);
+                        } catch (\Exception $mkException) {
+                            Log::warning("Error MikroTik al habilitar contrato {$contrato->nro}: " . $mkException->getMessage());
+                        }
+                    }
+                }
+
+                // Actualizar estado en BD
+                $contrato->state = 'enabled';
+                $contrato->save();
+
+                // Registrar en log
+                $movimiento = new \App\MovimientoLOG;
+                $movimiento->contrato = $contrato->id;
+                $movimiento->modulo = 5;
+                $movimiento->descripcion = '<i class="fas fa-check text-success"></i> <b>Habilitación Masiva</b> desde Análisis de Ciclo<br>';
+                $movimiento->created_by = Auth::user()->id;
+                $movimiento->empresa = Auth::user()->empresa;
+                $movimiento->save();
+
+                $habilitados++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Se habilitaron {$habilitados} contratos correctamente" . ($errores > 0 ? ". {$errores} contratos no pudieron ser procesados." : "."),
+                'habilitados' => $habilitados,
+                'errores' => $errores
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error habilitando contratos masivamente: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
