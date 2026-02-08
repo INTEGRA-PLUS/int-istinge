@@ -25,3 +25,34 @@ _ide_helper.php
 .DS_Store
 public/.DS_Store
 .htaccess
+
+# ============================================
+# ARCHIVOS SENSIBLES - NUNCA SUBIR A GITHUB
+# ============================================
+
+# Configuración de servidores (contiene credenciales)
+config/servers.json
+
+# Variables de entorno adicionales
+.env.local
+.env.production
+.env.staging
+.env.*.local
+
+# Claves SSH y certificados
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+
+# Archivos de credenciales
+credentials.json
+secrets.json
+auth.json
+
+# Logs de deployment
+logs/deploy*.log
+deployment.log

@@ -1,0 +1,89 @@
+{
+  "_INSTRUCCIONES": {
+    "descripcion": "Este archivo es una PLANTILLA de configuración de servidores",
+    "advertencia": "⚠️ NO SUBAS EL ARCHIVO servers.json REAL A GITHUB",
+    "pasos": [
+      "1. Copia este archivo como config/servers.json",
+      "2. Completa con los datos reales de tus servidores",
+      "3. Configura SERVERS_CONFIG en GitHub Secrets con el JSON completo",
+      "4. El archivo servers.json local es solo para pruebas (está en .gitignore)"
+    ]
+  },
+  "servers": [
+    {
+      "name": "Server 1 - Cliente Ejemplo 1",
+      "host": "servidor1.ejemplo.com",
+      "port": 2222,
+      "user": "usuario_cpanel_1",
+      "path": "/home/usuario_cpanel_1/public_html",
+      "db_name": "usuario1_database",
+      "db_user": "usuario1_dbuser",
+      "enabled": true
+    },
+    {
+      "name": "Server 2 - Cliente Ejemplo 2",
+      "host": "servidor2.ejemplo.com",
+      "port": 2222,
+      "user": "usuario_cpanel_2",
+      "path": "/home/usuario_cpanel_2/public_html",
+      "db_name": "usuario2_database",
+      "db_user": "usuario2_dbuser",
+      "enabled": true
+    },
+    {
+      "name": "Server 3 - Cliente (Deshabilitado)",
+      "host": "servidor3.ejemplo.com",
+      "port": 2222,
+      "user": "usuario_cpanel_3",
+      "path": "/home/usuario_cpanel_3/public_html",
+      "db_name": "usuario3_database",
+      "db_user": "usuario3_dbuser",
+      "enabled": false
+    },
+    {
+      "_comentario": "IMPORTANTE: Agrega aquí los 40 servidores",
+      "_formato": {
+        "name": "Nombre descriptivo del servidor/cliente",
+        "host": "Hostname o IP del servidor cPanel",
+        "port": "Puerto SSH (generalmente 2222 en cPanel)",
+        "user": "Usuario cPanel/SSH",
+        "path": "Ruta absoluta al directorio public_html",
+        "db_name": "Nombre de la base de datos MySQL",
+        "db_user": "Usuario MySQL (prefijo_usuario en cPanel)",
+        "enabled": "true para incluir en deployments, false para omitir"
+      }
+    },
+    {
+      "name": "Server 4 - [Nombre Cliente]",
+      "host": "[servidor.com]",
+      "port": 2222,
+      "user": "[usuario_cpanel]",
+      "path": "/home/[usuario]/public_html",
+      "db_name": "[usuario_database]",
+      "db_user": "[usuario_dbuser]",
+      "enabled": true
+    },
+    {
+      "name": "Server 5 - [Nombre Cliente]",
+      "host": "[servidor.com]",
+      "port": 2222,
+      "user": "[usuario_cpanel]",
+      "path": "/home/[usuario]/public_html",
+      "db_name": "[usuario_database]",
+      "db_user": "[usuario_dbuser]",
+      "enabled": true
+    }
+  ],
+  "_notas": {
+    "total_servidores": "Debes tener 40 entradas en el array 'servers'",
+    "passwords": "Las contraseñas de MySQL se configuran en GitHub Secrets como DB_PASS_SERVER_0 hasta DB_PASS_SERVER_39",
+    "indices": "El índice de cada servidor corresponde a su posición en el array (0-based)",
+    "cpanel_info": {
+      "version": "cPanel 132.0 (build 22)",
+      "apache": "2.4.66",
+      "mariadb": "10.11.15",
+      "os": "Linux x86_64",
+      "ssh_port": "2222 (estándar cPanel)"
+    }
+  }
+}
