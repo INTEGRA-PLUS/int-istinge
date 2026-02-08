@@ -179,93 +179,138 @@
                 <h6 class="mb-0 font-weight-bold text-dark"><i class="fas fa-magic text-primary"></i> Acciones a realizar</h6>
             </div>
             <div class="card-body">
-                <div class="d-flex flex-wrap" id="dynamicActionsContainer">
-                    <!-- Botón: Generar Facturas Faltantes (Siempre visible si hay faltantes) -->
-                    @if($cycleStats['facturas_faltantes'] > 0)
-                    <button class="btn btn-primary mr-3 mb-2" onclick="confirmarGeneracionManual()">
-                        <i class="fas fa-play-circle"></i> Generar Facturas faltantes del periodo {{ $cycleStats['dia_esperado'] ?: '1' }} {{ \Carbon\Carbon::parse($periodo)->locale('es')->isoFormat('MMMM') }}
-                    </button>
-                    @endif
-
-                    <!-- Botón: Eliminar Facturación del Ciclo -->
-                    <button class="btn btn-outline-danger mr-3 mb-2" onclick="eliminarCiclo()">
-                        <i class="fas fa-trash-alt"></i> Eliminar facturación del ciclo
-                    </button>
-
-                    <!-- Botón: Refrescar Análisis -->
-                    <button class="btn btn-info mr-3 mb-2" onclick="refrescarAnalisis()">
-                        <i class="fas fa-sync-alt"></i> Refrescar Análisis
-                    </button>
-
-                    <!-- Facturación Automática -->
-                    @if($empresa->factura_auto == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('factura_auto', 0, '¿Deshabilitar Facturación Automática?')">
-                        <i class="fas fa-stop-circle"></i> Deshabilitar Facturación Automática
-                    </button>
-                    @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('factura_auto', 1, '¿Habilitar Facturación Automática?')">
-                        <i class="fas fa-play-circle"></i> Habilitar Facturación Automática
-                    </button>
-                    @endif
-
-                    <!-- Saldos a Favor -->
-                    @if($empresa->aplicar_saldofavor == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('aplicar_saldofavor', 0, '¿Deshabilitar aplicación de saldos a favor automático?')">
-                        <i class="fas fa-minus-circle"></i> Deshabilitar aplicación de saldos a favor automático
-                    </button>
-                    @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('aplicar_saldofavor', 1, '¿Habilitar aplicación de saldos a favor automático?')">
-                        <i class="fas fa-plus-circle"></i> Habilitar aplicación de saldos a favor automático
-                    </button>
-                    @endif
-
-                    <!-- Facturacion Abiertas -->
-                    @if($empresa->cron_fact_abiertas == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('cron_fact_abiertas', 0, '¿Deshabilitar facturación automatica fact. abiertas?')">
-                        <i class="fas fa-folder"></i> Deshabilitar facturacion automatica fact. abiertas
-                    </button>
-                    @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="updateConfig('cron_fact_abiertas', 1, '¿Habilitar facturacion automatica fact. abiertas?')">
-                        <i class="fas fa-folder-open"></i> Habilitar facturacion automatica fact. abiertas
-                    </button>
-                    @endif
-
-                    <!-- Contratos OFF -->
-                    @if($empresa->factura_contrato_off == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="updateConfig('factura_contrato_off', 0, '¿Deshabilitar facturas en contratos deshabilitados?')">
-                        <i class="fas fa-user-slash"></i> Deshabilitar facturas en contratos deshabilitados
-                    </button>
-                    @else
-                    <button class="btn btn-outline-danger mr-3 mb-2" onclick="updateConfig('factura_contrato_off', 1, '¿Habilitar la creación de facturas en contratos deshabilitados?')">
-                        <i class="fas fa-user-check"></i> Habilitar la creación de facturas en contratos deshabilitados
-                    </button>
-                    @endif
-
-                    <!-- Prorrateo -->
-                    @if($empresa->prorrateo == 1)
-                    <button class="btn btn-outline-secondary mr-3 mb-2" onclick="prorrateoExtra()">
-                        <i class="fas fa-calendar-minus"></i> Deshabilitar Prorrateo
-                    </button>
-                    @else
-                    <button class="btn btn-outline-primary mr-3 mb-2" onclick="prorrateoExtra()">
-                        <i class="fas fa-calendar-plus"></i> Habilitar Prorrateo
-                    </button>
-                    @endif
-                    <input type="hidden" id="prorrateoid" value="{{ $empresa->prorrateo }}">
-
-                    <div id="actionFixNumbering" style="display: none;">
-                        <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning mr-3 mb-2">
-                            <i class="fas fa-list-ol"></i> Ir a corregir numeraciones vencidas/no asignadas
-                        </a>
-                    </div>
-
-                    <!-- Botón: Vincular Facturas Manuales (Dinámico via JS) -->
-                    <div id="actionFixUnflaggedInvoices" style="display: none;">
-                        <button class="btn btn-outline-success mr-3 mb-2" onclick="vincularFacturasManuales()">
-                            <i class="fas fa-link"></i> Vincular facturas manuales hoy al ciclo actual
+                
+                <!-- Sección: Configuraciones -->
+                <div class="mb-4">
+                    <h6 class="text-muted font-weight-bold border-bottom pb-2 mb-3"><i class="fas fa-cog"></i> Configuraciones</h6>
+                    <div class="d-flex flex-wrap">
+                        <!-- Facturación Automática -->
+                        @if($empresa->factura_auto == 1)
+                        <button class="btn btn-outline-secondary btn-sm mr-2 mb-2" onclick="updateConfig('factura_auto', 0, '¿Deshabilitar Facturación Automática?')">
+                            <i class="fas fa-stop-circle"></i> Deshabilitar Facturación Automática
                         </button>
+                        @else
+                        <button class="btn btn-outline-primary btn-sm mr-2 mb-2" onclick="updateConfig('factura_auto', 1, '¿Habilitar Facturación Automática?')">
+                            <i class="fas fa-play-circle"></i> Habilitar Facturación Automática
+                        </button>
+                        @endif
+
+                        <!-- Saldos a Favor -->
+                        @if($empresa->aplicar_saldofavor == 1)
+                        <button class="btn btn-outline-secondary btn-sm mr-2 mb-2" onclick="updateConfig('aplicar_saldofavor', 0, '¿Deshabilitar aplicación de saldos a favor automático?')">
+                            <i class="fas fa-minus-circle"></i> Deshabilitar saldos a favor automático
+                        </button>
+                        @else
+                        <button class="btn btn-outline-primary btn-sm mr-2 mb-2" onclick="updateConfig('aplicar_saldofavor', 1, '¿Habilitar aplicación de saldos a favor automático?')">
+                            <i class="fas fa-plus-circle"></i> Habilitar saldos a favor automático
+                        </button>
+                        @endif
+
+                        <!-- Facturacion Abiertas -->
+                        @if($empresa->cron_fact_abiertas == 1)
+                        <button class="btn btn-outline-secondary btn-sm mr-2 mb-2" onclick="updateConfig('cron_fact_abiertas', 0, '¿Deshabilitar facturación automatica fact. abiertas?')">
+                            <i class="fas fa-folder"></i> Deshabilitar fact. automática abiertas
+                        </button>
+                        @else
+                        <button class="btn btn-outline-primary btn-sm mr-2 mb-2" onclick="updateConfig('cron_fact_abiertas', 1, '¿Habilitar facturación automatica fact. abiertas?')">
+                            <i class="fas fa-folder-open"></i> Habilitar fact. automática abiertas
+                        </button>
+                        @endif
+
+                        <!-- Contratos OFF -->
+                        @if($empresa->factura_contrato_off == 1)
+                        <button class="btn btn-outline-secondary btn-sm mr-2 mb-2" onclick="updateConfig('factura_contrato_off', 0, '¿Deshabilitar facturas en contratos deshabilitados?')">
+                            <i class="fas fa-user-slash"></i> Deshabilitar facturas en contratos OFF
+                        </button>
+                        @else
+                        <button class="btn btn-outline-danger btn-sm mr-2 mb-2" onclick="updateConfig('factura_contrato_off', 1, '¿Habilitar la creación de facturas en contratos deshabilitados?')">
+                            <i class="fas fa-user-check"></i> Habilitar facturas en contratos OFF
+                        </button>
+                        @endif
+
+                        <!-- Prorrateo -->
+                        @if($empresa->prorrateo == 1)
+                        <button class="btn btn-outline-secondary btn-sm mr-2 mb-2" onclick="prorrateoExtra()">
+                            <i class="fas fa-calendar-minus"></i> Deshabilitar Prorrateo
+                        </button>
+                        @else
+                        <button class="btn btn-outline-primary btn-sm mr-2 mb-2" onclick="prorrateoExtra()">
+                            <i class="fas fa-calendar-plus"></i> Habilitar Prorrateo
+                        </button>
+                        @endif
+                        <input type="hidden" id="prorrateoid" value="{{ $empresa->prorrateo }}">
+
+                        <div id="actionFixNumbering" style="display: none;">
+                            <a href="{{ route('configuracion.numeraciones') }}" class="btn btn-outline-warning btn-sm mr-2 mb-2">
+                                <i class="fas fa-list-ol"></i> Corregir numeraciones
+                            </a>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Sección: Facturación -->
+                <div class="mb-4">
+                    <h6 class="text-muted font-weight-bold border-bottom pb-2 mb-3"><i class="fas fa-file-invoice-dollar"></i> Facturación</h6>
+                    <div class="d-flex flex-wrap">
+                        <!-- Botón: Generar Facturas Faltantes -->
+                        @if($cycleStats['facturas_faltantes'] > 0)
+                        <button class="btn btn-primary btn-sm mr-2 mb-2" onclick="confirmarGeneracionManual()">
+                            <i class="fas fa-play-circle"></i> Generar facturas faltantes ({{ $cycleStats['facturas_faltantes'] }})
+                        </button>
+                        @endif
+
+                        <!-- Botón: Eliminar Facturación del Ciclo -->
+                        <button class="btn btn-outline-danger btn-sm mr-2 mb-2" onclick="eliminarCiclo()">
+                            <i class="fas fa-trash-alt"></i> Eliminar facturación del ciclo
+                        </button>
+
+                        <!-- Botón: Refrescar Análisis -->
+                        <button class="btn btn-info btn-sm mr-2 mb-2" onclick="refrescarAnalisis()">
+                            <i class="fas fa-sync-alt"></i> Refrescar Análisis
+                        </button>
+
+                        <!-- Botón: Vincular Facturas Manuales (Dinámico via JS) -->
+                        <div id="actionFixUnflaggedInvoices" style="display: none;">
+                            <button class="btn btn-outline-success btn-sm mr-2 mb-2" onclick="vincularFacturasManuales()">
+                                <i class="fas fa-link"></i> Vincular facturas manuales
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección: Contratos -->
+                <div class="mb-2">
+                    <h6 class="text-muted font-weight-bold border-bottom pb-2 mb-3"><i class="fas fa-file-contract"></i> Contratos</h6>
+                    
+                    @if($contratosDeshabilitados['total'] > 0)
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="alert alert-info py-2 mb-2">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="d-block text-muted">Deshabilitados con última factura cerrada:</small>
+                                        <strong class="text-primary">{{ count($contratosDeshabilitados['con_factura_cerrada']) }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="d-block text-muted">Deshabilitados sin factura:</small>
+                                        <strong class="text-primary">{{ count($contratosDeshabilitados['sin_factura']) }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-center">
+                            <button class="btn btn-success btn-sm w-100" onclick="habilitarContratosDeshabilitados()">
+                                <i class="fas fa-user-check"></i> Habilitar contratos ({{ $contratosDeshabilitados['total'] }})
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="text-muted small">
+                        <i class="fas fa-check-circle text-success"></i> No hay contratos deshabilitados elegibles para habilitación.
+                    </div>
+                    @endif
+                </div>
+
             </div>
         </div>
     </div>
@@ -1241,6 +1286,64 @@ function eliminarCiclo() {
                 data: {
                     idGrupo: grupoId,
                     periodo: '{{ $periodo }}',
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    swal({
+                        title: 'Éxito',
+                        html: response.message,
+                        type: 'success'
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    let message = 'Error desconocido';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    swal({
+                        title: 'Error',
+                        html: message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Habilitar contratos deshabilitados con última factura cerrada o sin facturas
+ */
+function habilitarContratosDeshabilitados() {
+    swal({
+        title: '¿Habilitar contratos deshabilitados?',
+        html: 'Esta acción habilitará los contratos con <strong>status activo</strong>, que están deshabilitados y tienen su última factura cerrada o no tienen facturas.<br><br><span class="text-info">Se procesarán solo contratos elegibles para habilitación.</span>',
+        type: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fas fa-user-check"></i> Sí, habilitar',
+        cancelButtonText: '<i class="fas fa-times"></i> Cancelar'
+    }).then((result) => {
+        if (result.value) {
+            swal({
+                title: 'Procesando...',
+                text: 'Por favor espere mientras habilitamos los contratos.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                onOpen: () => {
+                    swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('grupos-corte.habilitar-contratos-deshabilitados') }}",
+                method: 'POST',
+                data: {
+                    idGrupo: grupoId,
                     _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
