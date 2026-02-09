@@ -17,7 +17,7 @@ on:
         default: false
         type: boolean
       specific_servers:
-        description: 'Servidores específicos (JSON array de índices, ej: [0,1,5]). Vacío = todos'
+        description: 'Servidores específicos (indices separados por coma, ej: 0,1,5). Vacío = todos'
         required: false
         default: ''
         type: string
@@ -26,91 +26,15 @@ env:
   MAX_PARALLEL: 5
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      server_indices: ${{ steps.set-matrix.outputs.server_indices }}
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Crear configuración desde secret
-        run: |
-          mkdir -p config
-          echo '${{ secrets.SERVERS_CONFIG }}' > config/servers.json
-          
-          if [ ! -f config/servers.json ]; then
-            echo "❌ ERROR: Archivo config/servers.json NO fue creado"
-            exit 1
-          fi
-          
-          FILE_SIZE=$(stat -c%s config/servers.json 2>/dev/null || stat -f%z config/servers.json 2>/dev/null)
-          echo "📊 Tamaño del archivo: $FILE_SIZE bytes"
-          
-          if [ "$FILE_SIZE" -eq 0 ] || [ "$FILE_SIZE" -lt 10 ]; then
-            echo "❌ ERROR: SERVERS_CONFIG secret está vacío"
-            exit 1
-          fi
-          
-          if ! jq empty config/servers.json 2>/dev/null; then
-            echo "❌ ERROR: SERVERS_CONFIG no es JSON válido"
-            exit 1
-          fi
-          
-          echo "✅ JSON válido detectado"
-          TOTAL=$(jq '.servers | length' config/servers.json)
-          ENABLED=$(jq '[.servers[] | select(.enabled == true)] | length' config/servers.json)
-          echo "📊 Total de servidores: $TOTAL"
-          echo "📊 Servidores habilitados: $ENABLED"
-
-      - name: Generar lista de índices
-        id: set-matrix
-        run: |
-          SPECIFIC='${{ github.event.inputs.specific_servers }}'
-          
-          if [ -n "$SPECIFIC" ] && [ "$SPECIFIC" != "[]" ] && [ "$SPECIFIC" != "" ]; then
-            echo "📋 Usando servidores específicos: $SPECIFIC"
-            INDICES=$(cat config/servers.json | jq -c --argjson indices "$SPECIFIC" '
-              .servers | to_entries | 
-              map(select(.key as $k | $indices | index($k))) |
-              map(select(.value.enabled == true)) |
-              map(.key)
-            ')
-          else
-            echo "📋 Usando todos los servidores habilitados"
-            INDICES=$(cat config/servers.json | jq -c '
-              .servers | to_entries | 
-              map(select(.value.enabled == true)) |
-              map(.key)
-            ')
-          fi
-          
-          COUNT=$(echo "$INDICES" | jq 'length')
-          echo "📊 Total de servidores a procesar: $COUNT"
-          
-          if [ "$COUNT" -eq 0 ]; then
-            echo "❌ ERROR: No hay servidores para procesar"
-            exit 1
-          fi
-          
-          # Convertir array de índices a string JSON para la matriz
-          echo "server_indices=$INDICES" >> $GITHUB_OUTPUT
-          echo "✅ Índices configurados: $INDICES"
-
-      - name: Limpiar archivos sensibles
-        if: always()
-        run: |
-          rm -f config/servers.json
-          echo "🔒 Archivos sensibles eliminados"
-
   deploy:
-    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 5
       matrix:
-        server_index: ${{ fromJson(needs.prepare.outputs.server_indices) }}
+        # Lista estática de índices - actualiza según tu cantidad de servidores
+        server_index: [0, 1, 2]  # Para 3 servidores
+        # Para 40 servidores usa: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39]
     
     steps:
       - name: Checkout código
@@ -121,8 +45,50 @@ jobs:
           mkdir -p config
           echo '${{ secrets.SERVERS_CONFIG }}' > config/servers.json
 
+      - name: Verificar si servidor debe procesarse
+        id: should_deploy
+        run: |
+          INDEX=${{ matrix.server_index }}
+          
+          # Verificar que el índice existe en el array
+          SERVER_EXISTS=$(jq -e ".servers[$INDEX]" config/servers.json > /dev/null 2>&1 && echo "true" || echo "false")
+          
+          if [ "$SERVER_EXISTS" = "false" ]; then
+            echo "⏭️ Servidor índice $INDEX no existe en la configuración"
+            echo "deploy=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Verificar si el servidor está habilitado
+          ENABLED=$(jq -r ".servers[$INDEX].enabled" config/servers.json)
+          
+          if [ "$ENABLED" != "true" ]; then
+            echo "⏭️ Servidor índice $INDEX está deshabilitado (enabled: false)"
+            echo "deploy=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Verificar si hay filtro de servidores específicos
+          SPECIFIC='${{ github.event.inputs.specific_servers }}'
+          
+          if [ -n "$SPECIFIC" ]; then
+            # Convertir string "0,1,5" a array y verificar si contiene el índice actual
+            if echo ",$SPECIFIC," | grep -q ",$INDEX,"; then
+              echo "✅ Servidor índice $INDEX incluido en lista específica"
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "⏭️ Servidor índice $INDEX no está en lista específica: $SPECIFIC"
+              echo "deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            echo "✅ Servidor índice $INDEX habilitado"
+            echo "deploy=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extraer configuración del servidor
         id: server_config
+        if: steps.should_deploy.outputs.deploy == 'true'
         run: |
           INDEX=${{ matrix.server_index }}
           
@@ -142,9 +108,12 @@ jobs:
           echo "db_name=$DB_NAME" >> $GITHUB_OUTPUT
           echo "db_user=$DB_USER" >> $GITHUB_OUTPUT
           
-          echo "✅ Configuración extraída para: $NAME"
+          echo "========================================="
+          echo "📦 Configuración cargada para: $NAME"
+          echo "========================================="
 
       - name: Configurar SSH
+        if: steps.should_deploy.outputs.deploy == 'true'
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -156,11 +125,15 @@ jobs:
           echo "✅ SSH configurado para: ${{ steps.server_config.outputs.name }}"
 
       - name: Desplegar código
-        if: ${{ github.event_name == 'push' || github.event.inputs.deploy_code == 'true' }}
+        if: |
+          steps.should_deploy.outputs.deploy == 'true' && 
+          (github.event_name == 'push' || github.event.inputs.deploy_code == 'true')
         run: |
           echo "========================================="
-          echo "🚀 Desplegando a: ${{ steps.server_config.outputs.name }}"
+          echo "🚀 Desplegando código a: ${{ steps.server_config.outputs.name }}"
           echo "📍 Host: ${{ steps.server_config.outputs.host }}:${{ steps.server_config.outputs.port }}"
+          echo "👤 Usuario: ${{ steps.server_config.outputs.user }}"
+          echo "📂 Ruta: ${{ steps.server_config.outputs.path }}"
           echo "========================================="
           
           if [ ! -f scripts/deploy.sh ]; then
@@ -179,13 +152,16 @@ jobs:
           echo "✅ Código desplegado exitosamente"
 
       - name: Ejecutar migraciones
-        if: ${{ github.event.inputs.run_migrations == 'true' }}
+        if: |
+          steps.should_deploy.outputs.deploy == 'true' && 
+          github.event.inputs.run_migrations == 'true'
         env:
           DB_PASS: ${{ secrets[format('DB_PASS_SERVER_{0}', matrix.server_index)] }}
         run: |
           echo "========================================="
           echo "🗄️ Ejecutando migraciones en: ${{ steps.server_config.outputs.name }}"
           echo "📊 Base de datos: ${{ steps.server_config.outputs.db_name }}"
+          echo "👤 Usuario DB: ${{ steps.server_config.outputs.db_user }}"
           echo "========================================="
           
           if [ ! -f scripts/run-migrations.sh ]; then
@@ -221,7 +197,9 @@ jobs:
         if: always()
         run: |
           echo "========================================="
-          if [ "${{ job.status }}" == "success" ]; then
+          if [ "${{ steps.should_deploy.outputs.deploy }}" != "true" ]; then
+            echo "⏭️ SALTADO: Servidor índice ${{ matrix.server_index }}"
+          elif [ "${{ job.status }}" == "success" ]; then
             echo "✅ ÉXITO: ${{ steps.server_config.outputs.name }}"
           else
             echo "❌ ERROR: ${{ steps.server_config.outputs.name }}"
@@ -245,9 +223,9 @@ jobs:
           echo "=========================================="
           
           if [ "${{ needs.deploy.result }}" == "success" ]; then
-            echo "✅ Todos los deployments completados exitosamente"
+            echo "✅ Deployment completado"
           elif [ "${{ needs.deploy.result }}" == "failure" ]; then
-            echo "⚠️ Algunos deployments fallaron - revise los logs individuales"
+            echo "⚠️ Algunos deployments fallaron - revise los logs"
           else
             echo "ℹ️ Estado: ${{ needs.deploy.result }}"
           fi
