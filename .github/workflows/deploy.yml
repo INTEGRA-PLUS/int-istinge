@@ -1,12 +1,9 @@
 name: Deploy to cPanel Servers
 
 on:
-  # Ejecutar en cada push a master
   push:
     branches:
       - master
-  
-  # Permitir ejecución manual con opciones
   workflow_dispatch:
     inputs:
       deploy_code:
@@ -26,115 +23,79 @@ on:
         type: string
 
 env:
-  # Máximo de servidores en paralelo
   MAX_PARALLEL: 5
 
 jobs:
-  # Job para preparar la lista de servidores
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      server_indices: ${{ steps.set-matrix.outputs.server_indices }}
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
 
       - name: Crear configuración desde secret
         run: |
-          # Crear directorio si no existe
           mkdir -p config
-          
-          # Escribir configuración desde secret
           echo '${{ secrets.SERVERS_CONFIG }}' > config/servers.json
           
-          # 🔍 DEBUG: Verificar que el archivo existe
           if [ ! -f config/servers.json ]; then
             echo "❌ ERROR: Archivo config/servers.json NO fue creado"
             exit 1
           fi
           
-          # 🔍 DEBUG: Verificar que tiene contenido
           FILE_SIZE=$(stat -c%s config/servers.json 2>/dev/null || stat -f%z config/servers.json 2>/dev/null)
           echo "📊 Tamaño del archivo: $FILE_SIZE bytes"
           
           if [ "$FILE_SIZE" -eq 0 ] || [ "$FILE_SIZE" -lt 10 ]; then
-            echo "❌ ERROR: SERVERS_CONFIG secret está vacío o casi vacío"
-            echo "📝 Contenido recibido (primeros 500 caracteres):"
-            head -c 500 config/servers.json
+            echo "❌ ERROR: SERVERS_CONFIG secret está vacío"
             exit 1
           fi
           
-          # 🔍 DEBUG: Verificar que es JSON válido
           if ! jq empty config/servers.json 2>/dev/null; then
             echo "❌ ERROR: SERVERS_CONFIG no es JSON válido"
-            echo "📝 Primeras 200 caracteres del archivo:"
-            head -c 200 config/servers.json
-            echo ""
-            echo "📝 Error de jq:"
-            jq empty config/servers.json 2>&1 || true
             exit 1
           fi
           
-          # 🔍 DEBUG: Mostrar estructura (sin datos sensibles)
           echo "✅ JSON válido detectado"
           TOTAL=$(jq '.servers | length' config/servers.json)
           ENABLED=$(jq '[.servers[] | select(.enabled == true)] | length' config/servers.json)
-          echo "📊 Total de servidores en config: $TOTAL"
+          echo "📊 Total de servidores: $TOTAL"
           echo "📊 Servidores habilitados: $ENABLED"
-          
-          if [ "$ENABLED" -eq 0 ]; then
-            echo "⚠️ ADVERTENCIA: No hay servidores habilitados"
-            echo "Todos los servidores tienen 'enabled: false'"
-          fi
-          
-          echo "✅ Configuración de servidores cargada correctamente"
 
-      - name: Generar matriz de servidores
+      - name: Generar lista de índices
         id: set-matrix
         run: |
-          # Leer servidores habilitados del JSON
           SPECIFIC='${{ github.event.inputs.specific_servers }}'
           
           if [ -n "$SPECIFIC" ] && [ "$SPECIFIC" != "[]" ] && [ "$SPECIFIC" != "" ]; then
-            # Filtrar solo servidores específicos
             echo "📋 Usando servidores específicos: $SPECIFIC"
-            MATRIX=$(cat config/servers.json | jq -c --argjson indices "$SPECIFIC" '
+            INDICES=$(cat config/servers.json | jq -c --argjson indices "$SPECIFIC" '
               .servers | to_entries | 
-              map(select(.key as $k | $indices | index($k))) | 
-              map(.value + {index: .key}) |
-              map(select(.enabled == true)) |
-              {include: .}
+              map(select(.key as $k | $indices | index($k))) |
+              map(select(.value.enabled == true)) |
+              map(.key)
             ')
           else
-            # Usar todos los servidores habilitados
             echo "📋 Usando todos los servidores habilitados"
-            MATRIX=$(cat config/servers.json | jq -c '
-              .servers | 
-              map(select(.enabled == true)) | 
-              to_entries | 
-              map(.value + {index: .key}) |
-              {include: .}
+            INDICES=$(cat config/servers.json | jq -c '
+              .servers | to_entries | 
+              map(select(.value.enabled == true)) |
+              map(.key)
             ')
           fi
           
-          # 🔍 DEBUG: Mostrar matriz generada (estructura, sin datos sensibles)
-          echo "🔍 Matriz generada (cantidad de servidores):"
-          COUNT=$(echo "$MATRIX" | jq '.include | length')
+          COUNT=$(echo "$INDICES" | jq 'length')
           echo "📊 Total de servidores a procesar: $COUNT"
           
           if [ "$COUNT" -eq 0 ]; then
             echo "❌ ERROR: No hay servidores para procesar"
-            echo "Verifica que al menos un servidor tenga 'enabled: true'"
             exit 1
           fi
           
-          # 🔍 DEBUG: Mostrar nombres de servidores
-          echo "📝 Servidores que se procesarán:"
-          echo "$MATRIX" | jq -r '.include[].name'
-          
-          # Establecer output
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          echo "✅ Matriz de servidores configurada correctamente"
+          # Convertir array de índices a string JSON para la matriz
+          echo "server_indices=$INDICES" >> $GITHUB_OUTPUT
+          echo "✅ Índices configurados: $INDICES"
 
       - name: Limpiar archivos sensibles
         if: always()
@@ -142,110 +103,112 @@ jobs:
           rm -f config/servers.json
           echo "🔒 Archivos sensibles eliminados"
 
-  # Job de deployment (se ejecuta en paralelo para cada servidor)
   deploy:
     needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 5
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix:
+        server_index: ${{ fromJson(needs.prepare.outputs.server_indices) }}
     
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Configurar SSH
-        run: |
-          # Crear directorio SSH
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # Escribir clave privada (sin mostrar en logs)
-          echo '${{ secrets.SSH_PRIVATE_KEY }}' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # Verificar que la llave fue creada
-          if [ ! -f ~/.ssh/id_rsa ]; then
-            echo "❌ ERROR: No se pudo crear la llave SSH"
-            exit 1
-          fi
-          
-          # Agregar host a known_hosts (evitar prompt de verificación)
-          echo "🔍 Agregando host a known_hosts: ${{ matrix.host }}"
-          ssh-keyscan -p ${{ matrix.port }} -H ${{ matrix.host }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          
-          echo "✅ SSH configurado para: ${{ matrix.name }}"
-
-      - name: Crear configuración de servidor
+      - name: Crear configuración desde secret
         run: |
           mkdir -p config
           echo '${{ secrets.SERVERS_CONFIG }}' > config/servers.json
+
+      - name: Extraer configuración del servidor
+        id: server_config
+        run: |
+          INDEX=${{ matrix.server_index }}
+          
+          NAME=$(jq -r ".servers[$INDEX].name" config/servers.json)
+          HOST=$(jq -r ".servers[$INDEX].host" config/servers.json)
+          PORT=$(jq -r ".servers[$INDEX].port" config/servers.json)
+          USER=$(jq -r ".servers[$INDEX].user" config/servers.json)
+          PATH=$(jq -r ".servers[$INDEX].path" config/servers.json)
+          DB_NAME=$(jq -r ".servers[$INDEX].db_name" config/servers.json)
+          DB_USER=$(jq -r ".servers[$INDEX].db_user" config/servers.json)
+          
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "host=$HOST" >> $GITHUB_OUTPUT
+          echo "port=$PORT" >> $GITHUB_OUTPUT
+          echo "user=$USER" >> $GITHUB_OUTPUT
+          echo "path=$PATH" >> $GITHUB_OUTPUT
+          echo "db_name=$DB_NAME" >> $GITHUB_OUTPUT
+          echo "db_user=$DB_USER" >> $GITHUB_OUTPUT
+          
+          echo "✅ Configuración extraída para: $NAME"
+
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo '${{ secrets.SSH_PRIVATE_KEY }}' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          ssh-keyscan -p ${{ steps.server_config.outputs.port }} -H ${{ steps.server_config.outputs.host }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          echo "✅ SSH configurado para: ${{ steps.server_config.outputs.name }}"
 
       - name: Desplegar código
         if: ${{ github.event_name == 'push' || github.event.inputs.deploy_code == 'true' }}
         run: |
           echo "========================================="
-          echo "🚀 Desplegando código a: ${{ matrix.name }}"
-          echo "📍 Host: ${{ matrix.host }}:${{ matrix.port }}"
-          echo "👤 Usuario: ${{ matrix.user }}"
-          echo "📂 Ruta: ${{ matrix.path }}"
+          echo "🚀 Desplegando a: ${{ steps.server_config.outputs.name }}"
+          echo "📍 Host: ${{ steps.server_config.outputs.host }}:${{ steps.server_config.outputs.port }}"
           echo "========================================="
           
-          # Verificar que existe el script
           if [ ! -f scripts/deploy.sh ]; then
             echo "❌ ERROR: scripts/deploy.sh no encontrado"
             exit 1
           fi
           
-          # Dar permisos de ejecución al script
           chmod +x scripts/deploy.sh
           
-          # Ejecutar deployment
           ./scripts/deploy.sh \
-            --host "${{ matrix.host }}" \
-            --port "${{ matrix.port }}" \
-            --user "${{ matrix.user }}" \
-            --path "${{ matrix.path }}"
+            --host "${{ steps.server_config.outputs.host }}" \
+            --port "${{ steps.server_config.outputs.port }}" \
+            --user "${{ steps.server_config.outputs.user }}" \
+            --path "${{ steps.server_config.outputs.path }}"
           
-          echo "✅ Código desplegado exitosamente a: ${{ matrix.name }}"
+          echo "✅ Código desplegado exitosamente"
 
       - name: Ejecutar migraciones
         if: ${{ github.event.inputs.run_migrations == 'true' }}
         env:
-          DB_PASS: ${{ secrets[format('DB_PASS_SERVER_{0}', matrix.index)] }}
+          DB_PASS: ${{ secrets[format('DB_PASS_SERVER_{0}', matrix.server_index)] }}
         run: |
           echo "========================================="
-          echo "🗄️ Ejecutando migraciones en: ${{ matrix.name }}"
-          echo "📊 Base de datos: ${{ matrix.db_name }}"
-          echo "👤 Usuario DB: ${{ matrix.db_user }}"
+          echo "🗄️ Ejecutando migraciones en: ${{ steps.server_config.outputs.name }}"
+          echo "📊 Base de datos: ${{ steps.server_config.outputs.db_name }}"
           echo "========================================="
           
-          # Verificar que existe el script
           if [ ! -f scripts/run-migrations.sh ]; then
             echo "❌ ERROR: scripts/run-migrations.sh no encontrado"
             exit 1
           fi
           
-          # Verificar que tenemos la contraseña
           if [ -z "$DB_PASS" ]; then
-            echo "❌ ERROR: Secret DB_PASS_SERVER_${{ matrix.index }} no configurado"
+            echo "❌ ERROR: Secret DB_PASS_SERVER_${{ matrix.server_index }} no configurado"
             exit 1
           fi
           
-          # Dar permisos de ejecución al script
           chmod +x scripts/run-migrations.sh
           
-          # Ejecutar migraciones
           ./scripts/run-migrations.sh \
-            --host "${{ matrix.host }}" \
-            --port "${{ matrix.port }}" \
-            --user "${{ matrix.user }}" \
-            --db-name "${{ matrix.db_name }}" \
-            --db-user "${{ matrix.db_user }}" \
+            --host "${{ steps.server_config.outputs.host }}" \
+            --port "${{ steps.server_config.outputs.port }}" \
+            --user "${{ steps.server_config.outputs.user }}" \
+            --db-name "${{ steps.server_config.outputs.db_name }}" \
+            --db-user "${{ steps.server_config.outputs.db_user }}" \
             --db-pass "$DB_PASS"
           
-          echo "✅ Migraciones completadas en: ${{ matrix.name }}"
+          echo "✅ Migraciones completadas"
 
       - name: Limpiar archivos sensibles
         if: always()
@@ -259,13 +222,12 @@ jobs:
         run: |
           echo "========================================="
           if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ ÉXITO: ${{ matrix.name }}"
+            echo "✅ ÉXITO: ${{ steps.server_config.outputs.name }}"
           else
-            echo "❌ ERROR: ${{ matrix.name }}"
+            echo "❌ ERROR: ${{ steps.server_config.outputs.name }}"
           fi
           echo "========================================="
 
-  # Job de resumen final
   summary:
     needs: deploy
     runs-on: ubuntu-latest
@@ -287,6 +249,6 @@ jobs:
           elif [ "${{ needs.deploy.result }}" == "failure" ]; then
             echo "⚠️ Algunos deployments fallaron - revise los logs individuales"
           else
-            echo "ℹ️ Estado del deployment: ${{ needs.deploy.result }}"
+            echo "ℹ️ Estado: ${{ needs.deploy.result }}"
           fi
           echo "=========================================="
