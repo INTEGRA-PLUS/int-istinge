@@ -1704,6 +1704,12 @@ public function forma_pago()
                  * Esto coincide con 30 - 8 = 22 (excluyendo el día de inicio o usando base 30 simple).
                  */
                 
+                // CASO ESPECIAL: Si el contrato se creó el mismo día del corte,
+                // significa que está iniciando un nuevo ciclo completo (30 días)
+                if ($diaContrato == $grupo->fecha_corte) {
+                    return 30; // Ciclo completo
+                }
+
                 // Asegurar que fechaFin sea Carbon (puede venir como string)
                 if (!($fechaFin instanceof Carbon)) {
                     $fechaFin = Carbon::parse($fechaFin);

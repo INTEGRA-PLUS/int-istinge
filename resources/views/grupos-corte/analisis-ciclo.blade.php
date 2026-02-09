@@ -809,14 +809,44 @@ $(document).ready(function() {
         }
     });
 
-    // Recarga automática al cambiar grupo
+    // Recarga automática al cambiar grupo (con limpieza de caché)
     $('#grupoSelector').on('change', function() {
         const selectedId = $(this).val();
         const periodo = $('#periodoSelector').val();
         if (selectedId) {
-            let url = "{{ route('grupos-corte.analisis-ciclo', ['idGrupo' => 'ID_PLACEHOLDER', 'periodo' => 'PERIODO_PLACEHOLDER']) }}";
-            url = url.replace('ID_PLACEHOLDER', selectedId).replace('PERIODO_PLACEHOLDER', periodo);
-            window.location.href = url;
+            // Mostrar loading mientras limpiamos caché
+            swal({
+                title: 'Cargando grupo...',
+                text: 'Limpiando caché y recargando datos',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                onOpen: () => {
+                    swal.showLoading();
+                }
+            });
+            
+            // Limpiar caché del grupo seleccionado antes de redirigir
+            $.ajax({
+                url: "{{ route('grupos-corte.limpiar-cache-ciclo') }}",
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    idGrupo: selectedId,
+                    periodo: periodo
+                },
+                success: function(response) {
+                    let url = "{{ route('grupos-corte.analisis-ciclo', ['idGrupo' => 'ID_PLACEHOLDER', 'periodo' => 'PERIODO_PLACEHOLDER']) }}";
+                    url = url.replace('ID_PLACEHOLDER', selectedId).replace('PERIODO_PLACEHOLDER', periodo);
+                    window.location.href = url;
+                },
+                error: function(xhr) {
+                    // Si falla, redirigir de todas formas
+                    let url = "{{ route('grupos-corte.analisis-ciclo', ['idGrupo' => 'ID_PLACEHOLDER', 'periodo' => 'PERIODO_PLACEHOLDER']) }}";
+                    url = url.replace('ID_PLACEHOLDER', selectedId).replace('PERIODO_PLACEHOLDER', periodo);
+                    window.location.href = url;
+                }
+            });
         }
     });
 
