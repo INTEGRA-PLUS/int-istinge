@@ -456,7 +456,7 @@
                 @if($factura->periodo_cobrado_text != null || $factura->periodo_cobrado_text != "")
                 <td style="border-bottom: 2px solid #ccc;">{{$factura->periodo_cobrado_text}}</td>
                 @else
-                <td style="border-bottom: 2px solid #ccc;">{{$factura->periodoCobradoTexto()}} {{$factura->diasCobradosProrrateo()}} días</td>
+                <td style="border-bottom: 2px solid #ccc;">{{$factura->periodoCobradoTexto()}} {{$factura->diasCobradosProrrateo(null, null, true)}} días</td>
                 @endif
             </tr>
             <tr>
