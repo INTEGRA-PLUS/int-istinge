@@ -672,9 +672,17 @@
                     </ul>
                 </div>
                 @php
-                    $diaActual = (int) \Carbon\Carbon::now()->format('d');
+                    $fechaActual = \Carbon\Carbon::now();
+                    $diaActual = (int) $fechaActual->format('d');
                     $diaFactura = (int) $grupo->fecha_factura;
-                    $esFacturacionAdelantada = $diaFactura > 0 && $diaActual < $diaFactura;
+                    
+                    // Obtener mes y año del periodo seleccionado (formato YYYY-MM)
+                    $periodoSeleccionado = \Carbon\Carbon::parse($periodo . '-01');
+                    
+                    // Es adelantada SOLO si es el MISMO mes actual y el día es menor al programado
+                    $esMismoMes = $fechaActual->format('Y-m') == $periodoSeleccionado->format('Y-m');
+                    
+                    $esFacturacionAdelantada = $diaFactura > 0 && $esMismoMes && $diaActual < $diaFactura;
                 @endphp
                 @if($esFacturacionAdelantada)
                 <div class="alert alert-warning text-left small mt-2">
