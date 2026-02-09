@@ -944,6 +944,5 @@ class SiigoController extends Controller
                 'resultados' => []
             ]);
         }
-    }
-    
+    }    
 }
