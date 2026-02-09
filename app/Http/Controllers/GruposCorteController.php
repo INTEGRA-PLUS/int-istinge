@@ -139,6 +139,7 @@ class GruposCorteController extends Controller
         $grupo->periodo_facturacion = $request->periodo_facturacion;
         $grupo->created_by = Auth::user()->id;
         $grupo->empresa = Auth::user()->empresa;
+        $grupo->mes_siguiente = $request->mes_siguiente ?? 0;
         $grupo->save();
 
         $mensaje='SE HA CREADO SATISFACTORIAMENTE EL GRUPO DE CORTE';
@@ -163,6 +164,7 @@ class GruposCorteController extends Controller
         $grupo->status           = $request->status;
         $grupo->created_by       = Auth::user()->id;
         $grupo->empresa          = Auth::user()->empresa;
+        $grupo->mes_siguiente    = $request->mes_siguiente ?? 0;
         $grupo->save();
 
         if ($grupo) {
@@ -251,6 +253,7 @@ class GruposCorteController extends Controller
             $grupo->periodo_facturacion  = $request->periodo_facturacion;
             $grupo->updated_by            = Auth::user()->id;
             $grupo->nro_factura_vencida = $request->nro_factura_vencida;
+            $grupo->mes_siguiente = $request->mes_siguiente ?? 0;
             $grupo->save();
 
             $mensaje='SE HA MODIFICADO SATISFACTORIAMENTE EL GRUPO DE CORTE';

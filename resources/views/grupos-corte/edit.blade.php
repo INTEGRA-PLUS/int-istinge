@@ -1,4 +1,61 @@
 @extends('layouts.app')
+
+@section('style')
+    <style>
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: #28a745;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .slider.round {
+            border-radius: 24px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+    </style>
+@endsection
+
 @section('content')
 <div class="alert alert-warning alert-dismissible fade show" role="alert">
 	<a>Recuerda que si haces un cambio en la <strong>fecha de suspensión del grupo de corte,</strong> todas las facturas que tengan su
@@ -65,6 +122,27 @@
 	            <span class="help-block error">
 	                <strong>{{ $errors->first('fecha_suspension') }}</strong>
 	            </span>
+	        </div>
+	        <!-- Alerta Mes Siguiente -->
+	        <div class="col-md-12" id="alertaMesSiguienteContainer" style="display: none;">
+	            <div class="alert alert-warning d-flex align-items-center mt-2 mb-2" role="alert">
+	                <i class="fas fa-exclamation-triangle fa-2x mr-3 text-warning"></i>
+	                <div>
+	                    <strong>¡Atención!</strong> La fecha de suspensión está muy cerca de la fecha de factura.
+	                    <br><span class="text-dark">Esto significa que la factura que se genere el día <strong id="diaFacturaTexto">X</strong> se suspenderá el día <strong id="diaSuspensionTexto">Y</strong> <strong>del mismo mes</strong>.</span>
+	                </div>
+	            </div>
+	            <div class="form-group col-md-6">
+	                <label class="control-label">¿Suspender en el mes siguiente en lugar del mismo mes?</label>
+	                <div class="d-flex align-items-center">
+	                    <label class="switch mb-0">
+	                        <input type="hidden" name="mes_siguiente" value="0">
+	                        <input type="checkbox" name="mes_siguiente" id="mes_siguiente" value="1" {{ $grupo->mes_siguiente == 1 ? 'checked' : '' }}>
+	                        <span class="slider round"></span>
+	                    </label>
+	                    <span class="ml-2" id="mes_siguiente_label">{{ $grupo->mes_siguiente == 1 ? 'Si' : 'No' }}</span>
+	                </div>
+	            </div>
 	        </div>
 	        <div class="col-md-3 form-group">
 	            <label class="control-label">Hora de Suspensión desde:
@@ -158,6 +236,47 @@
                 uiLibrary: 'bootstrap4',
             });
 
+            // Función para verificar diferencia de fechas
+            function verificarDiferenciaFechas() {
+                var fechaFactura = parseInt($('#fecha_factura').val()) || 0;
+                var fechaSuspension = parseInt($('#fecha_suspension').val()) || 0;
+                
+                if (fechaFactura > 0 && fechaSuspension > 0) {
+                    // Calcular diferencia considerando que puede ser mes siguiente
+                    var diferencia;
+                    if (fechaSuspension >= fechaFactura) {
+                        diferencia = fechaSuspension - fechaFactura;
+                    } else {
+                        // Si suspensión es menor, podría ser mes siguiente (ej: factura 28, suspensión 2)
+                        diferencia = (30 - fechaFactura) + fechaSuspension;
+                    }
+                    
+                    // Mostrar alerta si diferencia es <= 5 días
+                    if (diferencia <= 5 && diferencia >= 0) {
+                        $('#diaFacturaTexto').text(fechaFactura);
+                        $('#diaSuspensionTexto').text(fechaSuspension);
+                        $('#alertaMesSiguienteContainer').slideDown();
+                    } else {
+                        $('#alertaMesSiguienteContainer').slideUp();
+                        // NO descheckar automáticamente en edición para preservar valor guardado
+                    }
+                } else {
+                    $('#alertaMesSiguienteContainer').slideUp();
+                }
+            }
+
+            // Escuchar cambios en fecha_factura y fecha_suspension
+            $('#fecha_factura, #fecha_suspension').on('changed.bs.select change', function() {
+                verificarDiferenciaFechas();
+            });
+
+            // Handler para el switch mes_siguiente
+            function updateMesSiguiente() {
+                var isChecked = $('#mes_siguiente').is(':checked');
+                $('#mes_siguiente_label').text(isChecked ? 'Si' : 'No');
+            }
+            $('#mes_siguiente').change(updateMesSiguiente);
+
             // Mostrar u ocultar el select según fecha_suspension
             $("#fecha_suspension").change(function(){
                 let fechaSuspension = $("#fecha_suspension").val();
@@ -172,6 +291,7 @@
 
             // Ejecutar al cargar la página para que quede consistente
             $("#fecha_suspension").trigger('change');
+            verificarDiferenciaFechas();
         });
     </script>
 @endsection
