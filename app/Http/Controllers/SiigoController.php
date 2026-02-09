@@ -538,8 +538,6 @@ class SiigoController extends Controller
                     "send" => true  // Enviar por correo
                 ];
             }
-            
-            dd($data);
 
 
             //Envio a curl invoice
