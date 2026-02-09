@@ -32,13 +32,17 @@ jobs:
       fail-fast: false
       max-parallel: 5
       matrix:
-        # Lista estática de índices - actualiza según tu cantidad de servidores
-        server_index: [0, 1, 2]  # Para 3 servidores
-        # Para 40 servidores usa: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39]
+        server_index: [0, 1, 2]
     
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y jq
+          echo "✅ jq instalado correctamente"
 
       - name: Crear configuración desde secret
         run: |

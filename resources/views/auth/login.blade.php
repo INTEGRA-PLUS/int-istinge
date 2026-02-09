@@ -431,11 +431,11 @@
                     class="remember-check"
                     {{ old('remember') ? 'checked' : '' }}
                 >
-                <label for="remember" class="remember-text">Recordarme</label>
+                <label for="remember" class="remember-text">[Recordarme]</label>
             </div>
 
             <button type="submit" class="login-button" id="submitBtn">
-                Iniciar Sesión..
+                Iniciar Sesión
             </button>
         </form>
     </div>
