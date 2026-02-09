@@ -1534,7 +1534,7 @@ public function forma_pago()
         }
     }
 
-    public function diasCobradosProrrateo($forzar_prorrateo = null, $facturaInicio = null){
+    public function diasCobradosProrrateo($forzar_prorrateo = null, $facturaInicio = null, $pdf = null){
 
         $grupo = Contrato::join('grupos_corte as gc', 'gc.id', '=', 'contracts.grupo_corte')->
         where('contracts.id',$this->contrato_id)
@@ -1769,6 +1769,9 @@ public function forma_pago()
                 if($fechaInicio->endOfMonth()->day <=28 && $diasCobrados >= 28){$diasCobrados=30;}
                 $diasCobrados=$diasCobrados;
             }
+            }
+            if($pdf && $this->prorrateo_aplicado ==0){
+                return 30;
             }
             return $diasCobrados;
         }
