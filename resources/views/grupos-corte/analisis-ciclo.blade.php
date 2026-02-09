@@ -1289,12 +1289,25 @@ function eliminarCiclo() {
                     _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
-                    swal({
-                        title: 'Éxito',
-                        html: response.message,
-                        type: 'success'
-                    }).then(() => {
-                        location.reload();
+                    // Limpiar caché explícitamente antes de recargar
+                    $.ajax({
+                        url: "{{ route('grupos-corte.limpiar-cache-ciclo') }}",
+                        method: 'POST',
+                        data: {
+                            idGrupo: grupoId,
+                            periodo: '{{ $periodo }}',
+                            _token: '{{ csrf_token() }}'
+                        },
+                        complete: function() {
+                            swal({
+                                title: 'Éxito',
+                                html: response.message,
+                                type: 'success'
+                            }).then(() => {
+                                // Forzar recarga sin caché del navegador
+                                location.reload(true);
+                            });
+                        }
                     });
                 },
                 error: function(xhr) {
