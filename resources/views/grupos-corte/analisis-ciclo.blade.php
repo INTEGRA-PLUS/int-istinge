@@ -260,9 +260,11 @@
                         @endif
 
                         <!-- Botón: Eliminar Facturación del Ciclo -->
+                        @if(($cycleStats['facturas_generadas'] ?? 0) > 0)
                         <button class="btn btn-outline-danger btn-sm mr-2 mb-2" onclick="eliminarCiclo()">
                             <i class="fas fa-trash-alt"></i> Eliminar facturación del ciclo
                         </button>
+                        @endif
 
                         <!-- Botón: Refrescar Análisis -->
                         <button class="btn btn-info btn-sm mr-2 mb-2" onclick="refrescarAnalisis()">
@@ -669,6 +671,19 @@
                         <li>Contratos que ya tienen factura en este mes serán omitidos automáticamente.</li>
                     </ul>
                 </div>
+                @php
+                    $diaActual = (int) \Carbon\Carbon::now()->format('d');
+                    $diaFactura = (int) $grupo->fecha_factura;
+                    $esFacturacionAdelantada = $diaFactura > 0 && $diaActual < $diaFactura;
+                @endphp
+                @if($esFacturacionAdelantada)
+                <div class="alert alert-warning text-left small mt-2">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <strong>¡Atención! Facturación Adelantada</strong>
+                    <p class="mb-0 mt-1">Estás generando facturas <strong>antes</strong> del día de facturación programado (día {{ $diaFactura }}). Actualmente estamos en el día {{ $diaActual }}.</p>
+                    <p class="mb-0 text-dark"><strong>¿Estás seguro de continuar con la generación adelantada?</strong></p>
+                </div>
+                @endif
             </div>
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-light" data-dismiss="modal">Cancelar</button>
