@@ -339,284 +339,225 @@ class SiigoController extends Controller
 
         return $instance->executeSiigoRequest($curlOptions, true);
     }
-
-    public function sendInvoice(Request $request, $factura = null)
+    
+        public function sendInvoice(Request $request, $factura = null)
     {
-
         try {
-            if($factura == null){
-                $factura = Factura::Find($request->factura_id);
+    
+            if ($factura === null) {
+                $factura = Factura::findOrFail($request->factura_id);
             }
-
+    
             $cliente_factura = $factura->cliente();
+    
             $items_factura = ItemsFactura::join('inventario', 'inventario.id', 'items_factura.producto')
                 ->where('factura', $factura->id)
-                ->select('items_factura.precio','inventario.codigo_siigo','inventario.siigo_id','items_factura.cant',
-                'items_factura.id_impuesto','items_factura.producto','inventario.ref',
-                'inventario.producto as nombreProducto','inventario.id','items_factura.desc')
+                ->select(
+                    'items_factura.precio',
+                    'inventario.codigo_siigo',
+                    'inventario.siigo_id',
+                    'items_factura.cant',
+                    'items_factura.id_impuesto',
+                    'items_factura.producto',
+                    'inventario.ref',
+                    'inventario.producto as nombreProducto',
+                    'inventario.id',
+                    'items_factura.desc'
+                )
                 ->get();
-
-            // Validar que todos los items tengan siigo_id asignado
+    
+            /* ===============================
+               VALIDAR MAPEOS DE PRODUCTOS
+            =============================== */
             $itemsSinMapeo = [];
             foreach ($items_factura as $item) {
-                if (!isset($item->siigo_id) || $item->siigo_id == null || $item->siigo_id == '') {
-                    $itemsSinMapeo[] = $item->nombreProducto . ($item->ref ? ' (Ref: ' . $item->ref . ')' : '');
+                if (empty($item->codigo_siigo)) {
+                    $itemsSinMapeo[] = $item->nombreProducto;
                 }
             }
-
+    
             if (!empty($itemsSinMapeo)) {
-                $itemsLista = implode(', ', $itemsSinMapeo);
-                $mensaje = 'Los siguientes productos no tienen mapeo con Siigo: ' . $itemsLista . '. ';
-                $mensaje .= 'Por favor, vaya a <strong>Configuración > Siigo > Productos</strong> y realice el mapeo de los items antes de enviar la factura.';
-
                 return response()->json([
                     'status' => 400,
-                    'error' => $mensaje
-                ], 400);
+                    'error'  => 'Productos sin mapeo en Siigo: ' . implode(', ', $itemsSinMapeo)
+                ]);
             }
-
-            $empresa = Empresa::Find(1);
-            $departamento = $cliente_factura->departamento();
-            $municipio = $cliente_factura->municipio();
-
-            $array_items_factura = [];
-            $douTotalFactura = 0;
-            $cont = 0;
-
-            // Obtener retenciones de la factura para Siigo
+    
+            /* ===============================
+               RETENCIONES FACTURA
+            =============================== */
             $retencionesFactura = FacturaRetencion::where('factura', $factura->id)->get();
-            $totalRetencion = 0;
+    
+            $totalRetencion   = 0;
             $retencionSiigoId = null;
-            
-            foreach ($retencionesFactura as $retFact) {
-                $totalRetencion += (float) $retFact->valor;
-                $retencionObj = Retencion::find($retFact->id_retencion);
-                if ($retencionObj && $retencionObj->siigo_id) {
-                    $retencionSiigoId = $retencionObj->siigo_id;
+    
+            foreach ($retencionesFactura as $ret) {
+                $totalRetencion += (float) $ret->valor;
+                $retObj = Retencion::find($ret->id_retencion);
+                if ($retObj && $retObj->siigo_id) {
+                    $retencionSiigoId = $retObj->siigo_id;
                 }
             }
-
+    
+            /* ===============================
+               ARMADO ITEMS
+            =============================== */
+            $array_items_factura = [];
+            $totalFactura = 0;
+            $cont = 0;
+    
             foreach ($items_factura as $item) {
-                if (!isset($item['codigo_siigo']) || $item['codigo_siigo'] == null) {
-                    //Si no tiene código Siigo,lo creamos.
-                    $respuesta = $this->createItem($item);
-
-                    $item = Inventario::leftJoin('items_factura as if', 'if.producto', 'inventario.id')
-                        ->select('if.precio', 'inventario.codigo_siigo', 'inventario.siigo_id', 'if.cant', 'if.id_impuesto',
-                        'if.producto','inventario.ref', 'inventario.producto as nombreProducto')
-                        ->where('inventario.id', $item->id)
-                        ->first();
-
+    
+                $precio   = (float) $item->precio;
+                $cantidad = (int) $item->cant;
+                $subtotal = round($precio * $cantidad, 2);
+    
+                // Descuento (%)
+                $descuento = 0;
+                if (!empty($item->desc)) {
+                    $descuento = round(($subtotal * $item->desc) / 100, 2);
                 }
-
-                $douPrecio = round($item['precio'], 2);
-                $intCantidad = round($item['cant']);
-                $douSubtotalItem = $douPrecio * $intCantidad;
-                
-                // Calcular descuento del item
-                $descPorcentaje = isset($item['desc']) ? (float) $item['desc'] : 0;
-                $douDescuentoItem = 0;
-                if ($descPorcentaje > 0) {
-                    $douDescuentoItem = round(($douSubtotalItem * $descPorcentaje) / 100, 2);
+    
+                $subtotalConDesc = round($subtotal - $descuento, 2);
+    
+                // Impuesto
+                $impuestoValor = 0;
+                $impuesto = null;
+    
+                if ($item->id_impuesto) {
+                    $impuesto = Impuesto::find($item->id_impuesto);
+                    if ($impuesto && $impuesto->siigo_id) {
+                        $impuestoValor = round($subtotalConDesc * ($impuesto->porcentaje / 100), 2);
+                    }
                 }
-                $douSubtotalConDescuento = $douSubtotalItem - $douDescuentoItem;
-
-                // Calcular impuesto sobre el subtotal con descuento
-                $douImpuestoItem = 0;
-                $impuestoItem = Impuesto::find($item->id_impuesto);
-                if ($impuestoItem && $impuestoItem->siigo_id != null) {
-                    $douImpuestoItem = $douSubtotalConDescuento * ($impuestoItem->porcentaje / 100);
-                }
-
-                $douTotalFactura += ($douSubtotalConDescuento + $douImpuestoItem);
-
-                $array_items_factura[] = [
-                    "code" => $item['codigo_siigo'],
-                    "quantity" => $intCantidad,
-                    "price" => number_format(round($douPrecio, 2), 2, '.', ''),
+    
+                $totalFactura += ($subtotalConDesc + $impuestoValor);
+    
+                $siigoItem = [
+                    "code"     => $item->codigo_siigo,
+                    "quantity" => $cantidad,
+                    "price"    => number_format($precio, 2, '.', '')
                 ];
-
-                // Agregar descuento al item si existe
-                if ($douDescuentoItem > 0) {
-                    $array_items_factura[$cont]['discount'] = $douDescuentoItem;
+    
+                if ($descuento > 0) {
+                    $siigoItem["discount"] = number_format($item->desc, 2, '.', '');
                 }
-
-                // Agregar impuestos al item
-                if ($impuestoItem && $impuestoItem->siigo_id != null) {
-                    $array_items_factura[$cont]['taxes'] = [
-                        [
-                            "id" => $impuestoItem->siigo_id
-                        ]
+    
+                if ($impuesto && $impuesto->siigo_id) {
+                    $siigoItem["taxes"] = [
+                        ["id" => (string) $impuesto->siigo_id]
                     ];
                 }
-
-                // Agregar retención al PRIMER item (según recomendación de Siigo API)
+    
+                // Retención SOLO primer ítem
                 if ($cont === 0 && $retencionSiigoId && $totalRetencion > 0) {
-                    if (!isset($array_items_factura[$cont]['taxes'])) {
-                        $array_items_factura[$cont]['taxes'] = [];
-                    }
-                    $array_items_factura[$cont]['taxes'][] = [
-                        "id" => $retencionSiigoId,
-                        "type" => "Retention",
+                    $siigoItem["taxes"][] = [
+                        "id"    => (string) $retencionSiigoId,
+                        "type"  => "Retention",
                         "value" => round($totalRetencion, 2)
                     ];
                 }
-
+    
+                $array_items_factura[] = $siigoItem;
                 $cont++;
             }
-
-            $apellidos = $cliente_factura->apellido1 . ($cliente_factura->apellido2 != "" ?  " " . $cliente_factura->apellido2 : "");
-
-            // Determinar el valor de draft basado en la configuración siigo_emitida
-            // Si siigo_emitida == 1, entonces draft = false (factura emitida)
-            // Si siigo_emitida == 0 o no existe, entonces draft = true (factura como borrador)
-            $draftValue = (isset($empresa->siigo_emitida) && $empresa->siigo_emitida == 1) ? false : true;
-
+    
+            /* ===============================
+               TOTAL NETO (RESTAR RETENCIONES)
+            =============================== */
+            $totalFactura = round($totalFactura - $totalRetencion, 2);
+    
+            /* ===============================
+               DATA FINAL SIIGO
+            =============================== */
+            $empresa = Empresa::find(1);
+            $departamento = $cliente_factura->departamento();
+            $municipio    = $cliente_factura->municipio();
+    
+            $draft = ($empresa->siigo_emitida == 1) ? false : true;
+    
             $data = [
-                "document" => [
-                    "id" => $request->tipo_comprobante
-                ],
-                "date" => $factura->fecha,
-                "draft" => $draftValue,
+                "document" => ["id" => $request->tipo_comprobante],
+                "date"     => $factura->fecha,
+                "draft"    => $draft,
+    
                 "customer" => [
-                    "person_type" => $cliente_factura->dv != null ? 'Company' : 'Person',
-                    "id_type" => $cliente_factura->dv != null ? "31" : "13", //13 cedula 31 nit
+                    "person_type"    => $cliente_factura->dv ? "Company" : "Person",
+                    "id_type"        => $cliente_factura->dv ? "31" : "13",
                     "identification" => $cliente_factura->nit,
-                    "branch_office" => "0", //por defecto 0
-                    "name" => $cliente_factura->dv != null
-                        ? [$cliente_factura->nombre . " " . $apellidos]
-                        : [ $cliente_factura->nombre, $apellidos],
+                    "branch_office"  => "0",
+                    "name"           => [$cliente_factura->nombre],
                     "address" => [
                         "address" => $cliente_factura->direccion,
                         "city" => [
-                            "country_code" => $cliente_factura->fk_idpais,
+                            "country_code" => "CO",
                             "country_name" => "Colombia",
-                            "state_code" => $departamento->codigo,
-                            "state_name" => $departamento->nombre,
-                            "city_code" => $municipio->codigo_completo,
-                            "city_name" => $municipio->nombre
-                        ],
-                        "postal_code" => $cliente_factura->cod_postal
-                    ],
-                    "phones" => [
-                        [
-                            "indicative" => "57",
-                            "number" => $cliente_factura->celular,
-                            "extension" => ""
-                        ]
-                    ],
-                    "contacts" => [
-                        [
-                            "first_name" => $cliente_factura->nombre,
-                            "last_name" => $cliente_factura->apellido1 . " " . $cliente_factura->apellido2,
-                            "email" => $cliente_factura->email,
-                            "phone" => [
-                                "indicative" => "57",
-                                "number" => $cliente_factura->celular,
-                                "extension" => ""
-                            ]
+                            "state_code"   => $departamento->codigo,
+                            "state_name"   => $departamento->nombre,
+                            "city_code"    => $municipio->codigo_completo,
+                            "city_name"    => $municipio->nombre
                         ]
                     ]
                 ],
+    
                 "seller" => $request->usuario,
-                'items' => $array_items_factura,
+                "items"  => $array_items_factura,
+    
                 "payments" => [
                     [
-                        "id" => $request->tipos_pago,
-                        'value' => number_format(round($douTotalFactura, 2), 2, '.', ''),
+                        "id"       => $request->tipos_pago,
+                        "value"    => number_format($totalFactura, 2, '.', ''),
                         "due_date" => $factura->vencimiento
                     ]
                 ]
             ];
-
-            // Si draft es false, agregar opciones para enviar a DIAN y por correo
-            if ($draftValue === false) {
-                $data["stamp"] = [
-                    "send" => true  // Enviar a DIAN
-                ];
-                $data["mail"] = [
-                    "send" => true  // Enviar por correo
-                ];
+    
+            if (!$draft) {
+                $data["stamp"] = ["send" => true];
+                $data["mail"]  = ["send" => true];
             }
-
-
-            //Envio a curl invoice
-            $curlOptions = array(
+    
+            /* ===============================
+               ENVÍO SIIGO
+            =============================== */
+            $curlOptions = [
                 CURLOPT_URL => 'https://api.siigo.com/v1/invoices',
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
                 CURLOPT_POSTFIELDS => json_encode($data),
-                CURLOPT_HTTPHEADER => array(
+                CURLOPT_HTTPHEADER => [
                     'Partner-Id: Integra',
                     'Content-Type: application/json',
-                    'Authorization: Bearer ' . $empresa->token_siigo,
-                ),
-            );
-
+                    'Authorization: Bearer ' . $empresa->token_siigo
+                ]
+            ];
+    
             $response = $this->executeSiigoRequest($curlOptions, true);
-
-            if(isset($response['id'])){
+    
+            if (isset($response['id'])) {
                 $factura->siigo_id = $response['id'];
                 $factura->siigo_name = $response['name'];
                 $factura->save();
-
-                // log siigo
-                $descripcion = '<i class="fas fa-check text-success"></i> Factura enviada a siigo por <b>'.Auth::user()->nombres.'</b>';
-                $movimiento = new MovimientoLOG();
-                $movimiento->contrato    = $factura->id;
-                $movimiento->modulo      = 8;
-                $movimiento->descripcion = $descripcion;
-                $movimiento->created_by  = Auth::user()->id;
-                $movimiento->empresa     = Auth::user()->empresa;
-                $movimiento->save();
-
+    
                 return response()->json([
-                    'status' => 200,
-                    'message' => "Factura creada correctamente en Siigo",
-                    'factura_id' => $factura->id
-                ]);
-                //Guardamos los items de la factura en siigo.
-            }else{
-                $mensajes = '';
-                if (isset($response['Errors'])){
-                    foreach ($response['Errors'] as $error) {
-                        $mensajes .= $error['Message'] . ' ';
-                    }
-                } elseif (isset($response['Message'])) {
-                    $mensajes = $response['Message'];
-                }
-
-                    // log siigo
-                    $descripcion = '<i class="fas fa-check text-error"></i> Factura <br>NO</br> enviada a siigo por <b>'.Auth::user()->nombres.'</b>';
-                    $movimiento = new MovimientoLOG();
-                    $movimiento->contrato    = $factura->id;
-                    $movimiento->modulo      = 8;
-                    $movimiento->descripcion = $descripcion;
-                    $movimiento->created_by  = Auth::user()->id;
-                    $movimiento->empresa     = Auth::user()->empresa;
-                    $movimiento->save();
-
-
-                return response()->json([
-                    'status' => 400,
-                    'error' => "Error al crear la factura en Siigo " . ($mensajes != '' ? $mensajes : ''),
-
+                    'status'  => 200,
+                    'message' => 'Factura creada correctamente en Siigo'
                 ]);
             }
+    
+            return response()->json([
+                'status' => 400,
+                'error'  => $response['Message'] ?? 'Error desconocido en Siigo'
+            ]);
+    
         } catch (\Throwable $th) {
             return response()->json([
                 'status' => 400,
-                'error' => "Error al crear la factura en Siigo: " . $th->getMessage()
+                'error'  => 'Error al crear factura en Siigo: ' . $th->getMessage()
             ]);
         }
-
     }
-
+    
     public function impuestosSiigo()
     {
         $empresa = Empresa::Find(1);
@@ -877,92 +818,131 @@ class SiigoController extends Controller
         }
 
     }
-
-    public function envioMasivoSiigo($facturas,$ingreso= null)
+    
+    public function envioMasivoSiigo($facturas, $ingreso = null)
     {
         try {
+    
             $facturas = explode(",", $facturas);
             $lstResultados = [];
-
-            for ($i = 0; $i < count($facturas); $i++) {
-                $request = new Request();
-
-                $factura = Factura::Find($facturas[$i]);
-
-                if($factura->siigo_id == null || $factura->siigo_id == ""){
-                    $tiposPago = collect($this->getPaymentTypes());
-
-                    $tipoPagoCredito = $tiposPago->firstWhere('name', 'Crédito');
-                    $tipoPagoEfectivo = $tiposPago->firstWhere('name', 'Efectivo');
-
-                    if($ingreso){
-                        // Si es ingreso, usar Efectivo, pero si no existe, usar Crédito
-                        if($tipoPagoEfectivo){
-                            $credito = $tipoPagoEfectivo['id'];
-                        } elseif($tipoPagoCredito){
-                            $credito = $tipoPagoCredito['id'];
-                        } else {
-                            return response()->json([
-                                'success' => false,
-                                'text' => 'Error: No se encontró el tipo de pago "Efectivo" ni "Crédito" en Siigo. Por favor verifique la configuración de tipos de pago.',
-                                'resultados' => []
-                            ]);
-                        }
-                    }else{
-                        // Si no es ingreso, usar Crédito, pero si no existe, usar Efectivo
-                        if($tipoPagoCredito){
-                            $credito = $tipoPagoCredito['id'];
-                        } elseif($tipoPagoEfectivo){
-                            $credito = $tipoPagoEfectivo['id'];
-                        } else {
-                            return response()->json([
-                                'success' => false,
-                                'text' => 'Error: No se encontró el tipo de pago "Crédito" ni "Efectivo" en Siigo. Por favor verifique la configuración de tipos de pago.',
-                                'resultados' => []
-                            ]);
-                        }
-                    }
-                    $servidor = $factura->servidor();
-                    $sellerData = $this->getSeller();
-                    $usuario = collect($sellerData['results'] ?? [])->first()['id'] ?? null;
-
-                    $request->merge(['tipos_pago' => $credito]);
-                    $request->merge(['factura_id' => $facturas[$i]]);
-                    $request->merge(['usuario' => $usuario]);
-                    $request->merge(['tipo_comprobante' => $servidor->tipodoc_siigo_id]);
-
-                    $response = $this->sendInvoice($request,$factura);
-
-                    // Extraer contenido del JSON si es instancia de Response
-                    if ($response instanceof \Illuminate\Http\JsonResponse) {
-                        $data = $response->getData(true);
-                    } else {
-                        $data = ['status' => 500, 'error' => 'Respuesta no válida de sendInvoice'];
-                    }
-
-                    $lstResultados[] = [
-                        'factura_id' => $facturas[$i],
-                        'codigo' => $factura->codigo,
-                        'resultado' => $data
-                    ];
-
+    
+            foreach ($facturas as $facturaId) {
+    
+                $factura = Factura::find($facturaId);
+    
+                if (!$factura || !empty($factura->siigo_id)) {
+                    continue;
                 }
+    
+                // ==============================
+                // OBTENER TIPOS DE PAGO SIIGO
+                // ==============================
+                $tiposPago = collect($this->getPaymentTypes());
+    
+                $tipoPagoCredito = $tiposPago
+                    ->whereIn('name', ['Pago a crédito', 'Crédito'])
+                    ->first();
+    
+                $tipoPagoEfectivo = $tiposPago
+                    ->whereIn('name', ['Efectivo', 'Contado'])
+                    ->first();
+    
+                // ==============================
+                // FECHAS → DEFINIR SI ES CRÉDITO
+                // ==============================
+                $fechaCreacion    = Carbon::parse($factura->fecha)->startOfDay();
+                $fechaVencimiento = Carbon::parse($factura->vencimiento)->startOfDay();
+    
+                $esCredito = $fechaVencimiento->gt($fechaCreacion);
+    
+                // ==============================
+                // SELECCIÓN SEGURA DEL PAGO
+                // ==============================
+                $tipoPagoSeleccionado = null;
+    
+                if ($esCredito) {
+                    if ($tipoPagoCredito) {
+                        $tipoPagoSeleccionado = $tipoPagoCredito['id'];
+                    } elseif ($tipoPagoEfectivo) {
+                        $tipoPagoSeleccionado = $tipoPagoEfectivo['id'];
+                    }
+                } else {
+                    if ($tipoPagoEfectivo) {
+                        $tipoPagoSeleccionado = $tipoPagoEfectivo['id'];
+                    } elseif ($tipoPagoCredito) {
+                        $tipoPagoSeleccionado = $tipoPagoCredito['id'];
+                    }
+                }
+    
+                // ==============================
+                // VALIDACIÓN CRÍTICA
+                // ==============================
+                if (!$tipoPagoSeleccionado) {
+                    $lstResultados[] = [
+                        'factura_id' => $facturaId,
+                        'codigo'     => $factura->codigo,
+                        'resultado'  => [
+                            'status' => 400,
+                            'error'  => 'No existe forma de pago válida en Siigo (Crédito / Efectivo).'
+                        ]
+                    ];
+                    continue;
+                }
+    
+                // ==============================
+                // DATOS ADICIONALES
+                // ==============================
+                $servidor   = $factura->servidor();
+                $sellerData = $this->getSeller();
+    
+                $usuario = collect($sellerData['results'] ?? [])
+                    ->first()['id'] ?? null;
+    
+                // ==============================
+                // REQUEST PARA sendInvoice
+                // ==============================
+                $request = new Request();
+                $request->merge([
+                    'tipos_pago'       => $tipoPagoSeleccionado,
+                    'factura_id'       => $facturaId,
+                    'usuario'          => $usuario,
+                    'tipo_comprobante' => $servidor->tipodoc_siigo_id
+                ]);
+    
+                // ==============================
+                // ENVÍO A SIIGO
+                // ==============================
+                $response = $this->sendInvoice($request, $factura);
+    
+                if ($response instanceof \Illuminate\Http\JsonResponse) {
+                    $data = $response->getData(true);
+                } else {
+                    $data = [
+                        'status' => 500,
+                        'error'  => 'Respuesta inválida desde sendInvoice'
+                    ];
+                }
+    
+                $lstResultados[] = [
+                    'factura_id' => $facturaId,
+                    'codigo'     => $factura->codigo,
+                    'resultado'  => $data
+                ];
             }
-
+    
             return response()->json([
                 'success' => true,
-                'text' => 'Conversión masiva de facturas electrónicas terminada',
+                'text'    => 'Conversión masiva de facturas electrónicas terminada',
                 'resultados' => $lstResultados
             ]);
-
+    
         } catch (\Throwable $th) {
-
-                return response()->json([
-                    'success' => false,
-                    'text' => 'Error obteniendo los datos de siigo: ' . $th->getMessage(),
-                    'resultados' => []
-                ]);
+    
+            return response()->json([
+                'success' => false,
+                'text' => 'Error obteniendo los datos de Siigo: ' . $th->getMessage(),
+                'resultados' => []
+            ]);
         }
     }
-
 }
