@@ -762,6 +762,15 @@ class FacturasController extends Controller{
                     $query->orWhere('factura.vencimiento', $request->vencimiento);
                 });
             }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $facturas->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $facturas->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
+            }
             if($request->estado){
                 $facturas->where(function ($query) use ($request) {
                     $query->orWhere('factura.estatus', $request->estado);
@@ -1122,6 +1131,15 @@ class FacturasController extends Controller{
             }
             if($request->creacion){
                 $facturas->where('factura.fecha', $request->creacion);
+            }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $facturas->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $facturas->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
             }
             if($request->vencimiento){
                 $facturas->where('factura.vencimiento', $request->vencimiento);
@@ -6737,6 +6755,15 @@ class FacturasController extends Controller{
             $facturas->where(function ($query) use ($request) {
                 $query->orWhere('factura.vencimiento', $request->vencimiento);
             });
+        }
+        if($request->prorrateo!=null){
+            if($request->prorrateo == '1'){
+                $facturas->where('factura.prorrateo_aplicado', 1);
+            }else{
+                $facturas->where(function ($query) {
+                    $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                });
+            }
         }
         if($request->estado!=null){
             $facturas->where(function ($query) use ($request) {
