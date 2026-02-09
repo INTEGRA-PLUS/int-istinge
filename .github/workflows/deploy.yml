@@ -55,27 +55,24 @@ jobs:
       - name: Generar matriz de servidores
         id: set-matrix
         run: |
-          # Leer servidores habilitados del JSON
           SPECIFIC='${{ github.event.inputs.specific_servers }}'
           
           if [ -n "$SPECIFIC" ] && [ "$SPECIFIC" != "[]" ]; then
-            # Filtrar solo servidores específicos
             echo "📋 Usando servidores específicos: $SPECIFIC"
             MATRIX=$(cat config/servers.json | jq -c --argjson indices "$SPECIFIC" '
               .servers | to_entries | 
               map(select(.key as $k | $indices | index($k))) | 
-              map(.value) | 
+              map(.value + {index: .key}) |   # ← AGREGAR {index: .key}
               map(select(.enabled == true)) |
               {include: .}
             ')
           else
-            # Usar todos los servidores habilitados
             echo "📋 Usando todos los servidores habilitados"
             MATRIX=$(cat config/servers.json | jq -c '
               .servers | 
               map(select(.enabled == true)) | 
               to_entries | 
-              map(.value + {index: .key}) |
+              map(.value + {index: .key}) |   # ← YA ESTÁ BIEN AQUÍ
               {include: .}
             ')
           fi

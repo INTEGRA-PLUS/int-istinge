@@ -435,7 +435,7 @@
             </div>
 
             <button type="submit" class="login-button" id="submitBtn">
-                [Iniciar Sesión]
+                Iniciar Sesión.
             </button>
         </form>
     </div>
