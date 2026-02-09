@@ -143,14 +143,21 @@
 								@endforeach
 							</select>
                         </div>
-                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
+                         <div class="col-md-3 pl-1 pt-1">
+                            <select title="Factura prorrateada" class="form-control rounded selectpicker" id="prorrateo">
+                                <option value="">Ambas</option>
+                                <option value="1">Si</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
                             <label for="creacion" class="placeholder">Creación</label>
                         </div>
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
                             <label for="vencimiento" class="placeholder">Vencimiento</label>
-                        </div> --}}
+                        </div>
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
                             <label for="desde" class="placeholder">Desde</label>
@@ -366,6 +373,7 @@
 		tabla.on('preXhr.dt', function(e, settings, data) {
 			data.codigo = $('#codigo').val();
 			data.corte = $('#corte').val();
+			data.prorrateo = $('#prorrateo').val();
 			data.cliente = $('#cliente').val();
 			data.municipio = $('#municipio').val();
 			data.vendedor = $('#vendedor').val();
@@ -908,6 +916,7 @@
 		$('#otras_opciones').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
 		$('#emision').val('').selectpicker('refresh');
+		$('#prorrateo').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
@@ -915,7 +924,7 @@
 
 	function exportar() {
 		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
+        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&prorrateo='+$('#prorrateo').val()+'&tipo=2';
 	}
 </script>
 @endsection

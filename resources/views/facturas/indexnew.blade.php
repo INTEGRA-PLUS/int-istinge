@@ -167,6 +167,13 @@
 								<option value="3">Electrónica</option>
 							</select>
 						</div>
+                        <div class="col-md-3 pl-1 pt-1">
+                            <select title="Factura prorrateada" class="form-control rounded selectpicker" id="prorrateo">
+                                <option value="">Ambas</option>
+                                <option value="1">Si</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
                         @if ($empresa->token_siigo != null || $empresa->token_siigo != '')
                         <div class="col-md-2 pl-1 pt-1">
 							<select title="¿Envía a siigo?" class="form-control rounded selectpicker" name="fact_siigo" id="fact_siigo" multiple data-live-search="true">
@@ -748,7 +755,9 @@
 		tabla.on('preXhr.dt', function(e, settings, data) {
 			data.codigo = $('#codigo').val();
 			data.corte = $('#corte').val();
+			data.prorrateo = $('#prorrateo').val();
 			data.cliente = $('#cliente').val();
+
 			data.municipio = $('#municipio').val();
 			data.vendedor = $('#vendedor').val();
 			data.barrio = $('#barrio').val();
@@ -1226,7 +1235,9 @@
 		$('#otras_opciones').val('').selectpicker('refresh');
 		$('#tipo_facturacion').val('').selectpicker('refresh');
 		$('#state_contrato').val('').selectpicker('refresh');
+		$('#state_contrato').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
+		$('#prorrateo').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
@@ -1252,6 +1263,8 @@
             'otras_opciones=' + encodeURIComponent($('#otras_opciones').val() || ''),
             'tipo_facturacion=' + encodeURIComponent($('#tipo_facturacion').val() || ''),
             'state_contrato=' + encodeURIComponent($('#state_contrato').val() || ''),
+
+            'prorrateo=' + encodeURIComponent($('#prorrateo').val() || ''),
             'tipo=1'
         ].join('&');
 
