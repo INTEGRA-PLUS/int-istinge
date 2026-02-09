@@ -323,16 +323,27 @@ class CronController extends Controller
                 $m = Carbon::parse($fecha)->format('m');
                 $ds = substr(str_repeat(0, 2).$grupo_corte->fecha_suspension, - 2);
                 $da = Carbon::parse($fecha)->format('d')*1;
-                 if($da > $grupo_corte->fecha_suspension && $m!=12){
-                    $m=$m+1;
-                }
 
-                if($m == 12){
-                    if($da > $grupo_corte->fecha_suspension){
+                // Si mes_siguiente está activo, forzar el mes siguiente para la suspensión
+                if($grupo_corte->mes_siguiente == 1){
+                    $m = $m + 1;
+                    if($m > 12){
+                        $m = 1;
+                        $y = $y + 1;
+                    }
+                } else {
+                    // Lógica original: solo avanzar mes si el día actual es mayor al día de suspensión
+                    if($da > $grupo_corte->fecha_suspension && $m!=12){
+                        $m=$m+1;
+                    }
 
-                        if(Carbon::now()->format('m') != 11){
-                            $m = 01;
-                            $y = $y+1;
+                    if($m == 12){
+                        if($da > $grupo_corte->fecha_suspension){
+
+                            if(Carbon::now()->format('m') != 11){
+                                $m = 01;
+                                $y = $y+1;
+                            }
                         }
                     }
                 }
