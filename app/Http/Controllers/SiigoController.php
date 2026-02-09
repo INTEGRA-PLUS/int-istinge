@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Empresa;
 use App\Impuesto;
 use App\Model\Ingresos\Factura;
+use App\Model\Ingresos\FacturaRetencion;
 use App\Model\Ingresos\ItemsFactura;
 use App\Model\Inventario\Inventario;
 use App\MovimientoLOG;
@@ -352,7 +353,7 @@ class SiigoController extends Controller
                 ->where('factura', $factura->id)
                 ->select('items_factura.precio','inventario.codigo_siigo','inventario.siigo_id','items_factura.cant',
                 'items_factura.id_impuesto','items_factura.producto','inventario.ref',
-                'inventario.producto as nombreProducto','inventario.id')
+                'inventario.producto as nombreProducto','inventario.id','items_factura.desc')
                 ->get();
 
             // Validar que todos los items tengan siigo_id asignado
@@ -382,6 +383,19 @@ class SiigoController extends Controller
             $douTotalFactura = 0;
             $cont = 0;
 
+            // Obtener retenciones de la factura para Siigo
+            $retencionesFactura = FacturaRetencion::where('factura', $factura->id)->get();
+            $totalRetencion = 0;
+            $retencionSiigoId = null;
+            
+            foreach ($retencionesFactura as $retFact) {
+                $totalRetencion += (float) $retFact->valor;
+                $retencionObj = Retencion::find($retFact->id_retencion);
+                if ($retencionObj && $retencionObj->siigo_id) {
+                    $retencionSiigoId = $retencionObj->siigo_id;
+                }
+            }
+
             foreach ($items_factura as $item) {
                 if (!isset($item['codigo_siigo']) || $item['codigo_siigo'] == null) {
                     //Si no tiene código Siigo,lo creamos.
@@ -398,14 +412,23 @@ class SiigoController extends Controller
                 $douPrecio = round($item['precio'], 2);
                 $intCantidad = round($item['cant']);
                 $douSubtotalItem = $douPrecio * $intCantidad;
-                $douImpuestoItem = 0;
+                
+                // Calcular descuento del item
+                $descPorcentaje = isset($item['desc']) ? (float) $item['desc'] : 0;
+                $douDescuentoItem = 0;
+                if ($descPorcentaje > 0) {
+                    $douDescuentoItem = round(($douSubtotalItem * $descPorcentaje) / 100, 2);
+                }
+                $douSubtotalConDescuento = $douSubtotalItem - $douDescuentoItem;
 
+                // Calcular impuesto sobre el subtotal con descuento
+                $douImpuestoItem = 0;
                 $impuestoItem = Impuesto::find($item->id_impuesto);
                 if ($impuestoItem && $impuestoItem->siigo_id != null) {
-                    $douImpuestoItem = $douSubtotalItem * ($impuestoItem->porcentaje / 100);
+                    $douImpuestoItem = $douSubtotalConDescuento * ($impuestoItem->porcentaje / 100);
                 }
 
-                $douTotalFactura += ($douSubtotalItem + $douImpuestoItem);
+                $douTotalFactura += ($douSubtotalConDescuento + $douImpuestoItem);
 
                 $array_items_factura[] = [
                     "code" => $item['codigo_siigo'],
@@ -413,11 +436,29 @@ class SiigoController extends Controller
                     "price" => number_format(round($douPrecio, 2), 2, '.', ''),
                 ];
 
+                // Agregar descuento al item si existe
+                if ($douDescuentoItem > 0) {
+                    $array_items_factura[$cont]['discount'] = $douDescuentoItem;
+                }
+
+                // Agregar impuestos al item
                 if ($impuestoItem && $impuestoItem->siigo_id != null) {
                     $array_items_factura[$cont]['taxes'] = [
                         [
                             "id" => $impuestoItem->siigo_id
                         ]
+                    ];
+                }
+
+                // Agregar retención al PRIMER item (según recomendación de Siigo API)
+                if ($cont === 0 && $retencionSiigoId && $totalRetencion > 0) {
+                    if (!isset($array_items_factura[$cont]['taxes'])) {
+                        $array_items_factura[$cont]['taxes'] = [];
+                    }
+                    $array_items_factura[$cont]['taxes'][] = [
+                        "id" => $retencionSiigoId,
+                        "type" => "Retention",
+                        "value" => round($totalRetencion, 2)
                     ];
                 }
 
@@ -435,7 +476,7 @@ class SiigoController extends Controller
                 "document" => [
                     "id" => $request->tipo_comprobante
                 ],
-                "date" => Carbon::now()->format('Y-m-d'),
+                "date" => $factura->fecha,
                 "draft" => $draftValue,
                 "customer" => [
                     "person_type" => $cliente_factura->dv != null ? 'Company' : 'Person',
@@ -497,7 +538,8 @@ class SiigoController extends Controller
                     "send" => true  // Enviar por correo
                 ];
             }
-
+            
+            dd($data);
 
 
             //Envio a curl invoice
