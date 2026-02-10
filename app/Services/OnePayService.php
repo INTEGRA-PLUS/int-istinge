@@ -73,8 +73,8 @@ class OnePayService
             // Preparar datos
             $data = [
                 'reference' => $cliente->nit,
-                'provider_id' => 'integra',
-                'provider' => $empresa->nombre,
+                'provider_id' => $factura->codigo,
+                'provider' => 'integra',
                 'amount' => $amount,
                 'name' => 'Factura #' . $factura->codigo,
                 'phone' => $cliente->celular ? $this->formatPhone($cliente->celular) : null,
@@ -185,7 +185,7 @@ class OnePayService
             // Preparar datos
             $data = [
                 'reference' => $cliente->nit,
-                'provider_id' => 'integra',
+                'provider_id' => $factura->codigo,
                 'amount' => $amount,
                 'name' => 'Factura #' . $factura->codigo,
                 'phone' => $cliente->celular ? $this->formatPhone($cliente->celular) : null,
