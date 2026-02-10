@@ -4609,12 +4609,15 @@ function getProfiles(mikrotik) {
 function interfazChange(){
     if(document.getElementById("conexion").value == 3){
         document.getElementById("div_interfaz").classList.remove('d-none');
+        document.getElementById("div_segmento_ip").classList.remove('d-none');
+        document.getElementById("div_direccion_ip").classList.remove('d-none');
         document.getElementById("div_mac").classList.remove('d-none');
         document.getElementById("local_adress").classList.add('d-none');
         document.getElementById("div_profile").classList.add('d-none');
 
         //document.getElementById("mac_address").setAttribute('required', true);
         document.getElementById("interfaz").setAttribute('required', true);
+        document.getElementById("local_address").setAttribute('required', true);
         document.getElementById("div_local_address").innerHTML = "Segmento de IP <span class='text-danger'>*</span>";
         document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
       //  document.getElementById("div_name_vlan").classList.add('d-none');
