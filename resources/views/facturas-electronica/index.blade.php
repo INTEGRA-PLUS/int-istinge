@@ -150,14 +150,7 @@
                                 <option value="0">No</option>
                             </select>
                         </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
-                            <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
-                            <label for="creacion" class="placeholder">Creación</label>
-                        </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
-                            <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
-                            <label for="vencimiento" class="placeholder">Vencimiento</label>
-                        </div>
+
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
                             <label for="desde" class="placeholder">Desde</label>
@@ -378,8 +371,8 @@
 			data.municipio = $('#municipio').val();
 			data.vendedor = $('#vendedor').val();
             data.barrio = $('#barrio').val();
-			data.creacion = $('#creacion').val();
-			data.vencimiento = $('#vencimiento').val();
+			// data.creacion = $('#creacion').val();
+			// data.vencimiento = $('#vencimiento').val();
 			data.desde = $('#desde').val();
 			data.hasta = $('#hasta').val();
 			data.comparador = $('#comparador').val();
@@ -904,8 +897,8 @@
 		$('#municipio').val('').selectpicker('refresh');
         $('#barrio').val('').selectpicker('refresh');
 		$('#vendedor').val('').selectpicker('refresh');
-		$('#creacion').val('');
-		$('#vencimiento').val('');
+		// $('#creacion').val('');
+		// $('#vencimiento').val('');
 		$('#desde').val('2025-01-01');
 		$('#hasta').val('2026-12-31');
 		$('#comparador').val('').selectpicker('refresh');
@@ -923,8 +916,7 @@
 	}
 
 	function exportar() {
-		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&prorrateo='+$('#prorrateo').val()+'&tipo=2';
+        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&estado='+$('#estado').val()+'&prorrateo='+$('#prorrateo').val()+'&tipo=2';
 	}
 </script>
 @endsection
