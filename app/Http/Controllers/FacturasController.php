@@ -1356,6 +1356,15 @@ class FacturasController extends Controller{
             if($request->creacion){
                 $countQuery->where('factura.fecha', $request->creacion);
             }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $countQuery->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $countQuery->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
+            }
             if($request->vencimiento){
                 $countQuery->where('factura.vencimiento', $request->vencimiento);
             }
