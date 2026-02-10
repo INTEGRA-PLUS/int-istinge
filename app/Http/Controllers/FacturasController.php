@@ -6,7 +6,6 @@ use App\Builders\JsonBuilders\InvoiceJsonBuilder;
 use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use App\Empresa; use App\Contacto; use App\TipoIdentificacion;
 use App\Impuesto; use App\NumeracionFactura;
