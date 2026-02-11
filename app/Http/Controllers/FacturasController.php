@@ -65,6 +65,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use App\Helpers\CamposDinamicosHelper;
 
 class FacturasController extends Controller{
