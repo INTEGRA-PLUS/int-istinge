@@ -522,14 +522,35 @@
                         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                         success: function(data) {
                             cargando(false);
-                            swal({
-                                title: 'PROCESO REALIZADO',
-                                html: data.text,
-                                type: 'success',
-                                showConfirmButton: true,
-                                confirmButtonColor: '#1A59A1',
-                                confirmButtonText: 'ACEPTAR',
-                            });
+
+                            if(data.success == false){
+                                let html = data.text;
+                                if(data.detalles_errores && data.detalles_errores.length > 0){
+                                    html += '<br><br><ul style="text-align: left;">';
+                                    data.detalles_errores.forEach(function(error) {
+                                        html += '<li>' + error + '</li>';
+                                    });
+                                    html += '</ul>';
+                                }
+
+                                swal({
+                                    title: 'ERROR DE VALIDACIÓN',
+                                    html: html,
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            } else {
+                                swal({
+                                    title: 'PROCESO REALIZADO',
+                                    html: data.text,
+                                    type: 'success',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#1A59A1',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            }
                             getDataTable();
                         },
                         error: function(xhr) {
