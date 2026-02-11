@@ -45,7 +45,7 @@
   		<div class="row">
 			<div class="form-group col-md-3">
 				<label class="control-label">Precio de Venta <span class="text-danger">*</span></label>
-				<input type="number" class="form-control " id="precio" name="precio" required="" maxlength="24" value="{{old('precio')}}" placeholder="{{Auth::user()->empresa()->moneda}}" min="0" >
+				<input type="number" class="form-control " id="precio" name="precio" required="" maxlength="24" value="{{old('precio')}}" placeholder="{{Auth::user()->empresa()->moneda}}" min="0" step="any" >
 				<span class="help-block error">
 					<strong>{{ $errors->first('precio') }}</strong>
 				</span>

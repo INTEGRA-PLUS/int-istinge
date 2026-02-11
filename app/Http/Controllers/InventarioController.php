@@ -427,7 +427,7 @@ class InventarioController extends Controller{
         $inventario->ref=$request->ref;
         $inventario->descripcion=mb_strtolower($request->descripcion);
         $inventario->linea = $request->linea;
-        $inventario->precio=$this->precision($request->precio);
+        $inventario->precio=$request->precio;
         $inventario->id_impuesto=$request->impuesto;
         $inventario->type=$request->type;
         if($request->publico){
@@ -904,8 +904,6 @@ class InventarioController extends Controller{
                 $inventario->publico=$request->publico;
             }
 
-            $monto = str_replace('.','',$request->precio);
-            $monto = str_replace(',','.',$monto);
             $impuesto = Impuesto::where('id', $request->impuesto)->first();
             $inventario->id_impuesto=$request->impuesto;
             $inventario->impuesto=$impuesto->porcentaje;
@@ -913,7 +911,7 @@ class InventarioController extends Controller{
             $inventario->ref=$request->ref;
             $inventario->descripcion=mb_strtolower($request->descripcion);
             $inventario->linea = $request->linea;
-            $inventario->precio=$this->precision($monto);
+            $inventario->precio=$request->precio;
             $inventario->tipo_producto=$request->tipo_producto;
             $inventario->categoria=$request->categoria;
             $inventario->lista = $request->list;
@@ -1226,16 +1224,16 @@ class InventarioController extends Controller{
             $inventario=$inventario->havingRaw('if(inventario.tipo_producto=1 or inventario.tipo_producto=2, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')->orderBy('id','DESC')->get();
             if ($inventario) {
                 foreach ($inventario as $key => $item) {
-                    $item->precio=$this->precision($item->precio);
-                    $item->costo_unidad=$this->precision($item->costo_unidad);
+                    $item->precio=$item->precio;
+                    $item->costo_unidad=$item->costo_unidad;
                 }
                 return json_encode($inventario);
             }
         }else{
             $inventario =Inventario::select($select)->where('id',$id)->where('empresa',Auth::user()->empresa)->first();
             if ($inventario) {
-                $inventario->precio=$this->precision($inventario->precio);
-                $inventario->costo_unidad=$this->precision($inventario->costo_unidad);
+                $inventario->precio=$inventario->precio;
+                $inventario->costo_unidad=$inventario->costo_unidad;
                 //Se obtiene el inventario del producto buscado
                 $inventario->inventario = $inventario->inventario();
                 $inventario->inventariable= $inventario->esInventariable();

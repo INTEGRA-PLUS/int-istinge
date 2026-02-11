@@ -72,7 +72,7 @@
 	  			<div class="row">
 	  				<div class="col-md-6 monetario">
 	  					<label class="control-label">Precio de Venta <span class="text-danger">*</span></label>
-						<input type="number" class="form-control " id="precio" name="precio" required="" maxlength="24" value="0" placeholder="{{Auth::user()->empresa()->moneda}}" min="0" >
+						<input type="number" class="form-control " id="precio" name="precio" required="" maxlength="24" value="0" placeholder="{{Auth::user()->empresa()->moneda}}" min="0" step="any" >
 						<span class="help-block error">
 				        	<strong>{{ $errors->first('precio') }}</strong>
 				        </span>

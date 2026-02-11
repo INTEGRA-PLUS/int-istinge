@@ -364,7 +364,7 @@
                 </td>
                 <td class="monetario">
                     <div class="resp-precio">
-                  <input type="number" class="form-control form-control-sm" id="precio1" name="precio[]" placeholder="Precio Unitario" onkeyup="total(1)" required="" maxlength="24" min="0">
+                  <input type="number" class="form-control form-control-sm" id="precio1" name="precio[]" placeholder="Precio Unitario" onkeyup="total(1)" required="" maxlength="24" min="0" step="any">
                     </div>
                 </td>
                 <td>

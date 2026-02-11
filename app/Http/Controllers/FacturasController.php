@@ -2039,7 +2039,7 @@ class FacturasController extends Controller{
             $items->factura=$factura->id;
             $items->producto=$request->item[$i];
             $items->ref=$request->ref[$i];
-            $items->precio=$this->precision($request->precio[$i]);
+            $items->precio=$request->precio[$i];
             $items->descripcion=$request->descripcion[$i];
             $items->id_impuesto=$request->impuesto[$i];
             $items->impuesto=$impuesto->porcentaje;
@@ -2389,7 +2389,7 @@ class FacturasController extends Controller{
                     $items->factura=$factura->id;
                     $items->producto=$request->item[$i];
                     $items->ref=$request->ref[$i];
-                    $items->precio=$this->precision($request->precio[$i]);
+                    $items->precio=$request->precio[$i];
                     $items->descripcion=$request->descripcion[$i];
                     $items->id_impuesto=$request->impuesto[$i];
                     $items->impuesto=$impuesto->porcentaje;

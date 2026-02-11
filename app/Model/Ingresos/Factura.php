@@ -505,12 +505,11 @@ class Factura extends Model
 
 
             foreach ($totales["imp"] as $key => $imp) {
-                $totales['total'] += Funcion::precision($imp->total);
-                $totales['valImpuesto'] += Funcion::precision($imp->total);
+                $totales['total'] += $imp->total;
+                $totales['valImpuesto'] += $imp->total;
             }
 
-            //Agregamos una precisión sobre el valor total de la factura
-            $totales['total'] = Funcion::precision($totales['total']);
+            //Total sin redondeo - el formateo se hace en la vista con Parsear()
 
             return (object) $totales;
         }
