@@ -229,7 +229,7 @@
                                     <input type="text" class="form-control form-control-sm" id="ref1" name="ref[]" placeholder="Referencia" required="">
                                 </td>
                                 <td class="monetario">
-                                    <input type="number" class="form-control form-control-sm" id="precio1" name="precio[]" placeholder="Precio Unitario" onkeyup="total(1)" required="" maxlength="24" min="0" value="">
+                                    <input type="number" class="form-control form-control-sm" id="precio1" name="precio[]" placeholder="Precio Unitario" onkeyup="total(1)" required="" maxlength="24" min="0" value="" step="any">
                                 </td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm nro" id="desc1" name="desc[]" placeholder="%" onkeyup="total(1)" >

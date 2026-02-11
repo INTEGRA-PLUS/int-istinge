@@ -65,6 +65,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use App\Helpers\CamposDinamicosHelper;
 
 class FacturasController extends Controller{
@@ -2039,7 +2040,7 @@ class FacturasController extends Controller{
             $items->factura=$factura->id;
             $items->producto=$request->item[$i];
             $items->ref=$request->ref[$i];
-            $items->precio=$this->precision($request->precio[$i]);
+            $items->precio=$request->precio[$i];
             $items->descripcion=$request->descripcion[$i];
             $items->id_impuesto=$request->impuesto[$i];
             $items->impuesto=$impuesto->porcentaje;
@@ -2389,7 +2390,7 @@ class FacturasController extends Controller{
                     $items->factura=$factura->id;
                     $items->producto=$request->item[$i];
                     $items->ref=$request->ref[$i];
-                    $items->precio=$this->precision($request->precio[$i]);
+                    $items->precio=$request->precio[$i];
                     $items->descripcion=$request->descripcion[$i];
                     $items->id_impuesto=$request->impuesto[$i];
                     $items->impuesto=$impuesto->porcentaje;
@@ -6535,6 +6536,27 @@ class FacturasController extends Controller{
             $facturas = explode(",", $facturas);
             set_time_limit(0);
 
+            // Validar correos de los clientes antes de procesar
+            $erroresValidacion = [];
+            foreach ($facturas as $idFactura) {
+                $factura = Factura::where('empresa', $empresa->id)->where('id', $idFactura)->first();
+                if ($factura && $factura->cliente) {
+                    $cliente = $factura->cliente();
+                    if (!$cliente || !isset($cliente->email) || empty($cliente->email)) {
+                        $erroresValidacion[] = "La factura #{$factura->codigo} no se puede emitir porque el cliente " . ($cliente && isset($cliente->nombre) ? $cliente->nombre : 'Desconocido') . " no tiene correo electrónico configurado.";
+                    }
+                }
+            }
+
+            if (count($erroresValidacion) > 0) {
+                return response()->json([
+                    'success' => false,
+                    'text' => 'Se encontraron errores de validación:',
+                    'errores' => count($erroresValidacion),
+                    'detalles_errores' => $erroresValidacion
+                ]);
+            }
+
             $exitosas = 0;
             $errores = [];
             $totalFacturas = count($facturas);
@@ -6545,7 +6567,7 @@ class FacturasController extends Controller{
 
                     if(isset($factura)){
                         $factura->modificado = 1;
-                        
+
                         // Calcular la diferencia de días entre la fecha y el vencimiento original
                         $fechaOriginal = Carbon::parse($factura->fecha);
                         $vencimientoOriginal = Carbon::parse($factura->vencimiento);

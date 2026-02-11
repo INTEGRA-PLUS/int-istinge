@@ -18,7 +18,7 @@
             <input type="text" class="form-control form-control-sm" id="ref{{$cont}}" name="ref[]" placeholder="Referencia" required="" value="{{$itemR->ref}}">
         </td>
         <td class="monetario">
-            <input type="number" class="form-control form-control-sm" id="precio{{$cont}}" name="precio[]" placeholder="Precio Unitario" onkeyup="total({{$cont}})" required="" maxlength="24" min="0" value="{{$itemR->precio}}">
+            <input type="number" class="form-control form-control-sm" id="precio{{$cont}}" name="precio[]" placeholder="Precio Unitario" onkeyup="total({{$cont}})" required="" maxlength="24" min="0" value="{{(float)$itemR->precio}}" step="any">
         </td>
         <td>
             <input type="text" class="form-control form-control-sm nro" id="desc{{$cont}}" name="desc[]" placeholder="%"  value="{{$item->desc}}" onkeyup="total({{$cont}})" >
