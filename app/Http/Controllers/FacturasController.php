@@ -6540,9 +6540,9 @@ class FacturasController extends Controller{
             foreach ($facturas as $idFactura) {
                 $factura = Factura::where('empresa', $empresa->id)->where('id', $idFactura)->first();
                 if ($factura && $factura->cliente) {
-                    $cliente = $factura->cliente()->first(); // Asumiendo relación cliente() retorna el modelo Contacto
-                    if (!$cliente || empty($cliente->email)) {
-                        $erroresValidacion[] = "La factura #{$factura->codigo} no se puede emitir porque el cliente " . ($cliente ? $cliente->nombre : 'Desconocido') . " no tiene correo electrónico configurado.";
+                    $cliente = $factura->cliente();
+                    if (!$cliente || !isset($cliente->email) || empty($cliente->email)) {
+                        $erroresValidacion[] = "La factura #{$factura->codigo} no se puede emitir porque el cliente " . ($cliente && isset($cliente->nombre) ? $cliente->nombre : 'Desconocido') . " no tiene correo electrónico configurado.";
                     }
                 }
             }
