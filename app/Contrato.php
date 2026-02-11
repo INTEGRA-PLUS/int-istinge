@@ -222,7 +222,12 @@ class Contrato extends Model
     }
 
     public function factura(){
-        $factura = Factura::where('cliente', $this->c_id)->get()->last();
+        $factura = Factura::
+        join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
+        ->where('cliente', $this->c_id)
+        ->where('fc.contrato_nro', $this->nro)
+        ->get()->last();
+
         if($factura){
             return "<a href=".route('facturas.show', $factura->id)." target='_blank'>$factura->codigo</a>";
         }
