@@ -1405,18 +1405,15 @@ class CronController extends Controller
                     $facturaContratos = Contrato::where('id',$factura->contrato_id)->pluck('nro');
                 }
 
-                $contratosId = Contrato::whereIn('nro',$facturaContratos)
-                ->pluck('id');
+                $contratosNro = Contrato::whereIn('nro',$facturaContratos)
+                ->pluck('nro');
 
-                $ultimaFacturaRegistrada = Factura::
-                where('cliente',$factura->cliente)
-                ->where('estatus','<>',2)
-                ->whereIn('contrato_id',$contratosId)
-                // ->whereBetween('created_at', [
-                //     '2025-12-01 00:00:00',
-                //     '2025-12-31 23:59:59'
-                // ])
-                ->orderBy('created_at', 'desc')
+                $ultimaFacturaRegistrada = DB::table('facturas_contratos')
+                    ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
+                    ->whereIn('facturas_contratos.contrato_nro', $contratosNro)
+                    ->where('factura.estatus','!=',2)
+                    ->select('factura.*')
+                    ->orderBy('factura.created_at', 'desc')
                 ->value('id');
 
                 //manera antigua de buscar el contrato.
