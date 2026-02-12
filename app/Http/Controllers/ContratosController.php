@@ -1612,7 +1612,12 @@ class ContratosController extends Controller
         $nodos = Nodo::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $aps = AP::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $marcas = DB::table('marcas')->get();
-        $servidores = Mikrotik::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
+        // Incluir servidores activos + el servidor actual del contrato (aunque esté deshabilitado)
+        $servidores = Mikrotik::where('empresa', Auth::user()->empresa)
+            ->where(function ($query) use ($contrato) {
+                $query->where('status', 1)
+                      ->orWhere('id', $contrato->server_configuration_id);
+            })->get();
         $interfaces = Interfaz::all();
         $grupos = GrupoCorte::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $puertos = Puerto::where('empresa', Auth::user()->empresa)->get();

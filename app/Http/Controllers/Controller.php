@@ -1457,8 +1457,8 @@ class Controller extends BaseController
                 $empresa = Empresa::find($empresaId);
                 $consultasMk = $empresa ? $empresa->consultas_mk : 1;
 
-                // Si consultas_mk == 0, obtener interfaces desde la base de datos
-                if ($consultasMk == 0) {
+                // Si consultas_mk == 0 o la mikrotik está deshabilitada, obtener interfaces desde la base de datos
+                if ($consultasMk == 0 || $mikrotikObj->status == 0) {
                     $interfaces = Interfaz::all();
                     $ARRAY = $interfaces->map(function($interfaz) {
                         return [
@@ -1513,8 +1513,8 @@ class Controller extends BaseController
         $empresa = Empresa::find($empresaId);
         $consultasMk = $empresa ? $empresa->consultas_mk : 1;
 
-        // Solo hacer consulta a mikrotik si consultas_mk = 1 y la mikrotik existe
-        if ($consultasMk == 1 && $mikrotikObj) {
+        // Solo hacer consulta a mikrotik si consultas_mk = 1, la mikrotik existe y está habilitada
+        if ($consultasMk == 1 && $mikrotikObj && $mikrotikObj->status == 1) {
             $API = new RouterosAPI();
             $API->port = $mikrotikObj->puerto_api;
 
