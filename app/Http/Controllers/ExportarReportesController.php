@@ -3785,6 +3785,9 @@ class ExportarReportesController extends Controller
         if($request->tipo>0){
             $movimientos->where('movimientos.tipo',$request->tipo);
         }
+        if($request->forma_pago){
+            $movimientos->where('i.forma_pago', $request->forma_pago);
+        }
 
 
 

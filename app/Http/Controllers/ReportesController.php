@@ -2102,6 +2102,11 @@ class ReportesController extends Controller
             $movimientosTodos->where('i.metodo_pago', $request->metodo_pago);
         }
 
+        if($request->forma_pago){
+            $movimientos->where('i.forma_pago', $request->forma_pago);
+            $movimientosTodos->where('i.forma_pago', $request->forma_pago);
+        }
+
         $movimientos=$movimientos->OrderBy($orderby, $order)->get();
         // $movimientos=  $movimientos->orderBy('fecha', 'DESC')->paginate(25)->appends($appends);
         $movimientos = $this->paginate($movimientos, 25, $request->page, $request);
@@ -2123,8 +2128,9 @@ class ReportesController extends Controller
 
         // Obtener métodos de pago para el filtro
         $metodosPago = DB::table('metodos_pago')->get();
+        $formasPago = FormaPago::where('relacion',1)->orWhere('relacion',3)->get();
 
-        return view('reportes.cajas.index')->with(compact('movimientos','request','example','totales','servidores','cajas','metodosPago'));
+        return view('reportes.cajas.index')->with(compact('movimientos','request','example','totales','servidores','cajas','metodosPago','formasPago'));
     }
 
     public function instalacion(Request $request) {
