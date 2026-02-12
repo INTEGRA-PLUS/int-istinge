@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\MikrotikService;
+use App\Mikrotik;
+use Auth;
 
 class MorososController extends Controller
 {
@@ -18,16 +20,21 @@ class MorososController extends Controller
 
     public function index()
     {
-        $this->getAllPermissions(\Auth::user()->id);
-        return view('mikrotik.morosos');
+        $this->getAllPermissions(Auth::user()->id);
+        $mikrotiks = Mikrotik::where('empresa', Auth::user()->empresa)->get();
+        return view('mikrotik.morosos', compact('mikrotiks'));
     }
 
-    public function apiIndex()
+    public function listar(Request $request)
     {
-        // Check permissions if needed, or rely on middleware
-        // For now, allow authenticated users
-        
-        $result = $this->mikrotikService->getMorosos();
+        if (!$request->has('mikrotik_id')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seleccione una Mikrotik'
+            ]);
+        }
+
+        $result = $this->mikrotikService->getMorosos($request->mikrotik_id);
         return response()->json($result);
     }
 }

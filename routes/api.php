@@ -426,4 +426,4 @@ Route::post('create-radicado', function (Request $request) {
     }
 });
 
-Route::get('morosos', 'MorososController@apiIndex');
+

@@ -486,6 +486,9 @@ Route::group(['prefix' => 'siigo'], function () {
 Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('instances', 'InstanceController');
 	Route::get('instances/{id}/pair', 'InstanceController@pair')->name('instances.pair');
+	
+	Route::get('morosos', 'MorososController@index')->name('morosos.index');
+	Route::get('morosos/listar', 'MorososController@listar')->name('morosos.listar');
 	Route::get('/', 'HomeController@index')->name('empresa');
 
 	// Ruta para el PDF de asignación de material
@@ -1664,7 +1667,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{mikrotik}/arp', 'MikrotikController@arp')->name('mikrotik.arp');
 	});
 
-	Route::get('morosos', 'MorososController@index')->name('morosos.index');
+
 	Route::resource('mikrotik', 'MikrotikController');
 
 	// PLANTILLAS

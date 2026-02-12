@@ -25,6 +25,19 @@
 		</script>
 	@endif
 
+    <div class="row card-description">
+        <div class="col-md-12">
+            <div class="form-group">
+                <label for="mikrotik_id">Seleccione Mikrotik</label>
+                <select class="form-control selectpicker" id="mikrotik_id" name="mikrotik_id" data-live-search="true" title="Seleccione una opción">
+                    @foreach($mikrotiks as $mikrotik)
+                        <option value="{{ $mikrotik->id }}">{{ $mikrotik->nombre }} - {{ $mikrotik->ip }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+    </div>
+
 	<div class="row card-description">
 		<div class="col-md-12">
 			<table class="table table-striped table-hover w-100" id="tabla-morosos">
@@ -43,11 +56,12 @@
 @section('scripts')
 <script>
     var tabla = null;
-    window.addEventListener('load',
-    function() {
+
+    $(document).ready(function() {
+        // Initialize DataTable with empty data initially or wait for selection
 		tabla = $('#tabla-morosos').DataTable({
 			responsive: true,
-			serverSide: false, // Client side processing since data is from API list
+			serverSide: false,
 			processing: true,
 			searching: true,
 			language: {
@@ -57,7 +71,10 @@
 				[0, "desc"]
 			],
 			ajax: {
-                url: '{{ url("/api/morosos") }}',
+                url: '{{ route("morosos.listar") }}',
+                data: function (d) {
+                    d.mikrotik_id = $('#mikrotik_id').val();
+                },
                 dataSrc: function (json) {
                     if (!json.success) {
                         return [];
@@ -71,6 +88,10 @@
 				{data: 'fecha_creacion'}
 			]
 		});
+
+        $('#mikrotik_id').on('change', function() {
+            tabla.ajax.reload();
+        });
     });
 </script>
 @endsection
