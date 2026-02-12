@@ -894,7 +894,7 @@ class BillingCycleAnalyzer
     /**
      * Obtiene el query builder para las facturas generadas (para DataTables)
      */
-    public function getGeneratedInvoicesQuery($grupoCorteId, $periodo)
+    public function getGeneratedInvoicesQuery($grupoCorteId, $periodo, $search = null)
     {
         $grupoCorte = GrupoCorte::find($grupoCorteId);
         if (!$grupoCorte) {
@@ -912,6 +912,18 @@ class BillingCycleAnalyzer
                       $q->where('factura.facturacion_automatica', 0)
                         ->where('factura.factura_mes_manual', 1);
                   });
+        };
+
+        // Closure para búsqueda
+        $searchFilter = function($query) use ($search) {
+            if ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('factura.codigo', 'like', "%{$search}%")
+                      ->orWhere('factura.nro', 'like', "%{$search}%")
+                      ->orWhere('cli.nombre', 'like', "%{$search}%")
+                      ->orWhere('c.nro', 'like', "%{$search}%");
+                });
+            }
         };
         
         // Query 1: Facturas vinculadas directamente
@@ -932,7 +944,8 @@ class BillingCycleAnalyzer
             ->where('factura.estatus', '!=', 2)
             ->where('factura.fecha', '>=', $startOfMonth)
             ->where('factura.fecha', '<', $startOfNextMonth)
-            ->where($tipoFilter);
+            ->where($tipoFilter)
+            ->where($searchFilter);
 
         // Query 2: Facturas vinculadas por pivot
         $query2 = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
@@ -953,7 +966,8 @@ class BillingCycleAnalyzer
             ->where('factura.estatus', '!=', 2)
             ->where('factura.fecha', '>=', $startOfMonth)
             ->where('factura.fecha', '<', $startOfNextMonth)
-            ->where($tipoFilter);
+            ->where($tipoFilter)
+            ->where($searchFilter);
 
         return $query1->union($query2);
     }

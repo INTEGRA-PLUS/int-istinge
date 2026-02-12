@@ -1032,10 +1032,12 @@ class GruposCorteController extends Controller
     {
         $idGrupo = $request->grupo_id;
         $periodo = $request->periodo;
+        // Obtener término de búsqueda
+        $search = $request->input('search.value');
 
         $analyzer = new \App\Services\BillingCycleAnalyzer();
-        // Obtener el query builder (Union)
-        $query = $analyzer->getGeneratedInvoicesQuery($idGrupo, $periodo);
+        // Obtener el query builder (Union), pasando el término de búsqueda para que se aplique internamente
+        $query = $analyzer->getGeneratedInvoicesQuery($idGrupo, $periodo, $search);
 
         if (!$query) {
              return response()->json([
@@ -1053,20 +1055,14 @@ class GruposCorteController extends Controller
         $wrappedQuery = DB::table(DB::raw("({$sql}) as sub"))
             ->mergeBindings($query->getQuery()); // Trick for eloquent union bindings
 
-        $totalRecords = $wrappedQuery->count();
-        $filteredRecords = $totalRecords;
+        // Nota: Como el filtro de búsqueda se aplica dentro del query (por performance y corrección lógica),
+        // totalRecords aquí reflejará los registros YA filtrados. 
+        // Si se requeriera el total real sin filtro, habría que ejecutar el query sin search, pero sería doble costo.
+        $filteredRecords = $wrappedQuery->count();
+        $totalRecords = $filteredRecords;
 
-        // Búsqueda
-        if ($request->has('search') && !empty($request->search['value'])) {
-            $searchValue = $request->search['value'];
-            $wrappedQuery->where(function($q) use ($searchValue) {
-                $q->where('codigo', 'like', "%{$searchValue}%")
-                  ->orWhere('nro', 'like', "%{$searchValue}%")
-                  ->orWhere('nombre_cliente', 'like', "%{$searchValue}%")
-                  ->orWhere('contrato_nro', 'like', "%{$searchValue}%");
-            });
-            $filteredRecords = $wrappedQuery->count();
-        }
+        // Búsqueda (ELIMINADA: Se maneja dentro del servicio para soportar UNION correctamente)
+
 
         // Ordenamiento
         // Nota: 'total' (índice 5) se calcula en PHP, no se puede ordenar por SQL fácilmente.
