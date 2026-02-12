@@ -187,7 +187,7 @@ class BillingCycleAnalyzer
         // 1. Facturas vinculadas directamente por contrato_id
         $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where(function ($query) use ($yearMonth, $nextMonth) {
@@ -210,7 +210,7 @@ class BillingCycleAnalyzer
         $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
             ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where(function ($query) use ($yearMonth, $nextMonth) {
