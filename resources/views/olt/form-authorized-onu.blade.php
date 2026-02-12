@@ -174,6 +174,35 @@
 	                <strong>{{ $errors->first('onu_external_id') }}</strong>
 	            </span>
 	        </div>
+
+            <div class="form-group col-md-4">
+                <label class="control-label">Crear factura a contrato con prorrateo? <a><i
+                            data-tippy-content="Decida si la factura que genere este contrato llevará iva"
+                            class="icono far fa-question-circle"></i></a></label>
+                <div class="d-flex align-items-center">
+                    <label class="switch mb-0">
+                        <input type="checkbox" name="crear_factura_prorrateo" id="crear_factura_prorrateo" value="1" onchange="toggleContratos(this)">
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="ml-2" id="crear_factura_prorrateo_label">No</span>
+                </div>
+                <span class="help-block error">
+                    <strong></strong>
+                </span>
+            </div>
+
+            <div class="col-md-4 form-group d-none" id="div_contrato_id">
+                <label class="control-label">Contrato <span class="text-danger">*</span></label>
+                <select class="form-control selectpicker" data-live-search="true" data-size="5" name="contrato_id" id="contrato_id">
+                    <option value="">Seleccione un contrato</option>
+                    @foreach($contratos as $contrato)
+                    <option value="{{$contrato->id}}">{{ $contrato->nro }} - {{ $contrato->cliente()->nombre }} {{ $contrato->cliente()->apellido1 }}</option>
+                    @endforeach
+                </select>
+                <span class="help-block error">
+                    <strong>{{ $errors->first('contrato_id') }}</strong>
+                </span>
+            </div>
 	   </div>
 
 	   <small>Los campos marcados con <span class="text-danger">*</span> son obligatorios</small>
@@ -189,6 +218,20 @@
 
 @section('scripts')
     <script>
-
+        function toggleContratos(checkbox) {
+            var divContrato = document.getElementById('div_contrato_id');
+            var label = document.getElementById('crear_factura_prorrateo_label');
+            
+            if (checkbox.checked) {
+                divContrato.classList.remove('d-none');
+                label.innerText = 'Si';
+            } else {
+                divContrato.classList.add('d-none');
+                label.innerText = 'No';
+                // Reset select
+                document.getElementById('contrato_id').value = "";
+                $('.selectpicker').selectpicker('refresh');
+            }
+        }
     </script>
 @endsection

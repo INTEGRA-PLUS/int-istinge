@@ -31,7 +31,7 @@
                 <label for="mikrotik_id">Seleccione Mikrotik</label>
                 <select class="form-control selectpicker" id="mikrotik_id" name="mikrotik_id" data-live-search="true" title="Seleccione una opción">
                     @foreach($mikrotiks as $mikrotik)
-                        <option value="{{ $mikrotik->id }}">{{ $mikrotik->nombre }} - {{ $mikrotik->ip }}</option>
+                        <option value="{{ $mikrotik->id }}" {{ $loop->first ? 'selected' : '' }}>{{ $mikrotik->nombre }} - {{ $mikrotik->ip }}</option>
                     @endforeach
                 </select>
             </div>
@@ -64,6 +64,7 @@
 			serverSide: false,
 			processing: true,
 			searching: true,
+            "pageLength": 50,
 			language: {
 				'url': '/vendors/DataTables/es.json'
 			},

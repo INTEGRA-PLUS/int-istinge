@@ -327,13 +327,13 @@ class OltController extends Controller
             $odbList = [];
         }
 
-        $speedProfiles = $this->getSpeedProfiles();
-
         if (isset($speedProfiles['response'])) {
             $speedProfiles = $speedProfiles['response'];
         } else {
             $speedProfiles = [];
         }
+
+        $contratos = \App\Contrato::where('state', 'enabled')->where('status', 1)->get();
 
         return view('olt.form-authorized-onu', compact(
             'request',
@@ -344,7 +344,8 @@ class OltController extends Controller
             'olt_default',
             'default_zone',
             'odbList',
-            'speedProfiles'
+            'speedProfiles',
+            'contratos'
         ));
     }
 
@@ -397,6 +398,17 @@ class OltController extends Controller
         curl_close($curl);
 
         if ($response['status'] == 200) {
+
+            // Crear factura prorrateada si se selecciono
+            if ($request->crear_factura_prorrateo == 1) {
+                if ($request->contrato_id) {
+                    $contrato = \App\Contrato::find($request->contrato_id);
+                    if ($contrato) {
+                        Controller::createFacturaProrrateo($contrato);
+                    }
+                }
+            }
+
             $mensaje = "Onu autorizada con exito";
             return redirect('Olt/unconfigured-onus')->with('success', $mensaje);
         } else {
