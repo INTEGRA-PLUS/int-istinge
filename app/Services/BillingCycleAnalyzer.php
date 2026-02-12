@@ -18,7 +18,7 @@ class BillingCycleAnalyzer
      */
     public function clearCycleCache($grupoCorteId, $periodo)
     {
-        $cacheKey = "cycle_stats_v26_{$grupoCorteId}_{$periodo}";
+        $cacheKey = "cycle_stats_v27_{$grupoCorteId}_{$periodo}";
         Cache::forget($cacheKey);
     }
 
@@ -32,7 +32,7 @@ class BillingCycleAnalyzer
     public function getCycleStats($grupoCorteId, $periodo)
     {
         // v26: Optimización de rendimiento - eliminar queries redundantes y N+1
-        $cacheKey = "cycle_stats_v26_{$grupoCorteId}_{$periodo}";
+        $cacheKey = "cycle_stats_v27_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -784,7 +784,7 @@ class BillingCycleAnalyzer
                             'nro' => $f->nro,
                             'codigo' => $f->codigo,
                             'fecha' => $f->fecha,
-                            'estatus' => $f->estatus,
+                            'estatus' => $f->getAttributeValue('estatus'),
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
                         ];
                     })->toArray()
