@@ -18,7 +18,7 @@ class BillingCycleAnalyzer
      */
     public function clearCycleCache($grupoCorteId, $periodo)
     {
-        $cacheKey = "cycle_stats_v25_{$grupoCorteId}_{$periodo}";
+        $cacheKey = "cycle_stats_v26_{$grupoCorteId}_{$periodo}";
         Cache::forget($cacheKey);
     }
 
@@ -31,8 +31,8 @@ class BillingCycleAnalyzer
      */
     public function getCycleStats($grupoCorteId, $periodo)
     {
-        // Añadimos v25 para forzar recálculo con alineación de consultas y arreglos de empresa
-        $cacheKey = "cycle_stats_v25_{$grupoCorteId}_{$periodo}";
+        // v26: Optimización de rendimiento - eliminar queries redundantes y N+1
+        $cacheKey = "cycle_stats_v26_{$grupoCorteId}_{$periodo}";
         
         return Cache::remember($cacheKey, 3600, function () use ($grupoCorteId, $periodo) {
             $grupoCorte = GrupoCorte::find($grupoCorteId);
@@ -49,8 +49,8 @@ class BillingCycleAnalyzer
             // Obtener facturas generadas en el ciclo
             $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
             
-            // Análisis de facturas faltantes
-            $missingAnalysis = $this->getMissingInvoicesAnalysis($grupoCorteId, $periodo);
+            // Análisis de facturas faltantes (pasamos colecciones ya obtenidas para evitar re-queries)
+            $missingAnalysis = $this->getMissingInvoicesAnalysis($grupoCorteId, $periodo, $contratosEsperados, $facturasGeneradas);
             
             // Reporte de Cronología
             $onDateCount = 0;
@@ -237,14 +237,19 @@ class BillingCycleAnalyzer
     /**
      * Análisis completo de facturas faltantes con razones específicas
      */
-    public function getMissingInvoicesAnalysis($grupoCorteId, $periodo)
+    public function getMissingInvoicesAnalysis($grupoCorteId, $periodo, $contratosEsperados = null, $facturasGeneradas = null)
     {
         $grupoCorte = GrupoCorte::find($grupoCorteId);
         $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
         $empresa = Empresa::find($grupoCorte->empresa);
         
-        $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
-        $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
+        // Reutilizar colecciones si ya fueron obtenidas (evitar queries duplicadas)
+        if ($contratosEsperados === null) {
+            $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
+        }
+        if ($facturasGeneradas === null) {
+            $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
+        }
         
         // Obtener nros de contratos que ya facturaron (usando contrato_id para mayor precisión)
         $idsGenerados = $facturasGeneradas->pluck('contrato_id')->unique()->toArray();
@@ -471,21 +476,86 @@ class BillingCycleAnalyzer
     public function getHistoricalData($grupoCorteId, $months = 6)
     {
         $grupoCorte = GrupoCorte::find($grupoCorteId);
+        if (!$grupoCorte) {
+            return [];
+        }
+
         $data = [];
+        $empresa = Empresa::find($grupoCorte->empresa);
+        $state = ['enabled'];
+        if ($empresa && $empresa->factura_contrato_off == 1) {
+            $state[] = 'disabled';
+        }
         
         for ($i = $months - 1; $i >= 0; $i--) {
             $periodo = Carbon::now()->subMonths($i)->format('Y-m');
-            $stats = $this->getCycleStats($grupoCorteId, $periodo);
-            
-            if ($stats) {
-                $data[] = [
-                    'periodo' => $periodo,
-                    'periodo_label' => Carbon::parse($periodo . '-01')->locale('es')->isoFormat('MMM Y'),
-                    'generadas' => $stats['facturas_generadas'],
-                    'esperadas' => $stats['facturas_esperadas'],
-                    'tasa_exito' => $stats['tasa_exito']
-                ];
-            }
+            $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
+            $yearMonth = Carbon::parse($fechaCiclo)->format('Y-m');
+            $nextMonth = Carbon::parse($fechaCiclo)->addMonth()->format('Y-m');
+
+            // Calcular fin de mes del periodo
+            $yearMonthParts = explode('-', $periodo);
+            $fechaFinMes = Carbon::create($yearMonthParts[0], $yearMonthParts[1], 1)->endOfMonth()->format('Y-m-d');
+
+            // Query ligera: solo COUNT de contratos esperados
+            $esperadas = Contrato::where('grupo_corte', $grupoCorteId)
+                ->where('created_at', '<=', $fechaFinMes)
+                ->where('status', 1)
+                ->count();
+
+            // Query ligera: solo COUNT de facturas generadas (directas + pivot)
+            $directasCount = DB::table('factura')
+                ->join('contracts as c', 'c.id', '=', 'factura.contrato_id')
+                ->where('c.grupo_corte', $grupoCorteId)
+                ->where('factura.estatus', '!=', 2)
+                ->where(function ($query) use ($yearMonth, $nextMonth) {
+                    $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+                        ->orWhere(function ($q) use ($nextMonth) {
+                            $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
+                              ->where('factura.factura_mes_manual', 1);
+                        });
+                })
+                ->where(function($query) {
+                    $query->where('factura.facturacion_automatica', 1)
+                          ->orWhere(function($q) {
+                              $q->where('factura.facturacion_automatica', 0)
+                                ->where('factura.factura_mes_manual', 1);
+                          });
+                })
+                ->pluck('factura.id');
+
+            $pivotCount = DB::table('factura')
+                ->join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
+                ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
+                ->where('c.grupo_corte', $grupoCorteId)
+                ->where('factura.estatus', '!=', 2)
+                ->where(function ($query) use ($yearMonth, $nextMonth) {
+                    $query->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$yearMonth])
+                        ->orWhere(function ($q) use ($nextMonth) {
+                            $q->whereRaw("DATE_FORMAT(factura.fecha, '%Y-%m') = ?", [$nextMonth])
+                              ->where('factura.factura_mes_manual', 1);
+                        });
+                })
+                ->where(function($query) {
+                    $query->where('factura.facturacion_automatica', 1)
+                          ->orWhere(function($q) {
+                              $q->where('factura.facturacion_automatica', 0)
+                                ->where('factura.factura_mes_manual', 1);
+                          });
+                })
+                ->pluck('factura.id');
+
+            $generadas = $directasCount->merge($pivotCount)->unique()->count();
+
+            $tasaExito = $esperadas > 0 ? round(($generadas / $esperadas) * 100, 2) : 0;
+
+            $data[] = [
+                'periodo' => $periodo,
+                'periodo_label' => Carbon::parse($periodo . '-01')->locale('es')->isoFormat('MMM Y'),
+                'generadas' => $generadas,
+                'esperadas' => $esperadas,
+                'tasa_exito' => $tasaExito
+            ];
         }
         
         return $data;
@@ -714,7 +784,6 @@ class BillingCycleAnalyzer
                             'nro' => $f->nro,
                             'codigo' => $f->codigo,
                             'fecha' => $f->fecha,
-                            'total' => $f->totalAPI(1)->total ?? 0,
                             'estatus' => $f->estatus,
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
                         ];

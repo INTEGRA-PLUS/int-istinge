@@ -1312,41 +1312,37 @@ class GruposCorteController extends Controller
     {
         $empresa = Auth::user()->empresa;
         
-        // Contratos del grupo con status = 1 y state = 'disabled'
-        $contratos = Contrato::where('grupo_corte', $idGrupo)
-            ->where('empresa', $empresa)
-            ->where('status', 1)
-            ->where('state', 'disabled')
+        // Query optimizada: obtener contratos con su última factura en una sola consulta
+        $contratos = DB::table('contracts')
+            ->leftJoin(DB::raw('(SELECT f1.contrato_id, f1.id as factura_id, f1.codigo as factura_codigo, f1.fecha as factura_fecha, f1.estatus as factura_estatus FROM factura f1 INNER JOIN (SELECT contrato_id, MAX(id) as max_id FROM factura GROUP BY contrato_id) f2 ON f1.id = f2.max_id) as uf'), 'contracts.id', '=', 'uf.contrato_id')
+            ->where('contracts.grupo_corte', $idGrupo)
+            ->where('contracts.empresa', $empresa)
+            ->where('contracts.status', 1)
+            ->where('contracts.state', 'disabled')
+            ->select('contracts.id', 'contracts.nro', 'contracts.client_id', 'contracts.servicio', 'uf.factura_id', 'uf.factura_codigo', 'uf.factura_fecha', 'uf.factura_estatus')
             ->get();
 
         $conFacturaCerrada = [];
         $sinFactura = [];
 
         foreach ($contratos as $contrato) {
-            $ultimaFactura = Factura::where('cliente', $contrato->client_id)
-                ->where('contrato_id', $contrato->id)
-                ->orderBy('id', 'desc')
-                ->first();
-
-            if (!$ultimaFactura) {
-                // Sin factura
+            if (!$contrato->factura_id) {
                 $sinFactura[] = [
                     'id' => $contrato->id,
                     'nro' => $contrato->nro,
                     'cliente_id' => $contrato->client_id,
                     'servicio' => $contrato->servicio
                 ];
-            } elseif ($ultimaFactura->estatus == 0) {
-                // Última factura cerrada (estatus = 0)
+            } elseif ($contrato->factura_estatus == 0) {
                 $conFacturaCerrada[] = [
                     'id' => $contrato->id,
                     'nro' => $contrato->nro,
                     'cliente_id' => $contrato->client_id,
                     'servicio' => $contrato->servicio,
                     'ultima_factura' => [
-                        'id' => $ultimaFactura->id,
-                        'codigo' => $ultimaFactura->codigo,
-                        'fecha' => $ultimaFactura->fecha
+                        'id' => $contrato->factura_id,
+                        'codigo' => $contrato->factura_codigo,
+                        'fecha' => $contrato->factura_fecha
                     ]
                 ];
             }

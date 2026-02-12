@@ -557,7 +557,7 @@
                                 @endif
                             </div>
                             <div class="text-right">
-                                <span class="font-weight-bold">${{ number_format($f['total'], 0, ',', '.') }}</span>
+                                <span class="font-weight-bold">{{ isset($f['total']) ? '$'.number_format($f['total'], 0, ',', '.') : '-' }}</span>
                                 <div class="small text-muted" style="font-size: 0.75rem;">{{ $f['tipo_operacion'] }}</div>
                             </div>
                         </li>
