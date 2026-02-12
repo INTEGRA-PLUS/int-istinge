@@ -1128,7 +1128,7 @@
 
             // Solo cargar interfaces y profiles si consultas_mk == 1
             if (consultasMk == 1) {
-                var serverId = $("#server_configuration_id").val();
+                var serverId = "{{ $contrato->server_configuration_id }}";
                 if (serverId) {
                     getInterfaces(serverId);
                     // Cargar profiles iniciales del Mikrotik seleccionado
