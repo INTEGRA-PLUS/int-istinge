@@ -518,9 +518,15 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0 font-weight-bold text-dark" style="cursor: pointer;" data-toggle="collapse" data-target="#duplicatesContent" aria-expanded="true" aria-controls="duplicatesContent">
-                <i class="fas fa-chevron-down mr-1"></i> <i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas
-            </h5>
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0 font-weight-bold text-dark mr-3">
+                    <i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas
+                </h5>
+                <button class="btn btn-outline-secondary btn-sm shadow-sm" type="button" data-toggle="collapse" data-target="#duplicatesContent" aria-expanded="true" aria-controls="duplicatesContent">
+                    <i class="fas fa-chevron-down mr-1"></i> <b>Ocultar/Mostrar Lista</b>
+                </button>
+            </div>
+            
             <button class="btn btn-danger btn-sm" onclick="eliminarTodasDuplicadas()">
                 <i class="fas fa-trash-alt"></i> Eliminar Todos los Duplicados ({{ $cycleStats['duplicates_analysis']['total_excedentes'] }})
             </button>
