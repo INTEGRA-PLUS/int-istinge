@@ -4339,6 +4339,10 @@ function notificacionWifi() {
 }
 
 function getInterfaces(mikrotik) {
+    if (!mikrotik) {
+        $("#interfaz").empty().selectpicker('refresh');
+        return;
+    }
     cargando(true);
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/api/getInterfaces/' + mikrotik;
