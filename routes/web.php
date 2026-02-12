@@ -1664,6 +1664,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{mikrotik}/arp', 'MikrotikController@arp')->name('mikrotik.arp');
 	});
 
+	Route::get('morosos', 'MorososController@index')->name('morosos.index');
 	Route::resource('mikrotik', 'MikrotikController');
 
 	// PLANTILLAS

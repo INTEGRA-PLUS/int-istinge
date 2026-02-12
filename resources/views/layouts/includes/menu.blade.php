@@ -87,6 +87,9 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             <li class="nav-item" id="proveedores">
                 <a class="nav-link" href="{{ route('olt.unconfiguredAdminOLT') }}">Onus AdminOLT</a>
             </li>
+            <li class="nav-item" id="morosos">
+                <a class="nav-link" href="{{ route('morosos.index') }}">Morosos</a>
+            </li>
         </ul>
     </div>
 </li>
