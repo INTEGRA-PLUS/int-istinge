@@ -518,7 +518,9 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0 font-weight-bold text-dark"><i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas</h5>
+            <h5 class="mb-0 font-weight-bold text-dark" style="cursor: pointer;" data-toggle="collapse" data-target="#duplicatesContent" aria-expanded="true" aria-controls="duplicatesContent">
+                <i class="fas fa-chevron-down mr-1"></i> <i class="fas fa-clone text-danger"></i> Facturas Excedentes / Duplicadas
+            </h5>
             <button class="btn btn-danger btn-sm" onclick="eliminarTodasDuplicadas()">
                 <i class="fas fa-trash-alt"></i> Eliminar Todos los Duplicados ({{ $cycleStats['duplicates_analysis']['total_excedentes'] }})
             </button>
@@ -527,54 +529,58 @@
             <i class="fas fa-info-circle"></i> Se detectaron <b>{{ $cycleStats['duplicates_analysis']['total_excedentes'] }}</b> facturas adicionales a los contratos esperados. A continuación se listan los contratos que tienen más de una factura en este ciclo.
         </div>
     </div>
-    
-    @foreach($cycleStats['duplicates_analysis']['contratos_duplicados'] as $dup)
-    <div class="col-md-4 mb-3">
-        <div class="card shadow-sm border-left border-danger">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <h6 class="font-weight-bold mb-0 text-dark">
-                            <a href="{{ route('contactos.show', $dup['cliente_id']) }}" target="_blank" class="text-primary text-decoration-none">
-                                {{ $dup['cliente_nombre'] }} <i class="fas fa-external-link-alt small"></i>
-                            </a>
-                        </h6>
-                        <small class="text-muted">Contrato: #{{ $dup['contrato_nro'] }}</small>
-                    </div>
-                    <span class="badge badge-danger">{{ $dup['cantidad'] }} facturas</span>
-                </div>
-                <div class="bg-light p-2 rounded small">
-                    <ul class="list-unstyled mb-0">
-                        @foreach($dup['facturas'] as $index => $f)
-                        <li class="d-flex justify-content-between mb-1">
-                            <div>
-                                <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
-                                <small class="text-muted ml-1">({{ \Carbon\Carbon::parse($f['fecha'])->translatedFormat('d-M') }})</small>
-                                @if($index > 0)
-                                <a href="javascript:void(0)" onclick="eliminarFacturaDuplicada({{ $f['id'] }}, {{ $dup['contrato_id'] }})" class="text-danger ml-2" title="Eliminar esta factura">
-                                    <i class="fas fa-trash-alt"></i>
+</div>
+
+<div class="collapse show" id="duplicatesContent">
+    <div class="row mb-4">
+        @foreach($cycleStats['duplicates_analysis']['contratos_duplicados'] as $dup)
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm border-left border-danger">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="font-weight-bold mb-0 text-dark">
+                                <a href="{{ route('contactos.show', $dup['cliente_id']) }}" target="_blank" class="text-primary text-decoration-none">
+                                    {{ $dup['cliente_nombre'] }} <i class="fas fa-external-link-alt small"></i>
                                 </a>
-                                @endif
-                            </div>
-                            <div class="text-right">
-                                <span class="font-weight-bold">{{ isset($f['total']) ? '$'.number_format($f['total'], 0, ',', '.') : '-' }}</span>
-                                <div class="small text-muted" style="font-size: 0.75rem;">{{ $f['tipo_operacion'] }}</div>
-                            </div>
-                        </li>
-                        @endforeach
-                    </ul>
-                    @if($dup['cantidad'] > 1)
-                    <div class="text-center mt-2">
-                        <button class="btn btn-outline-danger btn-sm btn-block" onclick="eliminarDuplicadosContrato({{ $dup['contrato_id'] }})">
-                            <i class="fas fa-trash-alt"></i> Eliminar Duplicados de Este Contrato
-                        </button>
+                            </h6>
+                            <small class="text-muted">Contrato: #{{ $dup['contrato_nro'] }}</small>
+                        </div>
+                        <span class="badge badge-danger">{{ $dup['cantidad'] }} facturas</span>
                     </div>
-                    @endif
+                    <div class="bg-light p-2 rounded small">
+                        <ul class="list-unstyled mb-0">
+                            @foreach($dup['facturas'] as $index => $f)
+                            <li class="d-flex justify-content-between mb-1">
+                                <div>
+                                    <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
+                                    <small class="text-muted ml-1">({{ \Carbon\Carbon::parse($f['fecha'])->translatedFormat('d-M') }})</small>
+                                    @if($index > 0)
+                                    <a href="javascript:void(0)" onclick="eliminarFacturaDuplicada({{ $f['id'] }}, {{ $dup['contrato_id'] }})" class="text-danger ml-2" title="Eliminar esta factura">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                    @endif
+                                </div>
+                                <div class="text-right">
+                                    <span class="font-weight-bold">{{ isset($f['total']) ? '$'.number_format($f['total'], 0, ',', '.') : '-' }}</span>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">{{ $f['tipo_operacion'] }}</div>
+                                </div>
+                            </li>
+                            @endforeach
+                        </ul>
+                        @if($dup['cantidad'] > 1)
+                        <div class="text-center mt-2">
+                            <button class="btn btn-outline-danger btn-sm btn-block" onclick="eliminarDuplicadosContrato({{ $dup['contrato_id'] }})">
+                                <i class="fas fa-trash-alt"></i> Eliminar Duplicados de Este Contrato
+                            </button>
+                        </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
+        @endforeach
     </div>
-    @endforeach
 </div>
 @endif
 
