@@ -96,7 +96,7 @@ class BillingCycleAnalyzer
                 'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
                 'missing_breakdown' => $missingAnalysis['missing_breakdown'],
-                'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas),
+                'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo),
                 'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count()),
                 'prorrateo_stats' => [
                     'con_prorrateo' => $contratosEsperados->where('prorrateo', 1)->count(),
@@ -212,7 +212,7 @@ class BillingCycleAnalyzer
         // 1. Facturas vinculadas directamente por contrato_id
         $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where($dateFilter)
@@ -223,7 +223,7 @@ class BillingCycleAnalyzer
         $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
             ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where($dateFilter)
@@ -436,7 +436,7 @@ class BillingCycleAnalyzer
     private function analyzeContractValidations($contrato, $fechaCiclo, $empresa, $grupoCorte, $lookups = [])
     {
         // 0. Validación PRIORITARIA: Grupo de corte deshabilitado
-        if ($grupoCorte->estatus != 1) {
+        if ($grupoCorte->status != 1) {
             return [
                 'code' => 'billing_group_disabled',
                 'title' => 'Grupo de corte deshabilitado',
@@ -541,6 +541,16 @@ class BillingCycleAnalyzer
                 'description' => 'El contrato está deshabilitado y la empresa no permite facturar contratos OFF (factura_contrato_off = 0)',
                 'color' => 'danger',
                 'action_required' => 'enable_off_billing'
+            ];
+        }
+
+        // 6b. Validación: Contrato deshabilitado por TV (OLT CATV)
+        if (!empty($contrato->olt_sn_mac) && $contrato->state_olt_catv == 0) {
+            return [
+                'code' => 'contract_disabled_tv',
+                'title' => 'Contrato deshabilitado por TV',
+                'description' => 'El contrato tiene OLT/MAC asignado pero el servicio de TV está deshabilitado (state_olt_catv = 0)',
+                'color' => 'warning'
             ];
         }
         
@@ -853,13 +863,23 @@ class BillingCycleAnalyzer
      * @param Collection $facturasGeneradas
      * @return array
      */
-    private function getDuplicateInvoicesAnalysis($facturasGeneradas)
+    private function getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo = null)
     {
         $duplicates = [];
         $totalExcedentes = 0;
+
+        // Filtrar solo facturas del mes del ciclo (excluir facturas del mes siguiente)
+        if ($fechaCiclo) {
+            $mesCiclo = Carbon::parse($fechaCiclo)->format('Y-m');
+            $facturasDelMes = $facturasGeneradas->filter(function($f) use ($mesCiclo) {
+                return Carbon::parse($f->fecha)->format('Y-m') === $mesCiclo;
+            });
+        } else {
+            $facturasDelMes = $facturasGeneradas;
+        }
         
         // Agrupar por contrato_id
-        $grouped = $facturasGeneradas->groupBy('contrato_id');
+        $grouped = $facturasDelMes->groupBy('contrato_id');
         
         foreach ($grouped as $contratoId => $facturas) {
             if ($facturas->count() > 1) {
@@ -921,6 +941,7 @@ class BillingCycleAnalyzer
                     $q->where('factura.codigo', 'like', "%{$search}%")
                       ->orWhere('factura.nro', 'like', "%{$search}%")
                       ->orWhere('cli.nombre', 'like', "%{$search}%")
+                      ->orWhere('cli.nit', 'like', "%{$search}%")
                       ->orWhere('c.nro', 'like', "%{$search}%");
                 });
             }
@@ -938,6 +959,7 @@ class BillingCycleAnalyzer
                 'factura.estatus', 
                 'factura.whatsapp', 
                 'cli.nombre as nombre_cliente', 
+                'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'
             )
             ->where('c.grupo_corte', $grupoCorteId)
@@ -960,6 +982,7 @@ class BillingCycleAnalyzer
                 'factura.estatus', 
                 'factura.whatsapp', 
                 'cli.nombre as nombre_cliente', 
+                'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'
             )
             ->where('c.grupo_corte', $grupoCorteId)

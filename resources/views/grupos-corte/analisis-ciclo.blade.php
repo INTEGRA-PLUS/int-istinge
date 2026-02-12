@@ -603,6 +603,7 @@
                         <tr>
                             <th>Código</th>
                             <th>Cliente</th>
+                            <th>NIT</th>
                             <th>Contrato</th>
                             <th>Fecha Creación</th>
                             <th>Vencimiento</th>
@@ -809,13 +810,14 @@ $(document).ready(function() {
         columns: [
             { data: 0, name: 'codigo' },
             { data: 1, name: 'nombre_cliente' },
-            { data: 2, name: 'contrato_nro' },
-            { data: 3, name: 'fecha' },
-            { data: 4, name: 'vencimiento' },
-            { data: 5, name: 'total', orderable: false, searchable: false },
-            { data: 6, orderable: false, searchable: false },
-            { data: 7, name: 'estatus' },
-            { data: 8, orderable: false, searchable: false }
+            { data: 2, name: 'nit_cliente' },
+            { data: 3, name: 'contrato_nro' },
+            { data: 4, name: 'fecha' },
+            { data: 5, name: 'vencimiento' },
+            { data: 6, name: 'total', orderable: false, searchable: false },
+            { data: 7, orderable: false, searchable: false },
+            { data: 8, name: 'estatus' },
+            { data: 9, orderable: false, searchable: false }
         ]
     });
     

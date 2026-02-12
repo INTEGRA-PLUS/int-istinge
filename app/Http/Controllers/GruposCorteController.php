@@ -1066,7 +1066,7 @@ class GruposCorteController extends Controller
 
         // Ordenamiento
         // Nota: 'total' (índice 5) se calcula en PHP, no se puede ordenar por SQL fácilmente.
-        $columns = ['codigo', 'nombre_cliente', 'contrato_nro', 'fecha', 'vencimiento', null, 'whatsapp', 'estatus'];
+        $columns = ['codigo', 'nombre_cliente', 'nit_cliente', 'contrato_nro', 'fecha', 'vencimiento', null, 'whatsapp', 'estatus'];
         if ($request->has('order') && isset($request->order[0])) {
             $colIndex = $request->order[0]['column'];
             $dir = $request->order[0]['dir'];
@@ -1116,6 +1116,7 @@ class GruposCorteController extends Controller
             $mappedData[] = [
                 $row->codigo ?? $row->nro,
                 $row->nombre_cliente,
+                $row->nit_cliente,
                 $row->contrato_nro,
                 $fecha,
                 $vencHtml,
