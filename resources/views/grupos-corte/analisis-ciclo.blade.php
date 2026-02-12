@@ -90,14 +90,23 @@
                 <div class="row align-items-center">
                     <div class="col-md-4">
                         <h4 class="mb-0 text-primary font-weight-bold"><i class="fas fa-chart-line"></i> Análisis de Ciclo</h4>
-                        <p class="mb-0 text-muted">Grupo: <strong>{{ $grupo->nombre }}</strong> | Período: <strong>{{ $periodo }}</strong></p>
+                        <p class="mb-0 text-muted">Grupo: <strong>{{ $grupo->nombre }}</strong>
+                            @if($grupo->status == 1)
+                                <span class="badge badge-success">Habilitado</span>
+                            @else
+                                <span class="badge badge-danger">Deshabilitado</span>
+                            @endif
+                            | Período: <strong>{{ $periodo }}</strong>
+                        </p>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group mb-0">
                             <label for="grupoSelector" class="small font-weight-bold">Cambiar Grupo de Corte:</label>
                             <select id="grupoSelector" class="form-control selectpicker" data-live-search="true" data-style="btn-white">
                                 @foreach($grupos as $g)
-                                    <option value="{{ $g->id }}" {{ $g->id == $grupo->id ? 'selected' : '' }}>{{ $g->nombre }}</option>
+                                    <option value="{{ $g->id }}" {{ $g->id == $grupo->id ? 'selected' : '' }}>
+                                        {{ $g->nombre }} {{ $g->status == 0 ? '(Deshabilitado)' : '' }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>

@@ -624,9 +624,10 @@ class GruposCorteController extends Controller
             }
         }
 
-        // Obtener lista completa de grupos para la navegación
+        // Obtener lista completa de grupos para la navegación (incluye deshabilitados)
         $grupos = GrupoCorte::where('empresa', Auth::user()->empresa)
-            ->where('status', 1)
+            ->orderBy('status', 'desc') // Habilitados primero
+            ->orderBy('nombre')
             ->get();
 
         // Empresa
