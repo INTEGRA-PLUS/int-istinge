@@ -4397,9 +4397,9 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
             success: function (data) {
                 // No mostrar loader ya que no se hace consulta a Mikrotik
 
-                // Verificar si hay error de conexión a la Mikrotik
+                // Si hay error de conexión, solo registrar en consola pero continuar
                 if (data.connection_error === true) {
-                    return;
+                    console.warn('Error de conexión a la Mikrotik, cargando datos desde la base de datos.');
                 }
 
                 $("#plan_id").empty();
@@ -4460,10 +4460,9 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
         success: function (data) {
             cargando(false);
 
-            // Verificar si hay error de conexión a la Mikrotik
+            // Si hay error de conexión, mostrar alerta pero continuar cargando datos disponibles
             if (data.connection_error === true) {
-                alert('Esta fallando la conexión a la mikrotik, revisa porfavor su conexión');
-                return;
+                console.warn('Error de conexión a la Mikrotik, cargando datos desde la base de datos.');
             }
 
             $("#plan_id").empty();
