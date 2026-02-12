@@ -897,7 +897,7 @@ class BillingCycleAnalyzer
                         if ($empresaId) {
                             $facturaModel = Factura::find($f->id);
                             if ($facturaModel) {
-                                $total = $facturaModel->totalAPI($empresaId)['total'] ?? 0;
+                                $total = $facturaModel->totalAPI($empresaId)->total ?? 0;
                             }
                         }
 
