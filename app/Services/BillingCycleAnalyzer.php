@@ -42,6 +42,7 @@ class BillingCycleAnalyzer
 
             // Calcular fecha del ciclo
             $fechaCiclo = $this->calcularFechaCiclo($grupoCorte, $periodo);
+            $empresaId = $grupoCorte->empresa;
             
             // Obtener contratos que deberían facturar
             $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
@@ -96,7 +97,7 @@ class BillingCycleAnalyzer
                 'missing_reasons' => $missingAnalysis['reasons'],
                 'missing_details' => $missingAnalysis['details'],
                 'missing_breakdown' => $missingAnalysis['missing_breakdown'],
-                'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo),
+                'duplicates_analysis' => $this->getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo, $empresaId),
                 'numbering_health' => $this->checkNumberingHealth($contratosEsperados->count()),
                 'prorrateo_stats' => [
                     'con_prorrateo' => $contratosEsperados->where('prorrateo', 1)->count(),
@@ -212,7 +213,7 @@ class BillingCycleAnalyzer
         // 1. Facturas vinculadas directamente por contrato_id
         $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'factura.estatus', 'c.id as contrato_id', 'c.nro as contrato_nro', DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"))
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where($dateFilter)
@@ -223,7 +224,7 @@ class BillingCycleAnalyzer
         $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
             ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
             ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'c.id as contrato_id', 'c.nro as contrato_nro', 'cli.nombre as nombre_cliente')
+            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'factura.estatus', 'c.id as contrato_id', 'c.nro as contrato_nro', DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"))
             ->where('c.grupo_corte', $grupoCorteId)
             ->where('factura.estatus', '!=', 2)
             ->where($dateFilter)
@@ -863,7 +864,7 @@ class BillingCycleAnalyzer
      * @param Collection $facturasGeneradas
      * @return array
      */
-    private function getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo = null)
+    private function getDuplicateInvoicesAnalysis($facturasGeneradas, $fechaCiclo = null, $empresaId = null)
     {
         $duplicates = [];
         $totalExcedentes = 0;
@@ -890,13 +891,29 @@ class BillingCycleAnalyzer
                     'cliente_id' => $facturas->first()->cliente,
                     'cliente_nombre' => $facturas->first()->nombre_cliente,
                     'cantidad' => $facturas->count(),
-                    'facturas' => $facturas->map(function($f) {
+                    'facturas' => $facturas->map(function($f) use ($empresaId) {
+                        // Calcular total si tenemos empresaId
+                        $total = 0;
+                        if ($empresaId) {
+                            $facturaModel = Factura::find($f->id);
+                            if ($facturaModel) {
+                                $total = $facturaModel->totalAPI($empresaId)['total'] ?? 0;
+                            }
+                        }
+
+                        $estatus = $f->getAttributeValue('estatus');
+                        $estatusTexto = ($estatus == 1) ? 'Abierta' : ($estatus == 0 ? 'Cerrada' : 'Anulada');
+                        $estatusClase = ($estatus == 1) ? 'success' : ($estatus == 0 ? 'secondary' : 'danger');
+
                         return [
                             'id' => $f->id,
                             'nro' => $f->nro,
                             'codigo' => $f->codigo,
                             'fecha' => $f->fecha,
-                            'estatus' => $f->getAttributeValue('estatus'),
+                            'estatus' => $estatus,
+                            'estatus_texto' => $estatusTexto,
+                            'estatus_clase' => $estatusClase,
+                            'total' => $total,
                             'tipo_operacion' => $f->tipo_operacion == 1 ? 'Estandar' : 'Electronica'
                         ];
                     })->toArray()
@@ -958,7 +975,8 @@ class BillingCycleAnalyzer
                 'factura.vencimiento', 
                 'factura.estatus', 
                 'factura.whatsapp', 
-                'cli.nombre as nombre_cliente', 
+                'factura.cliente',
+                DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'
             )
@@ -981,7 +999,8 @@ class BillingCycleAnalyzer
                 'factura.vencimiento', 
                 'factura.estatus', 
                 'factura.whatsapp', 
-                'cli.nombre as nombre_cliente', 
+                'factura.cliente',
+                DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'
             )

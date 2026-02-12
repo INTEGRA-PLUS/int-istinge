@@ -1115,8 +1115,8 @@ class GruposCorteController extends Controller
             $accionesHtml = '<a href="'.route('facturas.show', $row->id).'" target="_blank" class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i></a>';
 
             $mappedData[] = [
-                $row->codigo ?? $row->nro,
-                $row->nombre_cliente,
+                '<a href="'.route('facturas.show', $row->id).'" target="_blank" class="font-weight-bold">'.($row->codigo ?? $row->nro).'</a>',
+                '<a href="'.route('contactos.show', $row->cliente).'" target="_blank">'.$row->nombre_cliente.'</a>',
                 $row->nit_cliente,
                 $row->contrato_nro,
                 $fecha,

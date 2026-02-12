@@ -568,8 +568,13 @@
                             @foreach($dup['facturas'] as $index => $f)
                             <li class="d-flex justify-content-between mb-1">
                                 <div>
-                                    <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
+                                    <a href="{{ route('facturas.show', $f['id']) }}" target="_blank" class="text-dark text-decoration-none font-weight-bold">
+                                        <i class="fas fa-file-invoice text-muted"></i> #{{ $f['codigo'] ?? $f['nro'] }}
+                                    </a>
                                     <small class="text-muted ml-1">({{ \Carbon\Carbon::parse($f['fecha'])->translatedFormat('d-M') }})</small>
+                                    @if(isset($f['estatus_texto']))
+                                        <span class="badge badge-{{ $f['estatus_clase'] }} badge-pill ml-1" style="font-size: 0.7em;">{{ $f['estatus_texto'] }}</span>
+                                    @endif
                                     @if($index > 0)
                                     <a href="javascript:void(0)" onclick="eliminarFacturaDuplicada({{ $f['id'] }}, {{ $dup['contrato_id'] }})" class="text-danger ml-2" title="Eliminar esta factura">
                                         <i class="fas fa-trash-alt"></i>

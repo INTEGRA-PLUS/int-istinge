@@ -235,6 +235,13 @@
             </div>
             <div class="col-md-4 text-center padding1" >
                 <h4><b class="text-primary">No. </b> {{$factura->codigo}}</h4>  @if(isset($factura->nro_remision))<h4><b class="text-primary">No. Remision </b> {{$factura->nro_remision}}</h4> @endif
+                <h4><b class="text-primary">Factura del mes: </b>
+                    @if($factura->factura_mes == 1)
+                        <span class="text-success">Si</span>
+                    @else
+                        <span class="text-danger">No</span>
+                    @endif
+                </h4>
             </div>
         </div>
         <!--Cliente-->
