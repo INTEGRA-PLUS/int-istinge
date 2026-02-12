@@ -107,11 +107,70 @@ class MikrotikService
         $formatted = [];
         foreach ($data as $item) {
             if (isset($item['list']) && $item['list'] == $listName) {
+                
+                $ip = $item['address'] ?? null;
+                $contratoData = null;
+                $ultimaFacturaData = null;
+                $mensajeDiscrepancia = null;
+                $estadoSistema = 'No encontrado'; // Default
+                $tieneDiscrepancia = false;
+
+                if ($ip) {
+                    // Buscar contrato activo por IP
+                    // Se asume que la IP es única para contratos activos o se toma el primero encontrado
+                    $contrato = \App\Contrato::where('ip', $ip)->where('status', 1)->first();
+
+                    if ($contrato) {
+                        $contratoData = [
+                            'nro' => $contrato->nro,
+                            'id' => $contrato->id,
+                            'nombre_cliente' => $contrato->cliente()->nombre ?? 'N/A'
+                        ];
+
+                        // Obtener la última factura del contrato
+                        // Usando la relación definida en el modelo o query manual si fuera necesario
+                        // El usuario especificó: "pasar por la tabla facturas_contratos"
+                        // El modelo Contrato tiene la relación facturas() mapeada a facturas_contratos
+                        
+                        $ultimaFactura = $contrato->facturas()->orderBy('created_at', 'desc')->first();
+
+                        if ($ultimaFactura) {
+                            $ultimaFacturaData = [
+                                'id' => $ultimaFactura->id,
+                                'codigo' => $ultimaFactura->codigo,
+                                'estatus' => $ultimaFactura->estatus
+                            ];
+
+                            // Lógica de discrepancia:
+                            // "si esa factura tiene un estatus = 0 significa que el contrato tiene la ultima factura pagada"
+                            // En base de datos Factura: estatus 1 = Abierta (No pagada), Estatus 0 o 2 = Cerrada/Anulada/Pagada
+                            // Entonces si estatus != 1, está pagada.
+                            
+                            if ($ultimaFactura->estatus != 1) { // Asumiendo != 1 es Pagada/Cerrada
+                                $tieneDiscrepancia = true;
+                                $estadoSistema = 'Pagada';
+                                $mensajeDiscrepancia = "El cliente aparece en morosos (Mikrotik) pero su última factura en el sistema figura como PAGADA/CERRADA.";
+                            } else {
+                                $estadoSistema = 'En Mora'; // Estatus 1
+                            }
+                        } else {
+                            $estadoSistema = 'Sin Facturas';
+                        }
+                    }
+                }
+
                  $formatted[] = [
                     'id' => $item['.id'] ?? null,
-                    'ip' => $item['address'] ?? null,
+                    'ip' => $ip,
                     'comentario' => $item['comment'] ?? '',
                     'fecha_creacion' => $item['creation-time'] ?? null,
+                    
+                    // Datos Sistema
+                    'contrato' => $contratoData,
+                    'ultima_factura' => $ultimaFacturaData,
+                    'estado_sistema' => $estadoSistema,
+                    'tiene_discrepancia' => $tieneDiscrepancia,
+                    'mensaje_discrepancia' => $mensajeDiscrepancia
                 ];
             }
         }

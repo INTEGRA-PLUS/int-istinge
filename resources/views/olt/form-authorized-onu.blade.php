@@ -177,7 +177,7 @@
 
             <div class="form-group col-md-4">
                 <label class="control-label">Crear factura a contrato con prorrateo? <a><i
-                            data-tippy-content="Decida si la factura que genere este contrato llevará iva"
+                            data-tippy-content="Decida si la factura que genere este contrato llevará prorrateo."
                             class="icono far fa-question-circle"></i></a></label>
                 <div class="d-flex align-items-center">
                     <label class="switch mb-0">
@@ -196,7 +196,10 @@
                 <select class="form-control selectpicker" data-live-search="true" data-size="5" name="contrato_id" id="contrato_id">
                     <option value="">Seleccione un contrato</option>
                     @foreach($contratos as $contrato)
-                    <option value="{{$contrato->id}}">{{ $contrato->nro }} - {{ $contrato->cliente()->nombre }} {{ $contrato->cliente()->apellido1 }}</option>
+                        @php $cliente = $contrato->cliente(); @endphp
+                        @if($cliente)
+                            <option value="{{$contrato->id}}">{{ $contrato->nro }} - {{ $cliente->nombre }} {{ $cliente->apellido1 }}</option>
+                        @endif
                     @endforeach
                 </select>
                 <span class="help-block error">

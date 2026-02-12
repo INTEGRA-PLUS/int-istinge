@@ -727,6 +727,101 @@
         div.dataTables_wrapper div.dataTables_paginate {
             text-align: -webkit-center !important;
         }
+
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: #28a745;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .slider.round {
+            border-radius: 24px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+
+        /* Modern Radio Button Styles */
+        .custom-radio {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        .custom-radio input[type="radio"] {
+            display: none;
+        }
+
+        .custom-radio .radio-btn {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            margin-right: 8px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .custom-radio input[type="radio"]:checked + .radio-btn {
+            border-color: #007bff;
+        }
+
+        .custom-radio input[type="radio"]:checked + .radio-btn::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background-color: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .custom-radio .radio-label {
+            font-weight: 500;
+            color: #333;
+        }
     </style>
     @yield('style')
 </head>
