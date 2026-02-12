@@ -64,6 +64,7 @@
 @section('scripts')
 <script>
     var tabla = null;
+    var showContratoUrl = "{{ route('contratos.show', ['contrato' => '_id_']) }}";
 
     $(document).ready(function() {
         // Initialize DataTable with empty data initially or wait for selection
@@ -97,7 +98,8 @@
                     data: 'contrato',
                     render: function(data, type, row) {
                         if (data) {
-                            return '<a href="/empresa/contratos/'+data.id+'" target="_blank">' + data.nombre_cliente + ' (Contrato: ' + data.nro + ')</a>';
+                            var url = showContratoUrl.replace('_id_', data.id);
+                            return '<a href="'+url+'" target="_blank">' + data.nombre_cliente + ' (Contrato: ' + data.nro + ')</a>';
                         }
                         return '<span class="text-muted">No asociado</span>';
                     }
