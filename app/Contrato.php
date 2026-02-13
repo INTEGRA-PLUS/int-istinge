@@ -447,4 +447,7 @@ class Contrato extends Model
         ->get()->count();
     }
 
+    public function contratoDigital(){
+        return $this->hasOne(ContratoDigital::class, 'contrato_id');
+    }
 }
