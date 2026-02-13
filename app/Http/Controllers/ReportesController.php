@@ -167,6 +167,10 @@ class ReportesController extends Controller
                 $facturas=$facturas->where('i.metodo_pago', $request->metodo_pago);
             }
 
+            if($request->forma_pago){
+                $facturas=$facturas->where('i.forma_pago', $request->forma_pago);
+            }
+
             $ides=array();
 
             // Obtener facturas con manejo de reconexión y chunking para evitar "MySQL server has gone away"
@@ -283,8 +287,9 @@ class ReportesController extends Controller
 
             // Obtener métodos de pago para el filtro
             $metodosPago = DB::table('metodos_pago')->get();
+            $formasPago = FormaPago::where('relacion',1)->orWhere('relacion',2)->get();
 
-            return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','metodosPago'));
+            return view('reportes.ventas.index')->with(compact('facturas', 'numeraciones', 'subtotal', 'total', 'request', 'example','cajas', 'gruposCorte','metodosPago', 'formasPago'));
 
         }
     }
@@ -2675,6 +2680,12 @@ class ReportesController extends Controller
                 ->where('factura.fecha', '<=', $dates['fin']);
         }
         $ides = [];
+        if ($request->forma_pago) {
+            $facturas->join('ingresos_factura as ig', 'factura.id', '=', 'ig.factura')
+                     ->join('ingresos as i', 'ig.ingreso', '=', 'i.id')
+                     ->where('i.forma_pago', $request->forma_pago);
+        }
+
         $facturas=$facturas->OrderBy($orderby, $order)->get();
 
         foreach ($facturas as $factura) {
@@ -2716,7 +2727,8 @@ class ReportesController extends Controller
             $subtotal = $this->precision($result->total - $result->descuento);
             $total = $this->precision((float)$subtotal + $result->impuesto);
         }
-        return view('reportes.facturasElectronicas.index')->with(compact('facturas', 'subtotal', 'total', 'request', 'example'));
+        $formasPago = FormaPago::where('relacion',1)->orWhere('relacion',2)->get();
+        return view('reportes.facturasElectronicas.index')->with(compact('facturas', 'subtotal', 'total', 'request', 'example', 'formasPago'));
     }
 
     public function facturasEstandar(Request $request){
