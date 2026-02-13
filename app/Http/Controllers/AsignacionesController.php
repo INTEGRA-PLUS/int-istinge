@@ -55,7 +55,13 @@ class AsignacionesController extends Controller
         $clientes = (Auth::user()->empresa()->oficina) ? Contacto::whereIn('tipo_contacto', [0,2])->where('status', 1)->where('empresa', Auth::user()->empresa)->where('oficina', Auth::user()->oficina)->orderBy('nombre', 'ASC')->get() : Contacto::whereIn('tipo_contacto', [0,2])->where('status', 1)->where('empresa', Auth::user()->empresa)->orderBy('nombre', 'ASC')->get();
         $empresa = Empresa::find(Auth::user()->empresa);
         $contrato = Contrato::where('id', request()->contrato)->where('empresa', Auth::user()->empresa)->first();
-        $idCliente = $contrato->client_id ?? '';
+        if($contrato){
+            $idCliente = $contrato->client_id;
+       }else if(request('id')){
+            $idCliente = request('id');
+       }else{
+            $idCliente = '';
+       }
         view()->share(['title' => 'Asignación de Contrato de Internet']);
         return view('asignaciones.create')->with(compact('clientes', 'empresa', 'contrato', 'idCliente'));
     }
@@ -681,7 +687,11 @@ class AsignacionesController extends Controller
 
         if ($asignacion) {
             $contacto = Contacto::find($asignacion->cliente_id);
-            $contrato = Contrato::find($asignacion->contrato_id);
+            if(request('contrato')){
+                $contrato = Contrato::find(request('contrato'));
+            }else{
+                $contrato = Contrato::find($asignacion->contrato_id);
+            }
             // Fetch all contracts for this client to populate the selector
             $contratos = Contrato::where('client_id', $contacto->id)->get();
         } else {

@@ -431,10 +431,16 @@
 									<th>Acciones</th>
 									<td>
 									@if(isset($_SESSION['permisos']['402']))
-									<a href="{{route('asignaciones.create', ['contrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @if ($contacto->contratoDigital)
+                                            <a href="{{ route('asignaciones.edit', [$contacto->contratoDigital->id, 'contrato' => $contrato->id]) }}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @else
+                                            <a href="{{route('asignaciones.create', ['contrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @endif
 									@endif
 									@if(isset($_SESSION['permisos']['817']))
-									<a href="{{route('asignaciones.imprimir', [$contacto->id, 'idContrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-print"></i>Imprimir</a>
+                                        @if ($contacto->contratoDigital)
+                                            <a href="{{ route('asignaciones.imprimir', $contacto->contratoDigital->id)}}" class="btn btn-outline-info btn-sm" target="_blank"><i class="fas fa-print"></i>Imprimir</a>
+                                        @endif
 									@endif
 									@if(isset($_SESSION['permisos']['818']))
 									<a href="{{route('asignaciones.enviar', [$contacto->id, 'idContrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-envelope"></i>Enviar</a>
@@ -662,7 +668,11 @@
 								<div class="card card-adj">
 								    <div class="card-body" style="border: 1px solid #28A745;border-radius: 0.25rem;padding: 1.88rem 0.88rem;">
 								    	<h3 class="card-title text-success font-weight-bold">Agregar Adjunto</h3>
-								    	<a href="{{ route('asignaciones.edit',$contacto->id )}}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
+                                        @if ($contacto->contratoDigital)
+                                            <a href="{{ route('asignaciones.edit', $contacto->contratoDigital->id )}}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
+                                        @else
+                                            <a href="{{ route('asignaciones.create', ['id' => $contacto->id]) }}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
+                                        @endif
 								    </div>
 								</div>
 							</div>
