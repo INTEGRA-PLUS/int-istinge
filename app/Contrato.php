@@ -229,7 +229,7 @@ class Contrato extends Model
         ->get()->last();
 
         if($factura){
-            return "<a href=".route('facturas.show', $factura->id)." target='_blank'>$factura->codigo</a>";
+            return "<a href=".route('facturas.show', $factura->fatura_id)." target='_blank'>$factura->codigo</a>";
         }
         return 'N/A';
     }
