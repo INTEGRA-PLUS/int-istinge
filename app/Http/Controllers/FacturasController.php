@@ -3090,7 +3090,7 @@ class FacturasController extends Controller{
 
                 // Eliminar factura en OnePay si existe
                 if ($factura->onepay_invoice_id) {
-                    $onePayService->deleteInvoice($factura, 'Factura anulada por: '.Auth::user()->nombres);
+                    $onePayService->deleteInvoice($factura);
                 }
 
                 CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
@@ -7189,7 +7189,7 @@ class FacturasController extends Controller{
                     // Eliminar factura en OnePay si existe
                     if ($factura->onepay_invoice_id) {
                         $onePayService = new OnePayService();
-                        $onePayService->deleteInvoice($factura, 'Factura eliminada masivamente por: '.Auth::user()->nombres);
+                        $onePayService->deleteInvoice($factura);
                     }
 
                     // Eliminar la factura misma
