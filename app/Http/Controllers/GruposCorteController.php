@@ -1066,8 +1066,8 @@ class GruposCorteController extends Controller
 
 
         // Ordenamiento
-        // Nota: 'total' (índice 5) se calcula en PHP, no se puede ordenar por SQL fácilmente.
-        $columns = ['codigo', 'nombre_cliente', 'nit_cliente', 'contrato_nro', 'fecha', 'vencimiento', null, 'whatsapp', 'estatus'];
+        // Nota: 'total' (índice 7) se calcula en PHP, no se puede ordenar por SQL fácilmente.
+        $columns = ['codigo', 'nombre_cliente', 'nit_cliente', 'contrato_nro', 'fecha', 'vencimiento', 'factura_mes_manual', null, 'whatsapp', 'estatus'];
         if ($request->has('order') && isset($request->order[0])) {
             $colIndex = $request->order[0]['column'];
             $dir = $request->order[0]['dir'];
@@ -1101,6 +1101,11 @@ class GruposCorteController extends Controller
             $isOverdue = $venc->isPast() || $venc->isToday();
             $vencHtml = $isOverdue ? '<span class="text-danger font-weight-bold">'.$venc->format('d-m-Y').'</span>' : $venc->format('d-m-Y');
             
+            // Factura Mes Manual
+            $mesManualHtml = ($row->factura_mes_manual == 1) 
+                ? '<div class="text-center"><span class="badge badge-success">Si</span></div>' 
+                : '<div class="text-center"><span class="badge badge-danger">No</span></div>';
+
             // Whatsapp
             $wppHtml = ($row->whatsapp == 1) 
                 ? '<i class="fab fa-whatsapp text-success fa-lg" title="Enviado"></i>'
@@ -1121,6 +1126,7 @@ class GruposCorteController extends Controller
                 $row->contrato_nro,
                 $fecha,
                 $vencHtml,
+                $mesManualHtml,
                 '$' . number_format($total, 0, ',', '.'),
                 '<div class="text-center">'.$wppHtml.'</div>',
                 $estadoHtml,

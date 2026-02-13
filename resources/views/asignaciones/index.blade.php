@@ -82,7 +82,7 @@
 						@foreach($contratos as $contrato)
 							<tr>
 								<td>{{ $contrato->id }}</td>
-								<td>{{ $contrato->contrato->nro }}</td>
+								<td>{{ $contrato->contrato ? $contrato->contrato->nro : 'N/A' }}</td>
 								<td><a href="{{ route('contactos.show',$contrato->cliente_id )}}"  title="Ver">{{ $contrato->cliente->nombre }} {{ $contrato->cliente->apellido1 }} {{ $contrato->cliente->apellido2 }}</a></td>
 								<td>{{ $contrato->cliente->nit }}</td>
 								<td>{{date('d-m-Y', strtotime($contrato->fecha_firma))}}</td>
@@ -107,7 +107,7 @@
 									<a href="javascript:void(0);" onclick="generar_link({{ $contrato->cliente_id }});" class="btn btn-outline-warning btn-icons" title="Generar Link de Actualización de Firma"><i class="fas fa-fw fa-link"></i></a>
 									@endif
 									@if(isset($_SESSION['permisos']['846']))
-									{{-- <a href="{{ route('asignaciones.edit',$contrato->id )}}" class="btn btn-outline-primary btn-icons" title="Cargar Documentos"><i class="fas fa-fw fa-upload"></i></a> --}}
+									<a href="{{ route('asignaciones.edit',$contrato->id )}}" class="btn btn-outline-primary btn-icons" title="Cargar Documentos"><i class="fas fa-fw fa-upload"></i></a>
 									@endif
                                     @if(isset($_SESSION['permisos']['850']))
                                     <button type="button" class="btn btn-outline-danger btn-icons" type="submit" title="Eliminar" onclick="confirmar('eliminar{{$contrato->id}}', '¿Está seguro que desear eliminar esta asignación de contrato?', 'Se borrara de forma permanente');"><i class="fas fa-times"></i></button>

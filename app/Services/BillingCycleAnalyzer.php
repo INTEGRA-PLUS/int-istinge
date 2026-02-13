@@ -976,6 +976,7 @@ class BillingCycleAnalyzer
                 'factura.estatus', 
                 'factura.whatsapp', 
                 'factura.cliente',
+                'factura.factura_mes_manual',
                 DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'
@@ -1000,6 +1001,7 @@ class BillingCycleAnalyzer
                 'factura.estatus', 
                 'factura.whatsapp', 
                 'factura.cliente',
+                'factura.factura_mes_manual',
                 DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
                 'c.nro as contrato_nro'

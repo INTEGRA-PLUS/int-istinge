@@ -48,7 +48,7 @@
         </script>
     @endif
 
-    <form method="POST" action="{{ route('asignaciones.update', $contacto->id) }}" style="padding: 2% 3%;" role="form" class="forms-sample mt-0 pt-0" id="form-asignacion" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('asignaciones.update', $asignacion->id) }}" style="padding: 2% 3%;" role="form" class="forms-sample mt-0 pt-0" id="form-asignacion" enctype="multipart/form-data">
         {{ csrf_field() }}
         <input name="_method" type="hidden" value="PATCH">
         <div class="row">
@@ -60,25 +60,37 @@
                 <span class="ml-2">{{ $contacto->tip_iden('corta') }} {{ $contacto->nit }}</span>
                 <br>
             </div>
-            <div class="col-md-6 form-group d-none">
-                <label class="control-label">Cliente <span class="text-danger">*</span></label>
+            <div class="col-md-6 offset-md-3 form-group">
+                <label class="control-label">Contrato <span class="text-danger">*</span></label>
                 <div class="input-group">
-                    <input type="file" class="form-control" id="id" name="id" value="{{$contacto->id}}">
+                    <select class="form-control selectpicker" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
+                        @foreach($contratos as $c)
+                            <option value="{{$c->id}}" {{ $c->id == $asignacion->contrato_id ? 'selected' : '' }}>{{$c->nro}} - {{ $c->plan() ? $c->plan()->name : 'Sin Plan' }} ({{ $c->ip }})</option>
+                        @endforeach
+                    </select>
                 </div>
+                <span class="help-block error">
+                    <strong>{{ $errors->first('contrato') }}</strong>
+                </span>
             </div>
-            <div class="col-md-6 form-group">
+            
+            <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_1">{{$empresa->campo_1}}</label>
                 <input type="file" class="form-control"  id="documento" name="documento" value="{{old('documento')}}" accept=".jpg, .jpeg, .png">
+                @if($asignacion->documento)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->documento)}}" target="_blank">Ver archivo</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('documento') }}</strong>
                 </span>
             </div>
-        </div>
 
-        <div class="row">
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_a">{{$empresa->campo_a}}</label>
                 <input type="file" class="form-control"  id="imgA" name="imgA"  value="{{old('imgA')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgA)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgA)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgA') }}</strong>
                 </span>
@@ -86,6 +98,9 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_b">{{$empresa->campo_b}}</label>
                 <input type="file" class="form-control"  id="imgB" name="imgB"  value="{{old('imgB')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgB)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgB)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgB') }}</strong>
                 </span>
@@ -93,6 +108,9 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_c">{{$empresa->campo_c}}</label>
                 <input type="file" class="form-control"  id="imgC" name="imgC"  value="{{old('imgC')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgC)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgC)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgC') }}</strong>
                 </span>
@@ -100,14 +118,20 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_d">{{$empresa->campo_d}}</label>
                 <input type="file" class="form-control"  id="imgD" name="imgD"  value="{{old('imgD')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgD)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgD)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgD') }}</strong>
                 </span>
             </div>
-
+    
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_e">{{$empresa->campo_e}}</label>
                 <input type="file" class="form-control"  id="imgE" name="imgE"  value="{{old('imgE')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgE)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgE)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgE') }}</strong>
                 </span>
@@ -115,6 +139,9 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_f">{{$empresa->campo_f}}</label>
                 <input type="file" class="form-control"  id="imgF" name="imgF"  value="{{old('imgF')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgF)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgF)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgF') }}</strong>
                 </span>
@@ -122,6 +149,9 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_g">{{$empresa->campo_g}}</label>
                 <input type="file" class="form-control"  id="imgG" name="imgG"  value="{{old('imgG')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgG)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgG)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgG') }}</strong>
                 </span>
@@ -129,38 +159,24 @@
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_h">{{$empresa->campo_h}}</label>
                 <input type="file" class="form-control"  id="imgH" name="imgH"  value="{{old('imgH')}}" accept=".jpg, .jpeg, .png">
+                 @if($asignacion->imgH)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->imgH)}}" target="_blank">Ver adjunto</a></small>
+                @endif
                 <span style="color: red;">
                     <strong>{{ $errors->first('imgH') }}</strong>
                 </span>
             </div>
-            {{-- <div class="col-md-3 form-group">
-                <label class="control-label">Plan <span class="text-danger">*</span></label>
-                <div class="input-group">
-                    <select class="form-control selectpicker" name="plan" id="plan" required="" title="Seleccione" data-live-search="true" data-size="5" value="{{ old($contrato->plan_id) }}">
-                        @foreach($planes as $plan)
-                            <option value="{{$plan->id}}" {{$plan->id==$contrato->plan_id?'selected':''}}>{{$plan->name}}</option>
-                        @endforeach
-                    </select>
-                    <input type="hidden" id="servidor" value="{{old('plan')}}">
-                </div>
-                <span class="help-block error">
-                    <strong>{{ $errors->first('plan') }}</strong>
+            
+            <div class="col-md-3 form-group">
+                <label class="control-label" id="">Adjuntar audio</label>
+                <input type="file" class="form-control" name="adjunto_audio" accept="audio/*" id="adjunto_audio" >
+                @if($asignacion->adjunto_audio)
+                    <small>Actual: <a href="{{asset('adjuntos/documentos/'.$asignacion->adjunto_audio)}}" target="_blank">Ver audio</a></small>
+                @endif
+                <span style="color: red;">
+                    <strong>{{ $errors->first('adjunto_audio') }}</strong>
                 </span>
             </div>
-            <div class="col-md-3 form-group" id="div_meses">
-                <label class="control-label">Meses del contrato de permanencia</span></label>
-                <div class="input-group">
-                    <select class="form-control selectpicker" id="contrato_permanencia_meses" name="contrato_permanencia_meses" title="Seleccione" data-live-search="true" data-size="5">
-                        <option value="3" {{3==$contrato->contrato_permanencia_meses?'selected':''}}>3 meses</option>
-                        <option value="6" {{6==$contrato->contrato_permanencia_meses?'selected':''}}>6 meses</option>
-                        <option value="9" {{9==$contrato->contrato_permanencia_meses?'selected':''}}>9 meses</option>
-                        <option value="12" {{12==$contrato->contrato_permanencia_meses?'selected':''}}>12 meses</option>
-                    </select>
-                </div>
-                <span class="help-block error">
-                    <strong>{{ $errors->first('contrato_permanencia_meses') }}</strong>
-                </span>
-            </div> --}}
         </div>
 
         <center>

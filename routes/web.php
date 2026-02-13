@@ -138,6 +138,36 @@ Route::post('/import_puc', 'PucController@import_puc')->name('puc.import_puc');
 Route::get('/updatecontratofactura', 'FacturasController@updateContratoId');
 Route::get('/radicadosbarrio', 'Controller@radicadosBarrio');
 
+Route::get('/digitales', function() {
+    $contactos = App\Contacto::whereNotNull('fecha_isp')->where('fecha_isp', '!=', '0000-00-00')->get();
+    $count = 0;
+    foreach($contactos as $c) {
+        $contrato = App\Contrato::where('client_id', $c->id)->first();
+        $nro = App\ContratoDigital::max('nro') + 1;
+
+        App\ContratoDigital::create([
+            'cliente_id' => $c->id,
+            'fecha_firma' => $c->fecha_isp,
+            'estado_firma' => ($c->fecha_isp && $c->firma_isp) ? 1 : 0,
+            'firma' => $c->firma_isp,
+            'imgA' => $c->imgA,
+            'imgB' => $c->imgB,
+            'imgC' => $c->imgC,
+            'imgD' => $c->imgD,
+            'imgE' => $c->imgE,
+            'imgF' => $c->imgF,
+            'imgG' => $c->imgG,
+            'imgH' => $c->imgH,
+            'documento' => $c->documento,
+            'adjunto_audio' => $c->adjunto_audio,
+            'nro' => $nro,
+            'contrato_id' => $contrato ? $contrato->id : null,
+        ]);
+        $count++;
+    }
+    return "Se han migrado " . $count . " contratos digitales.";
+});
+
 Route::get('/import_plans', 'Controller@import_plans')->name('import_plans');
 Route::get('/import_clients', 'Controller@import_clients')->name('import_clients');
 Route::get('/import_contracts', 'Controller@import_contracts')->name('import_contracts');

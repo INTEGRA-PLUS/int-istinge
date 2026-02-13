@@ -621,6 +621,7 @@
                             <th>Contrato</th>
                             <th>Fecha Creación</th>
                             <th>Vencimiento</th>
+                            <th>Factura del Mes</th>
                             <th>Total</th>
                             <th>Whatsapp</th>
                             <th>Estado</th>
@@ -828,10 +829,11 @@ $(document).ready(function() {
             { data: 3, name: 'contrato_nro' },
             { data: 4, name: 'fecha' },
             { data: 5, name: 'vencimiento' },
-            { data: 6, name: 'total', orderable: false, searchable: false },
-            { data: 7, orderable: false, searchable: false },
-            { data: 8, name: 'estatus' },
-            { data: 9, orderable: false, searchable: false }
+            { data: 6, name: 'factura_mes_manual' },
+            { data: 7, name: 'total', orderable: false, searchable: false },
+            { data: 8, orderable: false, searchable: false },
+            { data: 9, name: 'estatus' },
+            { data: 10, orderable: false, searchable: false }
         ]
     });
     
