@@ -784,7 +784,7 @@ class AsignacionesController extends Controller
             $contract = $digital->contrato;
             $contractDetails = $digital->contrato;
 
-            $contacto = Contacto::Find($digital->cliente);
+            $contacto = Contacto::Find($digital->cliente_id);
             if($contacto->firma_isp != null && $digital->firma == null){
                 $digital->firma = $contacto->firma_isp;
                 $digital->estado_firma = 1;
