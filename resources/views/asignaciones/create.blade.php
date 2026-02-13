@@ -68,11 +68,18 @@
                 </div>
             </div>
 
-            <div class="col-md-3 form-group">
+            <div class="col-md-3 form-group" id="div_contrato">
                 <label class="control-label">Contrato <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <select class="form-control selectpicker" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
                     </select>
+                </div>
+            </div>
+            
+            <div class="col-md-3 form-group d-none" id="div_no_contrato">
+                <label class="control-label">Contrato</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="El cliente no tiene contratos creados para asociar." disabled>
                 </div>
             </div>
 
@@ -399,18 +406,30 @@
        // Supongamos que esta función se llama después de recibir la respuesta AJAX
         function updateContratosSelect(contratos) {
             var selectContrato = document.getElementById('idcontrato');
+            var divContrato = document.getElementById('div_contrato');
+            var divNoContrato = document.getElementById('div_no_contrato');
 
             // Verificar si el elemento 'select' existe
             if (selectContrato) {
                 selectContrato.innerHTML = ''; // Limpiar opciones existentes
 
-                // Agregar nuevas opciones basadas en la respuesta del contrato
-                contratos.forEach(function(contrato) {
-                    var option = document.createElement('option');
-                    option.value = contrato.id;
-                    option.textContent = 'contrato nro '+ contrato.nro;
-                    selectContrato.appendChild(option);
-                });
+                if (contratos.length > 0) {
+                    divContrato.classList.remove('d-none');
+                    divNoContrato.classList.add('d-none');
+                    selectContrato.setAttribute('required', '');
+
+                    // Agregar nuevas opciones basadas en la respuesta del contrato
+                    contratos.forEach(function(contrato) {
+                        var option = document.createElement('option');
+                        option.value = contrato.id;
+                        option.textContent = 'contrato nro '+ contrato.nro;
+                        selectContrato.appendChild(option);
+                    });
+                } else {
+                    divContrato.classList.add('d-none');
+                    divNoContrato.classList.remove('d-none');
+                    selectContrato.removeAttribute('required');
+                }
 
                 console.log('Select de contratos actualizado correctamente.');
             } else {

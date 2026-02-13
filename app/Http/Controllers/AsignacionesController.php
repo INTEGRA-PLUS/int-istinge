@@ -74,14 +74,16 @@ class AsignacionesController extends Controller
             return back()->with('danger', $mensaje);
         }
 
-        if(!$request->contrato){
-            $mensaje='Debe seleccionar un contrato para la asignación del contrato digital';
-            return back()->with('danger', $mensaje);
-        }
+        /*if(!$request->contrato){
+        $mensaje='Debe seleccionar un contrato para la asignación del contrato digital';
+        return back()->with('danger', $mensaje);
+    }*/
 
-        if(ContratoDigital::where('contrato_id', $request->contrato)->where('cliente_id', $request->id)->first()) {
-            $mensaje='El contrato digital ya se encuentra asignado a este cliente.';
-            return back()->with('danger', $mensaje);
+        if($request->contrato){
+            if(ContratoDigital::where('contrato_id', $request->contrato)->where('cliente_id', $request->id)->first()) {
+                $mensaje='El contrato digital ya se encuentra asignado a este cliente.';
+                return back()->with('danger', $mensaje);
+            }
         }
 
         $ext_permitidas = array('jpeg','png','gif');
@@ -91,17 +93,29 @@ class AsignacionesController extends Controller
             $digital->firma = $request->firma_isp;
         }
 
-        $contrato = Contrato::Find($request->contrato);
-        $idContrato = $contrato->id;
-        $digital->contrato_id = $contrato->id;
+        if($request->contrato){
+            $contrato = Contrato::Find($request->contrato);
+            if($contrato){
+                $idContrato = $contrato->id;
+                $digital->contrato_id = $contrato->id;
+            }else{
+                $idContrato = $request->id;
+                $digital->contrato_id = null;
+            }
+        }else{
+            $idContrato = $request->id;
+            $digital->contrato_id = null;
+        }
+        
         $digital->cliente_id = $request->id;
         $digital->nro = ContratoDigital::count() + 1;
+        $cliente = Contacto::find($request->id);
 
         try {
 
             $digital->fecha_firma = date('Y-m-d');
             $file = $request->file('documento');
-            $nombre =  $idContrato . 'doc_' . $contrato->nit . '.' . $file->getClientOriginalExtension();
+            $nombre =  $idContrato . 'doc_' . $cliente->nit . '.' . $file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
             $digital->documento = $nombre;
