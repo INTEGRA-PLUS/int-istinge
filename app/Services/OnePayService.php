@@ -259,7 +259,7 @@ class OnePayService
     /**
      * Eliminar factura en OnePay
      */
-    public function deleteInvoice(Factura $factura, $reason = 'Factura eliminada')
+    public function deleteInvoice(Factura $factura, $reason = 'DELETE_FROM_PROVIDER')
     {
         try {
             if (!$factura->onepay_invoice_id) {
