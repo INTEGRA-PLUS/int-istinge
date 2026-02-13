@@ -301,7 +301,11 @@
 						</tr>
 						<tr>
 							<th width="20%">Asignación de Contrato Digital</th>
-							<td><a href="{{ route('asignaciones.imprimir',$id)}}" target="_blank"><strong>Ver Documento</strong></a></td>
+							<td>
+								@if ($contacto->contratoDigital)
+									<a href="{{ route('asignaciones.imprimir', $contacto->contratoDigital->id)}}" target="_blank"><strong>Ver Documento</strong></a>
+								@endif
+							</td>
 						</tr>
 						<div class="modal" tabindex="-1" role="dialog" id="modal-fecha-isp">
 							<div class="modal-dialog modal-sm" role="document">
