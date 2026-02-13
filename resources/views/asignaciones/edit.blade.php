@@ -60,6 +60,7 @@
                 <span class="ml-2">{{ $contacto->tip_iden('corta') }} {{ $contacto->nit }}</span>
                 <br>
             </div>
+            @if(count($contratos) > 0)
             <div class="col-md-6 offset-md-3 form-group">
                 <label class="control-label">Contrato <span class="text-danger">*</span></label>
                 <div class="input-group">
@@ -73,6 +74,14 @@
                     <strong>{{ $errors->first('contrato') }}</strong>
                 </span>
             </div>
+            @else
+            <div class="col-md-6 offset-md-3 form-group">
+                <label class="control-label">Contrato</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="El cliente no tiene contratos creados para asociar." disabled>
+                </div>
+            </div>
+            @endif
             
             <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_1">{{$empresa->campo_1}}</label>

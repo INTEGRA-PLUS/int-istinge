@@ -183,10 +183,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgA')) {
             $file = $request->file('imgA');
-            $nombre =  $idContrato.'imgA_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgA_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgA = $nombre;
+            $digital->imgA = $nombre;
 
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
@@ -244,10 +244,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgB')) {
             $file = $request->file('imgB');
-            $nombre =  $idContrato.'imgB_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgB_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgB = $nombre;
+            $digital->imgB = $nombre;
 
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
@@ -304,10 +304,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgC')) {
             $file = $request->file('imgC');
-            $nombre =  $idContrato.'imgC_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgC_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgC = $nombre;
+            $digital->imgC = $nombre;
 
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
@@ -364,10 +364,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgD')) {
             $file = $request->file('imgD');
-            $nombre =  $idContrato.'imgD_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgD_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgD = $nombre;
+            $digital->imgD = $nombre;
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
                     case 'jpeg':
@@ -423,10 +423,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgE')) {
             $file = $request->file('imgE');
-            $nombre =  $idContrato.'imgE_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgE_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgE = $nombre;
+            $digital->imgE = $nombre;
 
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
@@ -483,10 +483,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgF')) {
             $file = $request->file('imgF');
-            $nombre =  $idContrato.'imgF_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgF_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgF = $nombre;
+            $digital->imgF = $nombre;
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
                     case 'jpeg':
@@ -542,10 +542,10 @@ class AsignacionesController extends Controller
 
         if($request->file('imgG')) {
             $file = $request->file('imgG');
-            $nombre =  $idContrato.'imgG_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgG_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgG = $nombre;
+            $digital->imgG = $nombre;
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
                     case 'jpeg':
@@ -601,19 +601,19 @@ class AsignacionesController extends Controller
 
         if($request->file('adjunto_audio')){
             $file = $request->file('adjunto_audio');
-            $nombre =  $idContrato.'adjunto_audio'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'adjunto_audio'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->adjunto_audio = $nombre;
+            $digital->adjunto_audio = $nombre;
         }
 
         if($request->file('imgH')) {
 
             $file = $request->file('imgH');
-            $nombre =  $idContrato.'imgH_'.$contrato->nit.'.'.$file->getClientOriginalExtension();
+            $nombre =  $idContrato.'imgH_'.$cliente->nit.'.'.$file->getClientOriginalExtension();
             $ruta = public_path('/adjuntos/documentos/');
             $file->move($ruta, $nombre);
-            $contrato->imgH = $nombre;
+            $digital->imgH = $nombre;
 
             if(in_array($file->getClientOriginalExtension(), $ext_permitidas)) {
                 switch($file->getClientOriginalExtension()) {
