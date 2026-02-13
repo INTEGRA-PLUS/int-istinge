@@ -2408,9 +2408,9 @@ class Controller extends BaseController
         );
     }
 
-    public static function createFacturaProrrateo($contrato, $facturaInicio = null){
+    public static function createFacturaProrrateo($contrato, $facturaInicio = null, $desdeOnu = false){
 
-        if ($contrato->prorrateo == 0) {
+        if ($contrato->prorrateo == 0 && !$desdeOnu) {
             return false;
         }
 
@@ -2479,6 +2479,7 @@ class Controller extends BaseController
                 }
             }
         }
+        
         $date_suspension = $y . "-" . $m . "-" . $ds;
         //Fin calculo fecha suspension
 
@@ -2644,6 +2645,26 @@ class Controller extends BaseController
                 }
             }
             //>>>>Fin posible aplicación prorrateo al total<<<<//
+
+            // Log de movimiento
+            $totalFactura = $factura->fresh()->totalAPI($empresaId)->subtotal + $factura->fresh()->impuestos_totalesFe();
+            $totalFormateado = Funcion::parsear($totalFactura);
+
+            $descripcion = "";
+            if ($desdeOnu) {
+                $descripcion = "Factura creada desde la opción de Onus desconfiguradas al contrato {$contrato->nro} por un total de {$totalFormateado}";
+            } else {
+                $descripcion = "Factura con prorrateo desde el contrato nro {$contrato->nro} por un total de {$totalFormateado}";
+            }
+
+            $movimiento = new \App\MovimientoLOG();
+            $movimiento->contrato    = $factura->id;
+            $movimiento->modulo      = 8; // Módulo de facturas
+            $movimiento->descripcion = $descripcion;
+            $movimiento->created_by  = Auth::user()->id;
+            $movimiento->empresa     = $factura->empresa;
+            $movimiento->save();
+
             return true;
         });
     }

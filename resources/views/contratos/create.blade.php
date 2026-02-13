@@ -995,7 +995,7 @@
 
                             <div class="col-md-4 form-group">
                                 <label class="control-label">Habilitar Prorrateo <a><i
-                                            data-tippy-content="Habilitar o deshabilitar el cobro de prorrateo para este contrato"
+                                            data-tippy-content="Habilitar o deshabilitar el cobro de prorrateo para este contrato, esta acción habilitada genera de inmediato una factura prorrateada."
                                             class="icono far fa-question-circle"></i></a></label>
                                 <div class="d-flex align-items-center">
                                     <label class="switch mb-0">
@@ -1107,7 +1107,7 @@
 
                             <div class="form-group col-md-4">
                                 <label class="control-label">¿Crear factura el primer mes del contrato? <a><i
-                                            data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato"
+                                            data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato en la fecha de facturación segun el grupo de corte"
                                             class="icono far fa-question-circle"></i></a></label>
                                 <div class="d-flex align-items-center">
                                     <label class="switch mb-0">

@@ -2487,6 +2487,7 @@ class ContratosController extends Controller
         view()->share(['middel' => true]);
         $inventario = false;
 
+
         // Buscar por id o por nro según el parámetro recibido
         $baseQuery = Contrato::
         join('contactos as c', 'c.id', '=', 'contracts.client_id')

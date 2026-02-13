@@ -404,7 +404,7 @@ class OltController extends Controller
                 if ($request->contrato_id) {
                     $contrato = \App\Contrato::find($request->contrato_id);
                     if ($contrato) {
-                        Controller::createFacturaProrrateo($contrato);
+                        Controller::createFacturaProrrateo($contrato, null, true);
                     }
                 }
             }
