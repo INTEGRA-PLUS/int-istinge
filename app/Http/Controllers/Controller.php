@@ -2506,7 +2506,7 @@ class Controller extends BaseController
         }
 
         // Envolver en transacción para evitar condiciones de carrera
-        return DB::transaction(function () use ($contrato, $numero, $nro, $inicio, $plazo, $tipo, $fecha, $date_suspension, $date_pagooportuno, $grupo_corte, $empresaId, $facturaInicio) {
+        return DB::transaction(function () use ($contrato, $numero, $nro, $inicio, $plazo, $tipo, $fecha, $date_suspension, $date_pagooportuno, $grupo_corte, $empresaId, $facturaInicio, $desdeOnu) {
             $factura = new Factura;
             $factura->nro           = $numero;
             $factura->codigo        = $nro->prefijo.$inicio;
