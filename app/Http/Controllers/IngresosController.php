@@ -1529,7 +1529,7 @@ class IngresosController extends Controller
          */
         
         // Validar que sea instancia Meta Direct (type=0, meta=0)
-        if ($instance->type != 0 || $instance->meta != 0) {
+        if ($instance->type != 1 || $instance->meta != 0) {
             return back()->with('error', 'La instancia configurada no es compatible con Meta Direct (Type != 0).');
         }
 
@@ -1672,7 +1672,7 @@ class IngresosController extends Controller
         WhatsappMetaLog::create([
             'status' => $status,
             'response' => json_encode($response),
-            'factura_id' => null, // Es un ingreso, no factura directa
+            'factura_id' => $ingreso->nro, // Es un ingreso, no factura directa
             'contacto_id' => $cliente->id,
             'empresa' => Auth::user()->empresa,
             'mensaje_enviado' => $mensajeEnviado,

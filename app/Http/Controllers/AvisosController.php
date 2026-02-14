@@ -345,10 +345,10 @@ class AvisosController extends Controller
                         if (!$instance) {
                             return back()->with('danger', 'Instancia Meta Direct no encontrada o inactiva.');
                         }
-                        if ($instance->type != 0) {
-                             return back()->with('danger', 'La instancia configurada no es compatible con Meta Direct (Type != 0).');
+                        if ($instance->type != 1) {
+                             return back()->with('danger', 'La instancia configurada no es compatible con Meta Direct (Type != 1).');
                         }
-                    } elseif (!$instance || $instance->type != 0) {
+                    } elseif (!$instance || $instance->type != 1) {
                         // Si falla después del primero (raro), logguear y continuar
                         \Log::error("Instancia no válida en iteración {$i}");
                         continue;

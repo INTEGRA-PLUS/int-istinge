@@ -4737,25 +4737,20 @@ class CronController extends Controller
 
     public function envioFacturaWpp(WapiService $wapiService)
     {
-        Log::info("=== Inicio de ejecución: envioFacturaWpp() (Meta Direct) ===");
-
         try {
             $empresa = Empresa::find(1);
             if (!$empresa) {
                 Log::error("Empresa no encontrada (id=1).");
                 return;
             }
-            Log::info("Empresa encontrada: {$empresa->nombre}");
 
             $fecha = $empresa->cron_fecha_whatsapp ?? date('Y-m-d');
-            Log::info("Fecha de facturación a usar: {$fecha}");
 
             // Reinicio de variable cron_fecha_whatsapp
             $horaActual = Carbon::now()->format('H:i');
             if ($horaActual >= '00:00' && $horaActual <= '03:00') {
                 $empresa->cron_fecha_whatsapp = Carbon::now()->format('Y-m-d');
                 $empresa->save();
-                Log::info("cron_fecha_whatsapp reiniciada a: {$empresa->cron_fecha_whatsapp}");
             }
 
             // Refrescar empresa
@@ -4763,7 +4758,6 @@ class CronController extends Controller
 
             $grupos_corte = GrupoCorte::where('status', 1)->get();
             if ($grupos_corte->count() === 0) {
-                Log::warning("No hay grupos de corte activos. Se detiene el proceso.");
                 return;
             }
 
@@ -4783,7 +4777,7 @@ class CronController extends Controller
             }
 
             // Validar type = 0
-            if ($instance->type != 0) {
+            if ($instance->type != 1) {
                 Log::error("La instancia configurada no es compatible con Meta Direct (Type != 0).");
                 return;
             }
