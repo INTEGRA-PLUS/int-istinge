@@ -43,6 +43,37 @@ class InstanceController extends Controller
     public function store(Request $request, WapiService $wapiService)
     {
         $addr = url('');
+
+        if ($request->type == 0) {
+            $validated = $request->validate([
+                'phone_number_id' => 'required',
+                'waba_id' => 'required',
+            ]);
+
+            try {
+                $instance = Instance::create([
+                    'company_id' => auth()->user()->empresa,
+                    'phone_number_id' => $validated['phone_number_id'],
+                    'waba_id' => $validated['waba_id'],
+                    'status' => 'connected',
+                    'type' => 0,
+                    'uuid' => $validated['phone_number_id'], // Fallback for uuid
+                    'api_key' => 'meta', // Fallback
+                    'addr' => $addr,
+                    'uuid_whatsapp' => $validated['phone_number_id']
+                ]);
+
+                return back()->with([
+                    'instance' => $instance,
+                    'message' => 'Instancia Meta registrada correctamente.'
+                ]);
+            } catch (Exception $err) {
+                return back()->withErrors([
+                    'error' => 'Error al registrar instancia Meta: ' . $err->getMessage()
+                ])->withInput($request->input());
+            }
+        }
+
         $validated = $request->validate([
             'instance_id' => 'required|regex:/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/'
         ]);

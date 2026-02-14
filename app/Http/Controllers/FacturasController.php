@@ -5737,7 +5737,6 @@ class FacturasController extends Controller{
         // 1️⃣ Buscar instancia activa y factura base
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
-                            ->where('meta', 0)
                             ->first();
         $factura = Factura::findOrFail($id);
 
@@ -5758,6 +5757,159 @@ class FacturasController extends Controller{
 
         // 📱 Construir número completo con prefijo dinámico
         $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
+
+       // 🚀 === FLUJO META DIRECT (API OFICIAL) ===
+       if ($instance->type === 0) {
+            $metaService = new \App\Services\MetaWhatsAppService();
+
+            // Construir template body
+            // Nota: Meta requiere que el archivo sea un link público (urlFactura) o un ID de media.
+            // Si usamos template, debe ser un link en el header tipo DOCUMENT.
+
+            // ============================================================
+            // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE (Reutilizado)
+            // ============================================================
+            $token = config('app.key');
+            $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
+
+            // Asegurar que el archivo fue generado y accesible
+            $fileName = 'Factura_' . $factura->codigo . '.pdf';
+            $relativePath = 'temp/' . $fileName;
+            $storagePath = storage_path('app/public/' . $relativePath);
+
+            // Esperar hasta que el archivo exista (máx. 5 intentos)
+            $attempts = 0;
+            while (!file_exists($storagePath) && $attempts < 5) {
+                usleep(300000); // 0.3 segundos
+                $attempts++;
+            }
+
+            if (!file_exists($storagePath)) {
+                return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
+            }
+
+            // Generar la URL pública accesible
+            $urlFactura = url('storage/temp/' . $fileName);
+
+            $empresaObj = auth()->user()->empresa();
+            $estadoCuenta = $factura->estadoCuenta();
+            $total = $factura->total()->total;
+            $saldo = $estadoCuenta->saldoMesAnterior > 0
+                ? $estadoCuenta->saldoMesAnterior + $total
+                : $total;
+
+            // Buscar plantilla preferida para facturas
+            $plantilla = Plantilla::where('preferida_cron_factura', 1)
+                ->where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', auth()->user()->empresa)
+                ->first();
+
+            // Si hay plantilla preferida
+            if ($plantilla) {
+                $bodyTextParams = [];
+                if ($plantilla->body_dinamic) {
+                     // ... (mismo logica de obtener params) ...
+                    $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+                    if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                        $bodyDinamicArray = $bodyDinamicArray[0];
+                    }
+
+                    if (is_array($bodyDinamicArray)) {
+                        foreach ($bodyDinamicArray as $paramTemplate) {
+                            $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresaObj);
+                            $bodyTextParams[] = $paramValue;
+                        }
+                    }
+                } else {
+                    // Fallback (mismo logica)
+                     $bodyTextArray = json_decode($plantilla->body_text, true);
+                    if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                        $bodyTextParams = $bodyTextArray[0];
+                    } else {
+                         $bodyTextParams = [
+                            $contacto->nombre . " " . $contacto->apellido1,
+                            $empresaObj->nombre,
+                            number_format($saldo, 0, ',', '.')
+                        ];
+                    }
+                }
+
+                // Construir components para Meta
+                // Header Document
+                Components:
+                $components = [];
+                
+                if ($plantilla->body_header === 'DOCUMENT') {
+                     $components[] = [
+                        "type" => "header",
+                        "parameters" => [
+                            [
+                                "type" => "document",
+                                "document" => [
+                                    "link" => $urlFactura,
+                                    "filename" => "Factura_{$factura->codigo}.pdf"
+                                ]
+                            ]
+                        ]
+                    ];
+                }
+
+                // Body
+                $parameters = [];
+                 foreach ($bodyTextParams as $paramValue) {
+                    $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+                }
+                $components[] = [
+                    "type" => "body",
+                    "parameters" => $parameters
+                ];
+
+                $response = (object) $metaService->sendTemplate(
+                    $instance->phone_number_id,
+                    '57' . $contacto->celular, // Ojo: Meta requiere código país
+                    $plantilla->title,
+                    $plantilla->language ?? 'es',
+                    $components
+                );
+                
+            } else {
+                // Fallback sin plantilla -> Mensaje texto con link
+                 $response = (object) $metaService->sendMessage(
+                    $instance->phone_number_id,
+                    '57' . $contacto->celular,
+                    "Hola {$contacto->nombre}, tu factura {$factura->codigo} está disponible: {$urlFactura}"
+                );
+            }
+            
+            // Procesar respuesta (similar a Wapi)
+            $responseData = json_decode(json_encode($response), true);
+             // Meta devuelve 'messages' array on success
+            $status = 'error';
+            if (isset($responseData['messages'])) {
+                $status = 'success';
+            }
+
+             WhatsappMetaLog::create([
+                'status' => $status,
+                'response' => json_encode($response),
+                'factura_id' => $factura->id,
+                'contacto_id' => $contacto->id,
+                'empresa' => Auth::user()->empresa,
+                'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'), // Simplificado
+                'plantilla_id' => $plantilla ? $plantilla->id : null,
+                'enviado_por' => Auth::user()->id
+            ]);
+
+            if ($status === 'success') {
+                 $factura->whatsapp = 1;
+                 $factura->save();
+                 return back()->with('success', 'Mensaje enviado correctamente vía Meta.');
+            } else {
+                 return back()->with('danger', 'Error al enviar mensaje Meta: ' . json_encode($responseData));
+            }
+       }
 
         /**
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
@@ -5994,7 +6146,10 @@ class FacturasController extends Controller{
             return back()->with('success', 'Mensaje enviado correctamente.');
 
         } else {
-            // 🚀 === FLUJO META (manual con PDF en base64) ===
+// 🚀 === FLUJO META (manual con PDF en base64) ===
+
+
+
             if ($instance->status !== "PAIRED" ) {
                 return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
             }

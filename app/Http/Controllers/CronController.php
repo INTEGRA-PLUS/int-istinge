@@ -4777,9 +4777,10 @@ class CronController extends Controller
             // ✅ Buscar instancia UNA VEZ
             // ===========================
             $instance = Instance::where('company_id', $empresa->id)
-                ->where('type', 1)
+                ->where(function($q) {
+                    $q->where('type', 1)->orWhere('type', 0); // 0 = Meta Direct, 1 = Wapi
+                })
                 ->where('activo', 1)
-                ->where('meta', 0)
                 ->first();
 
             if (!$instance) {
@@ -4862,6 +4863,139 @@ class CronController extends Controller
                 }
 
                 $telefonoCompleto = '+' . $prefijo . ltrim($celular, '0');
+
+                // =======================================================
+                // 🚀 ENVÍO META DIRECT (API OFICIAL)
+                // =======================================================
+                if ($instance->type === 0) {
+                    $metaService = new \App\Services\MetaWhatsAppService();
+                    
+                     // Generar PDF temporal (Reutilizamos lógica existente)
+                    $this->getFacturaTemp($factura->id, config('app.key'));
+                    $fileName = "Factura_{$factura->codigo}.pdf";
+                    $storagePath = storage_path("app/public/temp/{$fileName}");
+
+                    // Esperar generación
+                    $attempts = 0;
+                    while (!file_exists($storagePath) && $attempts < 5) {
+                        usleep(300000);
+                        $attempts++;
+                    }
+
+                    if (!file_exists($storagePath)) {
+                        Log::error("Factura {$factura->codigo}: PDF no encontrado para Meta Direct.");
+                        continue;
+                    }
+                    $urlFactura = url("storage/temp/{$fileName}");
+
+                    // Buscar plantilla
+                     $plantilla = Plantilla::where('preferida_cron_factura', 1)
+                        ->where('tipo', 3)
+                        ->where('status', 1)
+                        ->where('empresa', $empresa->id)
+                        ->first();
+                    
+                    // Preparar datos
+                    $estadoCuenta = $factura->estadoCuenta();
+                    $total = $factura->total()->total;
+                    $saldo = $estadoCuenta->saldoMesAnterior > 0
+                        ? $estadoCuenta->saldoMesAnterior + $total
+                        : $total;
+
+                    if ($plantilla) {
+                        // Lógica params dinámicos
+                         $bodyTextParams = [];
+                        if ($plantilla->body_dinamic) {
+                            $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+                            if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                                $bodyDinamicArray = $bodyDinamicArray[0];
+                            }
+                            if (is_array($bodyDinamicArray)) {
+                                foreach ($bodyDinamicArray as $paramTemplate) {
+                                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                                    $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
+                                    $bodyTextParams[] = $paramValue;
+                                }
+                            }
+                        } else {
+                            // Fallback body_text
+                            $bodyTextArray = json_decode($plantilla->body_text, true);
+                             if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                                $bodyTextParams = $bodyTextArray[0];
+                            } else {
+                                $bodyTextParams = [
+                                    "{$contacto->nombre} {$contacto->apellido1}",
+                                    $empresa->nombre,
+                                    number_format($saldo, 0, ',', '.')
+                                ];
+                            }
+                        }
+
+                        // Components
+                        $components = [];
+                         if ($plantilla->body_header === 'DOCUMENT') {
+                            $components[] = [
+                                "type" => "header",
+                                "parameters" => [
+                                    [
+                                        "type" => "document",
+                                        "document" => [
+                                            "link" => $urlFactura,
+                                            "filename" => "Factura_{$factura->codigo}.pdf"
+                                        ]
+                                    ]
+                                ]
+                            ];
+                        }
+
+                        $parameters = [];
+                        foreach ($bodyTextParams as $paramValue) {
+                            $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+                        }
+                         $components[] = [
+                            "type" => "body",
+                            "parameters" => $parameters
+                        ];
+
+                        $response = (object) $metaService->sendTemplate(
+                            $instance->phone_number_id,
+                            '57' . ltrim($celular, '0'),
+                            $plantilla->title,
+                            $plantilla->language ?? 'es',
+                            $components
+                        );
+
+                    } else {
+                         // Fallback mensaje simple
+                         $response = (object) $metaService->sendMessage(
+                             $instance->phone_number_id,
+                             '57' . ltrim($celular, '0'),
+                             "Hola {$contacto->nombre}, su factura {$factura->codigo} ha sido generada. Detalles: {$urlFactura}"
+                         );
+                    }
+
+                    // Procesar respuesta
+                    $responseData = json_decode(json_encode($response), true);
+                    $status = isset($responseData['messages']) ? 'success' : 'error';
+                    
+                     WhatsappMetaLog::create([
+                        'status' => $status,
+                        'response' => json_encode($response),
+                        'factura_id' => $factura->id,
+                        'contacto_id' => $contacto->id,
+                        'empresa' => $empresa->id,
+                        'mensaje_enviado' => "Cron Meta: " . ($plantilla->title ?? 'Text'),
+                        'plantilla_id' => $plantilla ? $plantilla->id : null,
+                        'enviado_por' => 0 // System
+                    ]);
+
+                    if ($status === 'success') {
+                        $factura->whatsapp = 1;
+                        $factura->save();
+                    }
+                    
+                    continue; // Pasar a la siguiente factura, saltando lógica legacy
+                }
 
                 // =======================================================
                 // 🚀 ENVÍO META 0 (Vibio / Plantilla WABA)
