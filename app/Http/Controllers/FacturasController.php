@@ -5732,13 +5732,16 @@ class FacturasController extends Controller{
         ]);
     }
 
-    public function whatsapp($id, Request $request, WapiService $wapiService)
+       public function whatsapp($id, Request $request, WapiService $wapiService)
     {
         // 1️⃣ Buscar instancia activa y factura base
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
+                            ->where('meta',0)
                             ->first();
+                            
         $factura = Factura::findOrFail($id);
+    
 
         if (is_null($instance) || empty($instance)) {
             return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
@@ -5755,11 +5758,8 @@ class FacturasController extends Controller{
             }
         }
 
-        // 📱 Construir número completo con prefijo dinámico
-        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-
        // 🚀 === FLUJO META DIRECT (API OFICIAL) ===
-       if ($instance->type === 0) {
+       if ($instance->type == 1 && $instance->meta == 0)  {
             $metaService = new \App\Services\MetaWhatsAppService();
 
             // Construir template body
@@ -5804,7 +5804,12 @@ class FacturasController extends Controller{
                 ->where('status', 1)
                 ->where('empresa', auth()->user()->empresa)
                 ->first();
-
+                
+                
+            if(!$plantilla){
+                return back()->with('danger', 'No tienes seleccionada ua plantilla para facturas por defecto.');
+            }
+            
             // Si hay plantilla preferida
             if ($plantilla) {
                 $bodyTextParams = [];
@@ -5865,6 +5870,7 @@ class FacturasController extends Controller{
                     "type" => "body",
                     "parameters" => $parameters
                 ];
+                
 
                 $response = (object) $metaService->sendTemplate(
                     $instance->phone_number_id,

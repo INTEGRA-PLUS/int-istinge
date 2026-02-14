@@ -1527,284 +1527,163 @@ class IngresosController extends Controller
          * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
          * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
          */
-       if ($instance->meta == 0) {
+        
+        // Validar que sea instancia Meta Direct (type=0, meta=0)
+        if ($instance->type != 0 || $instance->meta != 0) {
+            return back()->with('error', 'La instancia configurada no es compatible con Meta Direct (Type != 0).');
+        }
 
-            // 2️⃣ Verificar tipo de canal
-            $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
-            $canalData = json_decode($canalResponse->scalar ?? '{}');
+        // ============================================================
+        // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
+        // ============================================================
+        $token = config('app.key');
+        $this->getIngresoTirillaTemp($nro, $token);
 
-            if (!isset($canalData->status) || $canalData->status !== "success") {
-                return back()->with('error', 'No se pudo verificar el tipo de canal de WhatsApp.');
+        // Asegurar que el archivo fue generado y accesible
+        $fileName = 'Ingreso_' . $ingreso->nro . '.pdf';
+        $relativePath = 'temp/' . $fileName;
+        $storagePath = storage_path('app/public/' . $relativePath);
+
+        // Esperar hasta que el archivo exista (máx. 5 intentos)
+        $attempts = 0;
+        while (!file_exists($storagePath) && $attempts < 5) {
+            usleep(300000); // 0.3 segundos
+            $attempts++;
+        }
+
+        if (!file_exists($storagePath)) {
+            return back()->with('error', 'No se pudo generar el archivo PDF temporal.');
+        }
+
+        // Generar la URL pública accesible
+        $urlDoc = url('storage/temp/' . $fileName);
+
+        // ============================================================
+        // 📦 CONSTRUIR BODY PARA META
+        // ============================================================
+        $empresaObj = auth()->user()->empresa();
+        $total = $ingreso->total()->total;
+
+        // Buscar plantilla preferida para ingresos
+        $plantilla = Plantilla::where('empresa', auth()->user()->empresa)
+            ->where('tipo', 3) // 3 = Ingresos/Recibos/Facturas (General Meta)
+            ->where('preferida_tirilla', 1)
+            ->where('status', 1)
+            ->first();
+
+        if (!$plantilla) {
+            return back()->with('error', 'No hay una plantilla preferida configurada para Tirillas (preferida_tirilla=1).');
+        }
+
+        // Procesar body_dinamic
+        $bodyTextParams = [];
+        if ($plantilla->body_dinamic) {
+            $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+            if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                $bodyDinamicArray = $bodyDinamicArray[0];
             }
 
-            $tipoCanal = $canalData->data->channel->type ?? null;
-
-            // ============================================================
-            // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
-            // ============================================================
-            $token = config('app.key');
-            $this->getIngresoTirillaTemp($nro, $token);
-
-            // Asegurar que el archivo fue generado y accesible
-            $fileName = 'Ingreso_' . $ingreso->nro . '.pdf';
-            $relativePath = 'temp/' . $fileName;
-            $storagePath = storage_path('app/public/' . $relativePath);
-
-            // Esperar hasta que el archivo exista (máx. 5 intentos)
-            $attempts = 0;
-            while (!file_exists($storagePath) && $attempts < 5) {
-                usleep(300000); // 0.3 segundos
-                $attempts++;
-            }
-
-            if (!file_exists($storagePath)) {
-                return back()->with('error', 'No se pudo generar el archivo PDF temporal.');
-            }
-
-            // Generar la URL pública accesible
-            $urlDoc = url('storage/temp/' . $fileName);
-
-            // ============================================================
-            // 📦 CONSTRUIR BODY PARA WAPI
-            // ============================================================
-            $empresaObj = auth()->user()->empresa();
-            $total = $ingreso->total()->total;
-
-            // Buscar plantilla preferida para ingresos - Asumimos tipo 4 o default
-            $plantilla = Plantilla::where('empresa', auth()->user()->empresa)
-                ->where('tipo', 3) // Asumiendo 3 para ingresos/recibos
-                ->where('preferida_tirilla', 1)
-                ->where('status', 1)
-                ->first();
-
-            if ($plantilla) {
-                 // Procesar body_dinamic si existe
-                $bodyTextParams = [];
-                if ($plantilla->body_dinamic) {
-                    $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
-                    if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
-                        $bodyDinamicArray = $bodyDinamicArray[0];
-                    }
-
-                    if (is_array($bodyDinamicArray)) {
-                        foreach ($bodyDinamicArray as $paramTemplate) {
-                            $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
-                            
-                            // Usar helper para procesar campos dinámicos
-                            // Pasamos factura como null y pasamos el objeto ingreso
-                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $cliente, null, $empresaObj, $ingreso);
-                            
-                            // Procesar campos dinámicos
-                            $bodyTextParams[] = $paramValue; 
-                        }
-                    }
-                } else {
-                     $bodyTextArray = json_decode($plantilla->body_text, true);
-                    if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
-                        $bodyTextParams = $bodyTextArray[0];
-                    } else {
-                        $bodyTextParams = [
-                            $cliente->nombre . " " . $cliente->apellido1,
-                            $empresaObj->nombre,
-                            number_format($total, 0, ',', '.')
-                        ];
-                    }
-                }
-
-                $parameters = [];
-                foreach ($bodyTextParams as $paramValue) {
-                    $parameters[] = ["type" => "text", "text" => $paramValue];
-                }
-
-                $components = [
-                    [
-                        "type" => "body",
-                        "parameters" => $parameters
-                    ]
-                ];
-
-                if ($plantilla->body_header === 'DOCUMENT') {
-                    array_unshift($components, [
-                        "type" => "header",
-                        "parameters" => [
-                            [
-                                "type" => "document",
-                                "document" => [
-                                    "link" => $urlDoc,
-                                    "filename" => "Recibo_Caja_{$ingreso->nro}.pdf"
-                                ]
-                            ]
-                        ]
-                    ]);
-                }
-
-                $body = [
-                    "phone" => $telefonoCompleto,
-                    "templateName" => $plantilla->title,
-                    "languageCode" => $plantilla->language ?? 'es',
-                    "components" => $components
-                ];
-
-            } else {
-                // Fallback default
-                 $body = [
-                    "phone" => $telefonoCompleto,
-                    "templateName" => "recibo_caja",
-                    "languageCode" => "es",
-                    "components" => [
-                        [
-                            "type" => "header",
-                            "parameters" => [
-                                [
-                                    "type" => "document",
-                                    "document" => [
-                                        "link" => $urlDoc,
-                                        "filename" => "Recibo_Caja_{$ingreso->nro}.pdf"
-                                    ]
-                                ]
-                            ]
-                        ],
-                        [
-                            "type" => "body",
-                            "parameters" => [
-                                ["type" => "text", "text" => $cliente->nombre . " " . $cliente->apellido1],
-                                ["type" => "text", "text" => $empresaObj->nombre],
-                                ["type" => "text", "text" => number_format($total, 0, ',', '.')]
-                            ]
-                        ]
-                    ]
-                ];
-            }
-
-            // ============================================================
-            // 🚀 ENVIAR MENSAJE
-            // ============================================================
-            if ($tipoCanal === "waba") {
-                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-            } else {
-                $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
-                    "phone" => "+57" . $cliente->celular,
-                    "caption" => "Recibo de Caja {$ingreso->nro} - {$empresaObj->nombre}",
-                    "document" => [
-                        "url" => $urlDoc,
-                        "filename" => "Recibo_Caja_{$ingreso->nro}.pdf"
-                    ]
-                ]);
-            }
-
-            // ============================================================
-            // ✅ VALIDAR RESPUESTA Y REGISTRAR LOG
-            // ============================================================
-            $responseData = json_decode($response->scalar ?? '{}', true);
-            $responseOriginal = $response->scalar ?? json_encode($response);
-
-             // Mensaje enviado (aprox)
-            $mensajeEnviado = "{$empresaObj->nombre} le informa que su pago {$ingreso->nro} por " . number_format($total, 0, ',', '.') . " pesos ha sido procesado.";
-
-            // Determinar status
-            $status = 'error';
-            if (!isset($response->statusCode) || $response->statusCode === 200) {
-                if (isset($responseData['status']) && $responseData['status'] === "success") {
-                    $status = 'success';
+            if (is_array($bodyDinamicArray)) {
+                foreach ($bodyDinamicArray as $paramTemplate) {
+                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                    
+                    // Usar helper para procesar campos dinámicos
+                    $paramValue = \App\Helpers\CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $cliente, null, $empresaObj, $ingreso);
+                    
+                    $bodyTextParams[] = $paramValue; 
                 }
             }
-
-            // Registrar log
-            WhatsappMetaLog::create([
-                'status' => $status,
-                'response' => $responseOriginal,
-                'factura_id' => null,
-                'contacto_id' => $cliente->id,
-                'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => $mensajeEnviado,
-                'plantilla_id' => $plantilla ? $plantilla->id : null,
-                'enviado_por' => Auth::user()->id
-            ]);
-
-            if (isset($response->statusCode) && $response->statusCode !== 200) {
-                $errorMessage = 'Error al enviar el mensaje. Código: ' . $response->statusCode;
-                if(isset($response->th) && is_array($response->th) && isset($response->th['error'])){
-                    $errorMessage .= " - " . $response->th['error'];
-                } elseif(isset($response->errorMessage)){
-                    $errorMessage .= " - " . $response->errorMessage;
-                }
-                return back()->with('error', $errorMessage);
-            }
-
-            if (!isset($responseData['status']) || $responseData['status'] !== "success") {
-                return back()->with('error', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
-            }
-
-            return back()->with('success', 'Mensaje enviado correctamente.');
-
         } else {
-            // === FLUJO META (manual con PDF en base64) ===
-            if ($instance->status !== "PAIRED") {
-                return back()->with('error', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
-            }
-
-            // Generar PDF usando el helper
-            $token = config('app.key');
-            $this->getIngresoTirillaTemp($nro, $token);
-            
-            $fileName = 'Ingreso_' . $ingreso->nro . '.pdf';
-            $relativePath = 'temp/' . $fileName;
-            $storagePath = storage_path('app/public/' . $relativePath);
-            
-            if (file_exists($storagePath)) {
-                $pdfContent = file_get_contents($storagePath);
-                $pdf64 = base64_encode($pdfContent);
+            // Fallback (aunque si es preferida debería tener config, mantenemos compatibilidad)
+            $bodyTextArray = json_decode($plantilla->body_text, true);
+            if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                $bodyTextParams = $bodyTextArray[0];
             } else {
-                 return back()->with('error', 'No se pudo generar el documento.');
+                $bodyTextParams = [
+                    $cliente->nombre . " " . $cliente->apellido1,
+                    $empresaObj->nombre,
+                    number_format($total, 0, ',', '.')
+                ];
             }
+        }
 
-            $file = [
-                "mimeType" => "application/pdf",
-                "file" => $pdf64,
-            ];
-            $contact = [
-                "phone" => $prefijo . ltrim($cliente->celular, '0'),
-                "name" => $cliente->nombre . " " . $cliente->apellido1
-            ];
-            $nameEmpresa = auth()->user()->empresa()->nombre;
-            $total = $ingreso->total()->total;
-            $message = "Estimado cliente. $nameEmpresa le informa que se ha procesado su pago por un monto de $".number_format($total, 0, ',', '.')." pesos. Verifica el pago en el siguiente documento.";
-            $body = [
-                "contact" => $contact,
-                "message" => $message,
-                "media" => $file
-            ];
-            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
+        $parameters = [];
+        foreach ($bodyTextParams as $paramValue) {
+            $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+        }
 
-            if (isset($response->statusCode)) {
-                $errorMessage = 'No se pudo enviar el mensaje, por favor intente nuevamente.';
-                if(isset($response->statusCode) && $response->statusCode != 200){
-                    $errorMessage .= ' Código: '.$response->statusCode;
-                }
-                if(isset($response->th) && is_array($response->th) && isset($response->th['error'])){
-                    $errorMessage .= " - " . $response->th['error'];
-                }
-                 return back()->with('error', $errorMessage);
-            }
-            $responseScalar = isset($response->scalar) ? $response->scalar : json_encode($response);
-            $responseData = json_decode($responseScalar);
-            
-             // Registrar log
-             WhatsappMetaLog::create([
-                'status' => (isset($responseData->status) && $responseData->status == "success") ? 'success' : 'error',
-                'response' => $responseScalar,
-                'factura_id' => null,
-                'contacto_id' => $cliente->id,
-                'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => $message,
-                'plantilla_id' => null,
-                'enviado_por' => Auth::user()->id
+        $components = [
+            [
+                "type" => "body",
+                "parameters" => $parameters
+            ]
+        ];
+
+        if ($plantilla->body_header === 'DOCUMENT') {
+            array_unshift($components, [
+                "type" => "header",
+                "parameters" => [
+                    [
+                        "type" => "document",
+                        "document" => [
+                            "link" => $urlDoc,
+                            "filename" => "Recibo_Caja_{$ingreso->nro}.pdf"
+                        ]
+                    ]
+                ]
             ]);
-            
-            if ($responseData->status != "success") {
-                return back()->with('error', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
+        }
+
+        // ============================================================
+        // 🚀 ENVIAR MENSAJE (MetaWhatsAppService)
+        // ============================================================
+        $metaService = new \App\Services\MetaWhatsAppService();
+
+        $response = (object) $metaService->sendTemplate(
+            $instance->phone_number_id,
+            $telefonoCompleto, // Ya tiene prefijo
+            $plantilla->title,
+            $plantilla->language ?? 'es',
+            $components
+        );
+
+        // ============================================================
+        // ✅ VALIDAR RESPUESTA Y REGISTRAR LOG
+        // ============================================================
+        $responseData = json_decode(json_encode($response), true);
+        $status = 'error';
+
+        if (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
+            if (isset($responseData['messages']) && count($responseData['messages']) > 0) {
+                $status = 'success';
             }
+        }
+
+        // Construir mensaje visual para el log
+        $mensajeEnviado = $plantilla->contenido ?? '';
+         foreach ($bodyTextParams as $index => $paramValue) {
+            $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+        }
+        if ($plantilla->body_header === 'DOCUMENT') {
+            $mensajeEnviado = "[Documento adjunto: Recibo_Caja_{$ingreso->nro}.pdf]\n\n" . $mensajeEnviado;
+        }
+
+        // Registrar log
+        WhatsappMetaLog::create([
+            'status' => $status,
+            'response' => json_encode($response),
+            'factura_id' => null, // Es un ingreso, no factura directa
+            'contacto_id' => $cliente->id,
+            'empresa' => Auth::user()->empresa,
+            'mensaje_enviado' => $mensajeEnviado,
+            'plantilla_id' => $plantilla->id,
+            'enviado_por' => Auth::user()->id
+        ]);
+
+        if ($status === 'success') {
             return back()->with('success', 'Mensaje enviado correctamente.');
+        } else {
+            return back()->with('error', 'No se pudo enviar el mensaje: ' . json_encode($responseData));
         }
     }
 
