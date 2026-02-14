@@ -333,268 +333,184 @@ class AvisosController extends Controller
                 // ===================================
                 // SECCIÓN DE WHATSAPP
                 // ===================================
-                if($request->type == 'whatsapp'){
+                if ($request->type == 'whatsapp') {
 
-                    // Si el envío es con Meta (siempre activo)
-                    if($enviarConMeta){
+                    // Buscar instancia Meta Direct (optimización: se podría sacar del loop, pero mantenemos estructura)
+                    $instance = Instance::where('company_id', $empresa->id)
+                        ->where('activo', 1)
+                        ->where('meta', 0)
+                        ->first();
 
-                        $wapiService = new WapiService();
-
-                        // Buscar instancia activa
-                        $instance = Instance::where('company_id', $empresa->id)
-                                            ->where('activo', 1)
-                                            ->where('meta',0)
-                                            ->first();
-
-                        // Validar instancia solo una vez
-                        if($i == 0){
-                            if(is_null($instance) || empty($instance)){
-                                return back()->with('danger','Instancia no está creada o no está activa');
-                            }
-
-                            // Validar que sea canal waba - obtener tipo de canal desde la API
-                            $wapiServiceCheck = new WapiService();
-                            $canalResponse = (object) $wapiServiceCheck->getWabaChannel($instance->uuid);
-                            $canalData = json_decode($canalResponse->scalar ?? '{}', true);
-
-                            $tipoCanal = isset($canalData['data']['channel']['type'])
-                                ? $canalData['data']['channel']['type']
-                                : null;
-
-                            if($tipoCanal !== "waba"){
-                                return back()->with('danger','Solo se permite el canal WhatsApp Business API (waba). Canal actual: ' . ($tipoCanal ?? 'desconocido'));
-                            }
+                    if ($i == 0) {
+                        if (!$instance) {
+                            return back()->with('danger', 'Instancia Meta Direct no encontrada o inactiva.');
                         }
-
-                        $contacto = $contrato->cliente();
-
-                        // Validar que el contacto tenga celular
-                        if(!$contacto->celular || empty($contacto->celular)){
-                            $enviadosFallidos++;
-                            \Log::warning('Contrato ' . $contrato->id . ': Sin número de celular');
-                            continue;
+                        if ($instance->type != 0) {
+                             return back()->with('danger', 'La instancia configurada no es compatible con Meta Direct (Type != 0).');
                         }
-
-                        // Validar que la plantilla sea de tipo Meta (tipo=3)
-                        if (!$plantilla || $plantilla->tipo != 3) {
-                            $enviadosFallidos++;
-                            \Log::warning('Plantilla no es de tipo Meta o no existe. ID: ' . ($request->plantilla ?? 'null'));
-                            continue;
-                        }
-
-                        // Validar que tenga language configurado
-                        if (empty($plantilla->language)) {
-                            $enviadosFallidos++;
-                            \Log::warning('Plantilla sin language configurado. ID: ' . $plantilla->id);
-                            continue;
-                        }
-
-                        $nameEmpresa = $empresa->nombre;
-
-                        // Obtener prefijo dinámico
-                        $prefijo = '57'; // valor por defecto (Colombia)
-                        if (!empty($contacto->fk_idpais)) {
-                            $prefijoData = \DB::table('prefijos_telefonicos')
-                                ->where('iso2', strtoupper($contacto->fk_idpais))
-                                ->first();
-                            if ($prefijoData && !empty($prefijoData->phone_code)) {
-                                $prefijo = $prefijoData->phone_code;
-                            }
-                        }
-
-                        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
-
-                        try {
-                            // Obtener factura del contrato para los campos dinámicos
-                            $factura = Factura::where('contrato_id', $contrato->id)->latest()->first();
-
-                            // Obtener body_dinamic del request o usar body_text_params como fallback
-                            $bodyDinamic = $request->input('body_dinamic_params', null);
-                            $bodyTextParams = [];
-
-                            if ($bodyDinamic) {
-                                // body_dinamic_params viene como array directo: ["[campo1]", "[campo2]", ...]
-                                $bodyDinamicArray = $bodyDinamic;
-
-                                if (is_array($bodyDinamicArray)) {
-                                    // Procesar cada parámetro reemplazando los placeholders
-                                    foreach ($bodyDinamicArray as $paramTemplate) {
-                                        $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
-
-                                        // Usar helper para procesar campos dinámicos
-                                        $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
-
-                                        $bodyTextParams[] = $paramValue;
-                                    }
-                                }
-                            } else {
-                                // Fallback al método anterior si no hay body_dinamic
-                                $bodyTextParams = $request->input('body_text_params', []);
-                            }
-
-                            // Construir parámetros dinámicamente
-                            $parameters = [];
-                            foreach ($bodyTextParams as $paramValue) {
-                                $parameters[] = ["type" => "text", "text" => $paramValue];
-                            }
-
-                            // Construir componentes
-                            $components = [
-                                [
-                                    "type" => "body",
-                                    "parameters" => $parameters
-                                ]
-                            ];
-
-                            // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
-                            if ($plantilla->body_header === 'DOCUMENT' && $factura) {
-                                // Generar PDF temporal de la factura
-                                try {
-                                    $fileName = "Factura_{$factura->codigo}.pdf";
-                                    $storagePath = storage_path("app/public/temp/{$fileName}");
-
-                                    // Si no existe, generarlo
-                                    if (!file_exists($storagePath)) {
-                                        $cronController = new \App\Http\Controllers\CronController();
-                                        $cronController->getFacturaTemp($factura->id, config('app.key'));
-
-                                        // Esperar a que se genere el PDF (máximo 5 intentos)
-                                        $attempts = 0;
-                                        while (!file_exists($storagePath) && $attempts < 5) {
-                                            usleep(300000); // 0.3 segundos
-                                            $attempts++;
-                                        }
-                                    }
-
-                                    if (file_exists($storagePath)) {
-                                        $urlFactura = url("storage/temp/{$fileName}");
-
-                                        // Agregar header al inicio de components
-                                        array_unshift($components, [
-                                            "type" => "header",
-                                            "parameters" => [
-                                                [
-                                                    "type" => "document",
-                                                    "document" => [
-                                                        "link" => $urlFactura,
-                                                        "filename" => $fileName
-                                                    ]
-                                                ]
-                                            ]
-                                        ]);
-                                    } else {
-                                        \Log::warning("Factura {$factura->codigo}: PDF no encontrado después de generar. Se enviará sin documento.");
-                                    }
-                                } catch (\Exception $e) {
-                                    \Log::error("Error al generar PDF de factura {$factura->codigo}: " . $e->getMessage());
-                                }
-                            }
-
-                            // Construir body dinámicamente
-                            $body = [
-                                "phone" => $telefonoCompleto,
-                                "templateName" => $plantilla->title,  // Usar title como templateName
-                                "languageCode" => $plantilla->language,  // Usar language guardado
-                                "components" => $components
-                            ];
-
-                            // Construir mensaje enviado para el log
-                            $mensajeEnviado = '';
-                            if ($plantilla && isset($plantilla->contenido)) {
-                                $mensajeEnviado = $plantilla->contenido;
-                                // Reemplazar placeholders con valores reales
-                                foreach ($bodyTextParams as $index => $paramValue) {
-                                    $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
-                                }
-                                if ($plantilla->body_header === 'DOCUMENT' && $factura) {
-                                    $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
-                                }
-                            }
-
-                            // Enviar template
-                            $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-                            $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
-
-                            // Validar respuesta
-                            if (isset($response->scalar)) {
-                                $responseData = json_decode($response->scalar ?? '{}', true);
-
-                                $esExitoso = false;
-
-                                // Validar respuesta de Meta/WhatsApp Business API
-                                if (isset($responseData['status']) && $responseData['status'] === "success") {
-                                    if (isset($responseData['data']['messages'][0]['id']) ||
-                                        isset($responseData['data']['messages'][0]['message_status'])) {
-                                        $esExitoso = true;
-                                    }
-                                }
-
-                                // Respuesta directa con message_id
-                                if (isset($responseData['messages'][0]['id']) ||
-                                    isset($responseData['message_id']) ||
-                                    isset($responseData['messageId'])) {
-                                    $esExitoso = true;
-                                }
-
-                                // Verificar que NO haya errores reales
-                                if (isset($responseData['error']) && is_array($responseData['error']) &&
-                                    (isset($responseData['error']['code']) || isset($responseData['error']['error_code']))) {
-                                    $esExitoso = false;
-                                }
-
-                                // Si "error" es un string con mensaje de éxito
-                                if (isset($responseData['error']) && is_string($responseData['error']) &&
-                                    (str_contains(strtolower($responseData['error']), 'success') ||
-                                    str_contains(strtolower($responseData['error']), 'sent successfully'))) {
-                                    $esExitoso = true;
-                                }
-
-                                // Registrar log
-                                WhatsappMetaLog::create([
-                                    'status' => $esExitoso ? 'success' : 'error',
-                                    'response' => $responseOriginal,
-                                    'factura_id' => $factura ? $factura->id : null,
-                                    'contacto_id' => $contacto->id,
-                                    'empresa' => Auth::user()->empresa,
-                                    'mensaje_enviado' => $mensajeEnviado,
-                                    'plantilla_id' => $plantilla->id,
-                                    'enviado_por' => Auth::user()->id
-                                ]);
-
-                                if ($esExitoso) {
-                                    $enviadosExito++;
-                                    \Log::info('WhatsApp Meta enviado a: ' . $telefonoCompleto . ' | Plantilla: ' . $plantilla->title);
-                                } else {
-                                    $enviadosFallidos++;
-                                    \Log::error('Error WhatsApp Meta a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
-                                }
-                            } else {
-                                // Registrar log para error sin respuesta
-                                WhatsappMetaLog::create([
-                                    'status' => 'error',
-                                    'response' => $responseOriginal,
-                                    'factura_id' => $factura ? $factura->id : null,
-                                    'contacto_id' => $contacto->id,
-                                    'empresa' => Auth::user()->empresa,
-                                    'mensaje_enviado' => $mensajeEnviado,
-                                    'plantilla_id' => $plantilla->id,
-                                    'enviado_por' => Auth::user()->id
-                                ]);
-
-                                $enviadosFallidos++;
-                                \Log::error('Sin respuesta scalar para: ' . $telefonoCompleto);
-                            }
-
-                        } catch (\Exception $e) {
-                            $enviadosFallidos++;
-                            \Log::error('Excepción WhatsApp Meta contrato ' . $contrato->id . ': ' . $e->getMessage());
-                        }
-                    } else {
-                        // Ya no se usa envío sin Meta, siempre es Meta
-                        $enviadosFallidos++;
-                        \Log::warning('Intento de envío sin Meta deshabilitado');
+                    } elseif (!$instance || $instance->type != 0) {
+                        // Si falla después del primero (raro), logguear y continuar
+                        \Log::error("Instancia no válida en iteración {$i}");
+                        continue;
                     }
 
+                    $contacto = $contrato->cliente();
+
+                    // Validar celular
+                    if (!$contacto->celular || empty($contacto->celular)) {
+                        $enviadosFallidos++;
+                        \Log::warning('Contrato ' . $contrato->id . ': Sin número de celular');
+                        continue;
+                    }
+
+                    // Validar plantilla
+                    if (!$plantilla || $plantilla->tipo != 3) {
+                        $enviadosFallidos++;
+                        \Log::warning('Plantilla no es de tipo Meta o no existe. ID: ' . ($request->plantilla ?? 'null'));
+                        continue;
+                    }
+
+                    if (empty($plantilla->language)) {
+                        $enviadosFallidos++;
+                        \Log::warning('Plantilla sin language configurado. ID: ' . $plantilla->id);
+                        continue;
+                    }
+
+                    $prefijo = '57';
+                    if (!empty($contacto->fk_idpais)) {
+                        $prefijoData = \DB::table('prefijos_telefonicos')
+                            ->where('iso2', strtoupper($contacto->fk_idpais))
+                            ->first();
+                        if ($prefijoData && !empty($prefijoData->phone_code)) {
+                            $prefijo = $prefijoData->phone_code;
+                        }
+                    }
+
+                    $telefonoCompleto = $prefijo . ltrim($contacto->celular, '0'); // Sin '+' para Meta Service si la librería lo maneja, o como string
+
+                    try {
+                        $metaService = new \App\Services\MetaWhatsAppService();
+
+                        // Factura para campos dinámicos
+                        $factura = Factura::where('contrato_id', $contrato->id)->latest()->first();
+
+                        // Body Params
+                        $bodyDinamic = $request->input('body_dinamic_params', null);
+                        $bodyTextParams = [];
+
+                        if ($bodyDinamic) {
+                            $bodyDinamicArray = $bodyDinamic;
+                            if (is_array($bodyDinamicArray)) {
+                                foreach ($bodyDinamicArray as $paramTemplate) {
+                                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                                    $paramValue = \App\Helpers\CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
+                                    $bodyTextParams[] = $paramValue;
+                                }
+                            }
+                        } else {
+                            $bodyTextParams = $request->input('body_text_params', []);
+                        }
+
+                        // Construir components
+                        $components = [];
+
+                        // Header Document
+                        if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                            // Generar PDF
+                            $fileName = "Factura_{$factura->codigo}.pdf";
+                            $storagePath = storage_path("app/public/temp/{$fileName}");
+
+                            if (!file_exists($storagePath)) {
+                                $cronController = new \App\Http\Controllers\CronController();
+                                $cronController->getFacturaTemp($factura->id, config('app.key'));
+                                $attempts = 0;
+                                while (!file_exists($storagePath) && $attempts < 5) {
+                                    usleep(300000);
+                                    $attempts++;
+                                }
+                            }
+
+                            if (file_exists($storagePath)) {
+                                $urlFactura = url("storage/temp/{$fileName}");
+                                $components[] = [
+                                    "type" => "header",
+                                    "parameters" => [
+                                        [
+                                            "type" => "document",
+                                            "document" => [
+                                                "link" => $urlFactura,
+                                                "filename" => $fileName
+                                            ]
+                                        ]
+                                    ]
+                                ];
+                            } else {
+                                \Log::warning("Factura {$factura->codigo}: PDF no generado. Enviando sin adjunto.");
+                            }
+                        }
+
+                        // Body Params
+                        $parameters = [];
+                        foreach ($bodyTextParams as $paramValue) {
+                            $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+                        }
+                        $components[] = [
+                            "type" => "body",
+                            "parameters" => $parameters
+                        ];
+
+                        // Enviar
+                        $response = (object) $metaService->sendTemplate(
+                            $instance->phone_number_id,
+                            $telefonoCompleto,
+                            $plantilla->title,
+                            $plantilla->language,
+                            $components
+                        );
+
+                        // Validar Respuesta
+                        $responseData = json_decode(json_encode($response), true);
+                        $status = 'error';
+
+                        if (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
+                            if (isset($responseData['messages']) && count($responseData['messages']) > 0) {
+                                $status = 'success';
+                            }
+                        }
+
+                        // Log
+                        // Construir mensaje enviado para el log (reconstrucción visual)
+                        $mensajeEnviado = $plantilla->contenido ?? '';
+                         foreach ($bodyTextParams as $index => $paramValue) {
+                            $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
+                        }
+                        if ($plantilla->body_header === 'DOCUMENT' && $factura) {
+                            $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
+                        }
+
+                        WhatsappMetaLog::create([
+                            'status' => $status,
+                            'response' => json_encode($response),
+                            'factura_id' => $factura ? $factura->id : null,
+                            'contacto_id' => $contacto->id,
+                            'empresa' => Auth::user()->empresa,
+                            'mensaje_enviado' => $mensajeEnviado,
+                            'plantilla_id' => $plantilla->id,
+                            'enviado_por' => Auth::user()->id
+                        ]);
+
+                        if ($status === 'success') {
+                            $enviadosExito++;
+                            \Log::info('WhatsApp Meta enviado a: ' . $telefonoCompleto);
+                        } else {
+                            $enviadosFallidos++;
+                            \Log::error('Error WhatsApp Meta a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
+                        }
+
+                    } catch (\Exception $e) {
+                        $enviadosFallidos++;
+                        \Log::error('Excepción WhatsApp Meta contrato ' . $contrato->id . ': ' . $e->getMessage());
+                    }
                 }
                 // ===================================
                 // SECCIÓN DE SMS Y EMAIL (sin cambios)

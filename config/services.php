@@ -51,4 +51,9 @@ return [
         'ambiente' => env('EVENTS_DOCUMENTS_AMBIENTE')
     ],
 
+    'meta' => [
+        'access_token' => env('ACCESS_TOKEN_META'),
+        'api_version' => 'v21.0',
+    ],
+
 ];
