@@ -42,7 +42,7 @@ class Instance extends Model
      */
     public function scopeMeta($query)
     {
-        return $query->where('type', 0)->where('meta', 0); // Based on previous logic: type=0, meta=0 is Meta Direct
+        return $query->where('type', 1)->where('meta', 0); // Based on previous logic: type=0, meta=0 is Meta Direct
     }
 
     /**
@@ -58,7 +58,7 @@ class Instance extends Model
      */
     public function isMetaConfigured()
     {
-        return !empty($this->phone_number_id) && $this->type == 0;
+        return !empty($this->phone_number_id) && $this->type == 1;
     }
 
     public function isPaired(): bool
