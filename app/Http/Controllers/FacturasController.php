@@ -5947,15 +5947,27 @@ class FacturasController extends Controller{
                          $wamid = $responseData['messages'][0]['id'];
                      }
                      
-                     \Log::info('Extracted WAMID:', ['wamid' => $wamid]);
+                     // Extraer WA_ID (Número canónico de WhatsApp)
+                     $wa_id = null;
+                     if (isset($responseData['data']['contacts'][0]['wa_id'])) {
+                         $wa_id = $responseData['data']['contacts'][0]['wa_id'];
+                     } elseif (isset($responseData['contacts'][0]['wa_id'])) {
+                         $wa_id = $responseData['contacts'][0]['wa_id'];
+                     }
+                     
+                     \Log::info('Extracted WAMID:', ['wamid' => $wamid, 'wa_id' => $wa_id]);
 
                      if ($wamid) {
+                         // Usar wa_id si está disponible, si no, usar el teléfono formateado
+                         $finalWaId = $wa_id ?? $phone;
+                         
                          $conversation = \App\WhatsAppConversation::firstOrCreate(
                              [
                                  'instance_id' => $instancia_id,
-                                 'phone_number' => $phone
+                                 'wa_id' => $finalWaId
                              ],
                              [
+                                 'phone_number' => $phone,
                                  'name' => $contacto->nombre . ' ' . $contacto->apellido1,
                                  'status' => 'open',
                                  'last_message_at' => now(),
