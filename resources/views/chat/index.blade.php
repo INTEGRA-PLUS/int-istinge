@@ -614,9 +614,19 @@
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <script>
-// Configurar CSRF token para Axios
 axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').content;
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+// Definir rutas desde Laravel para usar en JS
+window.routes = {
+    conversations: "{{ route('chat.whatsapp.conversations') }}",
+    updates: "{{ route('chat.whatsapp.updates') }}",
+    messages: (id) => "{{ route('chat.whatsapp.messages', ':id') }}".replace(':id', id),
+    send: (id) => "{{ route('chat.whatsapp.send', ':id') }}".replace(':id', id),
+    sendImage: (id) => "{{ route('chat.whatsapp.send_image', ':id') }}".replace(':id', id),
+    assign: (id) => "{{ route('chat.whatsapp.assign', ':id') }}".replace(':id', id),
+    close: (id) => "{{ route('chat.whatsapp.close', ':id') }}".replace(':id', id)
+};
 
 new Vue({
     el: '#whatsapp-chat-app',
@@ -697,7 +707,7 @@ new Vue({
             
             this.loadingConversations = true;
             try {
-                const response = await axios.get('/api/chat/whatsapp/conversations', {
+                const response = await axios.get(window.routes.conversations, {
                     params: { instance_id: this.selectedInstanceId }
                 });
                 this.conversations = response.data.data;
@@ -713,7 +723,7 @@ new Vue({
             this.loadingMessages = true;
             
             try {
-                const response = await axios.get(`/api/chat/whatsapp/conversations/${conversation.id}/messages`);
+                const response = await axios.get(window.routes.messages(conversation.id));
                 this.messages = response.data.messages;
                 this.lastUpdateTimestamp = response.data.timestamp;
                 
@@ -739,7 +749,7 @@ new Vue({
             
             try {
                 const response = await axios.post(
-                    `/api/chat/whatsapp/conversations/${this.selectedConversation.id}/send`,
+                    window.routes.send(this.selectedConversation.id),
                     { message: message }
                 );
                 
@@ -768,7 +778,7 @@ new Vue({
             
             try {
                 const response = await axios.post(
-                    `/api/chat/whatsapp/conversations/${this.selectedConversation.id}/send-image`,
+                    window.routes.sendImage(this.selectedConversation.id),
                     formData,
                     { headers: { 'Content-Type': 'multipart/form-data' } }
                 );
@@ -791,7 +801,7 @@ new Vue({
             if (!confirm('¿Cerrar esta conversación?')) return;
             
             try {
-                await axios.post(`/api/chat/whatsapp/conversations/${this.selectedConversation.id}/close`);
+                await axios.post(window.routes.close(this.selectedConversation.id));
                 this.selectedConversation.status = 'closed';
                 alert('Conversación cerrada');
             } catch (error) {
@@ -839,7 +849,7 @@ new Vue({
                     params.conversation_id = this.selectedConversation.id;
                 }
                 
-                const response = await axios.get('/api/chat/whatsapp/updates', { params });
+                const response = await axios.get(window.routes.updates, { params });
                 
                 this.lastUpdateTimestamp = response.data.timestamp;
                 this.updateLastUpdateLabel();
