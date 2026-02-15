@@ -60,6 +60,12 @@ class ChatController extends Controller
             ->where('company_id', $user->empresa)
             ->firstOrFail();
 
+        \Log::info('ChatController::conversations request', [
+            'instance_id' => $instanceId,
+            'user_empresa' => $user->empresa,
+            'request_all' => $request->all()
+        ]);
+
         $conversations = WhatsAppConversation::forInstance($instanceId)
             ->with('assignedAgent:id,nombres') // changed name to nombres as user table usually has nombres
             ->when($request->search, function ($query, $search) {
@@ -67,9 +73,17 @@ class ChatController extends Controller
             })
             ->when($request->status, function ($query, $status) {
                 $query->where('status', $status);
-            })
-            ->orderByDesc('last_message_at')
+            });
+
+        \Log::info('ChatController::conversations query sql', [
+            'sql' => $conversations->toSql(),
+            'bindings' => $conversations->getBindings()
+        ]);
+            
+        $conversations = $conversations->orderByDesc('last_message_at')
             ->paginate(50);
+            
+        \Log::info('ChatController::conversations result count', ['count' => $conversations->count()]);
 
         return response()->json($conversations);
     }
