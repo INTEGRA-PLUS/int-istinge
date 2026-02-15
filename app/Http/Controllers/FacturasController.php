@@ -5734,11 +5734,20 @@ class FacturasController extends Controller{
 
        public function whatsapp($id, Request $request, WapiService $wapiService)
     {
+        \Log::info('--------------------------------------------------');
+        \Log::info('FacturasController::whatsapp called for invoice: ' . $id);
+        
         // 1️⃣ Buscar instancia activa y factura base
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
                             ->where('meta',0)
                             ->first();
+
+        if ($instance) {
+             \Log::info('Instance found:', ['id' => $instance->id, 'type' => $instance->type, 'meta' => $instance->meta, 'phone_number_id' => $instance->phone_number_id]);
+        } else {
+             \Log::warning('No active instance found for company: ' . auth()->user()->empresa);
+        }
                             
         $factura = Factura::findOrFail($id);
     
@@ -5760,6 +5769,7 @@ class FacturasController extends Controller{
 
        // 🚀 === FLUJO META DIRECT (API OFICIAL) ===
        if ($instance->type == 1 && $instance->meta == 0)  {
+            \Log::info('Entering Meta Direct Flow');
             $metaService = new \App\Services\MetaWhatsAppService();
 
             // Construir template body
