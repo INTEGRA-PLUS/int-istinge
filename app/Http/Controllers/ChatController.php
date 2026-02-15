@@ -9,6 +9,7 @@ use App\Instance;
 use App\WhatsAppConversation;
 use App\WhatsAppMessage;
 use App\Services\MetaWhatsAppService;
+use Auth;
 
 class ChatController extends Controller
 {
