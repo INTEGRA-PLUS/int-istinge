@@ -427,3 +427,15 @@ Route::post('create-radicado', function (Request $request) {
 });
 
 
+
+// API para el chat (requiere autenticación)
+Route::middleware('auth:web')->prefix('chat/whatsapp')->group(function () {
+    Route::get('/conversations', 'ChatController@conversations');
+    Route::get('/conversations/{id}/messages', 'ChatController@messages');
+    Route::get('/updates', 'ChatController@updates');
+    
+    Route::post('/conversations/{id}/send', 'ChatController@sendMessage');
+    Route::post('/conversations/{id}/send-image', 'ChatController@sendImage');
+    Route::post('/conversations/{id}/assign', 'ChatController@assign');
+    Route::post('/conversations/{id}/close', 'ChatController@close');
+});

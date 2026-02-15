@@ -409,6 +409,15 @@ Route::post('save_pass', 'Auth\ResetPasswordController@cambiar_pass')->name('pas
 
 Route::get('/categorymassive', 'HomeController@createCategoryMassive');
 
+// Webhooks (sin auth)
+Route::get('/webhooks/whatsapp', 'WhatsAppWebhookController@verify')->name('whatsapp.webhook.verify');
+Route::post('/webhooks/whatsapp', 'WhatsAppWebhookController@webhook')->name('whatsapp.webhook');
+
+// Chat interface (con auth)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/chat/whatsapp', 'ChatController@index')->name('chat.whatsapp');
+});
+
 Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], function () {
 	Route::get('/', 'HomeController@index')->name('master');
 
