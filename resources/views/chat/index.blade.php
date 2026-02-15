@@ -524,7 +524,7 @@
                         <div class="message-bubble" :class="msg.direction">
                             <!-- Content -->
                             <div class="message-content">
-                                <p v-if="msg.type === 'text'" style="margin: 0;">@{{ msg.content }}</p>
+                                <p v-if="msg.type === 'text' || msg.type === 'template'" style="margin: 0;">@{{ msg.content }}</p>
                                 
                                 <div v-else-if="msg.type === 'image'">
                                     <img :src="msg.media_url" class="message-image" @click="openImage(msg.media_url)">
