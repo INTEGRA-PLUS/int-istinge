@@ -416,6 +416,18 @@ Route::post('/webhooks/whatsapp', 'WhatsAppWebhookController@webhook')->name('wh
 // Chat interface (con auth)
 Route::middleware(['auth'])->group(function () {
     Route::get('/chat/whatsapp', 'ChatController@index')->name('chat.whatsapp');
+    
+    // Chat API routes (Internal use for AJAX)
+    Route::group(['prefix' => 'chat/whatsapp'], function () {
+        Route::get('/conversations', 'ChatController@conversations')->name('chat.whatsapp.conversations');
+        Route::get('/conversations/{id}/messages', 'ChatController@messages')->name('chat.whatsapp.messages');
+        Route::get('/updates', 'ChatController@updates')->name('chat.whatsapp.updates');
+        
+        Route::post('/conversations/{id}/send', 'ChatController@sendMessage')->name('chat.whatsapp.send');
+        Route::post('/conversations/{id}/send-image', 'ChatController@sendImage')->name('chat.whatsapp.send_image');
+        Route::post('/conversations/{id}/assign', 'ChatController@assign')->name('chat.whatsapp.assign');
+        Route::post('/conversations/{id}/close', 'ChatController@close')->name('chat.whatsapp.close');
+    });
 });
 
 Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], function () {
