@@ -5891,9 +5891,12 @@ class FacturasController extends Controller{
             
             // Procesar respuesta (similar a Wapi)
             $responseData = json_decode(json_encode($response), true);
-             // Meta devuelve 'messages' array on success
+            
+            // Determinar status: soportar formato wrapper de MetaWhatsAppService o respuesta raw
             $status = 'error';
-            if (isset($responseData['messages'])) {
+            if (isset($responseData['success']) && $responseData['success']) {
+                $status = 'success';
+            } elseif (isset($responseData['messages'])) {
                 $status = 'success';
             }
 
@@ -5903,7 +5906,7 @@ class FacturasController extends Controller{
                 'factura_id' => $factura->id,
                 'contacto_id' => $contacto->id,
                 'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'), // Simplificado
+                'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'),
                 'plantilla_id' => $plantilla ? $plantilla->id : null,
                 'enviado_por' => Auth::user()->id
             ]);
@@ -5911,6 +5914,59 @@ class FacturasController extends Controller{
             if ($status === 'success') {
                  $factura->whatsapp = 1;
                  $factura->save();
+
+                 // Sync con Chat System
+                 try {
+                     $phone = '57' . $contacto->celular;
+                     $instancia_id = $instance->id;
+                     
+                     // Extraer WAMID
+                     $wamid = null;
+                     if (isset($responseData['data']['messages'][0]['id'])) {
+                         $wamid = $responseData['data']['messages'][0]['id'];
+                     } elseif (isset($responseData['messages'][0]['id'])) {
+                         $wamid = $responseData['messages'][0]['id'];
+                     }
+
+                     if ($wamid) {
+                         $conversation = \App\WhatsAppConversation::firstOrCreate(
+                             [
+                                 'instance_id' => $instancia_id,
+                                 'phone_number' => $phone
+                             ],
+                             [
+                                 'name' => $contacto->nombre . ' ' . $contacto->apellido1,
+                                 'status' => 'open',
+                                 'last_message_at' => now(),
+                                 'unread_count' => 0
+                             ]
+                         );
+
+                         $msgContent = "Factura {$factura->codigo} enviada.";
+                         if ($plantilla) {
+                             $msgContent .= " (Plantilla: {$plantilla->title})";
+                         }
+
+                         \App\WhatsAppMessage::create([
+                             'conversation_id' => $conversation->id,
+                             'wamid'           => $wamid,
+                             'type'            => $plantilla ? 'template' : 'text',
+                             'content'         => $msgContent,
+                             'direction'       => 'outbound',
+                             'status'          => 'sent',
+                             'sent_by'         => Auth::user()->id,
+                             'sent_at'         => now()
+                         ]);
+                         
+                         $conversation->update([
+                              'last_message' => $msgContent,
+                              'last_message_at' => now()
+                         ]);
+                     }
+                 } catch (\Exception $e) {
+                     \Log::error('Error syncing invoice message to chat: ' . $e->getMessage());
+                 }
+
                  return back()->with('success', 'Mensaje enviado correctamente vía Meta.');
             } else {
                  return back()->with('danger', 'Error al enviar mensaje Meta: ' . json_encode($responseData));
