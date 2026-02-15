@@ -656,10 +656,19 @@ new Vue({
     
     mounted() {
         console.log('✅ WhatsApp Chat App Mounted');
-        // Seleccionar primera instancia si existe
-        const firstInstance = @json($instances->first());
-        if (firstInstance) {
-            this.selectedInstanceId = firstInstance.id;
+        
+        const instances = @json($instances);
+        
+        // Buscar instancia por defecto: meta=0 y type=1
+        let defaultInstance = instances.find(i => i.meta == 0 && i.type == 1);
+        
+        // Si no existe, usar la primera disponible
+        if (!defaultInstance && instances.length > 0) {
+            defaultInstance = instances[0];
+        }
+
+        if (defaultInstance) {
+            this.selectedInstanceId = defaultInstance.id;
             this.loadConversations();
             this.startPolling();
         }

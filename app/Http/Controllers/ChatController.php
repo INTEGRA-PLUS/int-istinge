@@ -29,7 +29,7 @@ class ChatController extends Controller
         
         // Obtener instancias activas de Meta para esta empresa
         $instances = Instance::where('company_id', $user->empresa)
-            ->where('type', 0) // Changed to 0 as per my Instance model update
+            ->whereIn('type', [0, 1])
             ->where('meta', 0)
             ->where('activo', true)
             ->get();
