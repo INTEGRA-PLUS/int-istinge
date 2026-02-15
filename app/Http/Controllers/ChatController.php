@@ -35,6 +35,8 @@ class ChatController extends Controller
             ->where('meta', 0)
             ->where('activo', true)
             ->get();
+            
+        \Log::info('ChatController::index instances', ['count' => $instances->count(), 'sample' => $instances->first()]);
 
         return view('chat.index', compact('instances'))
             ->with('title', 'Chat WhatsApp Meta')
