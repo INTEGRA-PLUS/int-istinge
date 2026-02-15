@@ -5922,9 +5922,13 @@ class FacturasController extends Controller{
 
                  // Sync con Chat System
                  try {
+                     \Log::info('Start Check Sync con Chat System');
                      $phone = '57' . $contacto->celular;
                      $instancia_id = $instance->id;
                      
+                     \Log::info('Sync Chat Data:', ['phone' => $phone, 'instance_id' => $instancia_id]);
+                     \Log::info('Meta Response Data:', ['data' => $responseData]);
+
                      // Extraer WAMID
                      $wamid = null;
                      if (isset($responseData['data']['messages'][0]['id'])) {
@@ -5932,6 +5936,8 @@ class FacturasController extends Controller{
                      } elseif (isset($responseData['messages'][0]['id'])) {
                          $wamid = $responseData['messages'][0]['id'];
                      }
+                     
+                     \Log::info('Extracted WAMID:', ['wamid' => $wamid]);
 
                      if ($wamid) {
                          $conversation = \App\WhatsAppConversation::firstOrCreate(
@@ -5946,13 +5952,15 @@ class FacturasController extends Controller{
                                  'unread_count' => 0
                              ]
                          );
+                         
+                         \Log::info('Conversation:', ['id' => $conversation->id, 'was_recently_created' => $conversation->wasRecentlyCreated]);
 
                          $msgContent = "Factura {$factura->codigo} enviada.";
                          if ($plantilla) {
                              $msgContent .= " (Plantilla: {$plantilla->title})";
                          }
 
-                         \App\WhatsAppMessage::create([
+                         $msg = \App\WhatsAppMessage::create([
                              'conversation_id' => $conversation->id,
                              'wamid'           => $wamid,
                              'type'            => $plantilla ? 'template' : 'text',
@@ -5963,13 +5971,18 @@ class FacturasController extends Controller{
                              'sent_at'         => now()
                          ]);
                          
+                         \Log::info('Message Created:', ['id' => $msg->id]);
+                         
                          $conversation->update([
                               'last_message' => $msgContent,
                               'last_message_at' => now()
                          ]);
+                     } else {
+                         \Log::warning('No WAMID found in response, skipping chat sync');
                      }
                  } catch (\Exception $e) {
                      \Log::error('Error syncing invoice message to chat: ' . $e->getMessage());
+                     \Log::error($e->getTraceAsString());
                  }
 
                  return back()->with('success', 'Mensaje enviado correctamente vía Meta.');
