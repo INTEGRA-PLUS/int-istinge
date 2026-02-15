@@ -5872,11 +5872,16 @@ class FacturasController extends Controller{
                 ];
                 
 
+                $languageCode = $plantilla->language ?? 'es';
+                if (is_array($languageCode)) {
+                    $languageCode = $languageCode['code'] ?? ($languageCode[0] ?? 'es');
+                }
+                
                 $response = (object) $metaService->sendTemplate(
                     $instance->phone_number_id,
                     '57' . $contacto->celular, // Ojo: Meta requiere código país
                     $plantilla->title,
-                    $plantilla->language ?? 'es',
+                    (string) $languageCode,
                     $components
                 );
                 
