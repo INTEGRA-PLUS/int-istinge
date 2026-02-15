@@ -25,6 +25,7 @@ class ChatController extends Controller
      */
     public function index()
     {
+        $this->getAllPermissions(Auth::user()->id);
         $user = auth()->user();
         
         // Obtener instancias activas de Meta para esta empresa
