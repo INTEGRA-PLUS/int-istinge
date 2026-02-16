@@ -813,9 +813,10 @@ new Vue({
             if (messages.length === 0) return {};
 
             // 1. Sort by date (oldest first)
-            const sorted = [...messages].sort((a, b) => 
-                new Date(a.created_at) - new Date(b.created_at)
-            );
+            // Filter invalid messages to prevent empty bubbles
+            const sorted = messages
+                .filter(m => m && m.id && (m.content || m.media_url || m.type === 'location' || m.type === 'contact'))
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
             // 2. Group by date
             const groups = {};
@@ -963,9 +964,13 @@ new Vue({
                 );
                 
                 if (response.data.success) {
-                    this.messages.push(response.data.data);
-                    this.updateConversationLastMessage(response.data.data);
-                    this.$nextTick(() => this.scrollToBottom());
+                    const msg = response.data.data;
+                    // Validate message structure before adding
+                    if (msg && msg.id && (msg.content || msg.media_url)) {
+                        this.messages.push(msg);
+                        this.updateConversationLastMessage(msg);
+                        this.$nextTick(() => this.scrollToBottom());
+                    }
                 }
             } catch (error) {
                 console.error('Error enviando mensaje:', error);
