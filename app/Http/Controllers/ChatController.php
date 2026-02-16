@@ -87,6 +87,10 @@ class ChatController extends Controller
             ], $response['statusCode'] ?? 500);
         }
 
+        if (isset($response['data']) && count($response['data']) > 0) {
+            \Log::debug('ChatController::conversations sample item', ['item' => $response['data'][0]]);
+        }
+
         return response()->json($response);
     }
 
@@ -127,6 +131,12 @@ class ChatController extends Controller
         $page = $request->input('page', 1);
         $perPage = $request->input('per_page', 50);
 
+        \Log::info('ChatController::messages request', [
+            'instance_id' => $instanceId,
+            'conversation_id' => $conversationId,
+            'phone_number_id' => $instance->phone_number_id
+        ]);
+
         $response = $this->centralizedService->getMessages(
             $instance->phone_number_id,
             $conversationId,
@@ -135,6 +145,11 @@ class ChatController extends Controller
         );
 
         if (isset($response['errorMessage'])) {
+            \Log::error('ChatController::messages API error', [
+                'error' => $response['errorMessage'],
+                'th' => $response['th'] ?? null,
+                'status' => $response['statusCode'] ?? null
+            ]);
             return response()->json([
                 'success' => false,
                 'error' => $response['errorMessage'],

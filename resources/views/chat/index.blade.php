@@ -724,9 +724,9 @@ new Vue({
             this.loadingMessages = true;
             
             try {
-                // La API centralizada usa conversation.wa_id para los mensajes, 
+                // La API centralizada usa conversation.id para los mensajes, 
                 // pasamos instance_id como query param para que el controlador obtenga el token
-                const response = await axios.get(window.routes.messages(conversation.wa_id), {
+                const response = await axios.get(window.routes.messages(conversation.id), {
                     params: { instance_id: this.selectedInstanceId }
                 });
                 this.messages = response.data.data || []; // La API centralizada devuelve los mensajes en 'data'
@@ -754,7 +754,7 @@ new Vue({
             
             try {
                 const response = await axios.post(
-                    window.routes.send(this.selectedConversation.wa_id),
+                    window.routes.send(this.selectedConversation.phone_number),
                     { 
                         message: message,
                         instance_id: this.selectedInstanceId 
