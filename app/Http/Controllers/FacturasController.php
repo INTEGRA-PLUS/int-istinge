@@ -5897,8 +5897,8 @@ class FacturasController extends Controller{
                 if ($wamid) {
                     $msgContent = "Factura {$factura->codigo} enviada. (Plantilla: {$plantilla->title})";
                     
-                    \Illuminate\Support\Facades\Http::withHeaders([
-                        'X-Instance-Token' => $instance->api_key,
+                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                        'X-Instance-Token' => $instance->phone_number_id,
                     ])->post('http://whatsapp.integracolombia.com/api/v1/messages/register', [
                         'to'      => $phone,
                         'wamid'   => $wamid,
