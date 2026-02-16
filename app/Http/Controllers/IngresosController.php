@@ -64,9 +64,11 @@ use App\PlanesVelocidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
+use App\Traits\CentralizedWhatsApp;
 
 class IngresosController extends Controller
 {
+    use CentralizedWhatsApp;
     public function __construct() {
         $this->middleware('auth');
         view()->share(['seccion' => 'facturas', 'subseccion' => 'ingresos', 'title' => 'Pagos / Ingresos', 'icon' =>'fas fa-plus']);
@@ -1683,6 +1685,23 @@ class IngresosController extends Controller
         ]);
 
         if ($status === 'success') {
+            // Sync con Chat System (Centralizado)
+            $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+            
+            if ($wamid) {
+                // El teléfono ya incluye prefijo en tirillaWpp ($telefonoCompleto)
+                // quitamos el + si lo tiene para la API
+                $phone = ltrim($telefonoCompleto, '+');
+
+                $this->registerCentralizedBatch(
+                    $instance->phone_number_id,
+                    $phone,
+                    $wamid,
+                    $mensajeEnviado,
+                    $cliente->nombre . ' ' . $cliente->apellido1
+                );
+            }
+
             return back()->with('success', 'Mensaje enviado correctamente.');
         } else {
             return back()->with('error', 'No se pudo enviar el mensaje: ' . json_encode($responseData));

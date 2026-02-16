@@ -66,8 +66,10 @@ use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Helpers\CamposDinamicosHelper;
+use App\Traits\CentralizedWhatsApp;
 
 class FacturasController extends Controller{
+    use CentralizedWhatsApp;
 
     protected $url;
 
@@ -5896,24 +5898,17 @@ class FacturasController extends Controller{
             $factura->save();
 
             // Sync con Chat System (Centralizado)
-            try {
-                $phone = $prefijo . ltrim($contacto->celular, '0');
-                $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
-                
-                if ($wamid) {
-                    $responseMsg = \Illuminate\Support\Facades\Http::withHeaders([
-                        'X-Instance-Token' => $instance->phone_number_id,
-                    ])->post('http://whatsapp.integracolombia.com/api/v1/messages/register', [
-                        'to'      => $phone,
-                        'wamid'   => $wamid,
-                        'content' => $mensajeProcesado,
-                        'type'    => 'template',
-                        'status'  => 'sent',
-                        'name'    => $contacto->nombre . ' ' . $contacto->apellido1,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                \Log::error('Error syncing invoice message to central chat: ' . $e->getMessage());
+            $phone = $prefijo . ltrim($contacto->celular, '0');
+            $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+            
+            if ($wamid) {
+                $this->registerCentralizedBatch(
+                    $instance->phone_number_id,
+                    $phone,
+                    $wamid,
+                    $mensajeProcesado,
+                    $contacto->nombre . ' ' . $contacto->apellido1
+                );
             }
 
             return back()->with('success', 'Mensaje enviado correctamente vía Meta.');

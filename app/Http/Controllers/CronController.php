@@ -50,9 +50,11 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\WhatsappMetaLog;
 use App\Helpers\CamposDinamicosHelper;
+use App\Traits\CentralizedWhatsApp;
 
 class CronController extends Controller
 {
+    use CentralizedWhatsApp;
     public static function precisionAPI($valor, $id){
         $empresa = Empresa::find($id);
         return round($valor, $empresa->precision);
@@ -5010,6 +5012,12 @@ class CronController extends Controller
                     }
                 }
 
+                // Construir el mensaje completo procesado para registro
+                $mensajeProcesado = $plantilla->contenido ?? '';
+                foreach ($bodyTextParams as $index => $paramValue) {
+                    $mensajeProcesado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeProcesado);
+                }
+
                 // Log
                 WhatsappMetaLog::create([
                     'status' => $status,
@@ -5017,7 +5025,7 @@ class CronController extends Controller
                     'factura_id' => $factura->id,
                     'contacto_id' => $contacto->id,
                     'empresa' => $empresa->id,
-                    'mensaje_enviado' => "Cron Meta: " . $plantilla->title,
+                    'mensaje_enviado' => $mensajeProcesado ?: ("Cron Meta: " . $plantilla->title),
                     'plantilla_id' => $plantilla->id,
                     'enviado_por' => 0 
                 ]);
@@ -5026,6 +5034,20 @@ class CronController extends Controller
                     $factura->whatsapp = 1;
                     $factura->save();
                     Log::info("Factura {$factura->codigo} enviada correctamente a {$celular}");
+
+                    // Sync con Chat System (Centralizado)
+                    $phone = $prefijo . ltrim($celular, '0');
+                    $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+                    
+                    if ($wamid) {
+                        $this->registerCentralizedBatch(
+                            $instance->phone_number_id,
+                            $phone,
+                            $wamid,
+                            $mensajeProcesado,
+                            $contacto->nombre . ' ' . $contacto->apellido1
+                        );
+                    }
                 } else {
                     Log::error("Error enviando factura {$factura->codigo} a {$celular}: " . json_encode($responseData));
                 }

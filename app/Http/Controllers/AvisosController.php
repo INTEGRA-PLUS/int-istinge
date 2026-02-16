@@ -27,9 +27,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use App\WhatsappMetaLog;
 use App\Helpers\CamposDinamicosHelper;
+use App\Traits\CentralizedWhatsApp;
 
 class AvisosController extends Controller
 {
+    use CentralizedWhatsApp;
     /**
      * Display a listing of the resource.
      *
@@ -502,6 +504,19 @@ class AvisosController extends Controller
                         if ($status === 'success') {
                             $enviadosExito++;
                             \Log::info('WhatsApp Meta enviado a: ' . $telefonoCompleto);
+
+                            // Sync con Chat System (Centralizado)
+                            $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+                            
+                            if ($wamid) {
+                                $this->registerCentralizedBatch(
+                                    $instance->phone_number_id,
+                                    $telefonoCompleto,
+                                    $wamid,
+                                    $mensajeEnviado,
+                                    $contacto->nombre . ' ' . $contacto->apellido1
+                                );
+                            }
                         } else {
                             $enviadosFallidos++;
                             \Log::error('Error WhatsApp Meta a: ' . $telefonoCompleto . ' | ' . json_encode($responseData));
