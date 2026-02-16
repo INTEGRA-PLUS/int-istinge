@@ -47,103 +47,54 @@ class InstancesController extends Controller
             'waba_id' => 'required|string|max:255',
         ]);
 
-        // Validar que ACCESS_TOKEN_META y WAPI_TOKEN estén en .env
+        // Validar que ACCESS_TOKEN_META esté en .env (opcional, pero buena práctica)
         $accessTokenMeta = env('ACCESS_TOKEN_META');
-        $wapiToken = env('WAPI_TOKEN');
-
+        
         if (empty($accessTokenMeta)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'ACCESS_TOKEN_META no está configurado en el archivo .env'
-            ], 400);
-        }
-
-        if (empty($wapiToken)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'WAPI_TOKEN no está configurado en el archivo .env'
-            ], 400);
+             Log::warning('ACCESS_TOKEN_META no está configurado en .env al crear instancia Meta.');
+             // No bloqueamos la creación, pero avisamos en log
         }
 
         try {
-            // Hacer petición a la API de VibioCRM
-            $client = new Client();
-            $url = 'https://api.vibiocrm.com/api/v1/channels/waba';
+            // Verificar si ya existe una instancia con este phone_number_id
+            $existingInstance = Instance::where('phone_number_id', $request->phone_number_id)
+                ->where('company_id', Auth::user()->empresa)
+                ->first();
 
-            $body = [
-                'name' => 'Meta',
-                'credentials' => [
-                    'accessToken' => $accessTokenMeta,
-                    'phoneNumberId' => $request->phone_number_id,
-                    'wabaId' => $request->waba_id,
-                    'verifyToken' => 'mi_token_verificacion'
-                ]
-            ];
-
-            $response = $client->post($url, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $wapiToken,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json'
-                ],
-                'json' => $body
-            ]);
-
-            $responseData = json_decode($response->getBody()->getContents(), true);
-
-            // Verificar si la respuesta es exitosa
-            if (isset($responseData['status']) && $responseData['status'] === 'success' && isset($responseData['data']['channel'])) {
-                $channel = $responseData['data']['channel'];
-
-                // Crear la instancia en la base de datos
-                $instance = Instance::create([
-                    'uuid' => $channel['uuid'],
-                    'api_key' => $channel['uuid'],
-                    'uuid_whatsapp' => $channel['uuid'],
-                    'company_id' => Auth::user()->empresa,
-                    'status' => 'PAIRED',
-                    'type' => 1,
-                    'meta' => 0,
-                    'activo' => 1,
-                    'phone_number_id' => $request->phone_number_id,
-                    'waba_id' => $request->waba_id,
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Instancia creada correctamente',
-                    'instance' => $instance
-                ]);
-            } else {
-                $errorMessage = $responseData['error'] ?? 'Error desconocido al crear la instancia';
+            if ($existingInstance) {
                 return response()->json([
                     'success' => false,
-                    'message' => $errorMessage
+                    'message' => 'Ya existe una instancia registrada con este Phone Number ID.'
                 ], 400);
             }
-        } catch (RequestException $e) {
-            Log::error('Error al crear instancia WhatsApp Meta: ' . $e->getMessage());
-            
-            $errorMessage = 'Error al comunicarse con la API de VibioCRM';
-            if ($e->hasResponse()) {
-                $response = $e->getResponse();
-                $responseBody = json_decode($response->getBody()->getContents(), true);
-                if (isset($responseBody['error'])) {
-                    $errorMessage = $responseBody['error'];
-                } elseif (isset($responseBody['message'])) {
-                    $errorMessage = $responseBody['message'];
-                }
-            }
+
+            // Crear la instancia en la base de datos DIRECTAMENTE (Sin VibioCRM)
+            // Usamos phone_number_id como identificador único (uuid/api_key) para consistencia
+            $instance = Instance::create([
+                'uuid' => $request->phone_number_id,
+                'api_key' => $request->phone_number_id, // Usamos el ID como key
+                'uuid_whatsapp' => $request->phone_number_id,
+                'company_id' => Auth::user()->empresa,
+                'status' => 'PAIRED', // Meta Direct se asume "conectado" si tiene las credenciales
+                'type' => 1, // 1 = Meta Direct
+                'meta' => 0, // 0 = Usamos integración directa (sin Wapi middleware)
+                'activo' => 1,
+                'phone_number_id' => $request->phone_number_id,
+                'waba_id' => $request->waba_id,
+                'addr' => url(''), // Dirección base del sistema
+            ]);
 
             return response()->json([
-                'success' => false,
-                'message' => $errorMessage
-            ], 400);
+                'success' => true,
+                'message' => 'Instancia Meta creada correctamente.',
+                'instance' => $instance
+            ]);
+
         } catch (\Exception $e) {
             Log::error('Error inesperado al crear instancia WhatsApp Meta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error inesperado: ' . $e->getMessage()
+                'message' => 'Error al crear la instancia: ' . $e->getMessage()
             ], 500);
         }
     }
