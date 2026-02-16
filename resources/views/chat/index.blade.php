@@ -643,7 +643,7 @@ new Vue({
         
         // Polling
         pollingInterval: null,
-        pollingFrequency: 10000, 
+        pollingFrequency: 5000, 
         lastUpdateTimestamp: null,
         lastUpdate: 'Nunca',
         isPolling: false,

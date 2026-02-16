@@ -1300,6 +1300,7 @@
 
         @endphp
 
+        {{--
         @if (!is_null($instancia ?? null) && !empty($instancia ?? ''))
 
             const socketSerVER = io.connect('https://api.whatsive.com:{{ $instancia->port }}', {

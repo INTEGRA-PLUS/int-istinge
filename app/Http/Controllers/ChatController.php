@@ -102,12 +102,50 @@ class ChatController extends Controller
      */
     public function updates(Request $request)
     {
-        // Si el frontend depende de esto, por ahora devolvemos estructura vacía
-        // o podríamos re-consultar las conversaciones.
+        $user = auth()->user();
+        $instanceId = $request->instance_id;
+        $conversationId = $request->conversation_id;
+
+        if (!$instanceId) {
+            return response()->json(['error' => 'instance_id es requerido'], 400);
+        }
+
+        $instance = Instance::where('id', $instanceId)
+            ->where('company_id', $user->empresa)
+            ->firstOrFail();
+
+        $newMessages = [];
+        $updatedConversations = [];
+
+        // 1. Si hay conversación seleccionada, obtener mensajes recientes
+        if ($conversationId) {
+            $messagesResponse = $this->centralizedService->getMessages(
+                $instance->phone_number_id,
+                $conversationId,
+                1, // Página 1
+                20 // Últimos 20 mensajes
+            );
+
+            if (isset($messagesResponse['data'])) {
+                $newMessages = $messagesResponse['data'];
+            }
+        }
+
+        // 2. Obtener lista de conversaciones reciente (para actualizar últimos mensajes/orden)
+        $conversationsResponse = $this->centralizedService->getConversations(
+            $instance->phone_number_id,
+            1,
+            20
+        );
+
+        if (isset($conversationsResponse['data'])) {
+            $updatedConversations = $conversationsResponse['data'];
+        }
+
         return response()->json([
-            'conversations'     => [],
-            'new_messages'      => [],
-            'updated_statuses'  => [],
+            'conversations'     => $updatedConversations,
+            'new_messages'      => $newMessages,
+            'updated_statuses'  => [], // Por ahora vacío, la API no devuelve estados separados
             'timestamp'         => now()->toIso8601String()
         ]);
     }
