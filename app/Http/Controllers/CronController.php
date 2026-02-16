@@ -4809,13 +4809,8 @@ class CronController extends Controller
             // ===========================
             // ✅ Buscar instancia META DIRECT
             // ===========================
-            $instance = Instance::where('company_id', $empresa->id)
-                ->where('activo', 1)
-                ->where('meta', 0)
-                ->first();
-
-            if (!$instance) {
-                Log::error("Instancia Meta Direct activa no encontrada (meta=0, activo=1).");
+            if (!$instance || empty($instance->phone_number_id)) {
+                Log::error("Instancia Meta Direct activa no encontrada o sin phone_number_id (meta=0, activo=1).");
                 return;
             }
 

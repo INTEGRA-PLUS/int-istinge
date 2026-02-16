@@ -8,17 +8,17 @@ use Illuminate\Support\Facades\Storage;
 use App\Instance;
 use App\WhatsAppConversation;
 use App\WhatsAppMessage;
-use App\Services\MetaWhatsAppService;
+use App\Services\CentralizedWhatsAppService;
 use Auth;
 
 class ChatController extends Controller
 {
-    private $metaService;
+    private $centralizedService;
 
-    public function __construct(MetaWhatsAppService $metaService)
+    public function __construct(CentralizedWhatsAppService $centralizedService)
     {
         $this->middleware('auth');
-        $this->metaService = $metaService;
+        $this->centralizedService = $centralizedService;
     }
 
     /**
@@ -30,8 +30,9 @@ class ChatController extends Controller
         $user = auth()->user();
         
         // Obtener instancias activas de Meta para esta empresa
+        // type=1, meta=0 es la nueva configuración para Meta Direct
         $instances = Instance::where('company_id', $user->empresa)
-            ->whereIn('type', [0, 1])
+            ->where('type', 1)
             ->where('meta', 0)
             ->where('activo', true)
             ->get();
@@ -46,7 +47,7 @@ class ChatController extends Controller
     }
 
     /**
-     * Listar conversaciones
+     * Listar conversaciones desde API centralizada
      */
     public function conversations(Request $request)
     {
@@ -62,121 +63,74 @@ class ChatController extends Controller
             ->where('company_id', $user->empresa)
             ->firstOrFail();
 
-        \Log::info('ChatController::conversations request', [
+        \Log::info('ChatController::conversations request (Centralized)', [
             'instance_id' => $instanceId,
-            'user_empresa' => $user->empresa,
-            'request_all' => $request->all()
+            'phone_number_id' => $instance->phone_number_id
         ]);
 
-        $conversations = WhatsAppConversation::forInstance($instanceId)
-            ->with('assignedAgent:id,nombres') // changed name to nombres as user table usually has nombres
-            ->when($request->search, function ($query, $search) {
-                $query->search($search);
-            })
-            ->when($request->status, function ($query, $status) {
-                $query->where('status', $status);
-            });
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 20);
 
-        \Log::info('ChatController::conversations query sql', [
-            'sql' => $conversations->toSql(),
-            'bindings' => $conversations->getBindings()
-        ]);
-            
-        $conversations = $conversations->orderByDesc('last_message_at')
-            ->paginate(50);
-            
-        \Log::info('ChatController::conversations result count', ['count' => $conversations->count()]);
+        // Consumir API Centralizada
+        $response = $this->centralizedService->getConversations(
+            $instance->phone_number_id,
+            $page,
+            $perPage
+        );
 
-        return response()->json($conversations);
+        // La respuesta ya viene parseada como array por ConsumesExternalServices
+        return response()->json($response);
     }
 
     /**
-     * Obtener actualizaciones (para polling)
+     * Obtener actualizaciones (para polling) - Ajustado para API centralizada o mantenido si el frontend lo requiere
+     * NOTA: La API centralizada no parece tener un endpoint de 'updates' específico por timestamp.
+     * Podríamos re-consultar conversaciones o implementar algo similar. 
+     * Por ahora devolvemos vacío o re-listamos conversaciones.
      */
     public function updates(Request $request)
     {
-        $user = auth()->user();
-        $instanceId = $request->instance_id;
-        $since = $request->since;
-
-        if (!$instanceId) {
-            return response()->json(['error' => 'instance_id es requerido'], 400);
-        }
-
-        // Verificar permisos
-        $instance = Instance::where('id', $instanceId)
-            ->where('company_id', $user->empresa)
-            ->firstOrFail();
-
-        // Conversaciones actualizadas
-        $updatedConversations = WhatsAppConversation::forInstance($instanceId)
-            ->with('assignedAgent:id,nombres')
-            ->when($since, function ($query, $since) {
-                $query->where('updated_at', '>', $since);
-            })
-            ->orderByDesc('last_message_at')
-            ->get();
-
-        // Nuevos mensajes si hay conversación seleccionada
-        $newMessages = [];
-        if ($request->conversation_id && $since) {
-            $newMessages = WhatsAppMessage::where('conversation_id', $request->conversation_id)
-                ->with('sender:id,nombres')
-                ->where('created_at', '>', $since)
-                ->orderBy('created_at', 'asc')
-                ->get();
-        }
-
-        // Estados actualizados
-        $updatedStatuses = [];
-        if ($request->conversation_id && $since) {
-            $updatedStatuses = WhatsAppMessage::where('conversation_id', $request->conversation_id)
-                ->where('updated_at', '>', $since)
-                ->whereIn('status', ['delivered', 'read', 'failed'])
-                ->select('id', 'wamid', 'status', 'delivered_at', 'read_at')
-                ->get();
-        }
-
+        // Si el frontend depende de esto, por ahora devolvemos estructura vacía
+        // o podríamos re-consultar las conversaciones.
         return response()->json([
-            'conversations'     => $updatedConversations,
-            'new_messages'      => $newMessages,
-            'updated_statuses'  => $updatedStatuses,
+            'conversations'     => [],
+            'new_messages'      => [],
+            'updated_statuses'  => [],
             'timestamp'         => now()->toIso8601String()
         ]);
     }
 
     /**
-     * Obtener mensajes de una conversación
+     * Obtener mensajes de una conversación desde API centralizada
      */
-    public function messages($conversationId)
+    public function messages(Request $request, $conversationId)
     {
         $user = auth()->user();
+        $instanceId = $request->instance_id;
 
-        $conversation = WhatsAppConversation::with('instance')
-            ->findOrFail($conversationId);
-
-        // Verificar permisos
-        if ($conversation->instance->company_id !== $user->empresa) {
-            abort(403, 'No autorizado');
+        if (!$instanceId) {
+            return response()->json(['error' => 'instance_id es requerido para identificar el token'], 400);
         }
 
-        $messages = $conversation->messages()
-            ->with('sender:id,nombres')
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $instance = Instance::where('id', $instanceId)
+            ->where('company_id', $user->empresa)
+            ->firstOrFail();
 
-        // Marcar como leídos
-        $conversation->markAsRead();
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 50);
 
-        return response()->json([
-            'conversation' => $conversation,
-            'messages'     => $messages,
-            'timestamp'    => now()->toIso8601String()
-        ]);
+        $response = $this->centralizedService->getMessages(
+            $instance->phone_number_id,
+            $conversationId,
+            $page,
+            $perPage
+        );
+
+        return response()->json($response);
     }
 
     /**
-     * Enviar mensaje de texto
+     * Enviar mensaje de texto vía API centralizada
      */
     public function sendMessage(Request $request, $conversationId)
     {
@@ -189,131 +143,48 @@ class ChatController extends Controller
         }
 
         $user = auth()->user();
+        $instanceId = $request->instance_id;
 
-        $conversation = WhatsAppConversation::with('instance')
-            ->findOrFail($conversationId);
-
-        // Verificar permisos
-        if ($conversation->instance->company_id !== $user->empresa) {
-            abort(403, 'No autorizado');
+        if (!$instanceId) {
+            return response()->json(['error' => 'instance_id es requerido'], 400);
         }
 
-        $instance = $conversation->instance;
+        $instance = Instance::where('id', $instanceId)
+            ->where('company_id', $user->empresa)
+            ->firstOrFail();
 
-        if (!$instance->isMetaConfigured()) {
-            return response()->json([
-                'success' => false,
-                'error'   => 'Instancia no configurada correctamente'
-            ], 400);
-        }
-
-        // Enviar mensaje vía Meta API
-        $result = $this->metaService->sendMessage(
+        // Enviar mensaje vía API Centralizada
+        $result = $this->centralizedService->sendMessage(
             $instance->phone_number_id,
-            $conversation->phone_number,
+            $conversationId, // Usamos el wa_id / conversationId que la API centralizada reconozca
             $request->message
         );
 
-        if ($result['success']) {
-            // Guardar mensaje en BD
-            $message = WhatsAppMessage::create([
-                'conversation_id' => $conversation->id,
-                'wamid'           => $result['data']['messages'][0]['id'],
-                'type'            => 'text',
-                'content'         => $request->message,
-                'direction'       => 'outbound',
-                'status'          => 'sent',
-                'sent_by'         => $user->id,
-                'sent_at'         => now()
-            ]);
-
-            // Actualizar conversación
-            $conversation->update([
-                'last_message'    => $request->message,
-                'last_message_at' => now()
-            ]);
-
+        if (isset($result['success']) && $result['success']) {
             return response()->json([
                 'success' => true,
                 'message' => 'Mensaje enviado',
-                'data'    => $message->load('sender')
+                'data'    => $result['data']
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'error'   => $result['error']['error']['message'] ?? 'Error al enviar mensaje'
+            'error'   => $result['message'] ?? 'Error al enviar mensaje'
         ], 500);
     }
 
     /**
-     * Enviar imagen
+     * Enviar imagen (Ajustado para API centralizada)
+     * NOTA: La API centralizada documentada solo muestra /messages/send para texto.
+     * Si no hay endpoint de media, registraremos el mensaje o daremos error informativo.
      */
     public function sendImage(Request $request, $conversationId)
     {
-        $validator = Validator::make($request->all(), [
-            'image'   => 'required|image|max:5120', // 5MB
-            'caption' => 'nullable|string|max:1024'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $user = auth()->user();
-
-        $conversation = WhatsAppConversation::with('instance')
-            ->findOrFail($conversationId);
-
-        // Verificar permisos
-        if ($conversation->instance->company_id !== $user->empresa) {
-            abort(403, 'No autorizado');
-        }
-
-        $instance = $conversation->instance;
-
-        // Guardar imagen
-        $path = $request->file('image')->store('whatsapp/outbound', 'public');
-        $imageUrl = url(Storage::url($path));
-
-        // Enviar vía Meta API
-        $result = $this->metaService->sendImage(
-            $instance->phone_number_id,
-            $conversation->phone_number,
-            $imageUrl,
-            $request->caption ?? ''
-        );
-
-        if ($result['success']) {
-            // Guardar mensaje
-            $message = WhatsAppMessage::create([
-                'conversation_id' => $conversation->id,
-                'wamid'           => $result['data']['messages'][0]['id'],
-                'type'            => 'image',
-                'content'         => $request->caption ?? '',
-                'media_url'       => $imageUrl,
-                'direction'       => 'outbound',
-                'status'          => 'sent',
-                'sent_by'         => $user->id,
-                'sent_at'         => now()
-            ]);
-
-            $conversation->update([
-                'last_message'    => $request->caption ?? 'Imagen',
-                'last_message_at' => now()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Imagen enviada',
-                'data'    => $message->load('sender')
-            ]);
-        }
-
         return response()->json([
             'success' => false,
-            'error'   => 'Error al enviar imagen'
-        ], 500);
+            'error'   => 'El envío de imágenes no está disponible actualmente en la API centralizada.'
+        ], 501);
     }
 
     /**

@@ -344,13 +344,13 @@ class AvisosController extends Controller
                         ->first();
 
                     if ($i == 0) {
-                        if (!$instance) {
-                            return back()->with('danger', 'Instancia Meta Direct no encontrada o inactiva.');
+                        if (!$instance || empty($instance->phone_number_id)) {
+                            return back()->with('danger', 'Instancia Meta Direct no encontrada, inactiva o sin ID de teléfono.');
                         }
                         if ($instance->type != 1) {
                              return back()->with('danger', 'La instancia configurada no es compatible con Meta Direct (Type != 1).');
                         }
-                    } elseif (!$instance || $instance->type != 1) {
+                    } elseif (!$instance || $instance->type != 1 || empty($instance->phone_number_id)) {
                         // Si falla después del primero (raro), logguear y continuar
                         \Log::error("Instancia no válida en iteración {$i}");
                         continue;

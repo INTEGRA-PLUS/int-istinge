@@ -2807,7 +2807,6 @@ class ConfiguracionController extends Controller
             }
 
             $empresa->whatsapp_business_account_id = $request->whatsapp_business_account_id;
-            $empresa->wppNuevo = 1;
             $empresa->save();
 
             return response()->json(1);

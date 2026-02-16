@@ -1494,14 +1494,15 @@ class IngresosController extends Controller
                             ->where('meta', 0) 
                             ->first();
 
-        if (is_null($instance) || empty($instance)) {
+        if (is_null($instance) || empty($instance) || empty($instance->phone_number_id)) {
              $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
+                            ->whereNotNull('phone_number_id')
                             ->first();
         }
         
-        if (is_null($instance) || empty($instance)) {
-            return back()->with('error', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
+        if (is_null($instance) || empty($instance) || empty($instance->phone_number_id)) {
+            return back()->with('error', 'Aún no ha creado una instancia activa con ID de teléfono válido, por favor póngase en contacto con el administrador.');
         }
 
         $cliente = $ingreso->cliente();

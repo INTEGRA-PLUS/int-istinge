@@ -5296,13 +5296,13 @@ class FacturasController extends Controller{
         );
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
-            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific���
+            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific
             ->setTitle("Reporte Excel Contactos") // Titulo
             ->setSubject("Reporte Excel Contactos") //Asunto
-            ->setDescription("Reporte de Contactos") //Descripci���n
+            ->setDescription("Reporte de Contactos") //Descripcin
             ->setKeywords("reporte Contactos") //Etiquetas
             ->setCategory("Reporte excel"); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah��� el titulo del reporte
+        // Se combinan las celdas A1 hasta D1, para colocar ah el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A1:D1');
         // Se agregan los titulos del reporte
@@ -5735,17 +5735,17 @@ class FacturasController extends Controller{
 
     public function whatsapp($id, Request $request)
     {
-        
         // 1️⃣ Buscar instancia de Meta Direct activa
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
                             ->where('type', 1) // 1 = Meta Direct
                             ->where('meta', 0) // 0 = Integración directa
+                            ->whereNotNull('phone_number_id')
                             ->first();
 
-        if (!$instance) {
-            \Log::warning('No active Meta Direct instance found for company: ' . auth()->user()->empresa);
-            return back()->with('danger', 'No se encontró una instancia de WhatsApp Meta activa. Por favor, verifique su configuración.');
+        if (!$instance || empty($instance->phone_number_id)) {
+            \Log::warning('No active Meta Direct instance or missing phone_number_id for company: ' . auth()->user()->empresa);
+            return back()->with('danger', 'No se encontró una instancia de WhatsApp Meta activa o falta el ID de número de teléfono. Por favor, verifique su configuración.');
         }
 
         $factura = Factura::findOrFail($id);

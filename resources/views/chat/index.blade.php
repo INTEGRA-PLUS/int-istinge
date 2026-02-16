@@ -723,8 +723,12 @@ new Vue({
             this.loadingMessages = true;
             
             try {
-                const response = await axios.get(window.routes.messages(conversation.id));
-                this.messages = response.data.messages;
+                // La API centralizada usa conversation.wa_id para los mensajes, 
+                // pasamos instance_id como query param para que el controlador obtenga el token
+                const response = await axios.get(window.routes.messages(conversation.wa_id), {
+                    params: { instance_id: this.selectedInstanceId }
+                });
+                this.messages = response.data.data; // La API centralizada devuelve los mensajes en 'data'
                 this.lastUpdateTimestamp = response.data.timestamp;
                 
                 conversation.unread_count = 0;
@@ -749,8 +753,11 @@ new Vue({
             
             try {
                 const response = await axios.post(
-                    window.routes.send(this.selectedConversation.id),
-                    { message: message }
+                    window.routes.send(this.selectedConversation.wa_id),
+                    { 
+                        message: message,
+                        instance_id: this.selectedInstanceId 
+                    }
                 );
                 
                 if (response.data.success) {
