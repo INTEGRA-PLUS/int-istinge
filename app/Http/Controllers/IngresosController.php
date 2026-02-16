@@ -1653,7 +1653,9 @@ class IngresosController extends Controller
         $responseData = json_decode(json_encode($response), true);
         $status = 'error';
 
-        if (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
+        if (isset($responseData['success']) && $responseData['success']) {
+            $status = 'success';
+        } elseif (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
             if (isset($responseData['messages']) && count($responseData['messages']) > 0) {
                 $status = 'success';
             }
