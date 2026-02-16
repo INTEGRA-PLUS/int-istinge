@@ -165,7 +165,7 @@
             @foreach($items as $item)
              @php $totalApagar=$totalApagar+$item->precio; @endphp
                 <tr>
-                    <td>{{$item->ref}}</td>
+                    <td>{{$item->descripcion}}</td>
                     <td>{{$empresa->moneda}}{{App\Funcion::Parsear($item->precio)}}</td>
                 </tr>
             @endforeach
