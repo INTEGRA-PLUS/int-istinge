@@ -822,16 +822,17 @@ new Vue({
             
             sorted.forEach(msg => {
                 const date = new Date(msg.created_at);
-                const dateKey = date.toLocaleDateString('es-CO', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit' 
-                }); // Format: DD/MM/YYYY
+                
+                // Use ISO date string (YYYY-MM-DD) for robust grouping key
+                // This prevents any locale-specific time inclusion in the key
+                const dateKey = date.toISOString().split('T')[0];
 
                 // Create a readable label
-                let label = dateKey;
-                const today = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
-                const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                let label = '';
+                const today = new Date().toISOString().split('T')[0];
+                const yesterdayDate = new Date();
+                yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+                const yesterday = yesterdayDate.toISOString().split('T')[0];
 
                 if (dateKey === today) label = 'Hoy';
                 else if (dateKey === yesterday) label = 'Ayer';
@@ -1077,18 +1078,22 @@ new Vue({
                         }
 
                         // 2. Verificación "Fuzzy" para mensajes enviados recientemente (evitar duplicados visuales)
-                        // Si el mensaje es saliente, tiene el mismo contenido y sucedió hace poco (< 20 seg)
+                        // Si el mensaje es saliente, tiene el mismo contenido (trim) y sucedió hace poco (< 60 seg)
                         if (msg.direction === 'outbound') {
                             const duplicateIndex = this.messages.findIndex(m => 
                                 m.direction === 'outbound' && 
-                                m.content === msg.content &&
-                                // Verificar diferencia de tiempo (20s)
-                                Math.abs(new Date(m.created_at) - new Date(msg.created_at)) < 20000 
+                                (m.content || '').trim() === (msg.content || '').trim() &&
+                                // Verificar diferencia de tiempo (relajado a 60s para asegurar captura)
+                                Math.abs(new Date(m.created_at) - new Date(msg.created_at)) < 60000 
                             );
 
                             if (duplicateIndex !== -1) {
                                 // Reemplazar el mensaje optimista con el real (que trae el ID correcto, estado, etc.)
-                                this.$set(this.messages, duplicateIndex, msg);
+                                // Mantener el mensaje si ya tiene ID y el nuevo no (caso raro)
+                                const existingMsg = this.messages[duplicateIndex];
+                                if (!existingMsg.id || (msg.id && existingMsg.id !== msg.id)) {
+                                     this.$set(this.messages, duplicateIndex, msg);
+                                }
                                 return;
                             }
                         }
