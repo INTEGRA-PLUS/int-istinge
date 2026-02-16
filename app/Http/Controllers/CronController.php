@@ -4809,14 +4809,19 @@ class CronController extends Controller
             // ===========================
             // ✅ Buscar instancia META DIRECT
             // ===========================
+            $instance = Instance::where('company_id', $empresa->id)
+                ->where('activo', 1)
+                ->where('meta', 0)
+                ->first();
+
             if (!$instance || empty($instance->phone_number_id)) {
                 Log::error("Instancia Meta Direct activa no encontrada o sin phone_number_id (meta=0, activo=1).");
                 return;
             }
 
-            // Validar type = 0
+            // Validar type = 1 (Meta Direct)
             if ($instance->type != 1) {
-                Log::error("La instancia configurada no es compatible con Meta Direct (Type != 0).");
+                Log::error("La instancia configurada no es compatible con Meta Direct (Type != 1).");
                 return;
             }
 

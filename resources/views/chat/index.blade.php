@@ -654,12 +654,13 @@ new Vue({
     
     computed: {
         filteredConversations() {
-            if (!this.searchQuery) return this.conversations;
+            const conversations = this.conversations || [];
+            if (!this.searchQuery) return conversations;
             
             const query = this.searchQuery.toLowerCase();
-            return this.conversations.filter(c => 
-                c.name.toLowerCase().includes(query) ||
-                c.phone_number.includes(query)
+            return conversations.filter(c => 
+                (c.name && c.name.toLowerCase().includes(query)) ||
+                (c.phone_number && c.phone_number.includes(query))
             );
         }
     },
@@ -710,7 +711,7 @@ new Vue({
                 const response = await axios.get(window.routes.conversations, {
                     params: { instance_id: this.selectedInstanceId }
                 });
-                this.conversations = response.data.data;
+                this.conversations = response.data.data || [];
             } catch (error) {
                 console.error('Error cargando conversaciones:', error);
             } finally {
@@ -728,7 +729,7 @@ new Vue({
                 const response = await axios.get(window.routes.messages(conversation.wa_id), {
                     params: { instance_id: this.selectedInstanceId }
                 });
-                this.messages = response.data.data; // La API centralizada devuelve los mensajes en 'data'
+                this.messages = response.data.data || []; // La API centralizada devuelve los mensajes en 'data'
                 this.lastUpdateTimestamp = response.data.timestamp;
                 
                 conversation.unread_count = 0;

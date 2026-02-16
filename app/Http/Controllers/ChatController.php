@@ -78,7 +78,15 @@ class ChatController extends Controller
             $perPage
         );
 
-        // La respuesta ya viene parseada como array por ConsumesExternalServices
+        // Si hay error en la petición externa, devolverlo con código apropiado
+        if (isset($response['errorMessage'])) {
+            return response()->json([
+                'success' => false,
+                'error' => $response['errorMessage'],
+                'data' => []
+            ], $response['statusCode'] ?? 500);
+        }
+
         return response()->json($response);
     }
 
@@ -125,6 +133,14 @@ class ChatController extends Controller
             $page,
             $perPage
         );
+
+        if (isset($response['errorMessage'])) {
+            return response()->json([
+                'success' => false,
+                'error' => $response['errorMessage'],
+                'data' => []
+            ], $response['statusCode'] ?? 500);
+        }
 
         return response()->json($response);
     }

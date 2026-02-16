@@ -13,7 +13,7 @@ class CentralizedWhatsAppService
 
     public function __construct()
     {
-        $this->baseUri = env('WAPP_CENTRAL_URL', 'http://whatsapp.integracolombia.com/api/v1');
+        $this->baseUri = rtrim(env('WAPP_CENTRAL_URL', 'http://whatsapp.integracolombia.com/api/v1'), '/') . '/';
     }
 
     /**
@@ -28,7 +28,7 @@ class CentralizedWhatsAppService
     {
         return $this->makeRequest(
             'GET',
-            '/conversations',
+            'conversations',
             [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -52,7 +52,7 @@ class CentralizedWhatsAppService
     {
         return $this->makeRequest(
             'GET',
-            "/conversations/{$conversationId}/messages",
+            "conversations/{$conversationId}/messages",
             [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -75,7 +75,7 @@ class CentralizedWhatsAppService
     {
         return $this->makeRequest(
             'POST',
-            '/messages/send',
+            'messages/send',
             [],
             [
                 'to' => $to,
@@ -100,7 +100,7 @@ class CentralizedWhatsAppService
     {
         return $this->makeRequest(
             'POST',
-            '/messages/template',
+            'messages/template',
             [],
             [
                 'to' => $to,
@@ -124,12 +124,17 @@ class CentralizedWhatsAppService
     {
         return $this->makeRequest(
             'POST',
-            '/messages/register',
+            'messages/register',
             [],
             $data,
             ['X-Instance-Token' => $token],
             true
         );
+    }
+
+    public function decodeResponse($response)
+    {
+        return json_decode($response, true);
     }
 
     /**
