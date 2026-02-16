@@ -515,41 +515,60 @@
                         Cargando mensajes...
                     </div>
 
-                    <div 
-                        v-for="msg in messages" 
-                        :key="msg.id"
-                        class="message-row"
-                        :class="msg.direction"
-                    >
-                        <div class="message-bubble" :class="msg.direction">
-                            <!-- Content -->
-                            <div class="message-content">
-                                <p v-if="msg.type === 'text' || msg.type === 'template'" style="margin: 0;">@{{ msg.content }}</p>
-                                
-                                <div v-else-if="msg.type === 'image'">
-                                    <img :src="msg.media_url" class="message-image" @click="openImage(msg.media_url)">
-                                    <p v-if="msg.content" style="margin: 5px 0 0 0;">@{{ msg.content }}</p>
-                                </div>
-                                
-                                <div v-else-if="msg.type === 'document'">
-                                    <a :href="msg.media_url" target="_blank" style="color: #008069; text-decoration: none; font-weight: 500;">
-                                        📄 @{{ msg.filename || 'Documento' }}
-                                    </a>
-                                </div>
+                    <div v-for="(group, dateStart) in groupedMessages" :key="dateStart">
+                        
+                        <!-- Date Header -->
+                        <div style="display: flex; justify-content: center; margin: 15px 0 10px 0;">
+                            <span style="
+                                background-color: #e1f3fb; 
+                                color: #1f2c33; 
+                                font-size: 0.75rem; 
+                                padding: 5px 12px; 
+                                border-radius: 8px; 
+                                box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+                                text-transform: uppercase;
+                            ">
+                                @{{ group.label }}
+                            </span>
+                        </div>
 
-                                <div v-else-if="msg.type === 'audio'">
-                                    <audio :src="msg.media_url" controls style="max-width: 250px;"></audio>
+                        <!-- Messages in Group -->
+                        <div 
+                            v-for="msg in group.messages" 
+                            :key="msg.id"
+                            class="message-row"
+                            :class="msg.direction"
+                        >
+                            <div class="message-bubble" :class="msg.direction">
+                                <!-- Content -->
+                                <div class="message-content">
+                                    <p v-if="msg.type === 'text' || msg.type === 'template'" style="margin: 0;">@{{ msg.content }}</p>
+                                    
+                                    <div v-else-if="msg.type === 'image'">
+                                        <img :src="msg.media_url" class="message-image" @click="openImage(msg.media_url)">
+                                        <p v-if="msg.content" style="margin: 5px 0 0 0;">@{{ msg.content }}</p>
+                                    </div>
+                                    
+                                    <div v-else-if="msg.type === 'document'">
+                                        <a :href="msg.media_url" target="_blank" style="color: #008069; text-decoration: none; font-weight: 500;">
+                                            📄 @{{ msg.filename || 'Documento' }}
+                                        </a>
+                                    </div>
+
+                                    <div v-else-if="msg.type === 'audio'">
+                                        <audio :src="msg.media_url" controls style="max-width: 250px;"></audio>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Meta -->
-                            <div class="message-meta">
-                                <span>@{{ formatTime(msg.created_at) }}</span>
-                                <span v-if="msg.direction === 'outbound'">
-                                    <span v-if="msg.status === 'read'" class="msg-status read">✓✓</span>
-                                    <span v-else-if="msg.status === 'delivered'" class="msg-status sent">✓✓</span>
-                                    <span v-else class="msg-status sent">✓</span>
-                                </span>
+                                
+                                <!-- Meta -->
+                                <div class="message-meta">
+                                    <span>@{{ formatTime(msg.created_at) }}</span>
+                                    <span v-if="msg.direction === 'outbound'">
+                                        <span v-if="msg.status === 'read'" class="msg-status read">✓✓</span>
+                                        <span v-else-if="msg.status === 'delivered'" class="msg-status sent">✓✓</span>
+                                        <span v-else class="msg-status sent">✓</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -662,6 +681,57 @@ new Vue({
                 (c.name && c.name.toLowerCase().includes(query)) ||
                 (c.phone_number && c.phone_number.includes(query))
             );
+        },
+
+        groupedMessages() {
+            const messages = this.messages || [];
+            if (messages.length === 0) return {};
+
+            // 1. Sort by date (oldest first)
+            const sorted = [...messages].sort((a, b) => 
+                new Date(a.created_at) - new Date(b.created_at)
+            );
+
+            // 2. Group by date
+            const groups = {};
+            
+            sorted.forEach(msg => {
+                const date = new Date(msg.created_at);
+                const dateKey = date.toLocaleDateString('es-CO', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit' 
+                }); // Format: DD/MM/YYYY
+
+                // Create a readable label
+                let label = dateKey;
+                const today = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+                if (dateKey === today) label = 'Hoy';
+                else if (dateKey === yesterday) label = 'Ayer';
+                else {
+                    // Format like "15 de febrero de 2026"
+                    label = date.toLocaleDateString('es-CO', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }); 
+                    // Capitalize first letter
+                    label = label.charAt(0).toUpperCase() + label.slice(1);
+                }
+
+                if (!groups[dateKey]) {
+                    groups[dateKey] = {
+                        label: label,
+                        messages: []
+                    };
+                }
+                groups[dateKey].messages.push(msg);
+            });
+
+            return groups;
         }
     },
     
