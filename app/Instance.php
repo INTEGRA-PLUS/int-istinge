@@ -58,7 +58,7 @@ class Instance extends Model
      */
     public function isMetaConfigured()
     {
-        return !empty($this->phone_number_id) && $this->type == 1;
+        return !empty($this->phone_number_id) && $this->type == 1 && $this->meta == 0;
     }
 
     public function isPaired(): bool
