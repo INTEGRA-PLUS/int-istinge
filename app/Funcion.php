@@ -42,11 +42,9 @@ class Funcion
         }
 
         // Si el numero es entero, no mostrar decimales
+        // Si el numero es entero, no mostrar decimales
         if (fmod($valor, 1) == 0) {
             $precision = 0;
-        } elseif ($precision == 0) {
-            // Si tiene decimales pero la precision es 0, mostrar al menos 2
-            $precision = 2;
         }
 
         return number_format($valor, $precision, $sep_dec, $sep_miles);
