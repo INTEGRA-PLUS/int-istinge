@@ -715,8 +715,16 @@
         <div class="modal-content" @click.stop>
             <img 
                 :src="imageModalUrl" 
-                :style="{ transform: 'scale(' + zoomLevel + ')' }"
-                style="transition: transform 0.2s ease-out;"
+                :style="{ 
+                    transform: 'translate(' + panX + 'px, ' + panY + 'px) scale(' + zoomLevel + ')',
+                    cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+                }"
+                style="transition: transform 0.1s linear;"
+                @mousedown="startDrag"
+                @mousemove="onDrag"
+                @mouseup="stopDrag"
+                @mouseleave="stopDrag"
+                draggable="false"
             >
             
             <!-- Close Button -->
@@ -778,7 +786,14 @@ new Vue({
         
         // Modal imagen
         imageModalUrl: null,
-        zoomLevel: 1
+        zoomLevel: 1,
+        
+        // Panning
+        isDragging: false,
+        panX: 0,
+        panY: 0,
+        startX: 0,
+        startY: 0
     },
     
     computed: {
@@ -866,6 +881,11 @@ new Vue({
         
         window.addEventListener('beforeunload', () => {
             this.stopPolling();
+        });
+        
+        // Global mouseup to stop dragging even if mouse leaves image
+        window.addEventListener('mouseup', () => {
+            this.isDragging = false;
         });
     },
     
@@ -1050,9 +1070,30 @@ new Vue({
                 // Agregar nuevos mensajes
                 if (response.data.new_messages.length > 0) {
                     response.data.new_messages.forEach(msg => {
-                        if (!this.messages.find(m => m.id === msg.id)) {
-                            this.messages.push(msg);
+                        // 1. Verificar por ID exacto
+                        const existingIndex = this.messages.findIndex(m => m.id === msg.id);
+                        if (existingIndex !== -1) {
+                            return;
                         }
+
+                        // 2. Verificación "Fuzzy" para mensajes enviados recientemente (evitar duplicados visuales)
+                        // Si el mensaje es saliente, tiene el mismo contenido y sucedió hace poco (< 20 seg)
+                        if (msg.direction === 'outbound') {
+                            const duplicateIndex = this.messages.findIndex(m => 
+                                m.direction === 'outbound' && 
+                                m.content === msg.content &&
+                                // Verificar diferencia de tiempo (20s)
+                                Math.abs(new Date(m.created_at) - new Date(msg.created_at)) < 20000 
+                            );
+
+                            if (duplicateIndex !== -1) {
+                                // Reemplazar el mensaje optimista con el real (que trae el ID correcto, estado, etc.)
+                                this.$set(this.messages, duplicateIndex, msg);
+                                return;
+                            }
+                        }
+
+                        this.messages.push(msg);
                     });
                     
                     this.$nextTick(() => this.scrollToBottom());
@@ -1156,6 +1197,9 @@ new Vue({
         openImage(url) {
             this.imageModalUrl = url;
             this.zoomLevel = 1; // Reset zoom
+            this.panX = 0;
+            this.panY = 0;
+            this.isDragging = false;
         },
         
         closeImageModal() {
@@ -1170,6 +1214,27 @@ new Vue({
             if (this.zoomLevel > 0.5) {
                 this.zoomLevel -= 0.25;
             }
+        },
+
+        startDrag(event) {
+            if (this.zoomLevel <= 1) return; // Only pan if zoomed in
+            event.preventDefault(); // Prevent default image drag
+            
+            this.isDragging = true;
+            this.startX = event.clientX - this.panX;
+            this.startY = event.clientY - this.panY;
+        },
+
+        onDrag(event) {
+            if (!this.isDragging) return;
+            
+            event.preventDefault();
+            this.panX = event.clientX - this.startX;
+            this.panY = event.clientY - this.startY;
+        },
+        
+        stopDrag() {
+            this.isDragging = false;
         },
 
         wheelZoom(event) {
