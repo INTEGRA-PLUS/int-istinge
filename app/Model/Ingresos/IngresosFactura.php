@@ -20,6 +20,11 @@ class IngresosFactura extends Model
         'ingreso', 'factura', 'pagado', 'pago', 'created_at', 'updated_at'
     ];
 
+    public function setPagoAttribute($value)
+    {
+        $this->attributes['pago'] = \App\Funcion::precision($value);
+    }
+
 
     public function factura(){
          return Factura::where('id',$this->factura)->first();

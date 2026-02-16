@@ -291,6 +291,17 @@
 					<strong>{{ $errors->first('codigo') }}</strong>
 				</span>
 			</div>
+            <div class="form-group col-md-2">
+                <label class="control-label">Precisión decimal<span class="text-danger">*</span></label>
+                <select class="form-control selectpicker" name="precision" id="precision" required="" title="Seleccione">
+                    @for ($i = 0; $i <= 6; $i++)
+                        <option {{ $empresa->precision == $i ? 'selected' : '' }} value="{{ $i }}">{{ $i }}</option>
+                    @endfor
+                </select>
+                <span class="help-block error">
+                    <strong>{{ $errors->first('precision') }}</strong>
+                </span>
+            </div>
   		</div>
 
 		  <div class="card-separator">

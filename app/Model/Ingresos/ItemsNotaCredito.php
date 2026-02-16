@@ -21,6 +21,11 @@ class ItemsNotaCredito extends Model
         'nota', 'producto', 'ref', 'precio', 'descripcion', 'impuesto', 'id_impuesto', 'cant', 'desc', 'created_at', 'updated_at'
     ]; 
 
+    public function setPrecioAttribute($value)
+    {
+        $this->attributes['precio'] = \App\Funcion::precision($value);
+    } 
+
     public function total(){
 
         $result=$this->precio*$this->cant;
@@ -172,7 +177,7 @@ class ItemsNotaCredito extends Model
         
         if($this->inventario->tipo_producto == 1){
             $result=$this->inventario->costo_unidad*$this->cant;
-            $result = round($result);
+            $result = \App\Funcion::precision($result);
         }else{
             $result = 0;
         }

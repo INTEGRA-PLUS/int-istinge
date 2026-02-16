@@ -4407,6 +4407,48 @@ class CronController extends Controller
 
     public function deleteFactura(){
 
+        /* SCRIPT PARA DETECTAR CONTRATOS DESHABILITADOS CON DEUDA MENOR A 5 PESOS */
+        $contratos = Contrato::where('state', 'disabled')->get();
+        $result = [];
+        $i = 0;
+
+        foreach($contratos as $contrato){
+            // Buscar última factura abierta validando tanto la relación directa como la tabla pivote
+            $ultimaFactura = Factura::select('factura.*')
+            ->leftJoin('facturas_contratos as fc', 'fc.factura_id', 'factura.id')
+            ->where(function($q) use ($contrato){
+                $q->where('factura.contrato_id', $contrato->id);
+                if($contrato->nro){
+                    $q->orWhere('fc.contrato_nro', $contrato->nro);
+                }
+            })
+            ->where('factura.estatus', 1) 
+            ->orderBy('factura.id', 'desc')
+            ->first();
+
+            if($ultimaFactura){
+                $deuda = $ultimaFactura->porpagar(); // Calcular deuda
+                
+                // Verificamos si la deuda es mayor a 0 y menor a 5 pesos
+                if($deuda > 0 && $deuda < 5){
+                    $clienteNombre = $contrato->cliente() ? $contrato->cliente()->nombre : 'N/A';
+                    $result[] = [
+                        'contrato' => $contrato->nro,
+                        'cliente' => $clienteNombre,
+                        'factura' => $ultimaFactura->codigo,
+                        'deuda'   => $deuda
+                    ];
+                    $i++;
+                }
+            }
+        }
+
+        return response()->json([
+            'total' => $i,
+            'contratos' => $result
+        ]);
+        /* FIN SCRIPT */
+
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
         //     ->join('factura as f','f.id','fc.factura_id')
         //     ->where('f.fecha', '2025-02-01')

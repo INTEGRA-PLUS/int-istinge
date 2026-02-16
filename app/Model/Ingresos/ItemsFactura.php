@@ -8,6 +8,8 @@ use App\Model\Inventario\Inventario;
 use App\Impuesto;  use App\CamposExtra;
 use DB; use Auth;
 use App\ProductoCuenta;
+use App\Funcion;
+
 class ItemsFactura extends Model
 {
     protected $table = "items_factura";
@@ -20,6 +22,11 @@ class ItemsFactura extends Model
     protected $fillable = [
         'factura', 'producto', 'ref', 'precio', 'descripcion', 'impuesto', 'id_impuesto', 'cant', 'desc', 'created_at', 'updated_at', 'tipo_inventario'
     ];
+
+    public function setPrecioAttribute($value)
+    {
+        $this->attributes['precio'] = Funcion::precision($value);
+    }
 
     public function total(){
 
@@ -38,7 +45,7 @@ class ItemsFactura extends Model
 
         if($this->inventario->tipo_producto == 1){
             $result=$this->inventario->costo_unidad*$this->cant;
-            $result = round($result);
+            $result = \App\Funcion::precision($result);
         }else{
             $result = 0;
         }
