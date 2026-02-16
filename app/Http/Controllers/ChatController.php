@@ -187,22 +187,31 @@ class ChatController extends Controller
         // Enviar mensaje vía API Centralizada
         $result = $this->centralizedService->sendMessage(
             $instance->phone_number_id,
-            $conversationId, // Usamos el wa_id / conversationId que la API centralizada reconozca
+            $conversationId, // phone_number
             $request->message
         );
 
-        if (isset($result['success']) && $result['success']) {
+        \Log::info('ChatController::sendMessage result', ['result' => $result]);
+
+        if (isset($result['errorMessage'])) {
             return response()->json([
-                'success' => true,
-                'message' => 'Mensaje enviado',
-                'data'    => $result['data']
-            ]);
+                'success' => false,
+                'error'   => $result['errorMessage']
+            ], $result['statusCode'] ?? 500);
+        }
+
+        // Si el API devuelve success:true y data, lo usamos. 
+        // Si no, asumimos que el resultado mismo es el objeto del mensaje.
+        $data = $result;
+        if (isset($result['success']) && $result['success'] && isset($result['data'])) {
+            $data = $result['data'];
         }
 
         return response()->json([
-            'success' => false,
-            'error'   => $result['message'] ?? 'Error al enviar mensaje'
-        ], 500);
+            'success' => true,
+            'message' => 'Mensaje enviado',
+            'data'    => $data
+        ]);
     }
 
     /**
