@@ -5346,7 +5346,7 @@ class CronController extends Controller
 
 
         //Inicio validacion de codigos iguales emitidos
-        $this->validateCodeEmision();
+        // $this->validateCodeEmision();
         //Fin validacion de codigos iguales emitidos
     }
 
