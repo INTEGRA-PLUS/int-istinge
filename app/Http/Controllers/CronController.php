@@ -44,7 +44,6 @@ use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
 use App\MovimientoLOG;
-use App\Services\WapiService;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -4777,7 +4776,7 @@ class CronController extends Controller
         ]);
     }
 
-    public function envioFacturaWpp(WapiService $wapiService)
+    public function envioFacturaWpp()
     {
         try {
             $empresa = Empresa::find(1);
