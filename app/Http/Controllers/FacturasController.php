@@ -5874,13 +5874,19 @@ class FacturasController extends Controller{
             $status = 'success';
         }
 
+        // Construir el mensaje completo procesado para registro
+        $mensajeProcesado = $plantilla->contenido ?? '';
+        foreach ($bodyTextParams as $index => $paramValue) {
+            $mensajeProcesado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeProcesado);
+        }
+
         WhatsappMetaLog::create([
             'status' => $status,
             'response' => json_encode($response),
             'factura_id' => $factura->id,
             'contacto_id' => $contacto->id,
             'empresa' => Auth::user()->empresa,
-            'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'),
+            'mensaje_enviado' => $mensajeProcesado ?: ("Meta Template: " . ($plantilla->title ?? 'Text')),
             'plantilla_id' => $plantilla ? $plantilla->id : null,
             'enviado_por' => Auth::user()->id
         ]);
@@ -5895,14 +5901,12 @@ class FacturasController extends Controller{
                 $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
                 
                 if ($wamid) {
-                    $msgContent = "Factura {$factura->codigo} enviada. (Plantilla: {$plantilla->title})";
-                    
-                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    $responseMsg = \Illuminate\Support\Facades\Http::withHeaders([
                         'X-Instance-Token' => $instance->phone_number_id,
                     ])->post('http://whatsapp.integracolombia.com/api/v1/messages/register', [
                         'to'      => $phone,
                         'wamid'   => $wamid,
-                        'content' => $msgContent,
+                        'content' => $mensajeProcesado,
                         'type'    => 'template',
                         'status'  => 'sent',
                         'name'    => $contacto->nombre . ' ' . $contacto->apellido1,
