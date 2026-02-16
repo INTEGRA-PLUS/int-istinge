@@ -434,6 +434,47 @@
         transform: rotate(90deg);
     }
 
+    .zoom-controls {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6);
+        padding: 8px 15px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        color: white;
+        z-index: 10001;
+    }
+
+    .zoom-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-size: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .zoom-btn:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    .zoom-level {
+        font-size: 0.9rem;
+        min-width: 45px;
+        text-align: center;
+        font-weight: 500;
+    }
+
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -670,9 +711,15 @@
     </div>
 
     <!-- Image Modal -->
-    <div v-if="imageModalUrl" class="modal-overlay" @click="closeImageModal">
+    <div v-if="imageModalUrl" class="modal-overlay" @click="closeImageModal" @wheel.prevent="wheelZoom">
         <div class="modal-content" @click.stop>
-            <img :src="imageModalUrl">
+            <img 
+                :src="imageModalUrl" 
+                :style="{ transform: 'scale(' + zoomLevel + ')' }"
+                style="transition: transform 0.2s ease-out;"
+            >
+            
+            <!-- Close Button -->
             <button 
                 @click="closeImageModal"
                 class="close-modal-btn"
@@ -680,6 +727,13 @@
             >
                 ✕
             </button>
+
+            <!-- Zoom Controls -->
+            <div class="zoom-controls" @click.stop>
+                <button @click="zoomOut" class="zoom-btn" title="Alejar (-)">-</button>
+                <span class="zoom-level">@{{ Math.round(zoomLevel * 100) }}%</span>
+                <button @click="zoomIn" class="zoom-btn" title="Acercar (+)">+</button>
+            </div>
         </div>
     </div>
 </div>
@@ -723,7 +777,8 @@ new Vue({
         isPolling: false,
         
         // Modal imagen
-        imageModalUrl: null
+        imageModalUrl: null,
+        zoomLevel: 1
     },
     
     computed: {
@@ -1019,6 +1074,9 @@ new Vue({
                     });
                 }
                 
+                // Asegurar reordenamiento después de actualizaciones
+                // this.conversations.sort(...) ya se hace en mergeConversations
+                
             } catch (error) {
                 console.error('Error en polling:', error);
             } finally {
@@ -1048,6 +1106,7 @@ new Vue({
                 conv.last_message = message.content || 'Media';
                 conv.last_message_at = message.created_at;
                 
+                // Mover al principio
                 this.conversations = [
                     conv,
                     ...this.conversations.filter(c => c.id !== conv.id)
@@ -1096,10 +1155,29 @@ new Vue({
         
         openImage(url) {
             this.imageModalUrl = url;
+            this.zoomLevel = 1; // Reset zoom
         },
         
         closeImageModal() {
             this.imageModalUrl = null;
+        },
+
+        zoomIn() {
+            this.zoomLevel += 0.25;
+        },
+
+        zoomOut() {
+            if (this.zoomLevel > 0.5) {
+                this.zoomLevel -= 0.25;
+            }
+        },
+
+        wheelZoom(event) {
+            if (event.deltaY < 0) {
+                this.zoomIn();
+            } else {
+                this.zoomOut();
+            }
         }
     },
     
