@@ -303,10 +303,18 @@
     }
     
     .message-image {
-        max-width: 100%;
+        max-width: 300px;
+        max-height: 200px;
+        object-fit: cover;
         border-radius: 6px;
         cursor: pointer;
         margin-bottom: 4px;
+        transition: transform 0.2s;
+    }
+
+    .message-image:hover {
+        transform: scale(1.02);
+        opacity: 0.95;
     }
 
     .message-meta {
@@ -377,17 +385,63 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0,0,0,0.85);
-        z-index: 9999;
+        background-color: rgba(0,0,0,0.9);
+        z-index: 10000;
         display: flex;
         align-items: center;
         justify-content: center;
+        backdrop-filter: blur(5px);
+        animation: fadeIn 0.2s ease-out;
     }
     
-    .modal-content img {
+    .modal-content {
+        position: relative;
         max-width: 90vw;
         max-height: 90vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-content img {
+        max-width: 100%;
+        max-height: 90vh;
         border-radius: 4px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .close-modal-btn {
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        transition: all 0.2s;
+    }
+
+    .close-modal-btn:hover {
+        background: rgba(255, 255, 255, 0.4);
+        transform: rotate(90deg);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes zoomIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
     }
     
     /* Scrollbar */
@@ -621,7 +675,8 @@
             <img :src="imageModalUrl">
             <button 
                 @click="closeImageModal"
-                style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px; border-radius: 50%; cursor: pointer;"
+                class="close-modal-btn"
+                title="Cerrar"
             >
                 ✕
             </button>

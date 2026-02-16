@@ -245,6 +245,11 @@ class ChatController extends Controller
             $data = $result['data'];
         }
 
+        // Asegurar que exista created_at para evitar "Invalid Date" en frontend
+        if (!isset($data['created_at'])) {
+            $data['created_at'] = now()->toIso8601String();
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Mensaje enviado',
