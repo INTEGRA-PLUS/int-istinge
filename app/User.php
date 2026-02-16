@@ -349,5 +349,29 @@ class User extends Authenticatable
         return $this->BelongsToMany('App\Mikrotik', 'usuario_servidor', 'usuario_id', 'servidor_id');
     }
 
+    /**
+     * Accessors para nombres y apellidos (requeridos por $appends)
+     */
+    public function getPrimerNombreAttribute()
+    {
+        $nombres = explode(' ', $this->nombres);
+        return $nombres[0] ?? '';
+    }
 
+    public function getSegundoNombreAttribute()
+    {
+        $nombres = explode(' ', $this->nombres);
+        return $nombres[1] ?? '';
+    }
+
+    public function getPrimerApellidoAttribute()
+    {
+        // Asumiendo que no hay campo apellidos en fillable, retornamos vacio o partimos nombres si es todo junto
+        return ''; 
+    }
+
+    public function getSegundoApellidoAttribute()
+    {
+        return '';
+    }
 }

@@ -53,7 +53,9 @@ return [
 
     'meta' => [
         'access_token' => env('ACCESS_TOKEN_META'),
-        'api_version' => 'v21.0',
+        'api_version'  => 'v21.0',
+        'app_secret'   => env('META_APP_SECRET'),
+        'verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
     ],
 
 ];

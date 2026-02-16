@@ -86,12 +86,12 @@ function number_format(number, seccion = true) {
     number = number * 1; //makes sure `number` is numeric value
 
     // Si el numero es entero, no mostramos decimales
-    if (number % 1 == 0) {
-        decimals = 0;
-    } else if (decimals == 0) {
-        // Si la visualizacion es entera pero el numero tiene decimales, mostramos decimales
-        decimals = 2;
-    }
+    // Logic removed to respect precision setting
+    // if (number % 1 == 0) {
+    //     decimals = 0;
+    // } else if (decimals == 0) {
+    //     decimals = 2;
+    // }
 
     number = parseFloat(number).toFixed(decimals);
     // Eliminar ceros no significativos a la derecha (solo despues del punto decimal)

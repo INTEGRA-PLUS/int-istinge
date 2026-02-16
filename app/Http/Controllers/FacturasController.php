@@ -5734,11 +5734,20 @@ class FacturasController extends Controller{
 
        public function whatsapp($id, Request $request, WapiService $wapiService)
     {
+        \Log::info('--------------------------------------------------');
+        \Log::info('FacturasController::whatsapp called for invoice: ' . $id);
+        
         // 1️⃣ Buscar instancia activa y factura base
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
                             ->where('meta',0)
                             ->first();
+
+        if ($instance) {
+             \Log::info('Instance found:', ['id' => $instance->id, 'type' => $instance->type, 'meta' => $instance->meta, 'phone_number_id' => $instance->phone_number_id]);
+        } else {
+             \Log::warning('No active instance found for company: ' . auth()->user()->empresa);
+        }
                             
         $factura = Factura::findOrFail($id);
     
@@ -5760,6 +5769,7 @@ class FacturasController extends Controller{
 
        // 🚀 === FLUJO META DIRECT (API OFICIAL) ===
        if ($instance->type == 1 && $instance->meta == 0)  {
+            \Log::info('Entering Meta Direct Flow');
             $metaService = new \App\Services\MetaWhatsAppService();
 
             // Construir template body
@@ -5872,11 +5882,16 @@ class FacturasController extends Controller{
                 ];
                 
 
+                $languageCode = $plantilla->language ?? 'es';
+                if (is_array($languageCode)) {
+                    $languageCode = $languageCode['code'] ?? ($languageCode[0] ?? 'es');
+                }
+                
                 $response = (object) $metaService->sendTemplate(
                     $instance->phone_number_id,
                     '57' . $contacto->celular, // Ojo: Meta requiere código país
                     $plantilla->title,
-                    $plantilla->language ?? 'es',
+                    (string) $languageCode,
                     $components
                 );
                 
@@ -5891,9 +5906,12 @@ class FacturasController extends Controller{
             
             // Procesar respuesta (similar a Wapi)
             $responseData = json_decode(json_encode($response), true);
-             // Meta devuelve 'messages' array on success
+            
+            // Determinar status: soportar formato wrapper de MetaWhatsAppService o respuesta raw
             $status = 'error';
-            if (isset($responseData['messages'])) {
+            if (isset($responseData['success']) && $responseData['success']) {
+                $status = 'success';
+            } elseif (isset($responseData['messages'])) {
                 $status = 'success';
             }
 
@@ -5903,7 +5921,7 @@ class FacturasController extends Controller{
                 'factura_id' => $factura->id,
                 'contacto_id' => $contacto->id,
                 'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'), // Simplificado
+                'mensaje_enviado' => "Meta Template: " . ($plantilla->title ?? 'Text'),
                 'plantilla_id' => $plantilla ? $plantilla->id : null,
                 'enviado_por' => Auth::user()->id
             ]);
@@ -5911,6 +5929,84 @@ class FacturasController extends Controller{
             if ($status === 'success') {
                  $factura->whatsapp = 1;
                  $factura->save();
+
+                 // Sync con Chat System
+                 try {
+                     \Log::info('Start Check Sync con Chat System');
+                     $phone = '57' . $contacto->celular;
+                     $instancia_id = $instance->id;
+                     
+                     \Log::info('Sync Chat Data:', ['phone' => $phone, 'instance_id' => $instancia_id]);
+                     \Log::info('Meta Response Data:', ['data' => $responseData]);
+
+                     // Extraer WAMID
+                     $wamid = null;
+                     if (isset($responseData['data']['messages'][0]['id'])) {
+                         $wamid = $responseData['data']['messages'][0]['id'];
+                     } elseif (isset($responseData['messages'][0]['id'])) {
+                         $wamid = $responseData['messages'][0]['id'];
+                     }
+                     
+                     // Extraer WA_ID (Número canónico de WhatsApp)
+                     $wa_id = null;
+                     if (isset($responseData['data']['contacts'][0]['wa_id'])) {
+                         $wa_id = $responseData['data']['contacts'][0]['wa_id'];
+                     } elseif (isset($responseData['contacts'][0]['wa_id'])) {
+                         $wa_id = $responseData['contacts'][0]['wa_id'];
+                     }
+                     
+                     \Log::info('Extracted WAMID:', ['wamid' => $wamid, 'wa_id' => $wa_id]);
+
+                     if ($wamid) {
+                         // Usar wa_id si está disponible, si no, usar el teléfono formateado
+                         $finalWaId = $wa_id ?? $phone;
+                         
+                         $conversation = \App\WhatsAppConversation::firstOrCreate(
+                             [
+                                 'instance_id' => $instancia_id,
+                                 'wa_id' => $finalWaId
+                             ],
+                             [
+                                 'phone_number' => $phone,
+                                 'name' => $contacto->nombre . ' ' . $contacto->apellido1,
+                                 'status' => 'open',
+                                 'last_message_at' => now(),
+                                 'unread_count' => 0
+                             ]
+                         );
+                         
+                         \Log::info('Conversation:', ['id' => $conversation->id, 'was_recently_created' => $conversation->wasRecentlyCreated]);
+
+                         $msgContent = "Factura {$factura->codigo} enviada.";
+                         if ($plantilla) {
+                             $msgContent .= " (Plantilla: {$plantilla->title})";
+                         }
+
+                         $msg = \App\WhatsAppMessage::create([
+                             'conversation_id' => $conversation->id,
+                             'wamid'           => $wamid,
+                             'type'            => $plantilla ? 'template' : 'text',
+                             'content'         => $msgContent,
+                             'direction'       => 'outbound',
+                             'status'          => 'sent',
+                             'sent_by'         => Auth::user()->id,
+                             'sent_at'         => now()
+                         ]);
+                         
+                         \Log::info('Message Created:', ['id' => $msg->id]);
+                         
+                         $conversation->update([
+                              'last_message' => $msgContent,
+                              'last_message_at' => now()
+                         ]);
+                     } else {
+                         \Log::warning('No WAMID found in response, skipping chat sync');
+                     }
+                 } catch (\Exception $e) {
+                     \Log::error('Error syncing invoice message to chat: ' . $e->getMessage());
+                     \Log::error($e->getTraceAsString());
+                 }
+
                  return back()->with('success', 'Mensaje enviado correctamente vía Meta.');
             } else {
                  return back()->with('danger', 'Error al enviar mensaje Meta: ' . json_encode($responseData));
