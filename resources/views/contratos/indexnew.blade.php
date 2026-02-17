@@ -448,7 +448,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
             ordering:true,
 			order: [
@@ -1041,7 +1041,7 @@
             processing: true,
             searching: false,
             language: {
-                'url': '/vendors/DataTables/es.json'
+                'url': '{{asset("vendors/DataTables/es.json")}}'
             },
             ordering: true,
             order: [

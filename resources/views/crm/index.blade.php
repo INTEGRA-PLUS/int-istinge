@@ -660,7 +660,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "asc"]
@@ -718,7 +718,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "asc"]
@@ -774,7 +774,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "asc"]
@@ -830,7 +830,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "asc"]

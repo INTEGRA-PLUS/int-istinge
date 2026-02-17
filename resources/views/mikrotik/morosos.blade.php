@@ -75,7 +75,7 @@
 			searching: true,
             "pageLength": 50,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "desc"]

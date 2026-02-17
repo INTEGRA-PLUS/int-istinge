@@ -704,7 +704,7 @@
 			select: true,
 			@endif
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[2, "DESC"],[0, "DESC"]

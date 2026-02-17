@@ -211,8 +211,17 @@ class ContactosController extends Controller
                 return ($contacto->contract('true') == 'N/A') ? 'N/A' : '<a href="http://'.$contacto->contract('true').''.$puerto.'" target="_blank">'.$contacto->contract('true').''.$puerto.' <i class="fas fa-external-link-alt"></i></a>';
             })
 
+            ->addColumn('state_olt_catv', function (Contacto $contacto) {
+                $contrato = $contacto->contrato();
+                if ($contrato && $contrato->olt_sn_mac) {
+                    $estado = $contrato->state_olt_catv == 1 ? 'Habilitado' : 'Deshabilitado';
+                    $color = $contrato->state_olt_catv == 1 ? 'success' : 'danger';
+                    return '<span class="text-' . $color . ' font-weight-bold">' . $estado . '</span>';
+                }
+                return 'N/A';
+            })
             ->addColumn('acciones', $modoLectura ? '' : 'contactos.acciones-contactos')
-            ->rawColumns(['acciones', 'nombre', 'contrato', 'ip'])
+            ->rawColumns(['acciones', 'nombre', 'contrato', 'ip', 'state_olt_catv'])
             ->toJson();
     }
     public function clientes(Request $request)

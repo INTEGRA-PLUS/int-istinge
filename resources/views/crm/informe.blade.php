@@ -219,7 +219,7 @@
 			searching: false,
 			paging:   true,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "asc"]
