@@ -63,6 +63,10 @@ class ChatController extends Controller
             ->where('company_id', $user->empresa)
             ->firstOrFail();
 
+        if (empty($instance->phone_number_id)) {
+            return response()->json(['error' => 'La instancia no tiene configurado un ID de WhatsApp (phone_number_id)'], 400);
+        }
+
         \Log::info('ChatController::conversations request (Centralized)', [
             'instance_id' => $instanceId,
             'phone_number_id' => $instance->phone_number_id
@@ -113,6 +117,10 @@ class ChatController extends Controller
         $instance = Instance::where('id', $instanceId)
             ->where('company_id', $user->empresa)
             ->firstOrFail();
+
+        if (empty($instance->phone_number_id)) {
+            return response()->json(['error' => 'La instancia no tiene configurado un ID de WhatsApp (phone_number_id)'], 400);
+        }
 
         $newMessages = [];
         $updatedConversations = [];
@@ -165,6 +173,10 @@ class ChatController extends Controller
         $instance = Instance::where('id', $instanceId)
             ->where('company_id', $user->empresa)
             ->firstOrFail();
+
+        if (empty($instance->phone_number_id)) {
+            return response()->json(['error' => 'La instancia no tiene configurado un ID de WhatsApp (phone_number_id)'], 400);
+        }
 
         $page = $request->input('page', 1);
         $perPage = $request->input('per_page', 50);
@@ -221,6 +233,10 @@ class ChatController extends Controller
         $instance = Instance::where('id', $instanceId)
             ->where('company_id', $user->empresa)
             ->firstOrFail();
+
+        if (empty($instance->phone_number_id)) {
+            return response()->json(['error' => 'La instancia no tiene configurado un ID de WhatsApp (phone_number_id)'], 400);
+        }
 
         // Enviar mensaje vía API Centralizada
         $result = $this->centralizedService->sendMessage(
