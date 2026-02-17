@@ -301,7 +301,11 @@
 						</tr>
 						<tr>
 							<th width="20%">Asignación de Contrato Digital</th>
-							<td><a href="{{ route('asignaciones.imprimir',$id)}}" target="_blank"><strong>Ver Documento</strong></a></td>
+							<td>
+								@if ($contacto->contratoDigital)
+									<a href="{{ route('asignaciones.imprimir', $contacto->contratoDigital->id)}}" target="_blank"><strong>Ver Documento</strong></a>
+								@endif
+							</td>
 						</tr>
 						<div class="modal" tabindex="-1" role="dialog" id="modal-fecha-isp">
 							<div class="modal-dialog modal-sm" role="document">
@@ -427,10 +431,16 @@
 									<th>Acciones</th>
 									<td>
 									@if(isset($_SESSION['permisos']['402']))
-									<a href="{{route('asignaciones.create', ['contrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @if ($contacto->contratoDigital)
+                                            <a href="{{ route('asignaciones.edit', [$contacto->contratoDigital->id, 'contrato' => $contrato->id]) }}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @else
+                                            <a href="{{route('asignaciones.create', ['contrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-plus"></i>Firmar asignación</a>
+                                        @endif
 									@endif
 									@if(isset($_SESSION['permisos']['817']))
-									<a href="{{route('asignaciones.imprimir', [$contacto->id, 'idContrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-print"></i>Imprimir</a>
+                                        @if ($contacto->contratoDigital)
+                                            <a href="{{ route('asignaciones.imprimir', $contacto->contratoDigital->id)}}" class="btn btn-outline-info btn-sm" target="_blank"><i class="fas fa-print"></i>Imprimir</a>
+                                        @endif
 									@endif
 									@if(isset($_SESSION['permisos']['818']))
 									<a href="{{route('asignaciones.enviar', [$contacto->id, 'idContrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-info btn-sm"><i class="fas fa-envelope"></i>Enviar</a>
@@ -652,184 +662,188 @@
 				@endif
 				<div class="tab-pane fade {{ $contacto->usado()==0?'show active':'' }}" id="arcadj" role="tabpanel" aria-labelledby="arcadj-tab">
 					<div class="row mt-3">
-	                    @if($contacto->contract('true') != 'N/A')
-							@if(!$contrato->adjunto_a || !$contrato->adjunto_b || !$contrato->adjunto_c || !$contrato->adjunto_d)
-							<div class="col-md-2 mb-2 text-center">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid #28A745;border-radius: 0.25rem;padding: 1.88rem 0.88rem;">
-								    	<h3 class="card-title text-success font-weight-bold">Agregar Adjunto</h3>
-								    	<a href="{{ route('asignaciones.edit',$contacto->id )}}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
-								    </div>
-								</div>
-							</div>
-							@endif
-						@endif
+                        {{-- Loop through contracts --}}
+                        @foreach($contratos as $contrato)
+                        <div class="col-12 mb-4">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-file-contract mr-2"></i> Contrato N° {{ $contrato->nro }}
+                                        @if($contrato->ip) - IP: {{ $contrato->ip }} @endif
+                                        @if($contrato->plan()) - Plan: {{ $contrato->plan()->name }} @endif
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {{-- Contrato Digital Files --}}
+                                        @if($contrato->contratoDigital)
+                                            <div class="col-md-2 mb-2 text-center">
+                                                <div class="card card-adj h-100">
+                                                    <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #28A745; border-radius: 0.25rem;">
+                                                        <h6 class="card-title text-success font-weight-bold">Contrato Digital</h6>
+                                                        <div class="mt-2">
+                                                            <a href="{{ route('asignaciones.edit', $contrato->contratoDigital->id )}}" class="btn btn-outline-primary btn-sm btn-icons" title="Editar"><i class="fas fa-edit"></i></a>
+                                                            <a href="{{ route('asignaciones.imprimir', $contrato->contratoDigital->id)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons" title="Ver Documento"><i class="fas fa-eye"></i></a>
+                                                        </div>
+                                                        <small class="mt-2 text-muted">{{ $contrato->contratoDigital->asignacion(false) }}</small>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-						@if($contacto->firma_isp)
-							<div class="col-md-2 mb-2 text-center">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;padding: 1.88rem 0.88rem;">
-								    	<h3 class="card-title">Contrato Digital</h3>
-								    	<a href="{{ route('asignaciones.imprimir',$id)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    </div>
-								</div>
-							</div>
-						@endif
-						@if($contacto->contract('true') != 'N/A')
-							@if($contrato->adjunto_a)
-							<div class="col-md-2 mb-2 text-center" id="div_adjunto_a">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-								    	<h3 class="card-title">{{ $contrato->referencia_a }}</h3>
-								    	<a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_a)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    	<a href="javascript:eliminar('contratos','adjunto_a','{{$contrato->referencia_a}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-								    </div>
-								</div>
-							</div>
-							@endif
-							@if($contrato->adjunto_b)
-							<div class="col-md-2 mb-2 text-center" id="div_adjunto_b">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-								    	<h3 class="card-title">{{ $contrato->referencia_b }}</h3>
-								    	<a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_b)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    	<a href="javascript:eliminar('contratos','adjunto_b','{{$contrato->referencia_b}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-								    </div>
-								</div>
-							</div>
-							@endif
-							@if($contrato->adjunto_c)
-							<div class="col-md-2 mb-2 text-center" id="div_adjunto_c">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-								    	<h3 class="card-title">{{ $contrato->referencia_c }}</h3>
-								    	<a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_c)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    	<a href="javascript:eliminar('contratos','adjunto_c','{{$contrato->referencia_c}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-								    </div>
-								</div>
-							</div>
-							@endif
-							@if($contrato->adjunto_d)
-							<div class="col-md-2 mb-2 text-center" id="div_adjunto_d">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-								    	<h3 class="card-title">{{ $contrato->referencia_d }}</h3>
-								    	<a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_d)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    	<a href="javascript:eliminar('contratos','adjunto_d','{{$contrato->referencia_d}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-								    </div>
-								</div>
-							</div>
-							@endif
-						@endif
-						@if($contacto->documento)
-						<div class="col-md-2 mb-2 text-center">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">Documento Asignación</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->documento)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgA)
-						<div class="col-md-2 mb-2 text-center" id="div_imgA">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_a }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgA)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgA','{{auth()->user()->empresa()->campo_a}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgB)
-						<div class="col-md-2 mb-2 text-center" id="div_imgB">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_b }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgB)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgB','{{auth()->user()->empresa()->campo_b}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgC)
-						<div class="col-md-2 mb-2 text-center" id="div_imgC">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_c }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgC)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgC','{{auth()->user()->empresa()->campo_c}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgD)
-						<div class="col-md-2 mb-2 text-center" id="div_imgD">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_d }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgD)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgD','{{auth()->user()->empresa()->campo_d}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgE)
-						<div class="col-md-2 mb-2 text-center" id="div_imgE">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_e }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgE)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgE','{{auth()->user()->empresa()->campo_e}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgF)
-						<div class="col-md-2 mb-2 text-center" id="div_imgF">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_f }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgF)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgF','{{auth()->user()->empresa()->campo_f}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgG)
-						<div class="col-md-2 mb-2 text-center" id="div_imgG">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_g }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgG)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgG','{{auth()->user()->empresa()->campo_g}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-						@if($contacto->imgH)
-						<div class="col-md-2 mb-2 text-center" id="div_imgH">
-							<div class="card card-adj">
-							    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-							    	<h3 class="card-title">{{ auth()->user()->empresa()->campo_h }}</h3>
-							    	<a href="{{asset('/adjuntos/documentos/'.$contacto->imgH)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-							    	<a href="javascript:eliminar('contactos','imgH','{{auth()->user()->empresa()->campo_h}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
-							    </div>
-							</div>
-						</div>
-						@endif
-                        @if($contacto->adjunto_audio)
-							<div class="col-md-2 mb-2 text-center" id="div_adjunto">
-								<div class="card card-adj">
-								    <div class="card-body" style="border: 1px solid {{Auth::user()->rol > 1 ? Auth::user()->empresa()->color:''}};border-radius: 0.25rem;">
-								    	<h3 class="card-title">Audio</h3>
-								    	<a href="{{asset('/adjuntos/documentos/'.$contacto->adjunto_audio)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
-								    	{{-- <a href="javascript:eliminar('contratos','adjunto_c','{{$contrato->referencia_c}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a> --}}
-								    </div>
-								</div>
-							</div>
-							@endif
+                                            @if($contrato->contratoDigital->adjunto_audio)
+                                            <div class="col-md-2 mb-2 text-center">
+                                                <div class="card card-adj h-100">
+                                                    <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #17a2b8; border-radius: 0.25rem;">
+                                                        <h6 class="card-title text-info font-weight-bold">Audio Adjunto</h6>
+                                                        <div class="mt-2">
+                                                            <a href="{{asset('/adjuntos/documentos/'.$contrato->contratoDigital->adjunto_audio)}}" target="_blank" class="btn btn-outline-info btn-sm btn-icons"><i class="fas fa-volume-up"></i></a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
+                                        @else
+                                            <div class="col-md-2 mb-2 text-center">
+                                                <div class="card card-adj h-100">
+                                                    <div class="card-body d-flex flex-column justify-content-between" style="border: 1px dashed #6c757d; border-radius: 0.25rem;">
+                                                        <h6 class="card-title text-muted">Sin Contrato Digital</h6>
+                                                        <div class="mt-2">
+                                                            <a href="{{route('asignaciones.create', ['contrato' => $contrato->id, 'nro-contrato' => $contrato->nro])}}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-plus"></i> Crear</a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        {{-- Contrato Specific Files (adjunto_a, b, c, d) --}}
+                                        @if($contrato->adjunto_a)
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                    <h6 class="card-title">{{ $contrato->referencia_a }}</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_a)}}" target="_blank" class="btn btn-outline-primary btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                        <a href="javascript:eliminar('contratos','adjunto_a','{{$contrato->referencia_a}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                        @if($contrato->adjunto_b)
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                    <h6 class="card-title">{{ $contrato->referencia_b }}</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_b)}}" target="_blank" class="btn btn-outline-primary btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                        <a href="javascript:eliminar('contratos','adjunto_b','{{$contrato->referencia_b}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                        @if($contrato->adjunto_c)
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                    <h6 class="card-title">{{ $contrato->referencia_c }}</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_c)}}" target="_blank" class="btn btn-outline-primary btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                        <a href="javascript:eliminar('contratos','adjunto_c','{{$contrato->referencia_c}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                        @if($contrato->adjunto_d)
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                    <h6 class="card-title">{{ $contrato->referencia_d }}</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contrato->adjunto_d)}}" target="_blank" class="btn btn-outline-primary btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                        <a href="javascript:eliminar('contratos','adjunto_d','{{$contrato->referencia_d}}','{{$contrato->id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+
+                        {{-- General Client Files Section --}}
+                        <div class="col-12 mb-4">
+                            <div class="card">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-folder mr-2"></i> Archivos del Cliente</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {{-- General Add Attachment Button --}}
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-center align-items-center" style="border: 1px dashed #28A745; border-radius: 0.25rem;">
+                                                    <h6 class="card-title text-success font-weight-bold mb-3">Agregar Adjunto</h6>
+                                                    @if ($contacto->contratoDigital)
+                                                        <a href="{{ route('asignaciones.edit', $contacto->contratoDigital->id )}}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
+                                                    @else
+                                                        <a href="{{ route('asignaciones.create', ['id' => $contacto->id]) }}" class="btn btn-success btn-sm btn-icons"><i class="fas fa-plus"></i></a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        @if($contacto->documento)
+                                        <div class="col-md-2 mb-2 text-center">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                    <h6 class="card-title">Documento Asignación</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contacto->documento)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+
+                                        @foreach(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as $letra)
+                                            @php $img_field = 'img'.$letra; $campo_field = 'campo_'.strtolower($letra); @endphp
+                                            @if($contacto->$img_field)
+                                            <div class="col-md-2 mb-2 text-center" id="div_{{$img_field}}">
+                                                <div class="card card-adj h-100">
+                                                    <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #6c757d; border-radius: 0.25rem;">
+                                                        <h6 class="card-title">{{ auth()->user()->empresa()->$campo_field }}</h6>
+                                                        <div class="mt-2">
+                                                            <a href="{{asset('/adjuntos/documentos/'.$contacto->$img_field)}}" target="_blank" class="btn btn-outline-success btn-sm btn-icons"><i class="fas fa-eye"></i></a>
+                                                            <a href="javascript:eliminar('contactos','{{$img_field}}','{{auth()->user()->empresa()->$campo_field}}','{{$id}}')" class="btn btn-outline-danger btn-sm btn-icons"><i class="fas fa-times"></i></a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
+                                        @endforeach
+
+                                        {{-- Legacy Audio (if stored on contact) --}}
+                                        @if($contacto->adjunto_audio)
+                                        <div class="col-md-2 mb-2 text-center" id="div_adjunto">
+                                            <div class="card card-adj h-100">
+                                                <div class="card-body d-flex flex-column justify-content-between" style="border: 1px solid #17a2b8; border-radius: 0.25rem;">
+                                                    <h6 class="card-title text-info font-weight-bold">Audio Contacto</h6>
+                                                    <div class="mt-2">
+                                                        <a href="{{asset('/adjuntos/documentos/'.$contacto->adjunto_audio)}}" target="_blank" class="btn btn-outline-info btn-sm btn-icons"><i class="fas fa-volume-up"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
 					</div>
 				</div>
 			</div>

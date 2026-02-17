@@ -9,6 +9,7 @@
 	    </div>
 	@else
     <a href="{{route('grupos-corte.index')}}" class="btn btn-outline-danger btn-sm"><i class="fas fa-backward"></i> Regresar</a>
+    <a href="{{ route('grupos-corte.analisis-ciclo', $grupo->id) }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-chart-bar"></i> Análisis de Ciclos</a>
     <a href="javascript:getDataTable();" class="btn btn-outline-success btn-sm"><i class="fas fa-sync"></i> Actualizar Listado</a>
     @endif
 @endsection
@@ -83,7 +84,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "desc"]

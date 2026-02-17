@@ -76,8 +76,29 @@ function number_format(number, seccion = true) {
     decimals = $('#precision').val();
     dec_point = $('#sep_dec').val();
     thousands_sep = $('#sep_miles').val();
+
+    if (!dec_point) {
+        dec_point = ',';
+    }
+    if (!thousands_sep) {
+        thousands_sep = '.';
+    }
     number = number * 1; //makes sure `number` is numeric value
+
+    // Si el numero es entero, no mostramos decimales
+    // Logic removed to respect precision setting
+    // if (number % 1 == 0) {
+    //     decimals = 0;
+    // } else if (decimals == 0) {
+    //     decimals = 2;
+    // }
+
     number = parseFloat(number).toFixed(decimals);
+    // Eliminar ceros no significativos a la derecha (solo despues del punto decimal)
+    if (number.indexOf('.') !== -1) {
+        number = number.replace(/0+$/, '').replace(/\.$/, '');
+    }
+
     if (seccion) {
         number = number.replace(".", dec_point);
         var splitNum = number.split(dec_point);
@@ -91,11 +112,11 @@ function number_format(number, seccion = true) {
 function modal_show(url, modal) {
     $.ajax({
         url: url,
-        success: function(data) {
+        success: function (data) {
             $('#modal-' + modal + '-div').html(data);
             $('#modal-' + modal).modal('show');
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -111,9 +132,9 @@ function form_inventario() {
 
     $("#form-inventario").validate({
         language: 'es',
-        submitHandler: function(form) {
+        submitHandler: function (form) {
             $('#precio').removeAttr("disabled");
-            $('#table_lista_precios tbody tr').each(function() {
+            $('#table_lista_precios tbody tr').each(function () {
                 var idlist = $(this).attr('id').split("_")[2];
                 $('#preciolistavalor' + idlist).removeAttr("disabled");
 
@@ -157,7 +178,7 @@ function comprobar_lista_precios(nro, comprobar = false) {
     var newlistas = [];
     comprobado = 0;
 
-    $('#table_lista_precios tbody tr').each(function() {
+    $('#table_lista_precios tbody tr').each(function () {
         var idlist = $(this).attr('id').split("_")[2];
         list = $('#preciolista' + idlist).val();
         if (list) {
@@ -168,7 +189,7 @@ function comprobar_lista_precios(nro, comprobar = false) {
 
     if (!comprobar || comprobado) {
         $('#preciolista' + nro + ' option').remove();
-        $.each(listas, function(key, value) {
+        $.each(listas, function (key, value) {
             if (newlistas.indexOf(parseInt(value.id)) < 0) {
                 nombre = value.nombre;
                 if (value.tipo == 1) { nombre += ' (' + value.porcentaje + '%)'; }
@@ -190,7 +211,7 @@ function change_precio_lista(nro, new_input = true) {
     option = $('#preciolista' + nro).val();
     comprobar_lista_precios(nro, option);
     if (option) {
-        $.each(listas, function(key, value) {
+        $.each(listas, function (key, value) {
             if (parseInt(value.id) == parseInt(option)) {
                 lista = value;
             }
@@ -213,7 +234,7 @@ function change_precio_lista(nro, new_input = true) {
 }
 
 function change_precio_listas() {
-    $('#table_lista_precios tbody tr').each(function() {
+    $('#table_lista_precios tbody tr').each(function () {
         var idlist = $(this).attr('id').split("_")[2];
         change_precio_lista(idlist, false);
     });
@@ -263,7 +284,7 @@ function agregarbodega_inventario() {
 }
 
 function eliminarbodega_inventario() {
-    $('#table_bodega tbody tr').each(function() {
+    $('#table_bodega tbody tr').each(function () {
         var idlist = $(this).attr('id');
         Eliminar(idlist);
     });
@@ -275,7 +296,7 @@ function comprobar_bodegas(nro, comprobar = false) {
     var newbodegas = [];
     comprobado = 0;
 
-    $('#table_bodega tbody tr').each(function() {
+    $('#table_bodega tbody tr').each(function () {
         var idlist = $(this).attr('id').split("_")[2];
         list = $('#bodega' + idlist).val();
         if (list) {
@@ -285,7 +306,7 @@ function comprobar_bodegas(nro, comprobar = false) {
     });
     if (!comprobar || comprobado) {
         $('#bodega' + nro + ' option').remove();
-        $.each(bodegas, function(key, value) {
+        $.each(bodegas, function (key, value) {
             if (newbodegas.indexOf(parseInt(value.id)) < 0) {
                 $('#bodega' + nro).append($('<option>', {
                     value: value.id,
@@ -315,10 +336,10 @@ function diferentes_bodegas(entrada) {
         final = $('#url').val() + '/empresa/inventario/bodegas/' + selected + '/json';
         $.ajax({
             url: final,
-            beforeSend: function() {
+            beforeSend: function () {
                 cargando(true);
             },
-            success: function(data) {
+            success: function (data) {
                 /*
                  * Se ejecuta cuando termina la petición y esta ha sido
                  * correcta
@@ -326,7 +347,7 @@ function diferentes_bodegas(entrada) {
                 $('#json_inventario').val(data);
                 data = JSON.parse(data);
                 //table_form_transferencia
-                $('#table_form_transferencia  tbody tr').each(function() {
+                $('#table_form_transferencia  tbody tr').each(function () {
                     id = $(this).attr('id');
                     $('#item' + id + ' option').remove();
                     $('#ref' + id).html('');
@@ -337,7 +358,7 @@ function diferentes_bodegas(entrada) {
 
                     var $select = $('#item' + id);
                     $select.find('option').remove();
-                    $.each(data, function(key, value) {
+                    $.each(data, function (key, value) {
                         //$select.append('<option value=' + value.id_producto + '>' + value.producto + '</option>');
                         $select.append('<option value=' + value.id_producto + '>' + value.producto + ' - (' + value.ref + ')' + '</option>');
                     });
@@ -345,7 +366,7 @@ function diferentes_bodegas(entrada) {
                 });
                 cargando(false);
             },
-            error: function(data) {
+            error: function (data) {
                 /*
                  * Se ejecuta si la peticón ha sido erronea
                  * */
@@ -388,7 +409,7 @@ function createRowTransferencia() {
     console.log(data);
     data = JSON.parse(data);
     var $select = $('#item' + nro);
-    $.each(data, function(key, value) {
+    $.each(data, function (key, value) {
         //$select.append('<option value=' + value.id_producto + '>' + value.producto + '</option>');
         $select.append('<option value=' + value.id_producto + '>' + value.producto + ' - (' + value.ref + ')' + '</option>');
     });
@@ -399,7 +420,7 @@ function createRowTransferencia() {
 function comprobar_items_transferencia() {
     array = [];
     entro = true;
-    $('#table_form_transferencia  tbody tr').each(function() {
+    $('#table_form_transferencia  tbody tr').each(function () {
         id = $(this).attr('id');
         selected = $('#item' + id).val();
         if (selected) {
@@ -424,7 +445,7 @@ function ritemtrans(nro, selected) {
     if (!comprobar_items_transferencia()) { return false; }
     data = $('#json_inventario').val();
     data = JSON.parse(data);
-    $.each(data, function(key, value) {
+    $.each(data, function (key, value) {
         if (value.id_producto == selected) {
             $('#ref' + nro).html(value.ref);
             $('#cantI' + nro).html(value.inicial);
@@ -447,10 +468,10 @@ function traer_inventario() {
     final = $('#url').val() + '/empresa/inventario/bodegas/' + selected + '/json';
     $.ajax({
         url: final,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -465,14 +486,14 @@ function traer_inventario() {
             var $select = $('#item');
             $select.find('option').remove();
             $select.find('option').remove();
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 $select.append('<option value=' + value.id_producto + '>' + value.producto + ' - (' + value.ref + ')' + '</option>');
             });
             $select.selectpicker('refresh');
 
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -485,7 +506,7 @@ function traer_item() {
     selected = $('#item').val();
     data = $('#json_inventario').val();
     data = JSON.parse(data);
-    $.each(data, function(key, value) {
+    $.each(data, function (key, value) {
         if (value.id_producto == selected) {
             $('#costo').val(value.precio);
             $('#cantA').val(value.nro);
@@ -526,7 +547,7 @@ function autocomplete(id) {
     var search = JSON.parse($('#search' + id).val());
     $('#' + id + '-autocomplete').autoComplete({
         minChars: 1,
-        source: function(term, suggest) {
+        source: function (term, suggest) {
             term = term.toLowerCase();
             var choices = search;
             var matches = [];
@@ -564,7 +585,7 @@ function factura_pendiente(ingreso = false) {
 
     $.ajax({
         url: final,
-        success: function(data) {
+        success: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -581,7 +602,7 @@ function factura_pendiente(ingreso = false) {
                 })
             }
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -685,7 +706,7 @@ function notif(id) {
 
 }*/
 
-function rowItemsContrato(contrato){
+function rowItemsContrato(contrato) {
 
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/empresa/contratos/rowitem';
@@ -703,17 +724,17 @@ function rowItemsContrato(contrato){
             cliente_id: cliente
 
         },
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true)
         },
 
-        success: function(data) {
+        success: function (data) {
 
 
-            if(data.code == 200){
+            if (data.code == 200) {
 
                 //procedemos a llenar el row de la factura.
-                let it=1
+                let it = 1
                 let contratosText = "";
                 let arrayContratos = []
                 eliminarTodaFila()
@@ -722,12 +743,12 @@ function rowItemsContrato(contrato){
 
                     $('#item' + it).val(item.id).selectpicker('refresh')
                     rellenar(it, item.id)
-                    it=it+1
+                    it = it + 1
 
                     if (!arrayContratos.includes(item.contrato_nro)) {
                         // Si no está presente, agregarlo al arrayContratos
                         arrayContratos.push(item.contrato_nro);
-                        contratosText+= item.contrato_nro + " ";
+                        contratosText += item.contrato_nro + " ";
                     }
 
                 })
@@ -736,7 +757,7 @@ function rowItemsContrato(contrato){
                 $("#contratos_nombres").text("Los contratos asociados a esta factura son:" + contratosText)
                 cargando(false)
 
-            }else{
+            } else {
 
                 alert("Estamos presentando  problemas al mostrar los ítems.")
                 cargando(false)
@@ -745,14 +766,14 @@ function rowItemsContrato(contrato){
             }
         },
 
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
             cargando(false);
         }
     });
 }
 
-function contratos_facturas(contacto){
+function contratos_facturas(contacto) {
 
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/empresa/contratos/' + contacto + '/json';
@@ -764,15 +785,15 @@ function contratos_facturas(contacto){
 
     $.ajax({
         url: url,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true)
         },
-        success: function(data) {
+        success: function (data) {
 
             $("#contratos_json").empty();
             $("#contratos_json").selectpicker('refresh')
 
-            if(data.data.length == 0){
+            if (data.data.length == 0) {
                 $("#divcontratos").addClass('d-none')
                 cargando(false)
                 return;
@@ -793,7 +814,7 @@ function contratos_facturas(contacto){
             // Verificar si el cliente tiene factura_est_elec = 1 para quitar required
             $.ajax({
                 url: urlContacto,
-                success: function(contactoData) {
+                success: function (contactoData) {
                     contactoData = JSON.parse(contactoData);
                     if (contactoData[0]) {
                         contactoData = contactoData[0];
@@ -814,13 +835,13 @@ function contratos_facturas(contacto){
                     }
                     cargando(false)
                 },
-                error: function() {
+                error: function () {
                     cargando(false)
                 }
             });
 
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
             cargando(false);
         }
@@ -854,10 +875,10 @@ function contacto(selected, modificar = false, type = 1) {
 
     $.ajax({
         url: url,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             data = JSON.parse(data);
             if (type == 1) {
                 if (data[0]) {
@@ -871,17 +892,17 @@ function contacto(selected, modificar = false, type = 1) {
                 }
             }
 
-                //seteamos un posoble saldo a favor que tenga el cliente
+            //seteamos un posoble saldo a favor que tenga el cliente
             if (window.location.pathname.split("/")[3] == "facturasp" || window.location.pathname.split("/")[2] == "facturasp") {
-                    $("#saldofavorcliente").val(data.saldo_favor2);
-                } else {
-                    $("#saldofavorcliente").val(data.saldo_favor);
-                }
+                $("#saldofavorcliente").val(data.saldo_favor2);
+            } else {
+                $("#saldofavorcliente").val(data.saldo_favor);
+            }
 
 
-                //Validación de cuando es una factura estandar normal pero no tiene ningun contrato sale alerta.
-                if(window.location.pathname.split("/")[3] != "ordenes"){
-                     if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0 && data.factura_est_elec != 1) {
+            //Validación de cuando es una factura estandar normal pero no tiene ningun contrato sale alerta.
+            if (window.location.pathname.split("/")[3] != "ordenes") {
+                if (data.plan == null && type == 1 && data.servicio_tv == null && modulo == 0 && data.servicio_otro == 0 && data.factura_est_elec != 1) {
                     if ($("#dian").val() == null) {
                         Swal.fire({
                             position: 'top-center',
@@ -958,7 +979,7 @@ function contacto(selected, modificar = false, type = 1) {
             }
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
             cargando(false);
         }
@@ -969,14 +990,14 @@ function contacto(selected, modificar = false, type = 1) {
 function contactos(url, input) {
     $.ajax({
         url: url,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             data = JSON.parse(data);
             var $select = $('#' + input);
             $select.find('option').remove();
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 $select.append('<option value=' + value.id + '>' + value.nombre + ' - ' + value.nit + '</option>');
             });
 
@@ -984,7 +1005,7 @@ function contactos(url, input) {
             $select.selectpicker('refresh');
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -998,15 +1019,15 @@ function inventario(input) {
     $.ajax({
         url: $('#jsonproduc').val(),
         data: data,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             $('#allproductos').val(data);
             data = JSON.parse(data);
             var $select = $('#item' + input);
             $select.find('option').remove();
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 $select.append('<option value=' + value.id + '>' + value.producto + ' - ' + '(' + value.ref + ')' + '</option>');
             });
             $select.selectpicker('refresh');
@@ -1020,7 +1041,7 @@ function inventario(input) {
             $("#impuesto" + input).selectpicker('refresh');
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -1069,7 +1090,7 @@ function createRow() {
     }
     datos += `
     <td class="monetario">
-      <input type="number" class="form-control form-control-sm" id="precio${nro}" maxlength="24" min="0" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="">
+      <input type="number" class="form-control form-control-sm" id="precio${nro}" maxlength="24" min="0" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="" step="any">
     </td>
             <td>
       <input type="text" class="form-control form-control-sm" id="desc${nro}" name="desc[]" maxlength="5" placeholder="%"  onkeyup="total(${nro})">
@@ -1092,7 +1113,7 @@ function createRow() {
         `</tr>`;
     $('#table-form tbody').append(datos);
     var impuestos = JSON.parse($('#impuestos').val());
-    $.each(impuestos, function(key, value) {
+    $.each(impuestos, function (key, value) {
         $('#impuesto' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + "-" + value.porcentaje + "%"
@@ -1105,7 +1126,7 @@ function createRow() {
         optios += "<optgroup  label='Ítems inventariables'>";
     }
 
-    $.each(obj, function(key, value) {
+    $.each(obj, function (key, value) {
         optios += "<option  value='" + value.id + "'>" + value.producto + ' - ' + '(' + value.ref + ')' + " </option>";
     });
 
@@ -1165,7 +1186,7 @@ function createRowInceru() {
     }
     datos += `
     <td class="monetario">
-      <input type="number" class="form-control form-control-sm" id="precio${nro}" maxlength="24" min="0" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="">
+      <input type="number" class="form-control form-control-sm" id="precio${nro}" maxlength="24" min="0" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="" step="any">
     </td>
             <td>
       <input type="text" class="form-control form-control-sm" id="desc${nro}" name="desc[]" maxlength="5" placeholder="%"  onkeyup="total(${nro})">
@@ -1188,7 +1209,7 @@ function createRowInceru() {
         `</tr>`;
     $('#table-form tbody').append(datos);
     var impuestos = JSON.parse($('#impuestos').val());
-    $.each(impuestos, function(key, value) {
+    $.each(impuestos, function (key, value) {
         $('#impuesto' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + "-" + value.porcentaje + "%"
@@ -1201,7 +1222,7 @@ function createRowInceru() {
         optios += "<optgroup  label='Ítems inventariables'>";
     }
 
-    $.each(obj, function(key, value) {
+    $.each(obj, function (key, value) {
         optios += "<option  value='" + value.id + "'>" + value.producto + ' - ' + '(' + value.ref + ')' + " </option>";
     });
 
@@ -1376,7 +1397,7 @@ function createRowNoInventario() {
       <input type="text" class="form-control form-control-sm" id="ref${nro}" name="ref[]" placeholder="Referencia">
     </td>
     <td class="monetario">
-      <input type="number" class="form-control form-control-sm" id="precio${nro}" min="0" maxlength="24" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="">
+      <input type="number" class="form-control form-control-sm" id="precio${nro}" min="0" maxlength="24" name="precio[]" placeholder="Precio Unitario" onkeyup="total(${nro})" required="" step="any">
     </td>
             <td>
       <input type="text" class="form-control form-control-sm" id="desc${nro}" name="desc[]" maxlength="5" placeholder="%"  onkeyup="total(${nro})">
@@ -1399,7 +1420,7 @@ function createRowNoInventario() {
         `</tr>`;
     $('#table-form tbody').append(datos);
     var impuestos = JSON.parse($('#impuestos').val());
-    $.each(impuestos, function(key, value) {
+    $.each(impuestos, function (key, value) {
         $('#impuesto' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + "-" + value.porcentaje + "%"
@@ -1422,7 +1443,7 @@ function camposextras(id) {
         }
     }
     array = [];
-    extra = $('#extra' + id + ' > div').each(function() {
+    extra = $('#extra' + id + ' > div').each(function () {
         div = $(this).attr('id');
         if ($('#' + div + ' select').val()) {
             array.push($('#' + div + ' select').val());
@@ -1434,7 +1455,7 @@ function camposextras(id) {
     <div class="col-sm-5 no-padding"><input type="text" class="form-control form-control-sm" style="margin-top: 3%;" name="datoextra${id}[]" id="datoextra${id}_${nro}" required="" placeholder="Dato"></div>
     <div class="col-sm-2 no-padding"><button type="button" onclick="Eliminar('divextra${id}_${nro}');" class="btn btn-link btn-icons">X</button></div>
     </div>`);
-    $.each(impuestos, function(key, value) {
+    $.each(impuestos, function (key, value) {
         idi = value.id;
         if (array.indexOf(idi.toString()) < 0) {
             $('#campoextra' + id + '_' + nro).append($('<option>', {
@@ -1459,7 +1480,7 @@ function rellenar(id, selected, producto = false) {
     $.ajax({
         data: data,
         url: url,
-        success: function(data) {
+        success: function (data) {
 
             $('#pcant' + id).html('');
             $('#cant' + id).removeAttr("max");
@@ -1492,27 +1513,27 @@ function rellenar(id, selected, producto = false) {
             <strong>¡Atención!</strong> Usted esta intentando facturar un producto que no tiene unidades en inventario.
              ¿Desea continuar? <button type="button" class="close" data-dismiss="alert" aria-label="Close">
              <span aria-hidden="true">&times;</span> </button></div>`);
-                setTimeout(function() {
+                setTimeout(function () {
                     $('#alertInventario').remove();
                 }, 5000);
             }
 
             if (pathname.split("/")[3] === "facturasp" || pathname.split("/")[3] === "notasdebito") {
                 if (data.costo_unidad <= 0) {
-                    $('#precio' + id).val(data.precio);
+                    $('#precio' + id).val(parseFloat(data.precio));
                 } else {
-                    $('#precio' + id).val(data.costo_unidad);
+                    $('#precio' + id).val(parseFloat(data.costo_unidad));
                 }
             } else {
                 if (data.precio <= 0) {
                     $('#precio' + id).val('1');
                 } else {
-                    $('#precio' + id).val(data.precio);
+                    $('#precio' + id).val(parseFloat(data.precio));
                 }
             }
 
             if (data.precio_secun) {
-                $('#precio' + id).val(data.precio_secun);
+                $('#precio' + id).val(parseFloat(data.precio_secun));
             }
             $("#impuesto" + id + " option[value=" + data.id_impuesto + "]").attr('selected', 'selected');
             $('#impuesto' + id).selectpicker('refresh');
@@ -1521,7 +1542,7 @@ function rellenar(id, selected, producto = false) {
             totalall();
 
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -1538,7 +1559,7 @@ function rellenarinceru(id, selected, producto = false) {
     $.ajax({
         data: data,
         url: url,
-        success: function(data) {
+        success: function (data) {
 
             $('#pcant' + id).html('');
             $('#cant' + id).removeAttr("max");
@@ -1560,14 +1581,14 @@ function rellenarinceru(id, selected, producto = false) {
             <strong>¡Atención!</strong> Usted esta intentando facturar un producto que no tiene unidades en inventario.
              ¿Desea continuar? <button type="button" class="close" data-dismiss="alert" aria-label="Close">
              <span aria-hidden="true">&times;</span> </button></div>`);
-                setTimeout(function() {
+                setTimeout(function () {
                     $('#alertInventario').remove();
                 }, 5000);
             }
             //data.precio = 0;
-            $('#precio' + id).val(data.costo_unidad);
+            $('#precio' + id).val(parseFloat(data.costo_unidad));
             if (data.precio_secun) {
-                $('#precio' + id).val(data.precio_secun);
+                $('#precio' + id).val(parseFloat(data.precio_secun));
             }
             $("#impuesto" + id + " option[value=" + data.id_impuesto + "]").attr('selected', 'selected');
             $('#impuesto' + id).selectpicker('refresh');
@@ -1576,7 +1597,7 @@ function rellenarinceru(id, selected, producto = false) {
             totalall();
 
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -1588,17 +1609,17 @@ function cambiar_precios() {
     $.ajax({
         url: $('#jsonproduc').val(),
         data: data,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             $('#allproductos').val(data);
             data = JSON.parse(data);
-            $('#table-form  tbody tr').each(function() {
+            $('#table-form  tbody tr').each(function () {
                 id = $(this).attr('id');
                 item = $('#item' + id).val();
                 precio = $('#precio' + id).val();
-                $.each(data, function(key, value) {
+                $.each(data, function (key, value) {
                     if (value.id == item) {
                         precio = value.precio;
                         if (value.precio_secun) {
@@ -1612,7 +1633,7 @@ function cambiar_precios() {
             totalall();
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -1627,14 +1648,14 @@ function cambiar_bodega() {
     $.ajax({
         url: $('#jsonproduc').val(),
         data: data,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             $('#allproductos').val(data);
             data = JSON.parse(data);
             count = $('#table-form  tbody tr').length;
-            $('#table-form  tbody tr').each(function() {
+            $('#table-form  tbody tr').each(function () {
                 id = $(this).attr('id');
                 Eliminar(id);
             });
@@ -1644,7 +1665,7 @@ function cambiar_bodega() {
             totalall();
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -1670,7 +1691,7 @@ function total(id) {
     totalall();
 }
 
-function modalDescuento(){
+function modalDescuento() {
     $('#modalDescuento').modal('show');
 }
 
@@ -1678,7 +1699,7 @@ function modalDescuento(){
 function totalall() {
     var array = $('#impuestos').val();
     array = JSON.parse(array);
-    $.each(array, function(key, value) {
+    $.each(array, function (key, value) {
         array[key].total = 0;
         array[key].tipo = value.tipo;
     });
@@ -1691,7 +1712,7 @@ function totalall() {
     var total = 0;
     var descuento = 0;
     var tot = 0;
-    $('#table-form  tbody tr').each(function() {
+    $('#table-form  tbody tr').each(function () {
         id = $(this).attr('id');
         var impuesto = $('#impuesto' + id).val();
         var precio = $('#precio' + id).val();
@@ -1709,7 +1730,7 @@ function totalall() {
         descuento += parseFloat(desc);
         fila = parseFloat(fila) - parseFloat(desc);
         if (impuesto > 0) {
-            $.each(array, function(key, value) {
+            $.each(array, function (key, value) {
                 if (value.id == impuesto) {
                     impuesto = (fila * value.porcentaje) / 100;
                     array[key].total += impuesto;
@@ -1717,7 +1738,7 @@ function totalall() {
                 }
             });
         } else {
-            $.each(array, function(key, value) {
+            $.each(array, function (key, value) {
                 if ($('#imp' + key).length > 0) {
                     $("#" + 'imp' + key).remove();
                 }
@@ -1727,7 +1748,7 @@ function totalall() {
 
     if ($('#subtotal_categoria_js').length > 0 && $('#retenciones').length > 0) {
         var retenciones = JSON.parse($('#retenciones').val());
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             retenciones[key].total = 0;
         });
     }
@@ -1739,16 +1760,16 @@ function totalall() {
             $('#subtotal_categoria_js').val(number_format(tot, false));
             $('#subtotal2').html(number_format(tot));
             var retenciones = JSON.parse($('#retenciones').val());
-            $.each(retenciones, function(key, value) {
+            $.each(retenciones, function (key, value) {
                 retenciones[key].total = 0;
             });
 
-            $('#table-retencion  tbody tr').each(function() {
+            $('#table-retencion  tbody tr').each(function () {
                 var id_reten = $(this).attr('id');
                 id_reten = id_reten.substr(5, 3);
                 retencion = $('#retencion' + id_reten).val();
                 if (retencion) {
-                    $.each(retenciones, function(key, value) {
+                    $.each(retenciones, function (key, value) {
                         if (value.id == retencion) {
                             retencion_calculate(id_reten, retencion, false);
                             retenciones[key].total += parseFloat($('#precio_reten' + id_reten).val());
@@ -1761,7 +1782,7 @@ function totalall() {
             var reten = 0;
 
             $('#subtotal').html(number_format(total));
-            $.each(retenciones, function(key, value) {
+            $.each(retenciones, function (key, value) {
                 if (value.total > 0) { reten += value.total; }
                 create_retenciones(value.total, key, value.nombre + ' (' + value.porcentaje + '%)');
                 total -= value.total;
@@ -1773,7 +1794,7 @@ function totalall() {
 
         var total = parseFloat(total) - parseFloat(descuento);
         $('#subsub').html(number_format(total));
-        $.each(array, function(key, value) {
+        $.each(array, function (key, value) {
             create_imp(value.total, value.tipo, value.nombre + ' (' + value.porcentaje + '%)');
             total += value.total;
         });
@@ -1789,7 +1810,7 @@ function totalall() {
         $('#subsub').html('0');
         $('#subtotal2').html('0');
         $('#total').html('0');
-        $.each(array, function(key, value) {
+        $.each(array, function (key, value) {
             if ($('#imp' + key).length > 0) {
                 $("#" + 'imp' + key).remove();
             }
@@ -1810,7 +1831,7 @@ function totalall() {
 function total_linea_formapago(nro) {
     let total = 0;
 
-    $('#table-formaspago tbody tr').each(function() {
+    $('#table-formaspago tbody tr').each(function () {
 
         var id = $(this).attr('fila');
         id = $("#precioformapago" + id);
@@ -1896,10 +1917,10 @@ function Eliminar(i) {
 }
 
 function eliminarTodaFila() {
-    let k=1
-    $('#table-form  tbody tr').each(function() {
+    let k = 1
+    $('#table-form  tbody tr').each(function () {
         Eliminar(k);
-        k=k+1
+        k = k + 1
     })
 }
 
@@ -1945,7 +1966,7 @@ function crearDivRetentionFact(id) {
     );
     var retenciones = JSON.parse($('#retenciones').val());
     var newretenciones = [];
-    $('#retenciones_factura_' + id + ' div').each(function() {
+    $('#retenciones_factura_' + id + ' div').each(function () {
         var id_reten = $(this).attr('id');
         if (id_reten) {
             id_reten = id_reten.split('_')[2];
@@ -1956,7 +1977,7 @@ function crearDivRetentionFact(id) {
         }
 
     });
-    $.each(retenciones, function(key, value) {
+    $.each(retenciones, function (key, value) {
         if (newretenciones.indexOf(value.id) < 0) {
             $('#fact' + id + '_retencion' + nro).append($('<option>', {
                 value: value.id,
@@ -1971,7 +1992,7 @@ function crearDivRetentionFact(id) {
 
 function max_value_valor_recibido(id, ides = null, pref = null) {
     total = parseFloat($('#totalfact' + id).val());
-    $('#retenciones_factura_' + id + ' div').each(function() {
+    $('#retenciones_factura_' + id + ' div').each(function () {
         var id_reten = $(this).attr('id');
         if (id_reten) {
             id_reten = id_reten.split('_')[2];
@@ -2010,7 +2031,7 @@ function retencion_calculate(id, reten, recursividad = true, pref = '', seccion 
         var retenciones = JSON.parse($('#retenciones').val());
         var total = 0;
 
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             if (value.id == reten) {
                 if (pref) {
 
@@ -2078,7 +2099,7 @@ function retencion_calculate(id, reten, recursividad = true, pref = '', seccion 
                                 var hddn_imp = $("#hddn_imp_" + impuestoTabla).val();
                                 if (hddn_imp === '1') {
                                     tmp = 0;
-                                    $('td[id*="totalimp"]').each(function(indice) {
+                                    $('td[id*="totalimp"]').each(function (indice) {
 
                                         val = $(this).text();
 
@@ -2135,7 +2156,7 @@ function totales_ingreso(input = true) {
     var reten_may = 0;
     let saldoFavor = 0; //este es el saldo sobrante cuando el cliente paga una factura y paga de mas.
 
-    $('#table-facturas  tbody tr').each(function() {
+    $('#table-facturas  tbody tr').each(function () {
         id = $(this).attr('id');
         var precio = $('#precio' + id).val();
         if (precio) {
@@ -2180,22 +2201,22 @@ function totales_ingreso(input = true) {
     }
 
     var retenciones = JSON.parse($('#retenciones').val());
-    $.each(retenciones, function(key, value) {
+    $.each(retenciones, function (key, value) {
         retenciones[key].total = 0;
     });
     if (total > 0) {
         $('#subtotal_facturas_js').val(total);
         var subtotal = total;
-        $('#table-facturas  tbody tr').each(function() {
+        $('#table-facturas  tbody tr').each(function () {
             reten_may = 0;
             id = $(this).attr('id');
-            $('#retenciones_factura_' + id + ' div').each(function() {
+            $('#retenciones_factura_' + id + ' div').each(function () {
                 var id_reten = $(this).attr('id');
                 if (id_reten) {
                     id_reten = id_reten.split('_')[2];
                     retencion = $('#fact' + id + '_retencion' + id_reten).val();
                     if (retencion) {
-                        $.each(retenciones, function(key, value) {
+                        $.each(retenciones, function (key, value) {
                             if (value.id == retencion) {
                                 retencion_calculate(id_reten, retencion, false);
 
@@ -2211,7 +2232,7 @@ function totales_ingreso(input = true) {
 
 
         reten = 0;
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             create_retenciones(value.total, key, value.nombre + ' (' + value.porcentaje + '%)', 'fact_');
             reten += value.total;
         });
@@ -2224,7 +2245,7 @@ function totales_ingreso(input = true) {
         $('#total').html('0');
 
 
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             create_retenciones(value.total, key, value.nombre + ' (' + value.porcentaje + '%)', 'fact_');
         });
     }
@@ -2270,7 +2291,7 @@ function total_linea(id) {
 }
 
 function pre_retencion_calculate(id) {
-    $('#retenciones_factura_' + id + ' div').each(function() {
+    $('#retenciones_factura_' + id + ' div').each(function () {
         var id_reten = $(this).attr('id');
         if (id_reten) {
             id_reten = id_reten.split('_')[2];
@@ -2293,10 +2314,10 @@ function total_categorias() {
     var total = 0;
     var array = $('#impuestos').val();
     array = JSON.parse(array);
-    $.each(array, function(key, value) {
+    $.each(array, function (key, value) {
         array[key].total = 0;
     });
-    $('#table-form  tbody tr').each(function() {
+    $('#table-form  tbody tr').each(function () {
         id = $(this).attr('id');
         var precio = $('#precio_categoria' + id).val();
         var cant = $('#cant_categoria' + id).val();
@@ -2305,7 +2326,7 @@ function total_categorias() {
             fila = precio * cant;
             total += parseFloat(fila);
             if (impuesto > 0) {
-                $.each(array, function(key, value) {
+                $.each(array, function (key, value) {
                     if (value.id == impuesto) {
                         impuesto = (fila * value.porcentaje) / 100;
                         array[key].total += impuesto;
@@ -2316,7 +2337,7 @@ function total_categorias() {
     });
 
     var retenciones = JSON.parse($('#retenciones').val());
-    $.each(retenciones, function(key, value) {
+    $.each(retenciones, function (key, value) {
         retenciones[key].total = 0;
     });
 
@@ -2324,12 +2345,12 @@ function total_categorias() {
         $('#subtotal_categoria_js').val(total);
         $('#subtotal_categoria').html(number_format(total));
         $subtotal = total;
-        $('#table-retencion  tbody tr').each(function() {
+        $('#table-retencion  tbody tr').each(function () {
             var id_reten = $(this).attr('id');
             id_reten = id_reten.substr(5, 3);
             retencion = $('#retencion' + id_reten).val();
             if (retencion) {
-                $.each(retenciones, function(key, value) {
+                $.each(retenciones, function (key, value) {
                     if (value.id == retencion) {
                         retencion_calculate(id_reten, retencion, false);
                         retenciones[key].total += parseFloat($('#precio_reten' + id_reten).val());
@@ -2339,13 +2360,13 @@ function total_categorias() {
 
         });
         var reten = 0;
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             if (value.total > 0) { reten += value.total; }
             create_retenciones(value.total, key, value.nombre + ' (' + value.porcentaje + '%)');
         });
 
 
-        $.each(array, function(key, value) {
+        $.each(array, function (key, value) {
             create_imp(value.total, value.tipo, value.nombre + ' (' + value.porcentaje + '%)');
             total += value.total;
         });
@@ -2367,12 +2388,12 @@ function total_categorias() {
         $('#subtotal_categoria_js').val('0');
         $('#subtotal_categoria').html('0');
         $('#total_categoria').html('0');
-        $.each(retenciones, function(key, value) {
+        $.each(retenciones, function (key, value) {
             if ($('#retentotal' + key).length > 0) {
                 $('#retentotal' + key).remove();
             }
         });
-        $.each(array, function(key, value) {
+        $.each(array, function (key, value) {
             if ($('#imp' + key).length > 0) {
                 $("#" + 'imp' + key).remove();
             }
@@ -2439,7 +2460,7 @@ function CrearFilaCategorias() {
         `</tr>`
     );
     var impuestos = JSON.parse($('#impuestos').val());
-    $.each(impuestos, function(key, value) {
+    $.each(impuestos, function (key, value) {
         $('#impuesto_categoria' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + "-" + value.porcentaje + "%"
@@ -2486,7 +2507,7 @@ function crearDivRetention(id) {
         `</div>`
     );
     var retenciones = JSON.parse($('#retenciones').val());
-    $.each(retenciones, function(key, value) {
+    $.each(retenciones, function (key, value) {
         $('#fact' + id + '_retencion' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + " - " + value.porcentaje + "%"
@@ -2525,7 +2546,7 @@ function CrearFilaRetencion() {
         `</tr>`
     );
     var retenciones = JSON.parse($('#retenciones').val());
-    $.each(retenciones, function(key, value) {
+    $.each(retenciones, function (key, value) {
         $('#retencion' + nro).append($('<option>', {
             value: value.id,
             text: value.nombre + " - " + value.porcentaje + "%"
@@ -2533,19 +2554,19 @@ function CrearFilaRetencion() {
     });
     $('#retencion' + nro).selectpicker('refresh');
     $('.precio').mask('0000000000.00', { reverse: true });
-   // $("#precio_reten" + nro).attr("disabled", "disabled");
+    // $("#precio_reten" + nro).attr("disabled", "disabled");
 }
 
 function CrearFilaFormaPago(categoria = false) {
 
     let tabla = "";
-    if(categoria){
+    if (categoria) {
         tabla = "table-formaspago-cat";
-    }else{
+    } else {
         tabla = "table-formaspago";
     }
 
-    var nro = $('#'+tabla+' tbody tr').length + 1;
+    var nro = $('#' + tabla + ' tbody tr').length + 1;
     if ($('#forma' + nro).length > 0) {
         for (i = 1; i <= nro; i++) {
             if ($('#forma' + i).length == 0) {
@@ -2572,7 +2593,7 @@ function CrearFilaFormaPago(categoria = false) {
 
     var formasPago = JSON.parse($('#formaspago').val());
 
-    $('#'+tabla+' tbody').append(
+    $('#' + tabla + ' tbody').append(
         `<tr  id="forma${nro}" fila="${nro}">` +
         `
         <td  class="no-padding">
@@ -2611,7 +2632,7 @@ function CrearFilaFormaPago(categoria = false) {
         }));
     }
 
-    $.each(formasPago, function(key, value) {
+    $.each(formasPago, function (key, value) {
         $('#formapago' + nro).append($('<option>', {
             value: value.id,
             text: value.codigo + " - " + value.nombre + ""
@@ -2623,9 +2644,9 @@ function CrearFilaFormaPago(categoria = false) {
 
 }
 
-function inputAnticipo(nro){
+function inputAnticipo(nro) {
 
-    let valorAnticipo = $("selectanticipo"+nro+'>option:selected').attr('precio');
+    let valorAnticipo = $("selectanticipo" + nro + '>option:selected').attr('precio');
     console.log(valorAnticipo);
 
 }
@@ -2675,7 +2696,7 @@ function llenarSelectAnticipo(value, cliente, nro) {
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
         data: { cliente: cliente, recibo: value, facturaRelacionada: facturaRelacionada },
-        success: function(recibos) {
+        success: function (recibos) {
             //Recibos de caja relacionados que tienene un saldo a favor
             $('#selectanticipo' + nro).empty();
             let i = 1;
@@ -2700,7 +2721,7 @@ function llenarSelectAnticipo(value, cliente, nro) {
                     prefijo = "RE";
                 }
 
-                $.each(recibos, function(key, val) {
+                $.each(recibos, function (key, val) {
                     $('#selectanticipo' + nro).append($('<option>', {
                         value: val.id,
                         precio: Math.round(val.valor_anticipo),
@@ -2789,7 +2810,7 @@ function cambiar_fecha() {
 
 function onchangecliente(valor) {
     $('#error-cliente').hide();
-    $('#facturas-cliente  tbody tr').each(function() {
+    $('#facturas-cliente  tbody tr').each(function () {
         //remove($(this).attr('id'));
         $('#facturas-cliente tbody tr').html('');
     });
@@ -2803,7 +2824,7 @@ function onchangecliente(valor) {
 
     $.ajax({
         url: final,
-        complete: function(data) {
+        complete: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -2812,7 +2833,7 @@ function onchangecliente(valor) {
             facturas = JSON.parse(data.responseText);
 
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -2833,11 +2854,11 @@ function itemsfactncredito(id) {
 
     $.ajax({
         url: url,
-        success: function(data) {
+        success: function (data) {
             $('#items_factura_notac').html(data);
 
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -2966,7 +2987,7 @@ function comprobar_factura(nro, comprobar = false) {
     var newfacturas = [];
     comprobado = 0;
 
-    $('#facturas-cliente tbody tr').each(function() {
+    $('#facturas-cliente tbody tr').each(function () {
         var id_fact = $(this).attr('id').split("_")[2];
         factura = $('#cod_factura' + id_fact).val();
         if (factura) {
@@ -2977,7 +2998,7 @@ function comprobar_factura(nro, comprobar = false) {
 
     if (!comprobar || comprobado) {
         $('#cod_factura' + nro + ' option').remove();
-        $.each(facturas, function(key, value) {
+        $.each(facturas, function (key, value) {
             if (newfacturas.indexOf(parseInt(value.nro)) < 0) {
                 $('#cod_factura' + nro).append($('<option>', {
                     value: value.id,
@@ -2997,7 +3018,7 @@ function rellenar_fact(nro, value) {
 
     $.ajax({
         url: url,
-        success: function(data) {
+        success: function (data) {
             data = JSON.parse(data);
             $('#fecha' + nro).html(data.fecha);
             $('#vencimiento' + nro).html(data.vencimiento);
@@ -3009,7 +3030,7 @@ function rellenar_fact(nro, value) {
             $('#monto_fact' + nro).removeAttr("disabled");
             $('#monto_fact' + nro).focus();
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -3023,7 +3044,7 @@ function rellenar_factp(nro, value) {
 
     $.ajax({
         url: url,
-        success: function(data) {
+        success: function (data) {
             data = JSON.parse(data);
             $('#totalfact' + nro).html(number_format(data.total));
             $('#pagado' + nro).html(number_format(data.pagado));
@@ -3032,7 +3053,7 @@ function rellenar_factp(nro, value) {
             $('#monto_fact' + nro).removeAttr("disabled");
             $('#monto_fact' + nro).focus();
         },
-        error: function(data) {
+        error: function (data) {
             alert('Disculpe, estamos presentando problemas al tratar de enviar el formulario, intentelo mas tarde');
         }
     });
@@ -3041,7 +3062,7 @@ function rellenar_factp(nro, value) {
 
 function function_totales_facturas() {
     monto = 0;
-    $('#facturas-cliente tbody tr').each(function() {
+    $('#facturas-cliente tbody tr').each(function () {
         var id_fact = $(this).attr('id').split("_")[2];
         valor = $('#monto_fact' + id_fact).val();
         if (valor) {
@@ -3059,7 +3080,7 @@ function function_totales_facturas() {
         $('#error-cliente').hide();
     }
 
-    $('#devoluciones-dinero tbody tr').each(function() {
+    $('#devoluciones-dinero tbody tr').each(function () {
         var id_fact = $(this).attr('id').split("_")[1];
         valor = $('#monto' + id_fact).val();
         if (valor) {
@@ -3087,10 +3108,10 @@ function showfacturas(cliente) {
     final = $('#url').val() + '/empresa/facturas/' + cliente + '/clientejson';
     $.ajax({
         url: final,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        complete: function(data) {
+        complete: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -3100,14 +3121,14 @@ function showfacturas(cliente) {
             cliente = facturas.cliente;
             // console.log(cliente);
             facturas = JSON.parse(facturas.items);
-            $.each(facturas, function(key, value) {
+            $.each(facturas, function (key, value) {
                 $('#select_factura').append($('<option>', {
                     value: value.id,
                     text: value.codigo
                 }));
             });
             $('#select_factura').selectpicker('refresh');
-            $('#items-factura-envio  tbody tr').each(function() {
+            $('#items-factura-envio  tbody tr').each(function () {
                 Eliminar($(this).attr('id'));
             });
             $('#cantidadtotal').html(0);
@@ -3117,7 +3138,7 @@ function showfacturas(cliente) {
             $('#nitreceptor').val(cliente.nit);
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -3130,10 +3151,10 @@ function showitemsfactura(factura) {
     final = $('#url').val() + '/empresa/facturas/' + factura + '/facturajson';
     $.ajax({
         url: final,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        complete: function(data) {
+        complete: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -3141,7 +3162,7 @@ function showitemsfactura(factura) {
             nro = 0;
             cantid = 0;
             items = JSON.parse(data.responseText);
-            $.each(items, function(key, value) {
+            $.each(items, function (key, value) {
                 nro = nro + 1;
                 cantid += value.cant;
                 $('#items-factura-envio tbody').append(
@@ -3160,7 +3181,7 @@ function showitemsfactura(factura) {
             });
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -3171,7 +3192,7 @@ function showitemsfactura(factura) {
 
 function cantidadtotal() {
     total = 0;
-    $('#items-factura-envio  tbody tr').each(function() {
+    $('#items-factura-envio  tbody tr').each(function () {
         var id_fact = $(this).attr('id').split("_")[2];
         total += parseFloat($('#cant_envio' + id_fact).val());
     });
@@ -3217,10 +3238,10 @@ function factura_proveedor_pendiente(ingreso = false) {
     }
     $.ajax({
         url: final,
-        beforeSend: function() {
+        beforeSend: function () {
             cargando(true);
         },
-        success: function(data) {
+        success: function (data) {
             /*
              * Se ejecuta cuando termina la petición y esta ha sido
              * correcta
@@ -3237,7 +3258,7 @@ function factura_proveedor_pendiente(ingreso = false) {
             $("#tipo1,#publico").click();
             cargando(false);
         },
-        error: function(data) {
+        error: function (data) {
             /*
              * Se ejecuta si la peticón ha sido erronea
              * */
@@ -3249,8 +3270,8 @@ function factura_proveedor_pendiente(ingreso = false) {
 
 function submitLimit(id) {
     var btn = document.getElementById(id);
-    setTimeout(function() { btn.setAttribute('disabled', 'disabled'); }, 1);
-    setTimeout(function() { btn.removeAttribute('disabled'); }, 5000);
+    setTimeout(function () { btn.setAttribute('disabled', 'disabled'); }, 1);
+    setTimeout(function () { btn.removeAttribute('disabled'); }, 5000);
 }
 
 function nameCategoriam(id, modal) {
@@ -3285,8 +3306,8 @@ function nameFabricantem(id, modal) {
 
 function formulario(id) {
     var btn = document.getElementById(id);
-    setTimeout(function() { btn.setAttribute('disabled', 'disabled'); }, 1);
-    setTimeout(function() { btn.removeAttribute('disabled'); }, 5000);
+    setTimeout(function () { btn.setAttribute('disabled', 'disabled'); }, 1);
+    setTimeout(function () { btn.removeAttribute('disabled'); }, 5000);
     asociarCampo(null, null, null);
 }
 
@@ -3297,7 +3318,7 @@ function asociarCampo(nombre, id, modal) {
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             method: 'POST',
             data: { nombre: nombre, tipo: id },
-            success: function(campo) {
+            success: function (campo) {
 
                 $('#' + modal).modal('hide');
 
@@ -3334,26 +3355,26 @@ function tipoMV(id) {
 
     var campo_id = id; //obtenemos el id que se esta seleccionando
     if ($.trim(campo_id) != '') {
-        $.get(url, { campo_id: campo_id }, function(campos) {
+        $.get(url, { campo_id: campo_id }, function (campos) {
             // console.log(campos);
             $('#fabricante').empty();
             $('#linea').empty();
             $('#categoria').empty();
             $('#marca').empty();
 
-            $.each(campos.marcas, function(index, value) {
+            $.each(campos.marcas, function (index, value) {
                 $('#marca').append("<option value='" + value.id + "'>" + value.nombre + "</option>");
             })
 
-            $.each(campos.lineas, function(index, value) {
+            $.each(campos.lineas, function (index, value) {
                 $('#linea').append("<option value='" + value.id + "'>" + value.nombre + "</option>");
             })
 
-            $.each(campos.categorias, function(index, value) {
+            $.each(campos.categorias, function (index, value) {
                 $('#categoria').append("<option value='" + value.id + "'>" + value.nombre + "</option>");
             })
 
-            $.each(campos.fabricantes, function(index, value) {
+            $.each(campos.fabricantes, function (index, value) {
                 $('#fabricante').append("<option value='" + value.id + "'>" + value.nombre + "</option>");
             })
 
@@ -3378,7 +3399,7 @@ function filtroproveedores(marca = '', linea = '', categoria = '', fabricante = 
         processing: true,
         serverSide: true,
         responsive: true,
-        'rowCallback': function(row, data, index) {
+        'rowCallback': function (row, data, index) {
             $(row).find('td:eq(1)').html('<div class="elipsis-short" style="width:235px;">' + data.nombre + '</div>');
         },
         ajax: {
@@ -3393,7 +3414,7 @@ function filtroproveedores(marca = '', linea = '', categoria = '', fabricante = 
             { data: 'tipo_venta' },
             {
                 sortable: false,
-                "render": function(data, type, full, meta) {
+                "render": function (data, type, full, meta) {
                     var buttonID = full.id;
                     return `<a href="agregarmarcaprov/` + buttonID + `" class="btn btn-outline-info btn-icons" title="Asociar campos"><i class="fas fa-info-circle"></i></a>
                             <a href="empresa/contactos/` + buttonID + `" class="btn btn-outline-info btn-icons"><i class="far fa-eye"></i></i></a>`;
@@ -3420,7 +3441,7 @@ function proveedoresxproducto(idproducto) {
             { data: 'tipo_venta' },
             {
                 sortable: false,
-                "render": function(data, type, full, meta) {
+                "render": function (data, type, full, meta) {
                     var buttonID = full.id;
                     return `<a href="agregarmarcaprov/` + buttonID + `" class="btn btn-outline-info btn-icons" title="Asociar campos"><i class="fas fa-info-circle"></i></a>
                             <a href="empresa/contactos/` + buttonID + `" class="btn btn-outline-info btn-icons"><i class="far fa-eye"></i></i></a>`;
@@ -3437,7 +3458,7 @@ function searchDV(id) {
         document.getElementById("dvnit").style.display = "block";
         valor = $("#dv").val(calculateDV($("#nit").val()));
         $("#dvoriginal").val(valor.val());
-        $("#nit").keyup(function() {
+        $("#nit").keyup(function () {
             valor = $("#dv").val(calculateDV($(this).val()));
             $("#dvoriginal").val(valor.val());
         });
@@ -3517,9 +3538,9 @@ function searchMunicipality(id, municipio = null) {
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'post',
         data: { departamento_id: id },
-        success: function(municipios) {
+        success: function (municipios) {
             $("#municipio").empty();
-            $.each(municipios, function(index, value) {
+            $.each(municipios, function (index, value) {
                 if (value.id == municipio) {
                     $("#municipio").append(`<option value=` + value.id + ` selected >` + value.nombre + `</option>`);
                 } else {
@@ -3544,7 +3565,7 @@ function updateDirectionClient(id) {
             municipio: $("#municipio").val(),
             direccion: $("#direccion").val(),
         },
-        success: function(cliente) {
+        success: function (cliente) {
             $("#modaleditDirection").modal('hide');
             Swal.fire({
                 position: 'top-center',
@@ -3581,7 +3602,7 @@ function updateDirectionClient(id) {
                 responsable: $("#responsable2").val(),
                 email: $("#email_2").val(),
             },
-            success: function(cliente) {
+            success: function (cliente) {
                 $("#modaleditDirection").modal('hide');
                 Swal.fire({
                     position: 'top-center',
@@ -3616,7 +3637,7 @@ function validateDianByCorreo(id, rutasuccess) {
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'post',
                 data: { id: id, },
-                success: function(validate) {
+                success: function (validate) {
                     if (validate.numeracion.inicioverdadero == null) {
                         $mensaje = "Para emitir a la Dian se debe tener un inicio en la numeración de la factura.";
                         $footer = "<a target='_blank' href='configuracion/numeraciones'>Configura tus numeraciones</a>";
@@ -3741,15 +3762,15 @@ function validateDian(id, rutasuccess, codigo, emails = false, facturasp = 0) {
         if (result.value) {
 
             var btn = document.getElementsByClassName(".swal2-confirm");
-            setTimeout(function() { btn.setAttribute('disabled', 'disabled'); }, 1);
-            setTimeout(function() { btn.removeAttribute('disabled'); }, 5000);
+            setTimeout(function () { btn.setAttribute('disabled', 'disabled'); }, 1);
+            setTimeout(function () { btn.removeAttribute('disabled'); }, 5000);
 
             $.ajax({
                 url: url,
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 method: 'post',
                 data: { id: id, },
-                success: function(validate) {
+                success: function (validate) {
 
                     //-- Validaciones por numeración --//
                     /*if (validate.numeracion.prefijo == null) {
@@ -4041,7 +4062,7 @@ function check_cuenta() {
         $('#metodo_pago').val(7);
         //$('#metodo_pago').prop('disabled', true);
         $('#metodo_pago').selectpicker('refresh');
-        $('#table-facturas  tbody tr').each(function() {
+        $('#table-facturas  tbody tr').each(function () {
             var id = $(this).attr('id');
             $('#precio' + id).val('').prop('readonly', true);
         });
@@ -4051,7 +4072,7 @@ function check_cuenta() {
         $('#metodo_pago').prop('disabled', false);
         $('#metodo_pago').selectpicker('refresh');
         $("#msj_saldo").attr('style', 'display:none;');
-        $('#table-facturas  tbody tr').each(function() {
+        $('#table-facturas  tbody tr').each(function () {
             var id = $(this).attr('id');
             $('#precio' + id).val('').prop('readonly', false);
         });
@@ -4063,7 +4084,7 @@ function saldo_restante(element) {
     if (element != 'no') {
         var x = true;
 
-        $('#table-facturas  tbody tr').each(function() {
+        $('#table-facturas  tbody tr').each(function () {
             var id = $(this).attr('id');
             var totalfact = $('#totalfact' + id).val();
             $('#precio' + id).val(totalfact).prop('readonly', true);
@@ -4071,7 +4092,7 @@ function saldo_restante(element) {
         });
         return x;
     } else {
-        $('#table-facturas  tbody tr').each(function() {
+        $('#table-facturas  tbody tr').each(function () {
             var id = $(this).attr('id');
             var totalfact = $('#totalfact' + id).val();
             $('#precio' + id).val('').prop('readonly', false);
@@ -4150,7 +4171,7 @@ function check_a_favor() {
     var saldo_fa = $("#saldo_fa").val();
     if ($("#publico1").is(':checked')) {
         if (saldo_fa > 0) {
-            $('#table-facturas  tbody tr').each(function() {
+            $('#table-facturas  tbody tr').each(function () {
                 var id = $(this).attr('id');
                 var precio = $('#precio' + id).val();
                 if (parseFloat(precio) > parseFloat(saldo_fa)) {
@@ -4198,7 +4219,7 @@ function notificacionRadicado() {
 
         $.ajax({
             url: url,
-            success: function(data) {
+            success: function (data) {
                 data = JSON.parse(data);
 
                 if (data.length > 0 && $("#nro_notificacionesR").val() < data.length) {
@@ -4223,7 +4244,7 @@ function notificacionRadicado() {
 
                 //setTimeout(function(){ notificacion(); }, 3000);
             },
-            error: function(data) {
+            error: function (data) {
                 // console.log(data);
                 cargando(false);
             }
@@ -4243,7 +4264,7 @@ function notificacionPing() {
 
         $.ajax({
             url: url,
-            success: function(data) {
+            success: function (data) {
                 if (data.length > 0 && $("#nro_notificacionesP").val() < data.length) {
                     if (window.location.pathname === "/empresa" || window.location.pathname === "/software/empresa") {
                         $('html, body').animate({ scrollTop: 90 }, 'slow');
@@ -4266,7 +4287,7 @@ function notificacionPing() {
 
                 //setTimeout(function(){ notificacion(); }, 3000);
             },
-            error: function(data) {
+            error: function (data) {
                 console.log(data);
                 cargando(false);
             }
@@ -4286,7 +4307,7 @@ function notificacionWifi() {
 
         $.ajax({
             url: url,
-            success: function(data) {
+            success: function (data) {
                 data = JSON.parse(data);
 
                 if (data.length > 0 && $("#nro_notificacionesW").val() < data.length) {
@@ -4311,7 +4332,7 @@ function notificacionWifi() {
 
                 //setTimeout(function(){ notificacion(); }, 3000);
             },
-            error: function(data) {
+            error: function (data) {
                 console.log(data);
                 cargando(false);
             }
@@ -4320,6 +4341,10 @@ function notificacionWifi() {
 }
 
 function getInterfaces(mikrotik) {
+    if (!mikrotik) {
+        $("#interfaz").empty().selectpicker('refresh');
+        return;
+    }
     cargando(true);
     if (window.location.pathname.split("/")[1] === "software") {
         var url = '/software/api/getInterfaces/' + mikrotik;
@@ -4330,13 +4355,13 @@ function getInterfaces(mikrotik) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             cargando(false);
             data = JSON.parse(data);
 
             $("#interfaz").empty();
             var $select = $('#interfaz');
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 $select.append("<option value='" + value.name + "'>" + value.name + "</option>");
             });
 
@@ -4346,7 +4371,7 @@ function getInterfaces(mikrotik) {
             $('#interfaz').selectpicker('refresh');
             getSegmentos(mikrotik);
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
         }
     })
@@ -4357,7 +4382,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
     if (typeof consultasMk === 'undefined') {
         consultasMk = 1;
     }
-    
+
     // Si consultas_mk == 0, no hacer peticiones a la API
     if (consultasMk == 0) {
         // Solo cargar planes desde la base de datos sin consultar Mikrotik
@@ -4366,17 +4391,17 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
         } else {
             var url = '/api/getPlanes/' + mikrotik;
         }
-        
+
         $.ajax({
             url: url,
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             method: 'get',
-            success: function(data) {
+            success: function (data) {
                 // No mostrar loader ya que no se hace consulta a Mikrotik
-                
-                // Verificar si hay error de conexión a la Mikrotik
+
+                // Si hay error de conexión, solo registrar en consola pero continuar
                 if (data.connection_error === true) {
-                    return;
+                    console.warn('Error de conexión a la Mikrotik, cargando datos desde la base de datos.');
                 }
 
                 $("#plan_id").empty();
@@ -4385,7 +4410,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
 
                 // Verificar que data.planes exista y sea un array
                 if (data.planes && Array.isArray(data.planes)) {
-                    $.each(data.planes, function(key, value) {
+                    $.each(data.planes, function (key, value) {
 
                         if (value.type == 0) {
                             var type = 'Queue Simple';
@@ -4415,13 +4440,13 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
                     $('#conexion').val('').selectpicker('refresh');
                 }
             },
-            error: function(data) {
+            error: function (data) {
                 console.log('Error al obtener planes:', data);
             }
         });
         return;
     }
-    
+
     // Si consultas_mk == 1, hacer la petición normal con loader
     cargando(true);
     if (window.location.pathname.split("/")[1] === "software") {
@@ -4434,13 +4459,12 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             cargando(false);
 
-            // Verificar si hay error de conexión a la Mikrotik
+            // Si hay error de conexión, mostrar alerta pero continuar cargando datos disponibles
             if (data.connection_error === true) {
-                alert('Esta fallando la conexión a la mikrotik, revisa porfavor su conexión');
-                return;
+                console.warn('Error de conexión a la Mikrotik, cargando datos desde la base de datos.');
             }
 
             $("#plan_id").empty();
@@ -4449,7 +4473,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
 
             // Verificar que data.planes exista y sea un array
             if (data.planes && Array.isArray(data.planes)) {
-                $.each(data.planes, function(key, value) {
+                $.each(data.planes, function (key, value) {
 
                     if (value.type == 0) {
                         var type = 'Queue Simple';
@@ -4478,7 +4502,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
                     $("#amarre_mac").val(data.mikrotik.amarre_mac);
                 }
             }
-            
+
             // Preservar el tipo de conexión actual si existe
             if (currentConexion && currentConexion !== null && currentConexion !== 'null') {
                 $('#conexion').val(currentConexion).selectpicker('refresh');
@@ -4497,7 +4521,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
 
             if (Array.isArray(rawProfiles)) {
                 // Array: puede ser de strings/números u objetos
-                $.each(rawProfiles, function(_, value) {
+                $.each(rawProfiles, function (_, value) {
                     if (typeof value === "string" || typeof value === "number") {
                         normalizedProfiles.push({ name: value });
                     } else if (value && typeof value === "object") {
@@ -4511,7 +4535,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
                 normalizedProfiles.push({ name: rawProfiles });
             } else if (rawProfiles && typeof rawProfiles === "object") {
                 // Objeto: iterar sus propiedades
-                $.each(rawProfiles, function(_, value) {
+                $.each(rawProfiles, function (_, value) {
                     if (typeof value === "string" || typeof value === "number") {
                         normalizedProfiles.push({ name: value });
                     } else if (value && typeof value === "object" && value.name) {
@@ -4521,7 +4545,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
             }
 
             // Agregar opciones al select
-            $.each(normalizedProfiles, function(_, profile) {
+            $.each(normalizedProfiles, function (_, profile) {
                 $profileSelect.append($('<option>', {
                     value: profile.name,
                     text: profile.name
@@ -4538,7 +4562,7 @@ function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
                 $profileSelect.val(currentProfile).selectpicker('refresh');
             }
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
         }
     })
@@ -4563,7 +4587,7 @@ function getProfiles(mikrotik) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             var $profileSelect = $("#div_profile_select");
             $profileSelect.empty();
 
@@ -4571,7 +4595,7 @@ function getProfiles(mikrotik) {
             var normalizedProfiles = [];
 
             if (Array.isArray(rawProfiles)) {
-                $.each(rawProfiles, function(_, value) {
+                $.each(rawProfiles, function (_, value) {
                     if (typeof value === "string" || typeof value === "number") {
                         normalizedProfiles.push({ name: value });
                     } else if (value && typeof value === "object" && value.name) {
@@ -4581,7 +4605,7 @@ function getProfiles(mikrotik) {
             } else if (typeof rawProfiles === "string" || typeof rawProfiles === "number") {
                 normalizedProfiles.push({ name: rawProfiles });
             } else if (rawProfiles && typeof rawProfiles === "object") {
-                $.each(rawProfiles, function(_, value) {
+                $.each(rawProfiles, function (_, value) {
                     if (typeof value === "string" || typeof value === "number") {
                         normalizedProfiles.push({ name: value });
                     } else if (value && typeof value === "object" && value.name) {
@@ -4590,7 +4614,7 @@ function getProfiles(mikrotik) {
                 });
             }
 
-            $.each(normalizedProfiles, function(_, profile) {
+            $.each(normalizedProfiles, function (_, profile) {
                 $profileSelect.append($('<option>', {
                     value: profile.name,
                     text: profile.name
@@ -4608,19 +4632,22 @@ function getProfiles(mikrotik) {
     });
 }
 
-function interfazChange(){
-    if(document.getElementById("conexion").value == 3){
+function interfazChange() {
+    if (document.getElementById("conexion").value == 3) {
         document.getElementById("div_interfaz").classList.remove('d-none');
+        document.getElementById("div_segmento_ip").classList.remove('d-none');
+        document.getElementById("div_direccion_ip").classList.remove('d-none');
         document.getElementById("div_mac").classList.remove('d-none');
         document.getElementById("local_adress").classList.add('d-none');
         document.getElementById("div_profile").classList.add('d-none');
 
         //document.getElementById("mac_address").setAttribute('required', true);
         document.getElementById("interfaz").setAttribute('required', true);
+        document.getElementById("local_address").setAttribute('required', true);
         document.getElementById("div_local_address").innerHTML = "Segmento de IP <span class='text-danger'>*</span>";
         document.getElementById("div_ip").innerHTML = "Dirección IP (Remote Address)";
-      //  document.getElementById("div_name_vlan").classList.add('d-none');
-       // document.getElementById("div_id_vlan").classList.add('d-none');
+        //  document.getElementById("div_name_vlan").classList.add('d-none');
+        // document.getElementById("div_id_vlan").classList.add('d-none');
         document.getElementById("div_usuario").classList.add('d-none');
         document.getElementById("div_password").classList.add('d-none');
 
@@ -4630,9 +4657,9 @@ function interfazChange(){
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
         var divSimpleQueue = document.getElementById("div_simple_queue");
-        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
+        if (divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
-    }else if(document.getElementById("conexion").value == 4){
+    } else if (document.getElementById("conexion").value == 4) {
         document.getElementById("local_adress").classList.add('d-none');
         document.getElementById("div_profile").classList.add('d-none');
         document.getElementById("div_interfaz").classList.remove('d-none');
@@ -4656,9 +4683,9 @@ function interfazChange(){
         document.getElementById("div_password").classList.add('d-none');
         document.getElementById("password").removeAttribute('required');
         var divSimpleQueue = document.getElementById("div_simple_queue");
-        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
+        if (divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
-    }else if(document.getElementById("conexion").value == 2){
+    } else if (document.getElementById("conexion").value == 2) {
         document.getElementById("local_adress").classList.add('d-none');
         document.getElementById("div_profile").classList.add('d-none');
         document.getElementById("div_interfaz").classList.remove('d-none');
@@ -4672,12 +4699,12 @@ function interfazChange(){
         document.getElementById("mac_address").setAttribute('required', true);
 
         var divSimpleQueue = document.getElementById("div_simple_queue");
-        if(divSimpleQueue) divSimpleQueue.classList.remove('d-none');
+        if (divSimpleQueue) divSimpleQueue.classList.remove('d-none');
         document.getElementById("simple_queue").setAttribute('required', true);
 
         // Llamar a la función para ocultar/mostrar campos según Simple Queue
         toggleCamposDHCP();
-    }else if(document.getElementById("conexion").value == 1){
+    } else if (document.getElementById("conexion").value == 1) {
         document.getElementById("usuario").value = '';
         document.getElementById("password").value = '';
         document.getElementById("div_usuario").classList.remove('d-none');
@@ -4690,7 +4717,7 @@ function interfazChange(){
 
         // Mostrar Simple Queue para PPPOE
         var divSimpleQueue = document.getElementById("div_simple_queue");
-        if(divSimpleQueue) {
+        if (divSimpleQueue) {
             divSimpleQueue.classList.remove('d-none');
             document.getElementById("simple_queue").setAttribute('required', true);
         }
@@ -4703,7 +4730,7 @@ function interfazChange(){
         // Llamar a la función para ocultar/mostrar campos según Simple Queue
         toggleCamposDHCP();
 
-    }else{
+    } else {
         document.getElementById("div_interfaz").classList.add('d-none');
         document.getElementById("div_name_vlan").classList.add('d-none');
         document.getElementById("div_id_vlan").classList.add('d-none');
@@ -4719,12 +4746,12 @@ function interfazChange(){
         // Asegurar que los campos de segmento e IP se muestren cuando no es DHCP
         var divSegmentoIp = document.getElementById("div_segmento_ip");
         var divDireccionIp = document.getElementById("div_direccion_ip");
-        if(divSegmentoIp) divSegmentoIp.classList.remove('d-none');
-        if(divDireccionIp) divDireccionIp.classList.remove('d-none');
+        if (divSegmentoIp) divSegmentoIp.classList.remove('d-none');
+        if (divDireccionIp) divDireccionIp.classList.remove('d-none');
 
         // Restaurar el atributo required en el campo IP cuando no es DHCP
         var ip = document.getElementById("ip");
-        if(ip) ip.setAttribute('required', true);
+        if (ip) ip.setAttribute('required', true);
 
         document.getElementById("div_usuario").classList.remove('d-none');
         document.getElementById("div_password").classList.remove('d-none');
@@ -4732,22 +4759,22 @@ function interfazChange(){
         document.getElementById("usuario").removeAttribute('required');
         document.getElementById("password").removeAttribute('required');
         var divSimpleQueue = document.getElementById("div_simple_queue");
-        if(divSimpleQueue) divSimpleQueue.classList.add('d-none');
+        if (divSimpleQueue) divSimpleQueue.classList.add('d-none');
         document.getElementById("simple_queue").removeAttribute('required');
     }
     document.getElementById("interfaz").value = '';
     document.getElementById("simple_queue").value = '';
     //document.getElementById("mac_address").value = '';
-   // document.getElementById("name_vlan").value = '';
-   // document.getElementById("id_vlan").value = '';
+    // document.getElementById("name_vlan").value = '';
+    // document.getElementById("id_vlan").value = '';
     document.getElementById("usuario").value = '';
     document.getElementById("password").value = '';
     document.getElementById("mac_address").removeAttribute('required');
 
-    if(document.getElementById("conexion").value == 3){
-        if(document.getElementById("amarre_mac").value == 1){
+    if (document.getElementById("conexion").value == 3) {
+        if (document.getElementById("amarre_mac").value == 1) {
             document.getElementById("mac_address").setAttribute('required', true);
-        }else{
+        } else {
             document.getElementById("mac_address").removeAttribute('required');
         }
     }
@@ -4757,12 +4784,12 @@ function interfazChange(){
     $("#conexion_bd").val(document.getElementById("conexion").value);
 }
 
-function toggleCamposDHCP(){
+function toggleCamposDHCP() {
     var conexion = document.getElementById("conexion");
     var simpleQueue = document.getElementById("simple_queue");
 
     // Verificar si los elementos existen (pueden no existir en todas las páginas)
-    if(!conexion || !simpleQueue) return;
+    if (!conexion || !simpleQueue) return;
 
     var divInterfaz = document.getElementById("div_interfaz");
     var divSegmentoIp = document.getElementById("div_segmento_ip");
@@ -4772,31 +4799,31 @@ function toggleCamposDHCP(){
     var localAdress = document.getElementById("local_adress"); // Campo Dirección IP (Local Address) para PPPOE
 
     // Aplicar la lógica si el tipo de conexión es DHCP (valor 2) o PPPOE (valor 1)
-    if(conexion.value == 2 || conexion.value == 1){
+    if (conexion.value == 2 || conexion.value == 1) {
         // Si Simple Queue es dinámica, ocultar los campos
-        if(simpleQueue.value == 'dinamica'){
-            if(divInterfaz) {
+        if (simpleQueue.value == 'dinamica') {
+            if (divInterfaz) {
                 divInterfaz.classList.add('d-none');
                 var interfaz = document.getElementById("interfaz");
-                if(interfaz) {
+                if (interfaz) {
                     interfaz.removeAttribute('required');
                     interfaz.required = false;
                     // También remover el atributo required del HTML
                     $(interfaz).removeAttr('required');
                 }
             }
-            if(divSegmentoIp) {
+            if (divSegmentoIp) {
                 divSegmentoIp.classList.add('d-none');
-                if(localAddress) {
+                if (localAddress) {
                     localAddress.removeAttribute('required');
                     localAddress.required = false;
                     // También remover el atributo required del HTML
                     $(localAddress).removeAttr('required');
                 }
             }
-            if(divDireccionIp) {
+            if (divDireccionIp) {
                 divDireccionIp.classList.add('d-none');
-                if(ip) {
+                if (ip) {
                     ip.removeAttribute('required');
                     ip.required = false;
                     // También remover el atributo required del HTML
@@ -4804,23 +4831,23 @@ function toggleCamposDHCP(){
                 }
                 // Remover el asterisco del label cuando es dinámico
                 var labelIp = document.getElementById("div_ip");
-                if(labelIp) {
+                if (labelIp) {
                     // Remover cualquier asterisco que pueda existir
                     labelIp.innerHTML = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
                 }
             }
             // Ocultar Local Address para PPPOE cuando es dinámico
-            if(conexion.value == 1 && localAdress) {
+            if (conexion.value == 1 && localAdress) {
                 localAdress.classList.add('d-none');
                 var direccionLocalAddress = document.getElementById("direccion_local_address");
-                if(direccionLocalAddress) {
+                if (direccionLocalAddress) {
                     direccionLocalAddress.removeAttribute('required');
                     direccionLocalAddress.required = false;
                     $(direccionLocalAddress).removeAttr('required');
                 }
                 // También buscar por el ID local_address que puede estar en el input
                 var localAddressInput = document.getElementById("local_address");
-                if(localAddressInput && localAddressInput.tagName === 'INPUT') {
+                if (localAddressInput && localAddressInput.tagName === 'INPUT') {
                     localAddressInput.removeAttribute('required');
                     localAddressInput.required = false;
                     $(localAddressInput).removeAttr('required');
@@ -4828,39 +4855,39 @@ function toggleCamposDHCP(){
             }
         } else {
             // Si Simple Queue es estática, mostrar los campos
-            if(divInterfaz) {
+            if (divInterfaz) {
                 divInterfaz.classList.remove('d-none');
                 var interfaz = document.getElementById("interfaz");
-                if(interfaz) interfaz.setAttribute('required', true);
+                if (interfaz) interfaz.setAttribute('required', true);
             }
-            if(divSegmentoIp) {
+            if (divSegmentoIp) {
                 divSegmentoIp.classList.remove('d-none');
-                if(localAddress) localAddress.setAttribute('required', true);
+                if (localAddress) localAddress.setAttribute('required', true);
             }
-            if(divDireccionIp) {
+            if (divDireccionIp) {
                 divDireccionIp.classList.remove('d-none');
-                if(ip) ip.setAttribute('required', true);
+                if (ip) ip.setAttribute('required', true);
                 // Agregar el asterisco del label cuando es estático
                 var labelIp = document.getElementById("div_ip");
-                if(labelIp) {
+                if (labelIp) {
                     // Remover asteriscos existentes primero para evitar duplicados
                     var labelText = labelIp.innerHTML.replace(/<span class="text-danger">\s*\*\s*<\/span>/g, '').trim();
                     // Agregar el asterisco si no existe
-                    if(!labelText.includes('<span class="text-danger">*</span>')) {
+                    if (!labelText.includes('<span class="text-danger">*</span>')) {
                         labelIp.innerHTML = labelText.replace(/(Dirección IP \(Remote Address\))/, '$1 <span class="text-danger">*</span>');
                     }
                 }
             }
             // Mostrar Local Address para PPPOE cuando es estático
-            if(conexion.value == 1 && localAdress) {
+            if (conexion.value == 1 && localAdress) {
                 localAdress.classList.remove('d-none');
                 localAdress.setAttribute('required', true);
             }
         }
 
         // Refrescar selectpicker si está disponible
-        if(typeof $ !== 'undefined' && $.fn.selectpicker) {
-            if(simpleQueue) $("#simple_queue").selectpicker('refresh');
+        if (typeof $ !== 'undefined' && $.fn.selectpicker) {
+            if (simpleQueue) $("#simple_queue").selectpicker('refresh');
         }
     }
 }
@@ -4881,7 +4908,7 @@ function modificarPromesa(id) {
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         },
-        success: function(response) {
+        success: function (response) {
             cargando(false);
             if (response) {
                 var data = typeof response === 'string' ? JSON.parse(response) : response;
@@ -4986,7 +5013,7 @@ function storePromesa(id) {
             promesa_pago: $('#promesa_pago-' + id).val(),
             hora_pago: $('#hora_pago-' + id).val(),
         },
-        success: function(response) {
+        success: function (response) {
             cargando(false);
             var URLactual = window.location.pathname;
             if (response.success == true) {
@@ -5012,7 +5039,7 @@ function storePromesa(id) {
     });
 }
 
-$('#rehuso').change(function() {
+$('#rehuso').change(function () {
     var rehuso = $('#rehuso').val();
     if (rehuso == 'SI') {
         $('#div_rehuso_aplicar').removeClass('d-none');
@@ -5060,13 +5087,13 @@ function getSegmentos(mikrotik) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             cargando(false);
             //data=JSON.parse(data);
 
             $("#local_address").empty();
             var $select = $('#local_address');
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 $select.append('<option value=' + value.segmento + '>' + value.segmento + '</option>');
             });
 
@@ -5075,7 +5102,7 @@ function getSegmentos(mikrotik) {
             $('#local_address').val($("#segmento_bd").val());
             $('#local_address').selectpicker('refresh');
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
         }
     })
@@ -5095,13 +5122,13 @@ function getInterfaz(mikrotik) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             cargando(false);
             data = JSON.parse(data);
 
             $("#interfaz").empty();
             var $select = $('#interfaz');
-            $.each(data, function(key, value) {
+            $.each(data, function (key, value) {
                 if (inter == value.name) {
                     $select.append("<option value='" + value.name + "' selected>" + value.name + "</option>");
                 } else {
@@ -5111,7 +5138,7 @@ function getInterfaz(mikrotik) {
             $('#interfaz').val(inter);
             $('#interfaz').selectpicker('refresh');
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
         }
     })
@@ -5130,7 +5157,7 @@ function getContracts(id) {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             cargando(false);
             if (data.length > 0) {
                 $("#div_facturacion").removeClass('d-none');
@@ -5149,13 +5176,13 @@ function getContracts(id) {
             $('#address_street').val('');
             $("#div_direccion, #div_address_street").removeClass('d-none');
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
         }
     })
 }
 
-$('#searchIP').click(function() {
+$('#searchIP').click(function () {
     cargando(true);
     let prefijo = $("#local_address").val().split('/');
     let mk = $("#server_configuration_id").val();
@@ -5170,7 +5197,7 @@ $('#searchIP').click(function() {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             $('#row_ip').html('');
             let ip_ini = data.inicial.split('.');
             let ip_fin = data.final.split('.');
@@ -5202,7 +5229,7 @@ $('#searchIP').click(function() {
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                success: function(data) {
+                success: function (data) {
                     /*console.log(data.software);
                     if (data.software) {
                         for (i = 0; i < data.software.length; i++){
@@ -5253,7 +5280,7 @@ $('#searchIP').click(function() {
             $('#modal-ips').modal('show');
             $("#segmento_bd").val($("#local_address").val());
         },
-        error: function(data) {
+        error: function (data) {
             Swal.fire({
                 type: 'error',
                 title: 'ERROR EN EL CÁLCULO DE LA SUBNETTING',
@@ -5270,7 +5297,7 @@ function selectIP(ip) {
     $('#modal-ips').modal('hide');
 }
 
-$('#searchIP2').click(function() {
+$('#searchIP2').click(function () {
     let prefijo = $("#local_address_new").val().split('/');
     let mk = $("#server_configuration_id").val();
 
@@ -5284,7 +5311,7 @@ $('#searchIP2').click(function() {
         url: url,
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         method: 'get',
-        success: function(data) {
+        success: function (data) {
             $('#row_ip').html('');
             let ip_ini = data.inicial.split('.');
             let ip_fin = data.final.split('.');
@@ -5313,7 +5340,7 @@ $('#searchIP2').click(function() {
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                success: function(data) {
+                success: function (data) {
                     if (data) {
                         for (i = 0; i < data.length; i++) {
                             let ip = data[i].ip.replace(/\./g, '');
@@ -5324,7 +5351,7 @@ $('#searchIP2').click(function() {
             });
             $('#modal-ips').modal('show');
         },
-        error: function(data) {
+        error: function (data) {
             Swal.fire({
                 type: 'error',
                 title: 'ERROR EN EL CÁLCULO DE LA SUBNETTING',
@@ -5367,7 +5394,7 @@ function agregar_cuenta() {
 		</tr>`
     );
 
-    $.each(cuentas, function(key, value) {
+    $.each(cuentas, function (key, value) {
 
         nombre = value.nombre;
         codigo = value.codigo;
@@ -5396,7 +5423,7 @@ function getDireccion(otp) {
     }
 }
 
-$('#tecnologia').change(function() {
+$('#tecnologia').change(function () {
     var tecnologia = $('#tecnologia').val();
     if (tecnologia == 1) {
         $('#div_ap').addClass('d-none');
@@ -5421,7 +5448,7 @@ function notificacionTecnico() {
 
         $.ajax({
             url: url,
-            success: function(data) {
+            success: function (data) {
                 var nro = parseInt(data.encurso) + parseInt(data.finalizados) + parseInt(data.iniciados);
                 if (nro > 0 && $("#nro_notificacionesT").val() < nro) {
                     if (window.location.pathname === "/empresa" || window.location.pathname === "/software/empresa") {
@@ -5445,7 +5472,7 @@ function notificacionTecnico() {
 
                 //setTimeout(function(){ notificacion(); }, 3000);
             },
-            error: function(data) {
+            error: function (data) {
                 console.log(data);
                 cargando(false);
             }
@@ -5467,7 +5494,7 @@ function impuestoFacturaDeVenta(impuesto) {
         $("#" + impuesto + " option[value=" + myArr[0] + "]").prop("selected", "selected");
     }
 
-    setTimeout(function() {
+    setTimeout(function () {
         $("#" + impuesto).selectpicker('refresh');
     }, 800);
 
@@ -5483,7 +5510,7 @@ function getClienteSMS(id) {
 
     $.ajax({
         url: url,
-        success: function(data) {
+        success: function (data) {
             var apellidos = '';
             if (data.contacto.apellido1) {
                 apellidos += ' ' + data.contacto.apellido1;
@@ -5517,7 +5544,7 @@ function getClienteSMS(id) {
             cargando(false);
             contarCaracteres($("#text_sms").val());
         },
-        error: function(data) {
+        error: function (data) {
             cargando(false);
             $("#div_footer, #div_contenido").addClass('d-none');
             $("#text_sms, #numero_sms").val('');
@@ -5557,7 +5584,7 @@ function limpiar(form) {
     $("#" + form + ' .selectpicker').val('').trigger('change');
 }
 
-$('#searchMAC').click(function() {
+$('#searchMAC').click(function () {
     var ip = $("#ip").val();
     var mk = $("#server_configuration_id").val();
 
@@ -5573,11 +5600,11 @@ $('#searchMAC').click(function() {
             url: url,
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             method: 'get',
-            success: function(data) {
+            success: function (data) {
                 cargando(false);
                 $("#mac_address").val(data.mac_address);
             },
-            error: function(data) {
+            error: function (data) {
                 cargando(false);
                 Swal.fire({
                     type: 'error',

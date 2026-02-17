@@ -2155,19 +2155,25 @@ class ConfiguracionController extends Controller
   }
 
   public function actDescProrrateo(Request $request){
+  $empresa = Empresa::find(Auth::user()->empresa);
 
-    $empresa = Empresa::find(Auth::user()->empresa);
-
-    if($empresa){
-        if($request->prorrateo == 0){
-          $empresa->prorrateo = 1;
-        }else{
-          $empresa->prorrateo = 0;
-        }
-        $empresa->save();
-        return $empresa->prorrateo;
-    }
+  if($empresa){
+      $newValue = ($request->prorrateo == 0) ? 1 : 0;
+      $empresa->prorrateo = $newValue;
+      
+      $query = DB::table('contracts')->where('empresa', $empresa->id);
+      
+      // Si se especifica un grupo, solo modificamos los contratos de ese grupo
+      if ($request->has('grupo_id')) {
+          $query->where('grupo_corte', $request->grupo_id);
+      }
+      
+      $query->update(['prorrateo' => $newValue]);
+      
+      $empresa->save();
+      return $empresa->prorrateo;
   }
+}
 
   public function actDescEfecty(Request $request){
     $empresa = Empresa::find(Auth::user()->empresa);
@@ -2801,7 +2807,6 @@ class ConfiguracionController extends Controller
             }
 
             $empresa->whatsapp_business_account_id = $request->whatsapp_business_account_id;
-            $empresa->wppNuevo = 1;
             $empresa->save();
 
             return response()->json(1);
@@ -3126,6 +3131,121 @@ class ConfiguracionController extends Controller
         }
     }
 
+    /**
+     * Obtiene las plantillas Meta disponibles para configurar como preferida para tirillas
+     */
+    public function getPlantillasMetaTirilla()
+    {
+        try {
+            $plantillas = \App\Plantilla::where('tipo', 3)
+                ->where('status', 1)
+                ->where('empresa', Auth::user()->empresa)
+                ->select('id', 'title', 'preferida_tirilla')
+                ->orderBy('title', 'ASC')
+                ->get();
+
+            return response()->json([
+                'success' => 1,
+                'plantillas' => $plantillas
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantillas Meta para tirillas: ' . $e->getMessage());
+            return response()->json(['success' => 0, 'message' => 'Error al obtener plantillas'], 500);
+        }
+    } 
+
+    /**
+     * Obtiene los datos de una plantilla Meta específica para tirillas
+     */
+    public function getPlantillaMetaTirilla($id)
+    {
+        try {
+            $plantilla = \App\Plantilla::where('id', $id)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json(['error' => 'Plantilla no encontrada o no es de tipo Meta'], 404);
+            }
+
+            // Parsear body_dinamic si existe
+            $bodyDinamic = null;
+            if ($plantilla->body_dinamic) {
+                $decoded = json_decode($plantilla->body_dinamic, true);
+                $bodyDinamic = $decoded !== null ? $decoded : $plantilla->body_dinamic;
+            }
+
+            return response()->json([
+                'id' => $plantilla->id,
+                'title' => $plantilla->title,
+                'contenido' => $plantilla->contenido,
+                'body_text' => json_decode($plantilla->body_text, true),
+                'language' => $plantilla->language,
+                'body_dinamic' => $bodyDinamic,
+                'body_header' => $plantilla->body_header
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener plantilla Meta para tirillas: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener plantilla'], 500);
+        }
+    }
+
+    /**
+     * Guarda la configuración de plantilla preferida para tirillas
+     */
+    public function guardarPlantillaTirillaWhatsapp(Request $request)
+    {
+        try {
+            $request->validate([
+                'plantilla_id' => 'required|exists:plantillas,id'
+            ]);
+
+            $plantillaId = $request->plantilla_id;
+            $bodyDinamicParams = $request->input('body_dinamic_params', []);
+
+            // Verificar que la plantilla sea de tipo Meta y pertenezca a la empresa
+            $plantilla = \App\Plantilla::where('id', $plantillaId)
+                ->where('tipo', 3)
+                ->where('empresa', Auth::user()->empresa)
+                ->first();
+
+            if (!$plantilla) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'La plantilla seleccionada no es válida'
+                ], 400);
+            }
+
+            // Desmarcar todas las plantillas como preferidas para esta empresa
+            \App\Plantilla::where('empresa', Auth::user()->empresa)
+                ->where('tipo', 3)
+                ->update(['preferida_tirilla' => 0]);
+
+            // Marcar la plantilla seleccionada como preferida
+            $plantilla->preferida_tirilla = 1;
+
+            // Guardar body_dinamic si se proporciona
+            if (!empty($bodyDinamicParams) && is_array($bodyDinamicParams)) {
+                $plantilla->body_dinamic = json_encode([$bodyDinamicParams]);
+            }
+
+            $plantilla->updated_by = Auth::user()->id;
+            $plantilla->save();
+
+            return response()->json([
+                'success' => 1,
+                'message' => 'Plantilla configurada correctamente como preferida para el envío de tirillas'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar plantilla preferida para tirillas: ' . $e->getMessage());
+            return response()->json([
+                'success' => 0,
+                'message' => 'Error al guardar la configuración: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function registrarNumeroWhatsappMeta(Request $request)
     {
         try {
@@ -3156,13 +3276,22 @@ class ConfiguracionController extends Controller
                 ], 400);
             }
 
+            // Obtener PIN del request o usar valor por defecto
+            $pin = $request->input('pin', '123456');
+            if (empty($pin)) {
+                return response()->json([
+                    'success' => 0,
+                    'message' => 'El PIN es requerido para registrar el número'
+                ], 400);
+            }
+
             // Construir URL de la API
             $url = 'https://graph.facebook.com/v24.0/' . $instance->phone_number_id . '/register';
 
             // Body de la petición
             $body = json_encode([
                 'messaging_product' => 'whatsapp',
-                'pin' => '123456'
+                'pin' => $pin
             ]);
 
             // Hacer petición POST a Facebook Graph API
@@ -3196,15 +3325,55 @@ class ConfiguracionController extends Controller
                 ], 400);
             }
 
+            // Decodificar respuesta para verificar errores
+            $responseData = json_decode($response, true);
+
+            // Si el código HTTP no es 200, parsear el error de Facebook
             if ($httpCode != 200) {
                 Log::error('Error HTTP al registrar número WhatsApp: ' . $httpCode . ' - ' . $response);
+
+                $errorMessage = 'Error al registrar el número de teléfono';
+
+                // Parsear error de Facebook Graph API
+                if (isset($responseData['error'])) {
+                    $fbError = $responseData['error'];
+                    $errorMessage = $fbError['message'] ?? $errorMessage;
+
+                    // Mensajes más específicos según el tipo de error
+                    if (isset($fbError['code'])) {
+                        switch ($fbError['code']) {
+                            case 100:
+                                // Error de objeto no encontrado o sin permisos
+                                if (isset($fbError['error_subcode']) && $fbError['error_subcode'] == 33) {
+                                    $errorMessage = 'El número de teléfono (ID: ' . $instance->phone_number_id . ') no existe, no tiene permisos suficientes, o el PIN ingresado es incorrecto. Verifique el phone_number_id y el PIN correcto en Meta Business Manager.';
+                                } else {
+                                    $errorMessage = 'Error de permisos o configuración: ' . $errorMessage;
+                                }
+                                break;
+                            case 190:
+                                $errorMessage = 'Token de acceso inválido o expirado. Verifique ACCESS_TOKEN_META en el archivo .env';
+                                break;
+                            case 803:
+                                $errorMessage = 'El número de teléfono ya está registrado o el PIN es incorrecto';
+                                break;
+                            default:
+                                $errorMessage = 'Error de la API de Facebook: ' . $errorMessage;
+                        }
+                    }
+
+                    // Agregar información adicional si está disponible
+                    if (isset($fbError['type'])) {
+                        $errorMessage .= ' (Tipo: ' . $fbError['type'] . ')';
+                    }
+                } else {
+                    $errorMessage = 'Error en la respuesta de la API de Facebook (Código HTTP: ' . $httpCode . ')';
+                }
+
                 return response()->json([
                     'success' => 0,
-                    'message' => 'Error en la respuesta de la API de Facebook (Código: ' . $httpCode . ')'
+                    'message' => $errorMessage
                 ], 400);
             }
-
-            $responseData = json_decode($response, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Log::error('Error al decodificar respuesta JSON: ' . json_last_error_msg());
@@ -3232,7 +3401,7 @@ class ConfiguracionController extends Controller
             Log::error('Error al registrar número WhatsApp: ' . $e->getMessage());
             return response()->json([
                 'success' => 0,
-                'message' => 'Error al registrar el número: ' . $e->getMessage()
+                'message' => 'Error inesperado al registrar el número: ' . $e->getMessage()
             ], 500);
         }
     }

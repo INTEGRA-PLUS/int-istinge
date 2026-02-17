@@ -591,7 +591,7 @@ class NominaDianController extends Controller
 
     /**
      *
-     * Primer metodo que se llama a l aohra de emitir una nómina a la dian, retorna alguna validación faltante
+     * Primer metodo que se llama a la hora de emitir una nómina a la dian, retorna alguna validación faltante
      * antes de que la información viaje a la dian.
      *
      * @return json
@@ -670,6 +670,36 @@ class NominaDianController extends Controller
         //dd($numeracionFactura );
 
         if (!$numeracionFactura) {
+            
+            // Verificamos si existe alguna numeracion configurada para este tipo
+            $existeConfiguracion = NumeracionFactura::where('nomina', 1)
+                ->where('empresa', auth()->user()->empresa)
+                ->where('tipo_nomina', $tipo == 3 ? 3 : ($nomina->tipo == 2 ? 2 : 1))
+                ->exists();
+
+            if(!$existeConfiguracion){
+                if(request()->ajax() && !request()->lote){
+                    // Flash error al Blade y retornar respuesta para reload en JS
+                    session()->flash('error', 'No existe una numeración configurada para este tipo de nómina. Por favor configure una nueva.');
+                    session()->save(); 
+                    return [
+                        'success' => true,
+                        // El mensaje será visible brevemente antes del reload
+                        'mesagge' => 'Numeración no encontrada. Recargando para mostrar detalles...' 
+                    ];
+                 }
+
+                 if(request()->lote){
+                    return response()->json([
+                        'success' => false,
+                        'status' => 200,
+                        'ref' => $nomina->codigo_dian ? $nomina->codigo_dian : $nomina->persona->nombre(),
+                        'mesagge' => "No existe una numeración configurada para este tipo de nómina",
+                        'data' => ['code-error' => "nomina-sin-numeracion"]
+                    ]);
+                }
+                return "nomina-sin-numeracion";
+            }
 
             if(request()->ajax() || request()->lote){
                 return response()->json([

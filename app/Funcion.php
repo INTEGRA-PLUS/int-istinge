@@ -30,7 +30,24 @@ class Funcion
             }
         }
 
-        return number_format((float) $valor, $empresa->precision, $empresa->sep_dec, ($empresa->sep_dec == '.' ? ',' : '.'));
+        $valor = (float) $valor;
+        $precision = $empresa->precision;
+        $sep_dec = $empresa->sep_dec;
+        $sep_miles = ($sep_dec == '.' ? ',' : '.');
+
+        // Si sep_dec esta vacio, usar valores por defecto
+        if (empty($sep_dec)) {
+            $sep_dec = ',';
+            $sep_miles = '.';
+        }
+
+        // Si el numero es entero, no mostrar decimales
+        // Si el numero es entero, no mostrar decimales
+        if (fmod($valor, 1) == 0) {
+            $precision = 0;
+        }
+
+        return number_format($valor, $precision, $sep_dec, $sep_miles);
 
     }
 

@@ -6,7 +6,6 @@ use App\Builders\JsonBuilders\InvoiceJsonBuilder;
 use App\CamposExtra;
 use App\Model\Ingresos\IngresosRetenciones;
 use http\Url;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use App\Empresa; use App\Contacto; use App\TipoIdentificacion;
 use App\Impuesto; use App\NumeracionFactura;
@@ -59,16 +58,18 @@ use App\Instance;
 use App\MovimientoLOG;
 use App\NumeracionPos;
 use App\Services\BTWService;
-use App\Services\WapiService;
 use App\Services\OnePayService;
 use Facade\FlareClient\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\WhatsappMetaLog;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use App\Helpers\CamposDinamicosHelper;
+use App\Traits\CentralizedWhatsApp;
 
 class FacturasController extends Controller{
+    use CentralizedWhatsApp;
 
     protected $url;
 
@@ -742,9 +743,15 @@ class FacturasController extends Controller{
                 });
             }
             if($request->fact_siigo){
-                $facturas->where(function ($query) use ($request) {
-                    $query->orWhereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
-                });
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $facturas->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $facturas->whereNull('factura.siigo_id');
+                }
             }
             if($request->creacion){
                 $facturas->where(function ($query) use ($request) {
@@ -755,6 +762,15 @@ class FacturasController extends Controller{
                 $facturas->where(function ($query) use ($request) {
                     $query->orWhere('factura.vencimiento', $request->vencimiento);
                 });
+            }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $facturas->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $facturas->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
             }
             if($request->estado){
                 $facturas->where(function ($query) use ($request) {
@@ -1101,13 +1117,30 @@ class FacturasController extends Controller{
                 $facturas->where('factura.cliente', $request->cliente);
             }
             if($request->fact_siigo){
-                $facturas->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $facturas->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $facturas->whereNull('factura.siigo_id');
+                }
             }
             if($request->corte){
                 $facturas->where('cs1.fecha_corte', $request->corte);
             }
             if($request->creacion){
                 $facturas->where('factura.fecha', $request->creacion);
+            }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $facturas->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $facturas->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
             }
             if($request->vencimiento){
                 $facturas->where('factura.vencimiento', $request->vencimiento);
@@ -1308,13 +1341,30 @@ class FacturasController extends Controller{
                 $countQuery->where('factura.cliente', $request->cliente);
             }
             if($request->fact_siigo){
-                $countQuery->whereIn('cs1.pago_siigo_contrato', $request->fact_siigo);
+                if(in_array('1', $request->fact_siigo) && in_array('0', $request->fact_siigo)){
+                    // Si selecciona ambos, no filtrar (mostrar todas)
+                } elseif(in_array('1', $request->fact_siigo)){
+                    // Solo "Sí": facturas con siigo_id (ya se enviaron a Siigo)
+                    $countQuery->whereNotNull('factura.siigo_id');
+                } elseif(in_array('0', $request->fact_siigo)){
+                    // Solo "No": facturas sin siigo_id (no se han enviado a Siigo)
+                    $countQuery->whereNull('factura.siigo_id');
+                }
             }
             if($request->corte){
                 $countQuery->where('cs1.fecha_corte', $request->corte);
             }
             if($request->creacion){
                 $countQuery->where('factura.fecha', $request->creacion);
+            }
+            if($request->prorrateo){
+                if($request->prorrateo == '1'){
+                    $countQuery->where('factura.prorrateo_aplicado', 1);
+                }else{
+                    $countQuery->where(function ($query) {
+                        $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                    });
+                }
             }
             if($request->vencimiento){
                 $countQuery->where('factura.vencimiento', $request->vencimiento);
@@ -1991,7 +2041,7 @@ class FacturasController extends Controller{
             $items->factura=$factura->id;
             $items->producto=$request->item[$i];
             $items->ref=$request->ref[$i];
-            $items->precio=$this->precision($request->precio[$i]);
+            $items->precio=$request->precio[$i];
             $items->descripcion=$request->descripcion[$i];
             $items->id_impuesto=$request->impuesto[$i];
             $items->impuesto=$impuesto->porcentaje;
@@ -2341,7 +2391,7 @@ class FacturasController extends Controller{
                     $items->factura=$factura->id;
                     $items->producto=$request->item[$i];
                     $items->ref=$request->ref[$i];
-                    $items->precio=$this->precision($request->precio[$i]);
+                    $items->precio=$request->precio[$i];
                     $items->descripcion=$request->descripcion[$i];
                     $items->id_impuesto=$request->impuesto[$i];
                     $items->impuesto=$impuesto->porcentaje;
@@ -3032,10 +3082,17 @@ class FacturasController extends Controller{
     public function anular($id){
         $factura = Factura::where('empresa',Auth::user()->empresa)->where('id', $id)->first();
         if ($factura) {
+            $onePayService = new OnePayService();
+
             if ($factura->estatus==1) {
                 $factura->estatus=2;
                 $factura->observaciones = $factura->observaciones.' | Factura Anulada por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
                 $factura->save();
+
+                // Eliminar factura en OnePay si existe
+                if ($factura->onepay_invoice_id) {
+                    $onePayService->deleteInvoice($factura);
+                }
 
                 CRM::where('cliente', $factura->cliente)->whereIn('estado', [0,2,3,6])->delete();
 
@@ -3044,6 +3101,16 @@ class FacturasController extends Controller{
                 $factura->estatus=1;
                 $factura->observaciones = $factura->observaciones.' | Factura Abierta por: '.Auth::user()->nombres.' el '.date('d-m-Y g:i:s A');
                 $factura->save();
+
+                // Crear factura en OnePay si está habilitado
+                if (OnePayService::isEnabled()) {
+                    try {
+                        $onePayService->createInvoice($factura, Auth::user()->empresa);
+                    } catch (\Exception $e) {
+                         Log::error('Error al recrear factura en OnePay al abrir: ' . $e->getMessage());
+                    }
+                }
+
                 return back()->with('success', 'Se cambiado a abierta la factura');
             }
             return redirect('empresa/facturas/facturas_electronica')->with('success', 'La factura no esta abierta');
@@ -5229,13 +5296,13 @@ class FacturasController extends Controller{
         );
 
         $objPHPExcel->getProperties()->setCreator("Sistema") // Nombre del autor
-            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific���
+            ->setLastModifiedBy("Sistema") //Ultimo usuario que lo modific
             ->setTitle("Reporte Excel Contactos") // Titulo
             ->setSubject("Reporte Excel Contactos") //Asunto
-            ->setDescription("Reporte de Contactos") //Descripci���n
+            ->setDescription("Reporte de Contactos") //Descripcin
             ->setKeywords("reporte Contactos") //Etiquetas
             ->setCategory("Reporte excel"); //Categorias
-        // Se combinan las celdas A1 hasta D1, para colocar ah��� el titulo del reporte
+        // Se combinan las celdas A1 hasta D1, para colocar ah el titulo del reporte
         $objPHPExcel->setActiveSheetIndex(0)
             ->mergeCells('A1:D1');
         // Se agregan los titulos del reporte
@@ -5666,21 +5733,26 @@ class FacturasController extends Controller{
         ]);
     }
 
-    public function whatsapp($id, Request $request, WapiService $wapiService)
+    public function whatsapp($id, Request $request)
     {
-        // 1️⃣ Buscar instancia activa y factura base
+        // 1️⃣ Buscar instancia de Meta Direct activa
         $instance = Instance::where('company_id', auth()->user()->empresa)
                             ->where('activo', 1)
-                            ->where('meta', 0)
+                            ->where('type', 1) // 1 = Meta Direct
+                            ->where('meta', 0) // 0 = Integración directa
+                            ->whereNotNull('phone_number_id')
                             ->first();
-        $factura = Factura::findOrFail($id);
 
-        if (is_null($instance) || empty($instance)) {
-            return back()->with('danger', 'Aún no ha creado una instancia activa, por favor póngase en contacto con el administrador.');
+        if (!$instance || empty($instance->phone_number_id)) {
+            \Log::warning('No active Meta Direct instance or missing phone_number_id for company: ' . auth()->user()->empresa);
+            return back()->with('danger', 'No se encontró una instancia de WhatsApp Meta activa o falta el ID de número de teléfono. Por favor, verifique su configuración.');
         }
 
+        $factura = Factura::findOrFail($id);
         $contacto = $factura->cliente();
-        $prefijo = '57'; // valor por defecto (Colombia)
+        
+        // Determinar prefijo telefónico
+        $prefijo = '57'; 
         if (!empty($contacto->fk_idpais)) {
             $prefijoData = \DB::table('prefijos_telefonicos')
                 ->where('iso2', strtoupper($contacto->fk_idpais))
@@ -5690,318 +5762,161 @@ class FacturasController extends Controller{
             }
         }
 
-        // 📱 Construir número completo con prefijo dinámico
-        $telefonoCompleto = '+' . $prefijo . ltrim($contacto->celular, '0');
+        $metaService = new \App\Services\MetaWhatsAppService();
 
-        /**
-         * 🧭 Si META == 0 → flujo normal (usa plantilla WABA)
-         * 🧭 Si META == 1 → flujo alternativo (envía mensaje manual con PDF base64)
-         */
-       if ($instance->meta == 0) {
+        // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
+        $token = config('app.key');
+        $this->getFacturaTemp($id, $token);
 
-            // 2️⃣ Verificar tipo de canal
-            $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
-            $canalData = json_decode($canalResponse->scalar ?? '{}');
+        $fileName = 'Factura_' . $factura->codigo . '.pdf';
+        $relativePath = 'temp/' . $fileName;
+        $storagePath = storage_path('app/public/' . $relativePath);
 
-            if (!isset($canalData->status) || $canalData->status !== "success") {
-                return back()->with('danger', 'No se pudo verificar el tipo de canal de WhatsApp.');
+        // Esperar hasta que el archivo exista (máx. 5 intentos)
+        $attempts = 0;
+        while (!file_exists($storagePath) && $attempts < 5) {
+            usleep(300000); // 0.3 segundos
+            $attempts++;
+        }
+
+        if (!file_exists($storagePath)) {
+            return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
+        }
+
+        $urlFactura = url('storage/temp/' . $fileName);
+        $empresaObj = auth()->user()->empresa();
+        $estadoCuenta = $factura->estadoCuenta();
+        $total = $factura->total()->total;
+        $saldo = $estadoCuenta->saldoMesAnterior > 0 ? $estadoCuenta->saldoMesAnterior + $total : $total;
+
+        // Buscar plantilla preferida para facturas
+        $plantilla = Plantilla::where('preferida_cron_factura', 1)
+            ->where('tipo', 3)
+            ->where('status', 1)
+            ->where('empresa', auth()->user()->empresa)
+            ->first();
+            
+        if (!$plantilla) {
+            return back()->with('danger', 'No tiene seleccionada una plantilla para facturas por defecto.');
+        }
+            
+        // Procesar parámetros de la plantilla
+        $bodyTextParams = [];
+        if ($plantilla->body_dinamic) {
+            $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+            if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                $bodyDinamicArray = $bodyDinamicArray[0];
             }
 
-            $tipoCanal = $canalData->data->channel->type ?? null;
-
-            // ============================================================
-            // 🧩 GENERAR Y GUARDAR PDF TEMPORALMENTE
-            // ============================================================
-            $token = config('app.key');
-            $this->getFacturaTemp($id, $token); // genera el PDF y lo guarda en storage/public/temp/
-
-            // Asegurar que el archivo fue generado y accesible
-            $fileName = 'Factura_' . $factura->codigo . '.pdf';
-            $relativePath = 'temp/' . $fileName;
-            $storagePath = storage_path('app/public/' . $relativePath);
-
-            // Esperar hasta que el archivo exista (máx. 5 intentos)
-            $attempts = 0;
-            while (!file_exists($storagePath) && $attempts < 5) {
-                usleep(300000); // 0.3 segundos
-                $attempts++;
-            }
-
-            if (!file_exists($storagePath)) {
-                return back()->with('danger', 'No se pudo generar el archivo PDF temporal.');
-            }
-
-            // Generar la URL pública accesible
-            $urlFactura = url('storage/temp/' . $fileName);
-
-            // ============================================================
-            // 📦 CONSTRUIR BODY PARA WAPI
-            // ============================================================
-            $empresaObj = auth()->user()->empresa();
-            $estadoCuenta = $factura->estadoCuenta();
-            $total = $factura->total()->total;
-            $saldo = $estadoCuenta->saldoMesAnterior > 0
-                ? $estadoCuenta->saldoMesAnterior + $total
-                : $total;
-
-            // Buscar plantilla preferida para facturas
-            $plantilla = Plantilla::where('preferida_cron_factura', 1)
-                ->where('tipo', 3)
-                ->where('status', 1)
-                ->where('empresa', auth()->user()->empresa)
-                ->first();
-
-            // Si hay plantilla preferida, usar sus datos
-            if ($plantilla) {
-                // Procesar body_dinamic si existe
-                $bodyTextParams = [];
-                if ($plantilla->body_dinamic) {
-                    $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
-                    if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
-                        $bodyDinamicArray = $bodyDinamicArray[0];
-                    }
-
-                    if (is_array($bodyDinamicArray)) {
-                        foreach ($bodyDinamicArray as $paramTemplate) {
-                            $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
-
-                            // Usar helper para procesar campos dinámicos
-                            $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresaObj);
-
-                            $bodyTextParams[] = $paramValue;
-                        }
-                    }
-                } else {
-                    // Fallback: usar body_text si no hay body_dinamic
-                    $bodyTextArray = json_decode($plantilla->body_text, true);
-                    if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
-                        $bodyTextParams = $bodyTextArray[0];
-                    } else {
-                        // Valores por defecto si no hay configuración
-                        $bodyTextParams = [
-                            $contacto->nombre . " " . $contacto->apellido1,
-                            $empresaObj->nombre,
-                            number_format($saldo, 0, ',', '.')
-                        ];
-                    }
-                }
-
-                // Construir parámetros para components
-                $parameters = [];
-                foreach ($bodyTextParams as $paramValue) {
-                    $parameters[] = ["type" => "text", "text" => $paramValue];
-                }
-
-                // Construir components
-                $components = [
-                    [
-                        "type" => "body",
-                        "parameters" => $parameters
-                    ]
-                ];
-
-                // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
-                if ($plantilla->body_header === 'DOCUMENT') {
-                    array_unshift($components, [
-                        "type" => "header",
-                        "parameters" => [
-                            [
-                                "type" => "document",
-                                "document" => [
-                                    "link" => $urlFactura,
-                                    "filename" => "Factura_{$factura->codigo}.pdf"
-                                ]
-                            ]
-                        ]
-                    ]);
-                }
-
-                $body = [
-                    "phone" => $telefonoCompleto,
-                    "templateName" => $plantilla->title,
-                    "languageCode" => $plantilla->language ?? 'en',
-                    "components" => $components
-                ];
-            } else {
-                // Comportamiento por defecto si no hay plantilla preferida
-                $body = [
-                    "phone" => $telefonoCompleto,
-                    "templateName" => "facturas",
-                    "languageCode" => "en",
-                    "components" => [
-                        [
-                            "type" => "header",
-                            "parameters" => [
-                                [
-                                    "type" => "document",
-                                    "document" => [
-                                        "link" => $urlFactura,
-                                        "filename" => "Factura_{$factura->codigo}.pdf"
-                                    ]
-                                ]
-                            ]
-                        ],
-                        [
-                            "type" => "body",
-                            "parameters" => [
-                                ["type" => "text", "text" => $contacto->nombre . " " . $contacto->apellido1],
-                                ["type" => "text", "text" => $empresaObj->nombre],
-                                ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
-                            ]
-                        ]
-                    ]
-                ];
-            }
-
-            // ============================================================
-            // 🚀 ENVIAR MENSAJE
-            // ============================================================
-            if ($tipoCanal === "waba") {
-                $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-            } else {
-                $response = (object) $wapiService->sendMessageMedia($instance->uuid, env('WAPI_TOKEN'), [
-                    "phone" => "+57" . $contacto->celular,
-                    "caption" => "Factura {$factura->codigo} - {$nameEmpresa}",
-                    "document" => [
-                        "url" => $urlFactura,
-                        "filename" => "Factura_{$factura->codigo}.pdf"
-                    ]
-                ]);
-            }
-
-            // ============================================================
-            // ✅ VALIDAR RESPUESTA Y REGISTRAR LOG
-            // ============================================================
-            $responseData = json_decode($response->scalar ?? '{}', true);
-            $responseOriginal = $response->scalar ?? json_encode($response);
-
-            // Construir mensaje enviado
-            $mensajeEnviado = '';
-            if ($plantilla && isset($plantilla->contenido)) {
-                $mensajeEnviado = $plantilla->contenido;
-                // Reemplazar placeholders con valores reales
-                foreach ($bodyTextParams as $index => $paramValue) {
-                    $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
-                }
-                if ($plantilla->body_header === 'DOCUMENT') {
-                    $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
-                }
-            } else {
-                // Mensaje por defecto
-                $mensajeEnviado = "{$empresaObj->nombre} le informa que su factura {$factura->codigo} tiene un valor de " . number_format($saldo, 0, ',', '.') . " pesos.";
-            }
-
-            // Determinar status
-            $status = 'error';
-            if (!isset($response->statusCode) || $response->statusCode === 200) {
-                if (isset($responseData['status']) && $responseData['status'] === "success") {
-                    $status = 'success';
+            if (is_array($bodyDinamicArray)) {
+                foreach ($bodyDinamicArray as $paramTemplate) {
+                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                    $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresaObj);
+                    $bodyTextParams[] = $paramValue;
                 }
             }
-
-            // Registrar log
-            WhatsappMetaLog::create([
-                'status' => $status,
-                'response' => $responseOriginal,
-                'factura_id' => $factura->id,
-                'contacto_id' => $contacto->id,
-                'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => $mensajeEnviado,
-                'plantilla_id' => $plantilla ? $plantilla->id : null,
-                'enviado_por' => Auth::user()->id
-            ]);
-
-            if (isset($response->statusCode) && $response->statusCode !== 200) {
-                return back()->with('danger', 'Error al enviar el mensaje. Código: ' . $response->statusCode);
-            }
-
-            if (!isset($responseData['status']) || $responseData['status'] !== "success") {
-                return back()->with('danger', 'No se pudo enviar el mensaje. Revise la instancia o la plantilla.');
-            }
-
-            // ============================================================
-            // 🟢 ACTUALIZAR FACTURA
-            // ============================================================
-            $factura->whatsapp = 1;
-            $factura->save();
-
-            return back()->with('success', 'Mensaje enviado correctamente.');
-
         } else {
-            // 🚀 === FLUJO META (manual con PDF en base64) ===
-            if ($instance->status !== "PAIRED" ) {
-                return back()->with('danger', 'La instancia de WhatsApp no está conectada, por favor conéctese a WhatsApp y vuelva a intentarlo.');
+            $bodyTextArray = json_decode($plantilla->body_text, true);
+            if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                $bodyTextParams = $bodyTextArray[0];
+            } else {
+                $bodyTextParams = [
+                    $contacto->nombre . " " . $contacto->apellido1,
+                    $empresaObj->nombre,
+                    number_format($saldo, 0, ',', '.')
+                ];
             }
-            $facturaPDF = $this->getPdfFactura($id);
-            $facturaBase64 = base64_encode($facturaPDF);
+        }
 
-            $file = [
-                "mimeType" => "application/pdf",
-                "file" => $facturaBase64,
+        // Construir componentes para Meta
+        $components = [];
+        if ($plantilla->body_header === 'DOCUMENT') {
+            $components[] = [
+                "type" => "header",
+                "parameters" => [
+                    [
+                        "type" => "document",
+                        "document" => [
+                            "link" => $urlFactura,
+                            "filename" => "Factura_{$factura->codigo}.pdf"
+                        ]
+                    ]
+                ]
             ];
+        }
 
-            $contact = [
-                "phone" => $prefijo . ltrim($contacto->celular, '0'),
-                "name" => $contacto->nombre . " " . $contacto->apellido1
-            ];
+        $parameters = [];
+        foreach ($bodyTextParams as $paramValue) {
+            $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+        }
+        $components[] = [
+            "type" => "body",
+            "parameters" => $parameters
+        ];
 
-            $nameEmpresa = auth()->user()->empresa()->nombre;
-            $estadoCuenta = $factura->estadoCuenta();
+        $languageCode = $plantilla->language ?? 'es';
+        if (is_array($languageCode)) {
+            $languageCode = $languageCode['code'] ?? ($languageCode[0] ?? 'es');
+        }
+        
+        $response = (object) $metaService->sendTemplate(
+            $instance->phone_number_id,
+            $prefijo . ltrim($contacto->celular, '0'),
+            $plantilla->title,
+            (string) $languageCode,
+            $components
+        );
+        
+        $responseData = json_decode(json_encode($response), true);
+        
+        $status = 'error';
+        if (isset($responseData['success']) && $responseData['success']) {
+            $status = 'success';
+        } elseif (isset($responseData['messages'])) {
+            $status = 'success';
+        }
 
-            $msg_deuda = "";
-            $total = $factura->total()->total;
-            if ($estadoCuenta->saldoMesAnterior > 0) {
-                $msg_deuda = "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $total);
-            }
+        // Construir el mensaje completo procesado para registro
+        $mensajeProcesado = $plantilla->contenido ?? '';
+        foreach ($bodyTextParams as $index => $paramValue) {
+            $mensajeProcesado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeProcesado);
+        }
 
-            $message = "$nameEmpresa le informa que su factura ha sido generada bajo el número $factura->codigo por un monto de $$total pesos. " . $msg_deuda;
+        WhatsappMetaLog::create([
+            'status' => $status,
+            'response' => json_encode($response),
+            'factura_id' => $factura->id,
+            'contacto_id' => $contacto->id,
+            'empresa' => Auth::user()->empresa,
+            'mensaje_enviado' => $mensajeProcesado ?: ("Meta Template: " . ($plantilla->title ?? 'Text')),
+            'plantilla_id' => $plantilla ? $plantilla->id : null,
+            'enviado_por' => Auth::user()->id
+        ]);
 
-            $body = [
-                "contact" => $contact,
-                "message" => $message,
-                "media" => $file
-            ];
-
-            $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-
-            $responseOriginal = isset($response->scalar) ? $response->scalar : json_encode($response);
-            $responseData = json_decode($responseOriginal, true);
-
-            // Determinar status
-            $status = 'error';
-            if (!isset($response->statusCode) || (isset($responseData['status']) && $responseData['status'] === "success")) {
-                $status = 'success';
-            }
-
-            // Registrar log
-            WhatsappMetaLog::create([
-                'status' => $status,
-                'response' => $responseOriginal,
-                'factura_id' => $factura->id,
-                'contacto_id' => $contacto->id,
-                'empresa' => Auth::user()->empresa,
-                'mensaje_enviado' => $message,
-                'plantilla_id' => null, // MODO META no usa plantilla
-                'enviado_por' => Auth::user()->id
-            ]);
-
-            if (isset($response->statusCode)) {
-                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-            }
-
-            $response = json_decode($response->scalar);
-
-            if ($response->status != "success") {
-                return back()->with('danger', 'No se pudo enviar el mensaje, por favor intente nuevamente.');
-            }
-
+        if ($status === 'success') {
             $factura->whatsapp = 1;
             $factura->save();
 
-            return back()->with('success', 'Mensaje enviado correctamente.');
+            // Sync con Chat System (Centralizado)
+            $phone = $prefijo . ltrim($contacto->celular, '0');
+            $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+            
+            if ($wamid) {
+                $this->registerCentralizedBatch(
+                    $instance->phone_number_id,
+                    $phone,
+                    $wamid,
+                    $mensajeProcesado,
+                    $contacto->nombre . ' ' . $contacto->apellido1
+                );
+            }
+
+            return back()->with('success', 'Mensaje enviado correctamente vía Meta.');
+        } else {
+            return back()->with('danger', 'Error al enviar mensaje Meta: ' . json_encode($responseData));
         }
     }
-
+    
     public function whatsapp2($id,Request $request )
     {
         $factura = Factura::find($id);
@@ -6180,10 +6095,17 @@ class FacturasController extends Controller{
             // Guardar código anterior antes de actualizar
             $codigoAnterior = $factura->codigo;
 
+            // Calcular la diferencia de días entre la fecha y el vencimiento original
+            $fechaOriginal = Carbon::parse($factura->fecha);
+            $vencimientoOriginal = Carbon::parse($factura->vencimiento);
+            $diferenciaDias = $fechaOriginal->diffInDays($vencimientoOriginal, false);
+
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 2;
             $factura->fecha = Carbon::now()->format('Y-m-d');
+            // Aplicar la diferencia de días a la nueva fecha de vencimiento
+            $factura->vencimiento = Carbon::parse($factura->fecha)->addDays($diferenciaDias)->format('Y-m-d');
             $factura->save();
 
             // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
@@ -6305,10 +6227,17 @@ class FacturasController extends Controller{
 
             }
 
+            // Calcular la diferencia de días entre la fecha y el vencimiento original
+            $fechaOriginal = Carbon::parse($factura->fecha);
+            $vencimientoOriginal = Carbon::parse($factura->vencimiento);
+            $diferenciaDias = $fechaOriginal->diffInDays($vencimientoOriginal, false);
+
             $factura->nro = $numero;
             $factura->numeracion = $nro->id;
             $factura->tipo = 1;
             $factura->fecha = Carbon::now()->format('Y-m-d');
+            // Aplicar la diferencia de días a la nueva fecha de vencimiento
+            $factura->vencimiento = Carbon::parse($factura->fecha)->addDays($diferenciaDias)->format('Y-m-d');
             $factura->save();
 
             // Crear log para la conversión (solo si no es masivo, porque en masivo se crea después)
@@ -6456,6 +6385,27 @@ class FacturasController extends Controller{
             $facturas = explode(",", $facturas);
             set_time_limit(0);
 
+            // Validar correos de los clientes antes de procesar
+            $erroresValidacion = [];
+            foreach ($facturas as $idFactura) {
+                $factura = Factura::where('empresa', $empresa->id)->where('id', $idFactura)->first();
+                if ($factura && $factura->cliente) {
+                    $cliente = $factura->cliente();
+                    if (!$cliente || !isset($cliente->email) || empty($cliente->email)) {
+                        $erroresValidacion[] = "La factura #{$factura->codigo} no se puede emitir porque el cliente " . ($cliente && isset($cliente->nombre) ? $cliente->nombre : 'Desconocido') . " no tiene correo electrónico configurado.";
+                    }
+                }
+            }
+
+            if (count($erroresValidacion) > 0) {
+                return response()->json([
+                    'success' => false,
+                    'text' => 'Se encontraron errores de validación:',
+                    'errores' => count($erroresValidacion),
+                    'detalles_errores' => $erroresValidacion
+                ]);
+            }
+
             $exitosas = 0;
             $errores = [];
             $totalFacturas = count($facturas);
@@ -6466,7 +6416,15 @@ class FacturasController extends Controller{
 
                     if(isset($factura)){
                         $factura->modificado = 1;
+
+                        // Calcular la diferencia de días entre la fecha y el vencimiento original
+                        $fechaOriginal = Carbon::parse($factura->fecha);
+                        $vencimientoOriginal = Carbon::parse($factura->vencimiento);
+                        $diferenciaDias = $fechaOriginal->diffInDays($vencimientoOriginal, false);
+
                         $factura->fecha = Carbon::now()->format('Y-m-d');
+                        // Aplicar la diferencia de días a la nueva fecha de vencimiento
+                        $factura->vencimiento = Carbon::parse($factura->fecha)->addDays($diferenciaDias)->format('Y-m-d');
                         $factura->save();
 
                         if($empresa->proveedor == 2){
@@ -6677,6 +6635,15 @@ class FacturasController extends Controller{
                 $query->orWhere('factura.vencimiento', $request->vencimiento);
             });
         }
+        if($request->prorrateo!=null){
+            if($request->prorrateo == '1'){
+                $facturas->where('factura.prorrateo_aplicado', 1);
+            }else{
+                $facturas->where(function ($query) {
+                    $query->where('factura.prorrateo_aplicado', 0)->orWhereNull('factura.prorrateo_aplicado');
+                });
+            }
+        }
         if($request->estado!=null){
             $facturas->where(function ($query) use ($request) {
                 $query->orWhere('factura.estatus', $request->estado);
@@ -6882,7 +6849,7 @@ class FacturasController extends Controller{
     {
         try {
             $controller = new CronController();
-            $controller->envioFacturaWpp(new WapiService());
+            $controller->envioFacturaWpp();
 
             if ($request->ajax()) {
                 return response()->json(['status' => 'success', 'message' => 'Mensajes enviados con éxito.']);
@@ -7023,10 +6990,9 @@ class FacturasController extends Controller{
                     continue;
                 }
 
-                // Validar que no tenga pagos ni abonos
-                $tienePagos = IngresosFactura::where('factura', $factura->id)->exists();
-                if($tienePagos){
-                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene pagos registrados";
+                // Validar que no tenga pagos
+                if($factura->pagado() != 0){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque tiene pagos registrados o abonos";
                     continue;
                 }
 
@@ -7037,9 +7003,9 @@ class FacturasController extends Controller{
                     continue;
                 }
 
-                // Para facturas tipo 2 (electrónicas), validar que no esté emitida
-                if($factura->tipo == 2 && $factura->emitida == 1){
-                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque está emitida";
+                // Validar que no esté emitida (legal ante la dian)
+                if($factura->emitida == 1){
+                    $errores[] = "Factura {$factura->codigo}: No se puede eliminar porque ya es legal ante la DIAN (está emitida)";
                     continue;
                 }
 
@@ -7063,8 +7029,17 @@ class FacturasController extends Controller{
                     // Eliminar notas_factura relacionadas
                     DB::table('notas_factura')->where('factura', $factura->id)->delete();
 
+                    //Elimnar registros del CRM
+                    CRM::where('factura', $factura->id)->delete();
+
                     // Eliminar promesas de pago asociadas a la factura
                     PromesaPago::where('factura', $factura->id)->delete();
+
+                    // Eliminar factura en OnePay si existe
+                    if ($factura->onepay_invoice_id) {
+                        $onePayService = new OnePayService();
+                        $onePayService->deleteInvoice($factura);
+                    }
 
                     // Eliminar la factura misma
                     $factura->delete();

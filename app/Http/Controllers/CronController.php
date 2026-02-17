@@ -44,16 +44,17 @@ use App\Model\Ingresos\NotaCredito;
 use App\Model\Nomina\Nomina;
 use App\Movimiento;
 use App\MovimientoLOG;
-use App\Services\WapiService;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\WhatsappMetaLog;
 use App\Helpers\CamposDinamicosHelper;
+use App\Traits\CentralizedWhatsApp;
 
 class CronController extends Controller
 {
+    use CentralizedWhatsApp;
     public static function precisionAPI($valor, $id){
         $empresa = Empresa::find($id);
         return round($valor, $empresa->precision);
@@ -240,9 +241,9 @@ class CronController extends Controller
 
     }
 
-    public static function CrearFactura(){
+    public static function CrearFactura($fechaRef = null, $idGrupo = null){
 
-        $fecha = Carbon::now()->format('Y-m-d');
+        $fecha = $fechaRef ? $fechaRef : Carbon::now()->format('Y-m-d');
 
         ini_set('max_execution_time', 500);
         setlocale(LC_TIME, 'es_ES.UTF-8', 'es_ES', 'spanish');
@@ -253,15 +254,22 @@ class CronController extends Controller
 
         if($empresa->factura_auto == 1){
             $i=0;
-            $date = getdate()['mday'] * 1;
+            $date = $fechaRef ? (int)Carbon::parse($fechaRef)->format('d') : getdate()['mday'] * 1;
             $numeros = [];
             $bulk = '';
             $horaActual = date('H:i');
 
-            $grupos_corte = GrupoCorte::
-            where('fecha_factura', $date)
-            ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
-            ->where('status', 1)->get();
+            $query = GrupoCorte::query();
+            
+            if ($idGrupo) {
+                $query->where('id', $idGrupo);
+            } else {
+                $query->where('fecha_factura', $date)
+                      ->whereRaw("STR_TO_DATE(hora_creacion_factura, '%H:%i') <= STR_TO_DATE(?, '%H:%i')", [$horaActual])
+                      ->where('status', 1);
+            }
+            
+            $grupos_corte = $query->get();
 
 
             $state = ['enabled'];
@@ -276,7 +284,8 @@ class CronController extends Controller
                 'contracts.state', 'contracts.fecha_corte', 'contracts.fecha_suspension', 'contracts.facturacion',
                 'contracts.plan_id', 'contracts.descuento', 'c.nombre', 'c.nit', 'c.celular', 'c.telefono1',
                 'c.saldo_favor','contracts.created_at','contracts.fact_primer_mes',
-                'e.terminos_cond', 'e.notas_fact', 'contracts.servicio_tv', 'contracts.factura_individual','contracts.nro')
+                'e.terminos_cond', 'e.notas_fact', 'contracts.servicio_tv', 
+                'contracts.factura_individual','contracts.nro','contracts.prorrateo')
                 ->where('contracts.grupo_corte',$grupo_corte->id)->
                 where('contracts.status',1)->
                 // whereIn('contracts.client_id',[645])->
@@ -292,8 +301,8 @@ class CronController extends Controller
                 }
 
                 //Calculo fecha pago oportuno.
-                $y = Carbon::now()->format('Y');
-                $m = Carbon::now()->format('m');
+                $y = Carbon::parse($fecha)->format('Y');
+                $m = Carbon::parse($fecha)->format('m');
                 $d = substr(str_repeat(0, 2).$grupo_corte->fecha_pago, - 2);
                 if($d == 0){
                     $d = 30;
@@ -311,20 +320,31 @@ class CronController extends Controller
                 //Fin calculo fecha de pago oportuno
 
                 //calculo fecha suspension
-                $y = Carbon::now()->format('Y');
-                $m = Carbon::now()->format('m');
+                $y = Carbon::parse($fecha)->format('Y');
+                $m = Carbon::parse($fecha)->format('m');
                 $ds = substr(str_repeat(0, 2).$grupo_corte->fecha_suspension, - 2);
-                $da = Carbon::now()->format('d')*1;
-                 if($da > $grupo_corte->fecha_suspension && $m!=12){
-                    $m=$m+1;
-                }
+                $da = Carbon::parse($fecha)->format('d')*1;
 
-                if($m == 12){
-                    if($da > $grupo_corte->fecha_suspension){
+                // Si mes_siguiente está activo, forzar el mes siguiente para la suspensión
+                if($grupo_corte->mes_siguiente == 1){
+                    $m = $m + 1;
+                    if($m > 12){
+                        $m = 1;
+                        $y = $y + 1;
+                    }
+                } else {
+                    // Lógica original: solo avanzar mes si el día actual es mayor al día de suspensión
+                    if($da > $grupo_corte->fecha_suspension && $m!=12){
+                        $m=$m+1;
+                    }
 
-                        if(Carbon::now()->format('m') != 11){
-                            $m = 01;
-                            $y = $y+1;
+                    if($m == 12){
+                        if($da > $grupo_corte->fecha_suspension){
+
+                            if(Carbon::now()->format('m') != 11){
+                                $m = 01;
+                                $y = $y+1;
+                            }
                         }
                     }
                 }
@@ -378,13 +398,26 @@ class CronController extends Controller
                         }else{
                             $mesUltimaFactura = date('Y-m',strtotime($ultimaFactura->fecha));
                         }
-
                         //Validacion nueva: mirar si la ultima factura generada tiene la opcion de factura del mes actual.
                         if($mesActualFactura == $mesUltimaFactura){
                             if($ultimaFactura->factura_mes_manual == 1){
                                 continue; //salte esta iteracion entonces por que es la factura del mes manual.
                             }
+
+                            //Esto lo hacemos por que si estoy ejecutando un periodo de 2 de enero y la factura manual es del 4 pues lo mas logico es
+                            //que esa factura seal periodo ya que esto nos esta trayendo demasiadas fallas.
+                            elseif(date('d',strtotime($fecha)) <= date('d',strtotime($ultimaFactura->fecha))){
+                                DB::table('factura')->where('id',$ultimaFactura->id)->update(['factura_mes_manual'=>1]);
+                                continue;
+                            }
+
                         }
+
+                        if($ultimaFactura->factura_mes_manual == null){
+                            $ultimaFactura->factura_mes_manual = 0;
+                            DB::table('factura')->where('id',$ultimaFactura->id)->update(['factura_mes_manual'=>0]);
+                        }
+                        
                     }
 
                     /* ** Validacion: si la actual es dif a la ultima fac pasa o sino
@@ -694,7 +727,7 @@ class CronController extends Controller
                                         }
 
                                         //>>>>Posible aplicación de Prorrateo al total<<<<//
-                                        if($empresa->prorrateo == 1){
+                                        if($contrato->prorrateo == 1){
                                             $dias = $factura->diasCobradosProrrateo();
                                             //si es diferente de 30 es por que se cobraron menos dias y hay prorrateo
                                             //Se agrego la solucion de que sea menor.
@@ -741,8 +774,13 @@ class CronController extends Controller
                 $nro->save();
             }
 
-             /* Enviar correo funcional */
+             /* Enviar correo funcional y Limpiar Caché (Re-aplicado) */
+             $periodoCache = date('Y-m', strtotime($fecha));
+             $analyzer = new \App\Services\BillingCycleAnalyzer();
+
              foreach($grupos_corte as $grupo_corte){
+                // Limpiar caché del ciclo para este grupo
+                $analyzer->clearCycleCache($grupo_corte->id, $periodoCache);
                 $fechaInvoice = Carbon::now()->format('Y-m').'-'.substr(str_repeat(0, 2).$grupo_corte->fecha_factura, - 2);
                 self::sendInvoices($fechaInvoice);
             }
@@ -1368,18 +1406,15 @@ class CronController extends Controller
                     $facturaContratos = Contrato::where('id',$factura->contrato_id)->pluck('nro');
                 }
 
-                $contratosId = Contrato::whereIn('nro',$facturaContratos)
-                ->pluck('id');
+                $contratosNro = Contrato::whereIn('nro',$facturaContratos)
+                ->pluck('nro');
 
-                $ultimaFacturaRegistrada = Factura::
-                where('cliente',$factura->cliente)
-                ->where('estatus','<>',2)
-                ->whereIn('contrato_id',$contratosId)
-                // ->whereBetween('created_at', [
-                //     '2025-12-01 00:00:00',
-                //     '2025-12-31 23:59:59'
-                // ])
-                ->orderBy('created_at', 'desc')
+                $ultimaFacturaRegistrada = DB::table('facturas_contratos')
+                    ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
+                    ->whereIn('facturas_contratos.contrato_nro', $contratosNro)
+                    ->where('factura.estatus','!=',2)
+                    ->select('factura.*')
+                    ->orderBy('factura.created_at', 'desc')
                 ->value('id');
 
                 //manera antigua de buscar el contrato.
@@ -4373,6 +4408,48 @@ class CronController extends Controller
 
     public function deleteFactura(){
 
+        /* SCRIPT PARA DETECTAR CONTRATOS DESHABILITADOS CON DEUDA MENOR A 5 PESOS */
+        $contratos = Contrato::where('state', 'disabled')->get();
+        $result = [];
+        $i = 0;
+
+        foreach($contratos as $contrato){
+            // Buscar última factura abierta validando tanto la relación directa como la tabla pivote
+            $ultimaFactura = Factura::select('factura.*')
+            ->leftJoin('facturas_contratos as fc', 'fc.factura_id', 'factura.id')
+            ->where(function($q) use ($contrato){
+                $q->where('factura.contrato_id', $contrato->id);
+                if($contrato->nro){
+                    $q->orWhere('fc.contrato_nro', $contrato->nro);
+                }
+            })
+            ->where('factura.estatus', 1) 
+            ->orderBy('factura.id', 'desc')
+            ->first();
+
+            if($ultimaFactura){
+                $deuda = $ultimaFactura->porpagar(); // Calcular deuda
+                
+                // Verificamos si la deuda es mayor a 0 y menor a 5 pesos
+                if($deuda > 0 && $deuda < 5){
+                    $clienteNombre = $contrato->cliente() ? $contrato->cliente()->nombre : 'N/A';
+                    $result[] = [
+                        'contrato' => $contrato->nro,
+                        'cliente' => $clienteNombre,
+                        'factura' => $ultimaFactura->codigo,
+                        'deuda'   => $deuda
+                    ];
+                    $i++;
+                }
+            }
+        }
+
+        return response()->json([
+            'total' => $i,
+            'contratos' => $result
+        ]);
+        /* FIN SCRIPT */
+
         // return $contratos = Contrato::join('facturas_contratos as fc','fc.contrato_nro','contracts.nro')
         //     ->join('factura as f','f.id','fc.factura_id')
         //     ->where('f.fecha', '2025-02-01')
@@ -4701,64 +4778,58 @@ class CronController extends Controller
         ]);
     }
 
-    public function envioFacturaWpp(WapiService $wapiService)
+    public function envioFacturaWpp()
     {
-        Log::info("=== Inicio de ejecución: envioFacturaWpp() ===");
-
         try {
             $empresa = Empresa::find(1);
             if (!$empresa) {
                 Log::error("Empresa no encontrada (id=1).");
                 return;
             }
-            Log::info("Empresa encontrada: {$empresa->nombre}");
 
             $fecha = $empresa->cron_fecha_whatsapp ?? date('Y-m-d');
-            Log::info("Fecha de facturación a usar: {$fecha}");
 
             // Reinicio de variable cron_fecha_whatsapp
             $horaActual = Carbon::now()->format('H:i');
-            Log::info("Hora actual: {$horaActual}");
-
             if ($horaActual >= '00:00' && $horaActual <= '03:00') {
                 $empresa->cron_fecha_whatsapp = Carbon::now()->format('Y-m-d');
                 $empresa->save();
-                Log::info("cron_fecha_whatsapp reiniciada a: {$empresa->cron_fecha_whatsapp}");
             }
 
-            // Refrescar empresa (por si cambió algo)
+            // Refrescar empresa
             $empresa = Empresa::find(1);
 
             $grupos_corte = GrupoCorte::where('status', 1)->get();
-            Log::info("Total grupos de corte activos: " . $grupos_corte->count());
-
             if ($grupos_corte->count() === 0) {
-                Log::warning("No hay grupos de corte activos. Se detiene el proceso.");
                 return;
             }
 
             $grupos_corte_array = $grupos_corte->pluck('id')->toArray();
 
             // ===========================
-            // ✅ Buscar instancia UNA VEZ
+            // ✅ Buscar instancia META DIRECT
             // ===========================
             $instance = Instance::where('company_id', $empresa->id)
-                ->where('type', 1)
                 ->where('activo', 1)
                 ->where('meta', 0)
                 ->first();
 
-            if (!$instance) {
-                Log::error("Instancia no encontrada para company_id={$empresa->id}.");
+            if (!$instance || empty($instance->phone_number_id)) {
+                Log::error("Instancia Meta Direct activa no encontrada o sin phone_number_id (meta=0, activo=1).");
                 return;
             }
 
-            // ✅ Límite dinámico según modo
-            $limit = ($instance->meta == 0) ? 45 : 15;
-            Log::info("Modo de envío detectado: " . ($instance->meta == 0 ? "WABA/Vibio (meta=0)" : "META directo (meta=1)") . " | Límite lote: {$limit}");
+            // Validar type = 1 (Meta Direct)
+            if ($instance->type != 1) {
+                Log::error("La instancia configurada no es compatible con Meta Direct (Type != 1).");
+                return;
+            }
+
+            // ✅ Límite para Meta (generalmente más alto, pero seguro)
+            $limit = 45;
 
             // ===========================
-            // ✅ Query de facturas (excluye pagas)
+            // ✅ Query de facturas
             // ===========================
             $facturas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
                 ->join('contactos as con', 'con.id', 'c.client_id')
@@ -4772,385 +4843,221 @@ class CronController extends Controller
                 ->whereNotExists(function ($q) {
                     $q->select(DB::raw(1))
                         ->from('ingresos_factura as i')
-                        ->whereColumn('i.factura', 'factura.id'); // i.factura = factura.id
+                        ->whereColumn('i.factura', 'factura.id');
                 })
                 ->select('factura.*')
                 ->orderBy('factura.updated_at', 'asc')
                 ->limit($limit)
                 ->get();
 
-            Log::info("Facturas seleccionadas para envío: " . $facturas->count());
+            Log::info("Facturas encontradas para procesar: " . $facturas->count());
+
+            $metaService = new \App\Services\MetaWhatsAppService();
 
             foreach ($facturas as $factura) {
-                Log::info("Procesando factura: {$factura->codigo}");
 
-                // ✅ Blindaje por si pagó entre selección y envío
+                // ✅ Blindaje por si pagó
                 $yaPago = DB::table('ingresos_factura')
                     ->where('factura', $factura->id)
                     ->exists();
 
                 if ($yaPago) {
-                    Log::warning("Factura {$factura->codigo}: omitida porque ya registra pago en ingresos_factura.");
                     continue;
                 }
 
-                view()->share(['title' => 'Imprimir Factura']);
-
-                // Actualizar para control de orden/lotes
+                // Actualizar timestamp
                 $factura->updated_at = now();
                 $factura->save();
 
                 $contacto = $factura->cliente();
-                Log::info("Cliente asociado: {$contacto->nombre} {$contacto->apellido1}, NIT: {$contacto->nit}");
 
-                // Determinar número válido
+                // Validar celular
                 $celular = null;
                 if (!empty($contacto->celular) && strlen($contacto->celular) > 9) {
                     $celular = $contacto->celular;
                 } elseif (!empty($contacto->telefono1) && strlen($contacto->telefono1) > 9) {
                     $celular = $contacto->telefono1;
-                } elseif (!empty($contacto->telefono2) && strlen($contacto->telefono2) > 9) {
-                    $celular = $contacto->telefono2;
                 }
 
                 if (!$celular) {
-                    Log::warning("Factura {$factura->codigo}: No hay número válido para el cliente {$contacto->nit}");
+                    Log::warning("Factura {$factura->codigo}: Sin celular válido.");
                     continue;
                 }
 
-                // Prefijo dinámico
                 $prefijo = '57';
                 if (!empty($contacto->fk_idpais)) {
                     $prefijoData = DB::table('prefijos_telefonicos')
                         ->where('iso2', strtoupper($contacto->fk_idpais))
                         ->first();
-
                     if ($prefijoData && !empty($prefijoData->phone_code)) {
                         $prefijo = $prefijoData->phone_code;
                     }
                 }
 
-                $telefonoCompleto = '+' . $prefijo . ltrim($celular, '0');
-                Log::info("Teléfono completo: {$telefonoCompleto}");
+                // ===================================
+                // 🧩 GENERAR PDF TEMPORAL
+                // ===================================
+                $this->getFacturaTemp($factura->id, config('app.key'));
+                $fileName = "Factura_{$factura->codigo}.pdf";
+                $storagePath = storage_path("app/public/temp/{$fileName}");
 
-                // =======================================================
-                // 🚀 ENVÍO META 0 (Vibio / Plantilla WABA)
-                // =======================================================
-                if ($instance->meta == 0) {
-                    Log::info("Usando modo WABA (Vibio API).");
+                $attempts = 0;
+                while (!file_exists($storagePath) && $attempts < 5) {
+                    usleep(300000);
+                    $attempts++;
+                }
 
-                    $canalResponse = (object) $wapiService->getWabaChannel($instance->uuid);
-                    Log::info("Respuesta canal: " . json_encode($canalResponse));
+                if (!file_exists($storagePath)) {
+                    Log::error("Factura {$factura->codigo}: No se pudo generar PDF.");
+                    continue;
+                }
 
-                    $canalData = json_decode($canalResponse->scalar ?? '{}');
+                $urlFactura = url("storage/temp/{$fileName}");
 
-                    if (!isset($canalData->status) || $canalData->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: Error al obtener canal WABA.");
-                        continue;
+                // ===================================
+                // 📦 PREPARAR DATOS PLANTILLA
+                // ===================================
+                $estadoCuenta = $factura->estadoCuenta();
+                $total = $factura->total()->total;
+                $saldo = $estadoCuenta->saldoMesAnterior > 0
+                    ? $estadoCuenta->saldoMesAnterior + $total
+                    : $total;
+
+                // Buscar plantilla preferida
+                $plantilla = Plantilla::where('preferida_cron_factura', 1)
+                    ->where('tipo', 3)
+                    ->where('status', 1)
+                    ->where('empresa', $empresa->id)
+                    ->first();
+
+                if (!$plantilla) {
+                    Log::warning("Factura {$factura->codigo}: No hay plantilla preferida para CRON.");
+                    continue;
+                }
+
+                // Procesar variables dinámicas
+                $bodyTextParams = [];
+                if ($plantilla->body_dinamic) {
+                    $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
+                    if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
+                        $bodyDinamicArray = $bodyDinamicArray[0];
                     }
 
-                    $tipoCanal = $canalData->data->channel->type ?? null;
-                    Log::info("Tipo de canal detectado: {$tipoCanal}");
-
-                    // Generar PDF temporal
-                    $this->getFacturaTemp($factura->id, config('app.key'));
-                    $fileName = "Factura_{$factura->codigo}.pdf";
-                    $storagePath = storage_path("app/public/temp/{$fileName}");
-
-                    $attempts = 0;
-                    while (!file_exists($storagePath) && $attempts < 5) {
-                        usleep(300000);
-                        $attempts++;
-                    }
-
-                    if (!file_exists($storagePath)) {
-                        Log::error("Factura {$factura->codigo}: PDF no encontrado después de {$attempts} intentos.");
-                        continue;
-                    }
-
-                    $urlFactura = url("storage/temp/{$fileName}");
-                    Log::info("Factura {$factura->codigo}: URL PDF => {$urlFactura}");
-
-                    // Buscar plantilla preferida para facturas
-                    $plantilla = Plantilla::where('preferida_cron_factura', 1)
-                        ->where('tipo', 3)
-                        ->where('status', 1)
-                        ->where('empresa', $empresa->id)
-                        ->first();
-
-                    // Variables para construir el mensaje
-                    $estadoCuenta = $factura->estadoCuenta();
-                    $total = $factura->total()->total;
-                    $saldo = $estadoCuenta->saldoMesAnterior > 0
-                        ? $estadoCuenta->saldoMesAnterior + $total
-                        : $total;
-
-                    // Si hay plantilla preferida, usar sus datos
-                    if ($plantilla) {
-                        Log::info("Factura {$factura->codigo}: Usando plantilla preferida: {$plantilla->title}");
-
-                        // Procesar body_dinamic si existe
-                        $bodyTextParams = [];
-                        if ($plantilla->body_dinamic) {
-                            $bodyDinamicArray = json_decode($plantilla->body_dinamic, true);
-                            if (is_array($bodyDinamicArray) && isset($bodyDinamicArray[0]) && is_array($bodyDinamicArray[0])) {
-                                $bodyDinamicArray = $bodyDinamicArray[0];
-                            }
-
-                            if (is_array($bodyDinamicArray)) {
-                                foreach ($bodyDinamicArray as $paramTemplate) {
-                                    $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
-
-                                    // Usar helper para procesar campos dinámicos
-                                    $paramValue = CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
-
-                                    $bodyTextParams[] = $paramValue;
-                                }
-                            }
-                        } else {
-                            // Fallback: usar body_text si no hay body_dinamic
-                            $bodyTextArray = json_decode($plantilla->body_text, true);
-                            if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
-                                $bodyTextParams = $bodyTextArray[0];
-                            } else {
-                                // Valores por defecto si no hay configuración
-                                $bodyTextParams = [
-                                    "{$contacto->nombre} {$contacto->apellido1}",
-                                    $empresa->nombre,
-                                    number_format($saldo, 0, ',', '.')
-                                ];
-                            }
+                    if (is_array($bodyDinamicArray)) {
+                        foreach ($bodyDinamicArray as $paramTemplate) {
+                            $paramValue = is_string($paramTemplate) ? $paramTemplate : '';
+                            $paramValue = \App\Helpers\CamposDinamicosHelper::procesarCamposDinamicos($paramValue, $contacto, $factura, $empresa);
+                            $bodyTextParams[] = $paramValue;
                         }
-
-                        // Construir parámetros para components
-                        $parameters = [];
-                        foreach ($bodyTextParams as $paramValue) {
-                            $parameters[] = ["type" => "text", "text" => $paramValue];
-                        }
-
-                        // Construir components
-                        $components = [
-                            [
-                                "type" => "body",
-                                "parameters" => $parameters
-                            ]
-                        ];
-
-                        // Si la plantilla tiene body_header = "DOCUMENT", agregar header con documento
-                        if ($plantilla->body_header === 'DOCUMENT') {
-                            array_unshift($components, [
-                                "type" => "header",
-                                "parameters" => [
-                                    [
-                                        "type" => "document",
-                                        "document" => [
-                                            "link" => $urlFactura,
-                                            "filename" => "Factura_{$factura->codigo}.pdf"
-                                        ]
-                                    ]
-                                ]
-                            ]);
-                        }
-
-                        $body = [
-                            "phone" => $telefonoCompleto,
-                            "templateName" => $plantilla->title,
-                            "languageCode" => $plantilla->language ?? 'en',
-                            "components" => $components
-                        ];
-                    } else {
-                        // Comportamiento por defecto si no hay plantilla preferida
-                        Log::info("Factura {$factura->codigo}: No hay plantilla preferida, usando valores por defecto");
-
-                        $body = [
-                            "phone" => $telefonoCompleto,
-                            "templateName" => "facturas",
-                            "languageCode" => "en",
-                            "components" => [
-                                [
-                                    "type" => "header",
-                                    "parameters" => [
-                                        [
-                                            "type" => "document",
-                                            "document" => [
-                                                "link" => $urlFactura,
-                                                "filename" => "Factura_{$factura->codigo}.pdf"
-                                            ]
-                                        ]
-                                    ]
-                                ],
-                                [
-                                    "type" => "body",
-                                    "parameters" => [
-                                        ["type" => "text", "text" => "{$contacto->nombre} {$contacto->apellido1}"],
-                                        ["type" => "text", "text" => $empresa->nombre],
-                                        ["type" => "text", "text" => number_format($saldo, 0, ',', '.')]
-                                    ]
-                                ]
-                            ]
-                        ];
                     }
-
-                    Log::info("Factura {$factura->codigo}: cuerpo mensaje => " . json_encode($body));
-
-                    if ($tipoCanal !== "waba") {
-                        Log::error("Canal no permitido: {$tipoCanal}. Solo se permite waba.");
-                        continue;
-                    }
-
-                    $response = (object) $wapiService->sendTemplate($instance->uuid, $body);
-
-                    Log::info("Factura {$factura->codigo}: respuesta API => " . json_encode($response));
-
-                    if (isset($response->statusCode) && $response->statusCode !== 200) {
-                        Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
-                        continue;
-                    }
-
-                    $responseData = json_decode($response->scalar ?? '{}');
-                    $responseOriginal = $response->scalar ?? json_encode($response);
-
-                    // Construir mensaje enviado
-                    $mensajeEnviado = '';
-                    if ($plantilla && isset($plantilla->contenido)) {
-                        $mensajeEnviado = $plantilla->contenido;
-                        // Reemplazar placeholders con valores reales
-                        foreach ($bodyTextParams as $index => $paramValue) {
-                            $mensajeEnviado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeEnviado);
-                        }
-                        if ($plantilla->body_header === 'DOCUMENT') {
-                            $mensajeEnviado = "[Documento adjunto: Factura_{$factura->codigo}.pdf]\n\n" . $mensajeEnviado;
-                        }
-                    } else {
-                        // Mensaje por defecto
-                        $mensajeEnviado = "{$empresa->nombre} le informa que su factura {$factura->codigo} tiene un valor de " . number_format($saldo, 0, ',', '.') . " pesos.";
-                    }
-
-                    // Determinar status
-                    $status = 'error';
-                    if (isset($responseData->status) && $responseData->status === "success") {
-                        $status = 'success';
-                    }
-
-                    // Registrar log
-                    WhatsappMetaLog::create([
-                        'status' => $status,
-                        'response' => $responseOriginal,
-                        'factura_id' => $factura->id,
-                        'contacto_id' => $contacto->id,
-                        'empresa' => $empresa->id,
-                        'mensaje_enviado' => $mensajeEnviado,
-                        'plantilla_id' => $plantilla ? $plantilla->id : null,
-                        'enviado_por' => null // Cron no tiene usuario
-                    ]);
-
-                    if (!isset($responseData->status) || $responseData->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío. Respuesta => " . json_encode($responseData));
-                        continue;
-                    }
-
-                    $factura->whatsapp = 1;
-                    $factura->save();
-                    Log::info("Factura {$factura->codigo}: marcada como enviada ✅");
-
                 } else {
-                    // =======================================================
-                    // 🚀 MODO META (directo, manual con base64)
-                    // =======================================================
-                    Log::info("Usando modo META directo.");
-
-                    if ($instance->status !== "PAIRED") {
-                        Log::error("Instancia no conectada a WhatsApp (status: {$instance->status}).");
-                        break;
-                    }
-
-                    $facturaPDF = $this->getPdfFactura($factura->id);
-                    $facturabase64 = base64_encode($facturaPDF);
-
-                    $file = [
-                        "mimeType" => "application/pdf",
-                        "file" => $facturabase64,
-                    ];
-
-                    $contact = [
-                        "phone" => $prefijo . ltrim($celular, '0'),
-                        "name" => "{$contacto->nombre} {$contacto->apellido1}"
-                    ];
-
-                    $estadoCuenta = $factura->estadoCuenta();
-                    $msg_deuda = $estadoCuenta->saldoMesAnterior > 0
-                        ? "El total a deber es: " . Funcion::Parsear($estadoCuenta->saldoMesAnterior + $factura->total()->total)
-                        : "";
-
-                    $message = "{$empresa->nombre} le informa que su factura {$factura->codigo} tiene un valor de {$factura->total()->total} pesos. {$msg_deuda}";
-
-                    $body = [
-                        "contact" => $contact,
-                        "message" => $message,
-                        "media" => $file
-                    ];
-
-                    Log::info("Factura {$factura->codigo}: cuerpo META => " . json_encode($body));
-
-                    $response = (object) $wapiService->sendMessageMedia($instance->uuid, $instance->api_key, $body);
-                    Log::info("Factura {$factura->codigo}: respuesta META => " . json_encode($response));
-
-                    if (isset($response->statusCode)) {
-                        Log::error("Factura {$factura->codigo}: error HTTP {$response->statusCode}");
-                        // Si sabemos que, a pesar del 500, el mensaje se envía igual:
-                        if ($response->statusCode == 500) {
-                            $factura->whatsapp = 1;
-                            $factura->save();
-                            Log::info("Factura {$factura->codigo}: marcada como enviada ✅ pese a HTTP 500 (comportamiento conocido de la API META)");
-                        }
-                        sleep(5);
-                        continue;
-                    }
-
-                    if (isset($response->scalar)) {
-                        $responseDecoded = json_decode($response->scalar);
+                    $bodyTextArray = json_decode($plantilla->body_text, true);
+                    if (is_array($bodyTextArray) && isset($bodyTextArray[0]) && is_array($bodyTextArray[0])) {
+                        $bodyTextParams = $bodyTextArray[0];
                     } else {
-                        $responseDecoded = $response;
+                        $bodyTextParams = [
+                            $contacto->nombre . " " . $contacto->apellido1,
+                            $empresa->nombre,
+                            number_format($saldo, 0, ',', '.')
+                        ];
                     }
+                }
 
-                    // Actualizar status del log si se envió correctamente
-                    $statusLog = 'error';
-                    if (!isset($response->statusCode) || ($response->statusCode == 500) || (isset($responseDecoded->status) && $responseDecoded->status === "success")) {
-                        $statusLog = 'success';
+                // Construir Components
+                $components = [];
+
+                if ($plantilla->body_header === 'DOCUMENT') {
+                    $components[] = [
+                        "type" => "header",
+                        "parameters" => [
+                            [
+                                "type" => "document",
+                                "document" => [
+                                    "link" => $urlFactura,
+                                    "filename" => "Factura_{$factura->codigo}.pdf"
+                                ]
+                            ]
+                        ]
+                    ];
+                }
+
+                $parameters = [];
+                foreach ($bodyTextParams as $paramValue) {
+                    $parameters[] = ["type" => "text", "text" => strval($paramValue)];
+                }
+                $components[] = [
+                    "type" => "body",
+                    "parameters" => $parameters
+                ];
+
+                // ===================================
+                // 🚀 ENVIAR VIA META
+                // ===================================
+                $response = (object) $metaService->sendTemplate(
+                    $instance->phone_number_id,
+                    $prefijo . ltrim($celular, '0'),
+                    $plantilla->title,
+                    $plantilla->language ?? 'es',
+                    $components
+                );
+
+                // Validar Respuesta
+                $responseData = json_decode(json_encode($response), true);
+                $status = 'error';
+                
+                if (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
+                    if (isset($responseData['messages']) && count($responseData['messages']) > 0) {
+                        // Asumimos 'success' si Meta devuelve message_id
+                         $status = 'success';
                     }
+                }
 
-                    // Actualizar log creado anteriormente
-                    $lastLog = WhatsappMetaLog::where('factura_id', $factura->id)
-                        ->where('empresa', $empresa->id)
-                        ->orderBy('id', 'desc')
-                        ->first();
-                    if ($lastLog) {
-                        $lastLog->status = $statusLog;
-                        $lastLog->save();
-                    }
+                // Construir el mensaje completo procesado para registro
+                $mensajeProcesado = $plantilla->contenido ?? '';
+                foreach ($bodyTextParams as $index => $paramValue) {
+                    $mensajeProcesado = str_replace('{{' . ($index + 1) . '}}', $paramValue, $mensajeProcesado);
+                }
 
-                    if (!isset($responseDecoded->status) || $responseDecoded->status !== "success") {
-                        Log::error("Factura {$factura->codigo}: fallo en envío META. Respuesta => " . json_encode($responseDecoded));
-                        sleep(5);
-                        continue;
-                    }
+                // Log
+                WhatsappMetaLog::create([
+                    'status' => $status,
+                    'response' => json_encode($response),
+                    'factura_id' => $factura->id,
+                    'contacto_id' => $contacto->id,
+                    'empresa' => $empresa->id,
+                    'mensaje_enviado' => $mensajeProcesado ?: ("Cron Meta: " . $plantilla->title),
+                    'plantilla_id' => $plantilla->id,
+                    'enviado_por' => 0 
+                ]);
 
+                if ($status === 'success') {
                     $factura->whatsapp = 1;
                     $factura->save();
-                    Log::info("Factura {$factura->codigo}: enviada por META ✅");
-                    sleep(5);
+                    Log::info("Factura {$factura->codigo} enviada correctamente a {$celular}");
+
+                    // Sync con Chat System (Centralizado)
+                    $phone = $prefijo . ltrim($celular, '0');
+                    $wamid = $responseData['data']['messages'][0]['id'] ?? ($responseData['messages'][0]['id'] ?? null);
+                    
+                    if ($wamid) {
+                        $this->registerCentralizedBatch(
+                            $instance->phone_number_id,
+                            $phone,
+                            $wamid,
+                            $mensajeProcesado,
+                            $contacto->nombre . ' ' . $contacto->apellido1
+                        );
+                    }
+                } else {
+                    Log::error("Error enviando factura {$factura->codigo} a {$celular}: " . json_encode($responseData));
                 }
             }
 
-            Log::info("✅ Lote completado correctamente.");
-            $this->refreshCorteIntertTV();
-
-        } catch (\Throwable $e) {
-            Log::error("🔥 Error general en envioFacturaWpp: {$e->getMessage()} en línea {$e->getLine()}");
+        } catch (\Exception $e) {
+            Log::error("Error general en envioFacturaWpp: " . $e->getMessage());
         }
-
-        Log::info("=== Fin de ejecución envioFacturaWpp() ===");
     }
+
 
     public function aplicateProrrateo(){
 
@@ -5409,7 +5316,7 @@ class CronController extends Controller
                     $notasDebito->update(['dian_service'=> 1]);
                     $nominas->update(['dian_service'=> 1]);
                 }
-                Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
+                // Log::info('Finalizado con exito el informe de emisiones del dia: ' . Carbon::now()->format('Y-m-d'));
 
             } catch (ClientException $e) {
                 if($e->getResponse()->getStatusCode() === 404) {
@@ -5496,7 +5403,7 @@ class CronController extends Controller
 
 
         //Inicio validacion de codigos iguales emitidos
-        $this->validateCodeEmision();
+        // $this->validateCodeEmision();
         //Fin validacion de codigos iguales emitidos
     }
 
@@ -5980,7 +5887,7 @@ class CronController extends Controller
             if ($facturas_existentes->count() > 0) {
                 $facturas_ids = $facturas_existentes->toArray();
 
-                Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
+                // Log::info("Iniciando eliminación para contrato {$contrato_nro}. Facturas: " . implode(',', $facturas_ids));
 
                 // Eliminar en orden específico para evitar violaciones de integridad referencial
 

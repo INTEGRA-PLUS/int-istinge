@@ -405,4 +405,9 @@ class Contacto extends Model
 
         return $barrio;
     }
+
+    public function contratoDigital()
+    {
+        return $this->hasOne(ContratoDigital::class, 'cliente_id');
+    }
 }

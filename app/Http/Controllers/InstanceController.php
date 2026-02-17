@@ -43,6 +43,39 @@ class InstanceController extends Controller
     public function store(Request $request, WapiService $wapiService)
     {
         $addr = url('');
+
+        // Detectar si es creación de instancia Meta (por presencia de phone_number_id)
+        if ($request->has('phone_number_id') || $request->type == 0) {
+            $validated = $request->validate([
+                'phone_number_id' => 'required',
+                'waba_id' => 'required',
+            ]);
+
+            try {
+                $instance = Instance::create([
+                    'company_id' => auth()->user()->empresa,
+                    'phone_number_id' => $validated['phone_number_id'],
+                    'waba_id' => $validated['waba_id'],
+                    'status' => 'PAIRED', // Meta se considera conectada al crearla con las credenciales
+                    'type' => 1, // Meta Direct
+                    'meta' => 0,
+                    'uuid' => $validated['phone_number_id'], 
+                    'api_key' => 'meta', 
+                    'addr' => $addr,
+                    'uuid_whatsapp' => $validated['phone_number_id']
+                ]);
+
+                return back()->with([
+                    'instance' => $instance,
+                    'message' => 'Instancia Meta registrada correctamente.'
+                ]);
+            } catch (Exception $err) {
+                return back()->withErrors([
+                    'error' => 'Error al registrar instancia Meta: ' . $err->getMessage()
+                ])->withInput($request->input());
+            }
+        }
+
         $validated = $request->validate([
             'instance_id' => 'required|regex:/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/'
         ]);
@@ -167,6 +200,18 @@ class InstanceController extends Controller
                 'status' => 'error',
                 'data' => [
                     'error' => 'Instancia no encontrada.'
+                ]
+            ]);
+        }
+
+        // Si es Meta Direct (type 1), no requiere pairing con Wapi
+        if ($instance->type == 1) {
+            $instance->status = 'PAIRED';
+            $instance->save();
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'message' => 'Instancia Meta conectada correctamente.'
                 ]
             ]);
         }

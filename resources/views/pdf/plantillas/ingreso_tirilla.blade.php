@@ -134,19 +134,21 @@
         </div>
     </div>
 
-    <div style="width: 100%; text-align: center; display: inline-block;">
-        @if($ingreso->tipo == 1 || $ingreso->tipo == 2) Ingreso: @elseif($ingreso->tipo == 3) Cuenta de Cobro: @endif No. {{$ingreso->nro}}<br>
-        Hora Creación: {{date('H:i',strtotime($ingreso->created_at))}} <br>
-        Fecha Expedición: {{date('d/m/Y', strtotime($ingreso->fecha))}}<br>
-        Fecha Vencimiento: {{date('d/m/Y', strtotime($ingreso->ingresofactura()->factura()->vencimiento))}}<br>
-        Estado: @if($ingreso->ingresofactura()->factura()->estatus == 0) Cerrada @endif @if($ingreso->ingresofactura()->factura()->estatus == 1) Abierta @endif @if($ingreso->ingresofactura()->factura()->estatus == 2) Anulada @endif<br><br>
+    @php $factura = $ingreso->ingresofactura()->factura(); @endphp
 
+    <div style="width: 100%; text-align: center; display: inline-block;">
+        @if($ingreso->tipo == 1)
+        Factura:  {{ $factura->codigo }}<br>
+        Estado Factura: @if($factura->estatus == 0) Cerrada @endif @if($factura->estatus == 1) Abierta @endif @if($factura->estatus == 2) Anulada @endif<br><br>
+        @endif
+        
         Recibo de Caja: No. {{ $ingreso->nro }}<br>
         Fecha del Pago: {{ date('d/m/Y', strtotime($ingreso->fecha)) }}<br>
+        Hora Creación: {{date('H:i',strtotime($ingreso->created_at))}} <br>
         Cuenta: {{ $ingreso->cuenta()->nombre }}<br>
         Método de Pago: {{ $ingreso->metodo_pago() }}<br>
         @if(isset(Auth::user()->empresa()->periodo_tirilla) && Auth::user()->empresa()->periodo_tirilla == 1)
-        <span class="tirilla-label">Periodo:</span> {{$ingreso->ingresofactura()->factura()->periodoCobradoTexto()}}<br>
+        <span class="tirilla-label">Periodo:</span> {{$factura->periodoCobradoTexto()}}<br>
         @endif
         @if($ingreso->notas) Notas: {{ $ingreso->notas }} @endif
     </div>
@@ -165,7 +167,7 @@
             @foreach($items as $item)
              @php $totalApagar=$totalApagar+$item->precio; @endphp
                 <tr>
-                    <td>{{$item->ref}}</td>
+                    <td>{{$item->descripcion}}</td>
                     <td>{{$empresa->moneda}}{{App\Funcion::Parsear($item->precio)}}</td>
                 </tr>
             @endforeach

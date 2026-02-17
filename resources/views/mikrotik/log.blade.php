@@ -46,7 +46,7 @@
 			processing: true,
 			searching: true,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[0, "desc"]

@@ -15,6 +15,15 @@
 		    	<option value="0" {{0==$request->tipo?'selected':''}}>No emitidas</option>
 		    </select>
 	  	</div>
+        <div class="form-group col-md-2">
+            <label>Forma de Pago</label>
+            <select class="form-control selectpicker" name="forma_pago" id="forma_pago" title="Seleccione" data-live-search="true" data-size="6">
+                @foreach($formasPago as $forma)
+                    <option value="{{$forma->id}}" {{$forma->id == $request->forma_pago ? 'selected' : ''}}>{{$forma->nombre}}</option>
+                @endforeach
+                <option value="">TODOS</option>
+            </select>
+        </div>
 		<div class="form-group col-md-2">
 		    <label></label>
 		    <select class="form-control selectpicker" name="fechas" id="fechas">

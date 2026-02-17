@@ -335,7 +335,7 @@
                                     <td class="monetario">
                                         <input type="number" class="form-control form-control-sm" id="precio{{$cont}}"
                                                name="precio[]" placeholder="Precio Unitario" onkeyup="total({{$cont}})"
-                                               required="" maxlength="24" min="0" value="{{$item->precio}}">
+                                               required="" maxlength="24" min="0" value="{{(float)$item->precio}}" step="any">
 
                                     </td>
                                     <td>

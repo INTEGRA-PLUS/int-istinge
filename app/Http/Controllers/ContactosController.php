@@ -211,8 +211,17 @@ class ContactosController extends Controller
                 return ($contacto->contract('true') == 'N/A') ? 'N/A' : '<a href="http://'.$contacto->contract('true').''.$puerto.'" target="_blank">'.$contacto->contract('true').''.$puerto.' <i class="fas fa-external-link-alt"></i></a>';
             })
 
+            ->addColumn('state_olt_catv', function (Contacto $contacto) {
+                $contrato = $contacto->contrato();
+                if ($contrato && $contrato->olt_sn_mac) {
+                    $estado = $contrato->state_olt_catv == 1 ? 'Habilitado' : 'Deshabilitado';
+                    $color = $contrato->state_olt_catv == 1 ? 'success' : 'danger';
+                    return '<span class="text-' . $color . ' font-weight-bold">' . $estado . '</span>';
+                }
+                return 'N/A';
+            })
             ->addColumn('acciones', $modoLectura ? '' : 'contactos.acciones-contactos')
-            ->rawColumns(['acciones', 'nombre', 'contrato', 'ip'])
+            ->rawColumns(['acciones', 'nombre', 'contrato', 'ip', 'state_olt_catv'])
             ->toJson();
     }
     public function clientes(Request $request)
@@ -388,38 +397,25 @@ class ContactosController extends Controller
         $tipos_empresa = TipoEmpresa::where('empresa', Auth::user()->empresa)
             ->get();
 
-        $prefijos = DB::table('prefijos_telefonicos')->get();
-
-        $paises = DB::table('pais')->get();
+        $paises = DB::table('pais')->whereIn('codigo', ['CO','VE'])->get();
 
         $departamentos = DB::table('departamentos')->get();
 
-        $transportadora_id = TipoEmpresa::where('empresa', auth()->user()->empresa)
-            ->where('nombre', 'TRANSPORTADORA')
-            ->first();
-
-        if ($transportadora_id) {
-            $transportadoras = Contacto::where('empresa', auth()->user()->empresa)
-                ->where('tipo_empresa', $transportadora_id->id)
-                ->get();
-        } else {
-            $transportadoras = null;
-        }
-
         $oficinas = (Auth::user()->oficina && Auth::user()->empresa()->oficina) ? Oficina::where('id', Auth::user()->oficina)->get() : Oficina::where('empresa', Auth::user()->empresa)->where('status', 1)->get();
+        
+        $barrios = DB::table('barrios')->where('status',1)->get();
 
         view()->share(['title' => 'Nuevo Proveedor', 'subseccion' => 'proveedores', 'middel' => true]);
 
         return view('contactos.createp')->with(compact(
             'identificaciones',
             'tipos_empresa',
-            'prefijos',
             'vendedores',
             'listas',
             'paises',
             'departamentos',
-            'transportadoras',
-            'oficinas'
+            'oficinas',
+            'barrios'
         ));
     }
 

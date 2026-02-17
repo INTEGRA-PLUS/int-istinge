@@ -57,22 +57,33 @@
             <div class="col-md-3 form-group">
                 <label class="control-label">Cliente <span class="text-danger">*</span></label>
                 <div class="input-group">
-                    <select class="form-control selectpicker" name="id" id="idCliente" required="" title="Seleccione" data-live-search="true" data-size="5" >
+                    <select class="form-control selectpicker" name="id" id="idCliente" required="" title="Seleccione"
+                    data-live-search="true" data-size="5"
+                    onchange="cargarContratos()"
+                    >
                         @foreach($clientes as $cliente)
                         <option value="{{$cliente->id}}" {{$cliente->id == $idCliente ? 'selected' : '' }}>{{$cliente->nombre}} {{$cliente->apellido1}} {{$cliente->apellido2}} - {{$cliente->nit}}</option>
                         @endforeach
                     </select>
                 </div>
             </div>
-            {{-- onchange="cargarContratos()" --}}
-            {{-- <div class="col-md-3 form-group">
+
+            <div class="col-md-3 form-group" id="div_contrato">
                 <label class="control-label">Contrato <span class="text-danger">*</span></label>
                 <div class="input-group">
-                    <select class="form-control" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
+                    <select class="form-control selectpicker" name="contrato" id="idcontrato" required="" title="Seleccione" data-live-search="true" data-size="5">
                     </select>
                 </div>
-            </div> --}}
-            <div class="col-md-3 form-group offset-md-1">
+            </div>
+            
+            <div class="col-md-3 form-group d-none" id="div_no_contrato">
+                <label class="control-label">Contrato</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="El cliente no tiene contratos creados para asociar." disabled>
+                </div>
+            </div>
+
+            <div class="col-md-3 form-group">
                 <label class="control-label" id="div_campo_1">{{$empresa->campo_1}} <span class="text-danger">*</span></label>
                 <input type="file" class="form-control"  id="documento" name="documento"  required="" value="{{old('documento')}}" accept=".jpg, .jpeg, .png">
                 <span style="color: red;">
@@ -372,6 +383,7 @@
     </script>
     <script>
          function cargarContratos() {
+
             // Obtén el valor seleccionado del cliente
             var selectedClientId = document.getElementById('idCliente').value;
             var url = window.routeContratos.replace(':id', selectedClientId);
@@ -382,6 +394,7 @@
                 success: function(response) {
                     // Maneja la respuesta del contrato y actualiza el segundo select
                     updateContratosSelect(response);
+                    $("#idcontrato").selectpicker("refresh");
                 },
                 error: function(error) {
                     console.error('Error al llamar al contrato:', error);
@@ -393,18 +406,30 @@
        // Supongamos que esta función se llama después de recibir la respuesta AJAX
         function updateContratosSelect(contratos) {
             var selectContrato = document.getElementById('idcontrato');
+            var divContrato = document.getElementById('div_contrato');
+            var divNoContrato = document.getElementById('div_no_contrato');
 
             // Verificar si el elemento 'select' existe
             if (selectContrato) {
                 selectContrato.innerHTML = ''; // Limpiar opciones existentes
 
-                // Agregar nuevas opciones basadas en la respuesta del contrato
-                contratos.forEach(function(contrato) {
-                    var option = document.createElement('option');
-                    option.value = contrato.client_id;
-                    option.textContent = 'contrato-nro'+contrato.nro;
-                    selectContrato.appendChild(option);
-                });
+                if (contratos.length > 0) {
+                    divContrato.classList.remove('d-none');
+                    divNoContrato.classList.add('d-none');
+                    selectContrato.setAttribute('required', '');
+
+                    // Agregar nuevas opciones basadas en la respuesta del contrato
+                    contratos.forEach(function(contrato) {
+                        var option = document.createElement('option');
+                        option.value = contrato.id;
+                        option.textContent = 'contrato nro '+ contrato.nro;
+                        selectContrato.appendChild(option);
+                    });
+                } else {
+                    divContrato.classList.add('d-none');
+                    divNoContrato.classList.remove('d-none');
+                    selectContrato.removeAttribute('required');
+                }
 
                 console.log('Select de contratos actualizado correctamente.');
             } else {

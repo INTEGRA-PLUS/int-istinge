@@ -79,13 +79,15 @@ class InventarioController extends Controller{
             $precio=ListaPrecios::where('empresa', Auth::user()->empresa)->where('nro', $request->lista)->first();
             $select[]='pp.precio as precio';
             $campos[3]=$orderby='pp.precio';
-            $productos = Inventario::join('productos_precios as pp', 'pp.producto', '=', 'inventario.id')->where('pp.lista', $precio->id)->select($select);
+            $productos = Inventario::join('productos_precios as pp', 'pp.producto', '=', 'inventario.id')
+            ->where('pp.lista', $precio->id)->select($select);
         }else{
             $productos = Inventario::select($select);
         }
 
         $appends=array('orderby'=>$request->orderby, 'order'=>$request->order);
-        $productos = $productos->where('inventario.empresa',Auth::user()->empresa)->whereIn('type',['MATERIAL','MODEMS']);
+        $productos = $productos->where('inventario.empresa',Auth::user()->empresa)
+        ->whereIn('type',['MATERIAL','MODEMS', 'OFICINA','SERVICIO']);
 
         if ($request->name_1) {
             $busqueda=true; $appends['name_1']=$request->name_1; $productos=$productos->where('inventario.ref', 'like', '%' .$request->name_1.'%');
@@ -109,7 +111,8 @@ class InventarioController extends Controller{
             if ($request->$tite) {
                 $busqueda=true;
                 $appends[$tite]=$request->$tite;
-                $productos=$productos->leftjoin('inventario_meta','id_producto','=','inventario.id')->where('meta_key',$value->campo)->where('meta_value','LIKE','%'. $request->$tite. '%');
+                $productos=$productos->leftjoin('inventario_meta','id_producto','=','inventario.id')
+                ->where('meta_key',$value->campo)->where('meta_value','LIKE','%'. $request->$tite. '%');
             }
             $cont++;
         }
@@ -424,7 +427,7 @@ class InventarioController extends Controller{
         $inventario->ref=$request->ref;
         $inventario->descripcion=mb_strtolower($request->descripcion);
         $inventario->linea = $request->linea;
-        $inventario->precio=$this->precision($request->precio);
+        $inventario->precio=$request->precio;
         $inventario->id_impuesto=$request->impuesto;
         $inventario->type=$request->type;
         if($request->publico){
@@ -756,7 +759,7 @@ class InventarioController extends Controller{
         $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
         $inventario =
         Inventario::select('inventario.*',
-        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'))
+        DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id limit 1) as nro'))
         ->where('empresa',Auth::user()->empresa)
         ->where('status', 1)->get();
         $bodegas = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->get();
@@ -901,8 +904,6 @@ class InventarioController extends Controller{
                 $inventario->publico=$request->publico;
             }
 
-            $monto = str_replace('.','',$request->precio);
-            $monto = str_replace(',','.',$monto);
             $impuesto = Impuesto::where('id', $request->impuesto)->first();
             $inventario->id_impuesto=$request->impuesto;
             $inventario->impuesto=$impuesto->porcentaje;
@@ -910,7 +911,7 @@ class InventarioController extends Controller{
             $inventario->ref=$request->ref;
             $inventario->descripcion=mb_strtolower($request->descripcion);
             $inventario->linea = $request->linea;
-            $inventario->precio=$this->precision($monto);
+            $inventario->precio=$request->precio;
             $inventario->tipo_producto=$request->tipo_producto;
             $inventario->categoria=$request->categoria;
             $inventario->lista = $request->list;
@@ -1137,19 +1138,7 @@ class InventarioController extends Controller{
                     'unidad' => 'required|exists:unidades_medida,id',
                     'costo_unidad' => 'required|numeric'
                 ]);
-                if ($request->bodega) {
-                    foreach ($request->bodega as $key => $value) {
-                        if ($request->bodegavalor[$key]) {
-                            $bodega = new ProductosBodega;
-                            $bodega->empresa=Auth::user()->empresa;
-                            $bodega->bodega=$value;
-                            $bodega->producto=$inventario->id;
-                            $bodega->nro=$request->bodegavalor[$key];
-                            $bodega->inicial=$request->bodegavalor[$key];
-                            $bodega->save();
-                        }
-                    }
-                }
+
                 $inventario->unidad=$request->unidad;
                 $inventario->costo_unidad=$this->precision($request->costo_unidad);
                 $inventario->save();
@@ -1180,9 +1169,9 @@ class InventarioController extends Controller{
                             $bodega->save();
                             $inserts[] = $bodega->id;
                         }
-                        if (count($inserts) > 0) {
-                            ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->whereNotIn('id', $inserts)->delete();
-                        }
+                    }
+                    if (count($inserts) > 0) {
+                        ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->whereNotIn('id', $inserts)->delete();
                     }
                 } else {
                     ProductosBodega::where('empresa', Auth::user()->empresa)->where('producto', $inventario->id)->delete();
@@ -1217,7 +1206,7 @@ class InventarioController extends Controller{
         if (!$bodega) {
             $bodega = Bodega::where('empresa',Auth::user()->empresa)->where('status', 1)->first();
         }
-        $select=array('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id) as nro'));
+        $select=array('inventario.*', DB::raw('(Select nro from productos_bodegas where bodega='.$bodega->id.' and producto=inventario.id limit 1) as nro'));
         if ($request->precios) {
             $precios = ListaPrecios::where('empresa',Auth::user()->empresa)->where('status', 1)->where('id', $request->precios)->first();
             if ($precios) {
@@ -1235,16 +1224,16 @@ class InventarioController extends Controller{
             $inventario=$inventario->havingRaw('if(inventario.tipo_producto=1 or inventario.tipo_producto=2, id in (Select producto from productos_bodegas where bodega='.$bodega->id.'), true)')->orderBy('id','DESC')->get();
             if ($inventario) {
                 foreach ($inventario as $key => $item) {
-                    $item->precio=$this->precision($item->precio);
-                    $item->costo_unidad=$this->precision($item->costo_unidad);
+                    $item->precio=$item->precio;
+                    $item->costo_unidad=$item->costo_unidad;
                 }
                 return json_encode($inventario);
             }
         }else{
             $inventario =Inventario::select($select)->where('id',$id)->where('empresa',Auth::user()->empresa)->first();
             if ($inventario) {
-                $inventario->precio=$this->precision($inventario->precio);
-                $inventario->costo_unidad=$this->precision($inventario->costo_unidad);
+                $inventario->precio=$inventario->precio;
+                $inventario->costo_unidad=$inventario->costo_unidad;
                 //Se obtiene el inventario del producto buscado
                 $inventario->inventario = $inventario->inventario();
                 $inventario->inventariable= $inventario->esInventariable();

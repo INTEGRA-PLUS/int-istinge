@@ -16,7 +16,7 @@ class CamposDinamicosHelper
      * @param \App\Empresa|null $empresa El objeto empresa (opcional)
      * @return string El string procesado con los valores reemplazados
      */
-    public static function procesarCamposDinamicos($paramValue, $contacto, $factura = null, $empresa = null)
+    public static function procesarCamposDinamicos($paramValue, $contacto, $factura = null, $empresa = null, $ingreso = null)
     {
         if (!is_string($paramValue)) {
             $paramValue = '';
@@ -94,13 +94,68 @@ class CamposDinamicosHelper
             }
             $paramValue = str_replace('[factura.contrato]', $contratos, $paramValue);
         } else {
-            // Si no hay factura, reemplazar con valores vacíos
-            $paramValue = str_replace('[factura.fecha]', '', $paramValue);
-            $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
-            $paramValue = str_replace('[factura.codigo]', '', $paramValue);
-            $paramValue = str_replace('[factura.total]', '0', $paramValue);
-            $paramValue = str_replace('[factura.porpagar]', '0', $paramValue);
-            $paramValue = str_replace('[factura.contrato]', '', $paramValue);
+            // Si no hay factura pero SI hay ingreso, intentamos mapear algunos campos
+            if ($ingreso) {
+                // Mapear [factura.codigo] al nro del ingreso
+                $paramValue = str_replace('[factura.codigo]', $ingreso->nro ?? '', $paramValue);
+                $paramValue = str_replace('[factura.fecha]', $ingreso->fecha ?? '', $paramValue);
+                
+                 // Obtener total del ingreso
+                $ingresoTotal = 0;
+                try {
+                    if (method_exists($ingreso, 'total')) {
+                        $totalObj = $ingreso->total();
+                        if ($totalObj && isset($totalObj->total)) {
+                            $ingresoTotal = $totalObj->total;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Error obteniendo total de ingreso: ' . $e->getMessage());
+                }
+                $paramValue = str_replace('[factura.total]', number_format($ingresoTotal, 0, ',', '.'), $paramValue);
+                
+                 // Para campos que no tienen equivalente directo en ingreso, dejar vacíos o N/A
+                $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
+                $paramValue = str_replace('[factura.porpagar]', '0', $paramValue);
+                $paramValue = str_replace('[factura.contrato]', '', $paramValue);
+
+            } else {
+                // Si no hay factura ni ingreso, reemplazar con valores vacíos
+                $paramValue = str_replace('[factura.fecha]', '', $paramValue);
+                $paramValue = str_replace('[factura.vencimiento]', '', $paramValue);
+                $paramValue = str_replace('[factura.codigo]', '', $paramValue);
+                $paramValue = str_replace('[factura.total]', '0', $paramValue);
+                $paramValue = str_replace('[factura.porpagar]', '0', $paramValue);
+                $paramValue = str_replace('[factura.contrato]', '', $paramValue);
+            }
+        }
+
+        // ============================================================
+        // REEMPLAZOS DE INGRESO (si existe)
+        // ============================================================
+        if ($ingreso) {
+            $paramValue = str_replace('[ingreso.nro]', $ingreso->nro ?? '', $paramValue);
+            $paramValue = str_replace('[ingreso.fecha]', $ingreso->fecha ?? '', $paramValue);
+            
+            // Reutilizamos el total calculado arriba si ya se hizo, sino calculamos
+            if (!isset($ingresoTotal)) {
+                $ingresoTotal = 0;
+                try {
+                    if (method_exists($ingreso, 'total')) {
+                        $totalObj = $ingreso->total();
+                        if ($totalObj && isset($totalObj->total)) {
+                            $ingresoTotal = $totalObj->total;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Error obteniendo total de ingreso: ' . $e->getMessage());
+                }
+            }
+            $paramValue = str_replace('[ingreso.total]', number_format($ingresoTotal, 0, ',', '.'), $paramValue);
+        } else {
+             $paramValue = str_replace('[ingreso.nro]', '', $paramValue);
+             $paramValue = str_replace('[ingreso.fecha]', '', $paramValue);
+             $paramValue = str_replace('[ingreso.total]', '0', $paramValue);
         }
 
         // ============================================================

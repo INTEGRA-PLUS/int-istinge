@@ -39,6 +39,7 @@
                             <th>Prestaciones</th>
                             <th id="elemet-message2">Costo total</th>
                             <th>Deducción & Retención</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -52,6 +53,9 @@
                             <td>{{Auth::user()->empresaObj->moneda}}{{App\Funcion::Parsear($historia->prestacionValor)}}</td>
                             <td>{{Auth::user()->empresaObj->moneda}}{{App\Funcion::Parsear($historia->costo_total)}}</td>
                             <td>{{Auth::user()->empresaObj->moneda}}{{App\Funcion::Parsear($historia->deduccPrestRet)}}</td>
+                            <td>
+                                <a href="{{route('nomina.eliminar.periodo', $historia->id)}}" class="btn btn-danger btn-sm" onclick="return confirm('¿Está seguro de eliminar este periodo de nómina? esta acción no se puede deshacer');" title="Eliminar"><i class="fas fa-trash"></i></a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>

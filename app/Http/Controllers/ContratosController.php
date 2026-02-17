@@ -1155,6 +1155,7 @@ class ContratosController extends Controller
             }
 
             $contrato = new Contrato();
+            $contrato->prorrateo                 = $request->prorrateo;
             $contrato->plan_id                 = $request->plan_id;
             $contrato->nro                     = $nro_contrato;
             $contrato->servicio                = $this->normaliza($servicio) . '-' . $nro_contrato;
@@ -1267,10 +1268,15 @@ class ContratosController extends Controller
             }
 
 
+            // Handle tipo_suspension_no toggle
             if ($request->tipo_suspension_no == 1) {
                 $contrato->tipo_nosuspension = 1;
                 $contrato->fecha_desde_nosuspension = $request->fecha_desde_nosuspension;
                 $contrato->fecha_hasta_nosuspension = $request->fecha_hasta_nosuspension;
+            } else {
+                $contrato->tipo_nosuspension = 0;
+                $contrato->fecha_desde_nosuspension = null;
+                $contrato->fecha_hasta_nosuspension = null;
             }
 
             if ($request->factura_individual) {
@@ -1344,7 +1350,7 @@ class ContratosController extends Controller
             $nro->save();
 
             //Opcion de crear factrua con prorrateo
-            if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+            if($contrato->prorrateo == 1){
                 $this->createFacturaProrrateo($contrato);
             }
 
@@ -1498,7 +1504,7 @@ class ContratosController extends Controller
             $nro->save();
 
             //Opcion de crear factrua con prorrateo
-            if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+            if ($contrato->prorrateo == 1) {
                 $this->createFacturaProrrateo($contrato);
             }
 
@@ -1596,7 +1602,8 @@ class ContratosController extends Controller
             'contracts.dt_item_hasta',
             'contracts.pago_siigo_contrato',
             'contracts.cajanap_id',
-            'contracts.cajanap_puerto'
+            'contracts.cajanap_puerto',
+            'contracts.prorrateo'
         )
             ->where('contracts.id', $id)->where('contracts.empresa', Auth::user()->empresa)->first();
 
@@ -1605,7 +1612,12 @@ class ContratosController extends Controller
         $nodos = Nodo::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $aps = AP::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $marcas = DB::table('marcas')->get();
-        $servidores = Mikrotik::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
+        // Incluir servidores activos + el servidor actual del contrato (aunque esté deshabilitado)
+        $servidores = Mikrotik::where('empresa', Auth::user()->empresa)
+            ->where(function ($query) use ($contrato) {
+                $query->where('status', 1)
+                      ->orWhere('id', $contrato->server_configuration_id);
+            })->get();
         $interfaces = Interfaz::all();
         $grupos = GrupoCorte::where('status', 1)->where('empresa', Auth::user()->empresa)->get();
         $puertos = Puerto::where('empresa', Auth::user()->empresa)->get();
@@ -1739,7 +1751,7 @@ class ContratosController extends Controller
             $cliente = $contrato->cliente();
             $servicio = $cliente->nombre . ' ' . $cliente->apellido1 . ' ' . $cliente->apellido2;
 
-            if ($mikrotik) {
+            if ($mikrotik && $mikrotik->status == 1) {
                 $API = new RouterosAPI();
                 $API->port = $mikrotik->puerto_api;
                 //$API->debug = true;
@@ -2025,6 +2037,7 @@ class ContratosController extends Controller
                     }
                     $contrato->grupo_corte = $request->grupo_corte;
                     $contrato->facturacion = $request->facturacion;
+                    $contrato->prorrateo = $request->prorrateo;
 
                     /*$descripcion .= ($contrato->fecha_corte == $request->fecha_corte) ? '' : '<i class="fas fa-check text-success"></i> <b>Cambio Fecha de Corte</b> de '.$contrato->fecha_corte.' a '.$request->fecha_corte.'<br>';
                     $contrato->fecha_corte = $request->fecha_corte;*/
@@ -2224,10 +2237,15 @@ class ContratosController extends Controller
                         $contrato->factura_individual = $request->factura_individual;
                     }
 
+                    // Handle tipo_suspension_no toggle
                     if ($request->tipo_suspension_no == 1) {
                         $contrato->tipo_nosuspension = 1;
                         $contrato->fecha_desde_nosuspension = $request->fecha_desde_nosuspension;
                         $contrato->fecha_hasta_nosuspension = $request->fecha_hasta_nosuspension;
+                    } else {
+                        $contrato->tipo_nosuspension = 0;
+                        $contrato->fecha_desde_nosuspension = null;
+                        $contrato->fecha_hasta_nosuspension = null;
                     }
 
                     if ($request->oficina) {
@@ -2293,10 +2311,10 @@ class ContratosController extends Controller
 
                     $contrato->save();
 
-                     //Opcion de crear factrua con prorrateo
-                    if (Auth::user()->empresa()->contrato_factura_pro == 1) {
-                        $this->createFacturaProrrateo($contrato);
-                    }
+                    //  //Opcion de crear factrua con prorrateo
+                    // if (Auth::user()->empresa()->contrato_factura_pro == 1) {
+                    //     $this->createFacturaProrrateo($contrato);
+                    // }
 
                     /*REGISTRO DEL LOG*/
                     if (!is_null($descripcion)) {
@@ -2468,6 +2486,7 @@ class ContratosController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         view()->share(['middel' => true]);
         $inventario = false;
+
 
         // Buscar por id o por nro según el parámetro recibido
         $baseQuery = Contrato::

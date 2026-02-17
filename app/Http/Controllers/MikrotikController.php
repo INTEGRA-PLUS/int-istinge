@@ -267,44 +267,17 @@ class MikrotikController extends Controller
 
     public function conectar($id){
         $this->getAllPermissions(Auth::user()->id);
+        
         $mikrotik = Mikrotik::where('id', $id)->where('empresa', Auth::user()->empresa)->first();
-        if ($mikrotik->status == 0) {
+        $empresa = Empresa::where('id', $mikrotik->empresa)->first();
+
+        if ($mikrotik->status == 0 && $empresa->consultas_mk == 1) {
             $API = new RouterosAPI();
             $API->port = $mikrotik->puerto_api;
 
             if ($API->connect($mikrotik->ip,$mikrotik->usuario,$mikrotik->clave)) {
-
-                //$API->write('/ip/route/print');
-                //$API->write('/ip/address/print');
-                //$API->write("/interface/ethernet/getall", true);
-                //$API->write("/tool/user-manager/user/getall", true);
-                //$API->write("/system/identity/getall", true);
-
-                // $API->write('/system/resource/print');
-                // $READ = $API->read(false);
-                // $ARRAY = $API->parseResponse($READ);
-
-                // $API->write("/system/identity/getall", true);
-                // $READ = $API->read(false);
-                // $ARRAYS = $API->parseResponse($READ);
-
                 $API->disconnect();
 
-                //$mikrotik->nombre = $ARRAYS[0]['name'];
-                // $mikrotik->board = $ARRAY[0]['board-name'];
-                // $mikrotik->uptime = $ARRAY[0]['uptime'];
-                // $mikrotik->cpu = $ARRAY[0]['cpu-load'];
-                // $mikrotik->version = $ARRAY[0]['version'];
-                // $mikrotik->buildtime = $ARRAY[0]['build-time'];
-                // $mikrotik->freememory = $ARRAY[0]['free-memory'];
-                // $mikrotik->totalmemory = $ARRAY[0]['total-memory'];
-                // $mikrotik->cpucount = $ARRAY[0]['cpu-count'];
-                // $mikrotik->cpufrequency = $ARRAY[0]['cpu-frequency'].' MHz';
-                // $mikrotik->cpuload = $ARRAY[0]['cpu-load'].' %';
-                // $mikrotik->freehddspace = $ARRAY[0]['free-hdd-space'];
-                // $mikrotik->totalhddspace = $ARRAY[0]['total-hdd-space'];
-                // $mikrotik->architecturename = $ARRAY[0]['architecture-name'];
-                // $mikrotik->platform = $ARRAY[0]['platform'];
                 $mikrotik->status = 1;
                 $mikrotik->save();
                 $mensaje='Conexión a la Mikrotik '.$mikrotik->nombre.' Realizada';
@@ -316,7 +289,14 @@ class MikrotikController extends Controller
                 $type = 'danger';
             }
             return redirect('empresa/mikrotik')->with($type, $mensaje)->with('mikrotik_id', $mikrotik->id);
-        }else{
+        }elseif($empresa->consultas_mk == 0 && $mikrotik->status == 0){
+            $mikrotik->status = 1;
+            $mikrotik->save();
+            $mensaje='Conexión a la Mikrotik '.$mikrotik->nombre.' Realizada';
+            $type = 'success';
+            return redirect('empresa/mikrotik')->with($type, $mensaje)->with('mikrotik_id', $mikrotik->id);
+        }
+        else{
             $mikrotik->status = 0;
             $mikrotik->save();
 

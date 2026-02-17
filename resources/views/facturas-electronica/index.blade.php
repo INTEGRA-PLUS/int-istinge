@@ -143,14 +143,14 @@
 								@endforeach
 							</select>
                         </div>
-                        {{-- <div class="col-md-2 pl-1 pt-1 position-relative">
-                            <input type="date" id="creacion" name="creacion" class="form-control rounded" autocomplete="off">
-                            <label for="creacion" class="placeholder">Creación</label>
+                         <div class="col-md-3 pl-1 pt-1">
+                            <select title="Factura prorrateada" class="form-control rounded selectpicker" id="prorrateo">
+                                <option value="">Ambas</option>
+                                <option value="1">Si</option>
+                                <option value="0">No</option>
+                            </select>
                         </div>
-                        <div class="col-md-2 pl-1 pt-1 position-relative">
-                            <input type="date" id="vencimiento" name="vencimiento" class="form-control rounded" autocomplete="off">
-                            <label for="vencimiento" class="placeholder">Vencimiento</label>
-                        </div> --}}
+
                         <div class="col-md-2 pl-1 pt-1 position-relative">
                             <input type="date" id="desde" name="desde" class="form-control rounded" autocomplete="off">
                             <label for="desde" class="placeholder">Desde</label>
@@ -318,7 +318,7 @@
 			processing: true,
 			searching: false,
 			language: {
-				'url': '/vendors/DataTables/es.json'
+				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
 				[4, "DESC"],[0, "DESC"]
@@ -366,12 +366,13 @@
 		tabla.on('preXhr.dt', function(e, settings, data) {
 			data.codigo = $('#codigo').val();
 			data.corte = $('#corte').val();
+			data.prorrateo = $('#prorrateo').val();
 			data.cliente = $('#cliente').val();
 			data.municipio = $('#municipio').val();
 			data.vendedor = $('#vendedor').val();
             data.barrio = $('#barrio').val();
-			data.creacion = $('#creacion').val();
-			data.vencimiento = $('#vencimiento').val();
+			// data.creacion = $('#creacion').val();
+			// data.vencimiento = $('#vencimiento').val();
 			data.desde = $('#desde').val();
 			data.hasta = $('#hasta').val();
 			data.comparador = $('#comparador').val();
@@ -521,14 +522,35 @@
                         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                         success: function(data) {
                             cargando(false);
-                            swal({
-                                title: 'PROCESO REALIZADO',
-                                html: data.text,
-                                type: 'success',
-                                showConfirmButton: true,
-                                confirmButtonColor: '#1A59A1',
-                                confirmButtonText: 'ACEPTAR',
-                            });
+
+                            if(data.success == false){
+                                let html = data.text;
+                                if(data.detalles_errores && data.detalles_errores.length > 0){
+                                    html += '<br><br><ul style="text-align: left;">';
+                                    data.detalles_errores.forEach(function(error) {
+                                        html += '<li>' + error + '</li>';
+                                    });
+                                    html += '</ul>';
+                                }
+
+                                swal({
+                                    title: 'ERROR DE VALIDACIÓN',
+                                    html: html,
+                                    type: 'error',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#d33',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            } else {
+                                swal({
+                                    title: 'PROCESO REALIZADO',
+                                    html: data.text,
+                                    type: 'success',
+                                    showConfirmButton: true,
+                                    confirmButtonColor: '#1A59A1',
+                                    confirmButtonText: 'ACEPTAR',
+                                });
+                            }
                             getDataTable();
                         },
                         error: function(xhr) {
@@ -896,8 +918,8 @@
 		$('#municipio').val('').selectpicker('refresh');
         $('#barrio').val('').selectpicker('refresh');
 		$('#vendedor').val('').selectpicker('refresh');
-		$('#creacion').val('');
-		$('#vencimiento').val('');
+		// $('#creacion').val('');
+		// $('#vencimiento').val('');
 		$('#desde').val('2025-01-01');
 		$('#hasta').val('2026-12-31');
 		$('#comparador').val('').selectpicker('refresh');
@@ -908,14 +930,14 @@
 		$('#otras_opciones').val('').selectpicker('refresh');
 		$('#servidor').val('').selectpicker('refresh');
 		$('#emision').val('').selectpicker('refresh');
+		$('#prorrateo').val('').selectpicker('refresh');
 		$('#form-filter').addClass('d-none');
 		$('#boton-filtrar').html('<i class="fas fa-search"></i> Filtrar');
 		getDataTable();
 	}
 
 	function exportar() {
-		$("#estado").selectpicker('refresh');
-        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&creacion='+$('#creacion').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&vencimiento='+$('#vencimiento').val()+'&estado='+$('#estado').val()+'&tipo=2';
+        window.location.href = window.location.pathname+'/exportar?codigo='+$('#codigo').val()+'&cliente='+$('#cliente').val()+'&municipio='+$('#municipio').val()+'&barrio='+$('#barrio').val()+'&desde='+$('#desde').val()+'&hasta='+$('#hasta').val()+'&grupos_corte='+$('#grupos_corte').val()+'&fact_siigo='+$('#fact_siigo').val()+'&otras_opciones='+$('#otras_opciones').val()+'&estado='+$('#estado').val()+'&prorrateo='+$('#prorrateo').val()+'&tipo=2';
 	}
 </script>
 @endsection

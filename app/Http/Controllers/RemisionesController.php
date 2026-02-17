@@ -350,7 +350,7 @@ class RemisionesController extends Controller
       $items->precio=$this->precision($request->precio[$i]);
       $items->descripcion=$request->descripcion[$i];
       $items->id_impuesto=$request->impuesto[$i];
-      $items->impuesto=$impuesto->porcentaje;
+      $items->impuesto=$impuesto ? $impuesto->porcentaje : 0;
       $items->cant=$request->cant[$i];
       $items->desc=$request->desc[$i];
       $items->save();
@@ -505,7 +505,7 @@ $categorias=Categoria::where('empresa',Auth::user()->empresa)
           $items->precio=$this->precision($request->precio[$i]);
           $items->descripcion=$request->descripcion[$i];
           $items->id_impuesto=$request->impuesto[$i];
-          $items->impuesto=$impuesto->porcentaje;
+          $items->impuesto=$impuesto ? $impuesto->porcentaje : 0;
           $items->cant=$request->cant[$i];
           $items->desc=$request->desc[$i];
           $items->save();

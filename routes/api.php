@@ -426,3 +426,8 @@ Route::post('create-radicado', function (Request $request) {
         return response()->json(['status' => 500, 'message' => 'Error interno en el servidor'], 500);
     }
 });
+
+
+
+
+

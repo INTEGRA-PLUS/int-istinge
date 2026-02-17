@@ -171,10 +171,7 @@
                         <a href="javascript:facturacionContratosOff()">{{ Auth::user()->empresa()->factura_contrato_off == 0 ? 'Habilitar':'Deshabilitar' }} facturas en contratos deshabilitados</a><br>
 			            <input type="hidden" id="factura_contrato_off" value="{{Auth::user()->empresa()->factura_contrato_off}}">
 
-                        <a href="javascript:facturacionProrrateo()">{{ Auth::user()->empresa()->contrato_factura_pro == 0 ? 'Habilitar' : 'Deshabilitar' }} creación de facturas con prorrateo en contratos nuevos</a> <a><i
-                                            data-tippy-content="Decida si crear una factura una vez el contrato se cree dependiendo del grupo de corte sobre los dias faltantes."
-                                            class="icono far fa-question-circle"></i></a><br>
-			            <input type="hidden" id="contrato_factura_pro" value="{{Auth::user()->empresa()->contrato_factura_pro}}">
+
 
                         <a href="javascript:separarNumeracionContrato()">{{ Auth::user()->empresa()->separar_numeracion == 0 ? 'Separar':'Unificar' }} Numeración por servidor</a><br>
 			            <input type="hidden" id="separar_numeracion" value="{{Auth::user()->empresa()->separar_numeracion}}">
@@ -388,6 +385,7 @@
             <a href="#" data-toggle="modal" data-target="#config_whatsapp_meta">Ingresar whatsapp business id</a><br>
             <a href="javascript:obtenerPlantillasWhatsapp()">Obtener plantillas whatsapp meta</a><br>
             <a href="#" data-toggle="modal" data-target="#config_plantilla_factura_whatsapp">Configurar plantilla por defecto para facturas</a><br>
+            <a href="#" data-toggle="modal" data-target="#config_plantilla_tirilla_whatsapp">Configurar plantilla por defecto tirilla</a><br>
             <a href="javascript:registrarNumeroWhatsappMeta()">Registrar número de teléfono WhatsApp</a><br>
             <a href="{{ route('instances.index') }}">Instancia</a><br>
         </div>
@@ -673,6 +671,59 @@
         </div>
     </div>
     {{-- /CONFIGURACION PLANTILLA FACTURA WHATSAPP --}}
+
+    {{-- CONFIGURACION PLANTILLA TIRILLA WHATSAPP --}}
+    <div class="modal fade" id="config_plantilla_tirilla_whatsapp" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Configurar Plantilla por Defecto para Tirilla</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" style="padding: 2% 3%;" role="form" class="forms-sample" novalidate id="form_plantilla_tirilla_whatsapp">
+                        {{ csrf_field() }}
+                        <div class="row">
+                            <div class="col-md-12 form-group">
+                                <label class="control-label">Plantilla Meta <span class="text-danger">*</span></label>
+                                <select class="form-control selectpicker" id="plantilla_meta_tirilla" name="plantilla_id"
+                                    title="Seleccione una plantilla" data-live-search="true" data-size="5"
+                                    onchange="cargarPlantillaMetaTirilla(this.value)">
+                                    <!-- Las opciones se cargarán dinámicamente -->
+                                </select>
+                                <span class="help-block error">
+                                    <strong id="error_plantilla_meta_tirilla"></strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Sección de parámetros dinámicos -->
+                        <div class="row" id="parametros-meta-tirilla" style="display: none;">
+                            <div class="col-md-12">
+                                <hr class="my-4">
+                                <h5><i class="fa fa-sliders"></i> Configuración de Parámetros Dinámicos</h5>
+                                <div id="inputs-parametros-tirilla">
+                                    <!-- Los inputs se generarán dinámicamente aquí -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview del mensaje -->
+                        <div class="row" id="preview-mensaje-meta-tirilla" style="display: none;">
+                            <div class="col-md-12">
+                                <!-- Aquí se mostrará la vista previa dinámicamente -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
+                    <a href="javascript:guardarPlantillaTirillaWhatsapp()" class="btn btn-success">Guardar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{-- /CONFIGURACION PLANTILLA TIRILLA WHATSAPP --}}
 
     {{-- CANT REGISTRO --}}
     <div class="modal fade show" id="nro_registro" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
@@ -1195,66 +1246,7 @@
 		    })
 		}
 
-        function facturacionProrrateo() {
-			if (window.location.pathname.split("/")[1] === "software") {
-				var url='/software/configuracion_facturas_prorrateo';
-			}else{
-				var url = '/configuracion_facturas_prorrateo';
-			}
 
-		    if ($("#contrato_factura_pro").val() == 0) {
-		        $titleswal = "¿Desea habilitar la creación de facturas con prorrateo en contratos nuevos?";
-		    }
-
-		    if ($("#contrato_factura_pro").val() == 1) {
-		        $titleswal = "¿Desea deshabilitar la creación de facturas con prorrateo en contratos nuevos?";
-		    }
-
-		    Swal.fire({
-		        title: $titleswal,
-		        type: 'warning',
-		        showCancelButton: true,
-		        confirmButtonColor: '#3085d6',
-		        cancelButtonColor: '#d33',
-		        cancelButtonText: 'Cancelar',
-		        confirmButtonText: 'Aceptar',
-		    }).then((result) => {
-		        if (result.value) {
-		            $.ajax({
-		                url: url,
-		                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-		                method: 'post',
-		                data: { contrato_factura_pro: $("#contrato_factura_pro").val() },
-		                success: function (data) {
-		                    console.log(data);
-		                    if (data == 1) {
-		                        Swal.fire({
-		                            type: 'success',
-		                            title: 'creación de facturas con prorrateo habilitada',
-		                            showConfirmButton: false,
-		                            timer: 5000
-		                        })
-		                        $("#contrato_factura_pro").val(1);
-		                    } else {
-		                        Swal.fire({
-		                            type: 'success',
-		                            title: 'creación de facturas con prorrateo deshabilitada',
-		                            showConfirmButton: false,
-		                            timer: 5000
-		                        })
-		                        $("#contrato_factura_pro").val(0);
-		                    }
-		                    setTimeout(function(){
-		                    	var a = document.createElement("a");
-		                    	a.href = window.location.pathname;
-		                    	a.click();
-		                    }, 1000);
-		                }
-		            });
-
-		        }
-		    })
-		}
 
         function chatIA(){
             if (window.location.pathname.split("/")[1] === "software") {
@@ -2459,12 +2451,12 @@
 
             if ($("#prorrateoid").val() == 0) {
                 $titleswal = "¿Desea habilitar el prorrateo de las facturas?";
-                text = "La primer factura de los clientes se cobrará según los días de uso de los servicios.";
+                text = "Al habilitar esta opción, el sistema habilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo habilitada.";
             }
 
             if ($("#prorrateoid").val() == 1) {
                 $titleswal = "¿Desea deshabilitar el prorrateo de las facturas?";
-                text = "";
+                text = "Al deshabilitar esta opción, el sistema deshabilitará el cobro de prorrateo para todos los contratos actuales de la empresa. Además, por defecto, los nuevos contratos se crearán con la opción de prorrateo deshabilitada.";
             }
 
             Swal.fire({
@@ -2824,19 +2816,24 @@
                     $select.empty();
                     $select.append('<option value="">-- Seleccione una plantilla --</option>');
 
+                    var idPreferida = null;
+
                     if (data.plantillas && data.plantillas.length > 0) {
                         data.plantillas.forEach(function(plantilla) {
-                            var selected = plantilla.preferida_cron_factura == 1 ? 'selected' : '';
-                            $select.append('<option value="' + plantilla.id + '" ' + selected + '>' + plantilla.title + '</option>');
+                            if (plantilla.preferida_cron_factura == 1) {
+                                idPreferida = plantilla.id;
+                            }
+                            $select.append('<option value="' + plantilla.id + '">' + plantilla.title + '</option>');
                         });
                     }
 
                     $select.selectpicker('refresh');
 
                     // Si hay una plantilla preferida, cargarla automáticamente
-                    var plantillaPreferida = $select.find('option[selected]').val();
-                    if (plantillaPreferida) {
-                        cargarPlantillaMetaFactura(plantillaPreferida);
+                    if (idPreferida) {
+                         $select.val(idPreferida);
+                         $select.selectpicker('refresh');
+                         cargarPlantillaMetaFactura(idPreferida);
                     }
                 },
                 error: function(xhr) {
@@ -3107,6 +3104,347 @@
                             timer: 3000
                         });
                         $('#config_plantilla_factura_whatsapp').modal('hide');
+                    } else {
+                        Swal.fire({
+                            type: 'error',
+                            title: 'Error',
+                            text: data.message || 'No se pudo guardar la configuración'
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = 'Error al guardar la configuración';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    Swal.fire({
+                        type: 'error',
+                        title: 'Error',
+                        text: errorMessage
+                    });
+                }
+            });
+        }
+        // ============================================================
+        // VARIABLES GLOBALES PARA PLANTILLA TIRILLA WHATSAPP
+        // ============================================================
+        let plantillaMetaTirillaActual = null;
+        let bodyTextValuesTirilla = [];
+
+        // Cargar plantillas Meta al abrir el modal de tirilla
+        $('#config_plantilla_tirilla_whatsapp').on('show.bs.modal', function() {
+            cargarPlantillasMetaTirillaDisponibles();
+        });
+
+        // Inicializar selectpicker después de que el modal de tirilla se muestre
+        $('#config_plantilla_tirilla_whatsapp').on('shown.bs.modal', function() {
+            $('#plantilla_meta_tirilla').selectpicker('refresh');
+        });
+
+        function cargarPlantillasMetaTirillaDisponibles() {
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/get-plantillas-meta-tirilla';
+            } else {
+                var url = '/empresa/configuracion/get-plantillas-meta-tirilla';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'get',
+                success: function(data) {
+                    var $select = $('#plantilla_meta_tirilla');
+                    $select.empty();
+                    $select.append('<option value="">-- Seleccione una plantilla --</option>');
+
+                    var idPreferida = null;
+
+                    if (data.plantillas && data.plantillas.length > 0) {
+                        data.plantillas.forEach(function(plantilla) {
+                            if (plantilla.preferida_tirilla == 1) {
+                                idPreferida = plantilla.id;
+                            }
+                            $select.append('<option value="' + plantilla.id + '">' + plantilla.title + '</option>');
+                        });
+                    }
+
+                    $select.selectpicker('refresh');
+
+                    // Si hay una plantilla preferida, cargarla automáticamente
+                    if (idPreferida) {
+                         $select.val(idPreferida);
+                         $select.selectpicker('refresh');
+                         cargarPlantillaMetaTirilla(idPreferida);
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error al cargar plantillas Meta Tirilla:', xhr);
+                }
+            });
+        }
+
+        function cargarPlantillaMetaTirilla(plantillaId) {
+            if (!plantillaId) {
+                $('#parametros-meta-tirilla').hide();
+                $('#preview-mensaje-meta-tirilla').hide();
+                return;
+            }
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/get-plantilla-meta-tirilla/' + plantillaId;
+            } else {
+                var url = '/empresa/configuracion/get-plantilla-meta-tirilla/' + plantillaId;
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'get',
+                success: function(data) {
+                    if (data.error) {
+                        console.error('Error al cargar plantilla:', data.error);
+                        $('#parametros-meta-tirilla').hide();
+                        $('#preview-mensaje-meta-tirilla').hide();
+                        return;
+                    }
+
+                    plantillaMetaTirillaActual = data;
+
+                    // Procesar body_text para obtener los parámetros
+                    if (data.body_text && Array.isArray(data.body_text) && data.body_text.length > 0) {
+                        bodyTextValuesTirilla = Array.isArray(data.body_text[0]) ? data.body_text[0] : [];
+                    } else {
+                        bodyTextValuesTirilla = [];
+                    }
+
+                    // Cargar body_dinamic si existe
+                    let bodyDinamicValues = [];
+                    if (data.body_dinamic) {
+                        try {
+                            let parsedData = data.body_dinamic;
+
+                            if (typeof parsedData === 'string') {
+                                parsedData = JSON.parse(parsedData);
+                            }
+
+                            if (Array.isArray(parsedData) && parsedData.length > 0) {
+                                if (Array.isArray(parsedData[0])) {
+                                    bodyDinamicValues = parsedData[0];
+                                } else {
+                                    bodyDinamicValues = parsedData;
+                                }
+                                // Convertir valores antiguos de { } a [ ] si existen
+                                bodyDinamicValues = bodyDinamicValues.map(function(val) {
+                                    if (typeof val === 'string') {
+                                        return val.replace(/\{/g, '[').replace(/\}/g, ']');
+                                    }
+                                    return val;
+                                });
+                            }
+                        } catch(e) {
+                            console.error('Error parsing body_dinamic:', e);
+                        }
+                    }
+
+                    // Generar inputs dinámicos
+                    generarInputsParametrosTirilla(bodyDinamicValues);
+
+                    // Mostrar preview inicial
+                    actualizarPreviewTirilla();
+                },
+                error: function(xhr) {
+                    console.error('Error al cargar plantilla Meta Tirilla:', xhr);
+                    $('#parametros-meta-tirilla').hide();
+                    $('#preview-mensaje-meta-tirilla').hide();
+                }
+            });
+        }
+
+        function generarInputsParametrosTirilla(valoresDinamicos = []) {
+            const $container = $('#inputs-parametros-tirilla');
+            $container.empty();
+
+            if (bodyTextValuesTirilla.length === 0) {
+                $('#parametros-meta-tirilla').hide();
+                return;
+            }
+
+            // Generar un input por cada parámetro
+            bodyTextValuesTirilla.forEach(function(valorEjemplo, index) {
+                const numeroParam = index + 1;
+                const valorDinamico = valoresDinamicos[index] || '';
+
+                // Crear contenedor principal
+                const $paramGroup = $('<div class="parametro-meta-group mb-4 p-3 border rounded"></div>');
+
+                // Label
+                const $label = $('<label class="control-label d-block mb-2"><strong>Parámetro ' + numeroParam + '</strong> <small class="text-muted">(ejemplo: ' + valorEjemplo + ')</small></label>');
+
+                // Contenedor del input con botones
+                const $inputWrapper = $('<div class="input-group mb-2"></div>');
+
+                // Input principal
+                const $input = $('<input>', {
+                    type: 'text',
+                    class: 'form-control parametro-meta-input-tirilla',
+                    'data-param-index': index,
+                    placeholder: 'Escriba texto o use campos dinámicos',
+                    value: valorDinamico
+                });
+
+                // Botón dropdown para agregar campos
+                const $dropdownBtn = $('<button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false"><i class="fa fa-plus"></i> Campos</button>');
+                const $dropdownMenu = $('<ul class="dropdown-menu dropdown-menu-right"></ul>');
+
+                // Agregar opciones al dropdown
+                Object.keys(camposDinamicos).forEach(function(categoria) {
+                    const $categoriaHeader = $('<li><h6 class="dropdown-header">' + categoria.charAt(0).toUpperCase() + categoria.slice(1) + '</h6></li>');
+                    $dropdownMenu.append($categoriaHeader);
+
+                    Object.keys(camposDinamicos[categoria]).forEach(function(campo) {
+                        const campoKey = '[' + categoria + '.' + campo + ']';
+                        const $item = $('<li><a class="dropdown-item" href="#" data-campo="' + campoKey + '" data-param-index="' + index + '">' + camposDinamicos[categoria][campo] + ' <code>' + campoKey + '</code></a></li>');
+                        $dropdownMenu.append($item);
+                    });
+                });
+
+                // Event listener para insertar campos
+                $dropdownMenu.on('click', 'a', function(e) {
+                    e.preventDefault();
+                    const campo = $(this).data('campo');
+                    const paramIndex = $(this).data('param-index');
+                    const $targetInput = $('.parametro-meta-input-tirilla[data-param-index="' + paramIndex + '"]');
+                    const cursorPos = $targetInput[0].selectionStart || $targetInput.val().length;
+                    const textBefore = $targetInput.val().substring(0, cursorPos);
+                    const textAfter = $targetInput.val().substring(cursorPos);
+                    $targetInput.val(textBefore + campo + textAfter);
+                    $targetInput.focus();
+                    $targetInput[0].setSelectionRange(cursorPos + campo.length, cursorPos + campo.length);
+                    actualizarPreviewTirilla();
+                });
+
+                // Botón para limpiar
+                const $clearBtn = $('<button class="btn btn-outline-danger" type="button" title="Limpiar"><i class="fa fa-times"></i></button>');
+                $clearBtn.on('click', function() {
+                    $input.val('');
+                    actualizarPreviewTirilla();
+                });
+
+                $inputWrapper.append($input);
+                $inputWrapper.append($dropdownBtn);
+                $inputWrapper.append($dropdownMenu);
+                $inputWrapper.append($clearBtn);
+
+                // Event listener para actualizar preview
+                $input.on('input keyup', function() {
+                    actualizarPreviewTirilla();
+                });
+
+                // Información adicional
+                const $info = $('<small class="text-muted d-block mt-2"><i class="fa fa-info-circle"></i> Puede escribir texto libre y agregar campos dinámicos desde el menú</small>');
+
+                $paramGroup.append($label);
+                $paramGroup.append($inputWrapper);
+                $paramGroup.append($info);
+                $container.append($paramGroup);
+            });
+
+            $('#parametros-meta-tirilla').show();
+        }
+
+        function actualizarPreviewTirilla() {
+            if (!plantillaMetaTirillaActual || !plantillaMetaTirillaActual.contenido) {
+                $('#preview-mensaje-meta-tirilla').hide();
+                return;
+            }
+
+            let contenido = plantillaMetaTirillaActual.contenido;
+
+            // Obtener valores de los inputs
+            const valoresParametros = [];
+            $('.parametro-meta-input-tirilla').each(function() {
+                let valor = $(this).val() || '';
+                // Reemplazar placeholders con valores de ejemplo (solo para preview)
+                valor = valor.replace(/\[contacto\.nombre\]/g, 'Juan');
+                valor = valor.replace(/\[contacto\.apellido1\]/g, 'Pérez');
+                valor = valor.replace(/\[contacto\.apellido2\]/g, 'González');
+                valor = valor.replace(/\[factura\.fecha\]/g, '01/01/2024');
+                valor = valor.replace(/\[factura\.vencimiento\]/g, '15/01/2024');
+                valor = valor.replace(/\[factura\.total\]/g, '$100.000');
+                valor = valor.replace(/\[factura\.porpagar\]/g, '$50.000');
+                valor = valor.replace(/\[empresa\.nombre\]/g, 'Mi Empresa S.A.S.');
+                valor = valor.replace(/\[empresa\.nit\]/g, '900123456-1');
+                valoresParametros.push(valor);
+            });
+
+            // Reemplazar placeholders {{1}}, {{2}}, etc.
+            valoresParametros.forEach(function(valor, index) {
+                const numeroParam = index + 1;
+                if (valor && valor.trim() !== '') {
+                    contenido = contenido.replace(new RegExp('\\{\\{' + numeroParam + '\\}\\}', 'g'), valor);
+                }
+            });
+
+            // Mostrar preview
+            const $preview = $('#preview-mensaje-meta-tirilla');
+            $preview.html(`
+                <hr class="my-4">
+                <div class="alert alert-info">
+                    <strong><i class="fa fa-eye"></i> Vista Previa del Mensaje:</strong>
+                    <div class="mt-3 p-3 bg-white rounded border" style="white-space: pre-wrap; font-family: monospace;">
+                        ${contenido.replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `).show();
+        }
+
+        function guardarPlantillaTirillaWhatsapp() {
+            var plantillaId = $('#plantilla_meta_tirilla').val();
+            if (!plantillaId) {
+                Swal.fire({
+                    type: 'error',
+                    title: 'Error',
+                    text: 'Debe seleccionar una plantilla'
+                });
+                return;
+            }
+
+            // Obtener valores de body_dinamic
+            const bodyDinamicValues = [];
+            $('.parametro-meta-input-tirilla').each(function() {
+                bodyDinamicValues.push($(this).val() || '');
+            });
+
+            if (window.location.pathname.split("/")[1] === "software") {
+                var url = '/software/empresa/configuracion/guardar-plantilla-tirilla-whatsapp';
+            } else {
+                var url = '/empresa/configuracion/guardar-plantilla-tirilla-whatsapp';
+            }
+
+            $.ajax({
+                url: url,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                method: 'post',
+                data: {
+                    plantilla_id: plantillaId,
+                    body_dinamic_params: bodyDinamicValues
+                },
+                success: function(data) {
+                    if (data.success == 1) {
+                        Swal.fire({
+                            type: 'success',
+                            title: 'Configuración guardada',
+                            text: data.message || 'La plantilla ha sido configurada correctamente',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                        $('#config_plantilla_tirilla_whatsapp').modal('hide');
                     } else {
                         Swal.fire({
                             type: 'error',

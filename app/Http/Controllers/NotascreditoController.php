@@ -1465,6 +1465,15 @@ class NotascreditoController extends Controller
                 }
             }
 
+            // Validar que la factura relacionada esté emitida
+            if ($factura->emitida != 1) {
+                if(request()->ajax()){
+                    return response()->json(['status'=>'error', 'message' => 'La factura relacionada no ha sido emitida ante la DIAN. Debe emitir primero la factura antes de emitir la nota crédito.'], 422);
+                }else{
+                    return redirect('/empresa/notascredito')->with('message_denied', 'La factura relacionada no ha sido emitida ante la DIAN. Debe emitir primero la factura antes de emitir la nota crédito.');
+                }
+            }
+
             // Numeracion Factura o POS
             if($factura->tipo == 6){
 

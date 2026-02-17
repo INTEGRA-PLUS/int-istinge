@@ -505,12 +505,11 @@ class Factura extends Model
 
 
             foreach ($totales["imp"] as $key => $imp) {
-                $totales['total'] += Funcion::precision($imp->total);
-                $totales['valImpuesto'] += Funcion::precision($imp->total);
+                $totales['total'] += $imp->total;
+                $totales['valImpuesto'] += $imp->total;
             }
 
-            //Agregamos una precisión sobre el valor total de la factura
-            $totales['total'] = Funcion::precision($totales['total']);
+            //Total sin redondeo - el formateo se hace en la vista con Parsear()
 
             return (object) $totales;
         }
@@ -1539,7 +1538,7 @@ public function forma_pago()
         }
     }
 
-    public function diasCobradosProrrateo($forzar_prorrateo = null, $facturaInicio = null){
+    public function diasCobradosProrrateo($forzar_prorrateo = null, $facturaInicio = null, $pdf = null){
 
         $grupo = Contrato::join('grupos_corte as gc', 'gc.id', '=', 'contracts.grupo_corte')->
         where('contracts.id',$this->contrato_id)
@@ -1703,26 +1702,58 @@ public function forma_pago()
                     $fechaFin = $yearContrato . "-" . $mesContrato . "-" .  $grupo->fecha_corte;
                 }
 
-                $diasCobrados = $fechaContrato->diffInDays($fechaFin)+$diasdeMas +1;
-                //le agregamos un dia mas por que se debe cobrar desde el mismo dia de instalacion
-
                 /*
-                    si la fecha no está entre el rango de la creacion del contrato y la fecha de corte entonces cojemos esos dias de
-                    entre: creacion contrato difff fecha corte + el siguiente dia de la fecha de corte hasta la fecha de la factura
+                 * Lógica de días comerciales (30/360) para prorrateo
+                 * El usuario requiere que para un inicio el día 8 y corte el 1, sean 22 días.
+                 * Esto coincide con 30 - 8 = 22 (excluyendo el día de inicio o usando base 30 simple).
+                 */
+                
+                // CASO ESPECIAL: Si el contrato se creó el mismo día del corte,
+                // significa que está iniciando un nuevo ciclo completo (30 días)
+                if ($diaContrato == $grupo->fecha_corte) {
+                    return 30; // Ciclo completo
+                }
 
-                    si entra al if entonces ya tenemos la suma de los dias hasta la fecha de corte ahora sumamos los otros días del siguiente
-                    dia
-                */
-                    if($diaFac < $diaContrato && $diaFac < $grupo->fecha_corte && $grupo->fecha_corte > $diaContrato){
-                            $fechaInicioNuevoCorte = Carbon::parse($fechaFin)->addDay();
-                            $diasFacturaNuevo = $fechaInicioNuevoCorte->diffInDays($this->fecha);
-                            $diasCobrados+=$diasFacturaNuevo;
+                // Asegurar que fechaFin sea Carbon (puede venir como string)
+                if (!($fechaFin instanceof Carbon)) {
+                    $fechaFin = Carbon::parse($fechaFin);
+                }
+
+                $d1 = $fechaContrato->day;
+                $m1 = $fechaContrato->month;
+                $y1 = $fechaContrato->year;
+
+                $d2 = $fechaFin->day;
+                $m2 = $fechaFin->month;
+                $y2 = $fechaFin->year;
+
+                // Ajustes para base 30 y febrero
+                if ($d1 == 31 || ($m1 == 2 && $d1 >= 28)) $d1 = 30;
+                if ($d2 == 31 || ($m2 == 2 && $d2 >= 28)) $d2 = 30;
+
+                // Ajuste especial: Si el corte es el día 1, se considera el fin del mes anterior (día 30)
+                if ($grupo->fecha_corte == 1) {
+                    // Si la fecha fin cae en día 1, la movemos al 30 del mes anterior
+                    if ($fechaFin->day == 1) {
+                        $fechaAux = $fechaFin->copy()->subDay();
+                        $d2 = 30;
+                        $m2 = $fechaAux->month;
+                        $y2 = $fechaAux->year;
                     }
+                }
 
+                // Cálculo 30/360
+                $diasCobrados = (($y2 - $y1) * 360) + (($m2 - $m1) * 30) + ($d2 - $d1);
 
-                if($diasCobrados == 0){return 30;}
+                // Asegurar mínimo 1 día (caso: contrato día 30, corte día 1 = 1 día)
+                // Si el cálculo da 0 o negativo, significa que el período es muy corto pero al menos 1 día
+                if ($diasCobrados <= 0) {
+                    return 1; // Mínimo 1 día facturable
+                }
+                
+                // Si excede 30 días y no hay días extra por ciclo anterior, limitar a 30
                 if($diasCobrados > 30 && $diasdeMas==0){$diasCobrados=30;}
-                $diasCobrados=$diasCobrados;
+                // $diasCobrados=$diasCobrados; // Redundante
             }else{
 
                 //Validamos si viene desde ingreso la factura
@@ -1742,6 +1773,9 @@ public function forma_pago()
                 if($fechaInicio->endOfMonth()->day <=28 && $diasCobrados >= 28){$diasCobrados=30;}
                 $diasCobrados=$diasCobrados;
             }
+            }
+            if($pdf && $this->prorrateo_aplicado ==0){
+                return 30;
             }
             return $diasCobrados;
         }

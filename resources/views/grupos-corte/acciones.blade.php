@@ -13,7 +13,7 @@
     <a href="{{route('grupos-corte.show', $id)}}" class="btn btn-outline-info btn-icons" title="Ver"><i class="far fa-eye"></i></a>
 @endif
 @if(isset($session['726']))
-    <a href="{{route('grupos-corte.estados', $id)}}" class="btn btn-outline-danger btn-icons" title="Ver"><i class="fas fa-file-signature"></i></a>
+    <a href="{{route('grupos-corte.analisis-ciclo', $id)}}" class="btn btn-outline-primary btn-icons" title="Análisis de Ciclos"><i class="fas fa-chart-bar"></i></a>
 @endif
 @if(isset($session['727']))
     <a href="{{route('grupos-corte.edit', $id)}}" class="btn btn-outline-primary btn-icons" title="Editar"><i class="fas fa-edit"></i></a>

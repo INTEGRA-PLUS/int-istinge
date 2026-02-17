@@ -138,6 +138,36 @@ Route::post('/import_puc', 'PucController@import_puc')->name('puc.import_puc');
 Route::get('/updatecontratofactura', 'FacturasController@updateContratoId');
 Route::get('/radicadosbarrio', 'Controller@radicadosBarrio');
 
+Route::get('/digitales', function() {
+    $contactos = App\Contacto::whereNotNull('fecha_isp')->where('fecha_isp', '!=', '0000-00-00')->get();
+    $count = 0;
+    foreach($contactos as $c) {
+        $contrato = App\Contrato::where('client_id', $c->id)->first();
+        $nro = App\ContratoDigital::max('nro') + 1;
+
+        App\ContratoDigital::create([
+            'cliente_id' => $c->id,
+            'fecha_firma' => $c->fecha_isp,
+            'estado_firma' => ($c->fecha_isp && $c->firma_isp) ? 1 : 0,
+            'firma' => $c->firma_isp,
+            'imgA' => $c->imgA,
+            'imgB' => $c->imgB,
+            'imgC' => $c->imgC,
+            'imgD' => $c->imgD,
+            'imgE' => $c->imgE,
+            'imgF' => $c->imgF,
+            'imgG' => $c->imgG,
+            'imgH' => $c->imgH,
+            'documento' => $c->documento,
+            'adjunto_audio' => $c->adjunto_audio,
+            'nro' => $nro,
+            'contrato_id' => $contrato ? $contrato->id : null,
+        ]);
+        $count++;
+    }
+    return "Se han migrado " . $count . " contratos digitales.";
+});
+
 Route::get('/import_plans', 'Controller@import_plans')->name('import_plans');
 Route::get('/import_clients', 'Controller@import_clients')->name('import_clients');
 Route::get('/import_contracts', 'Controller@import_contracts')->name('import_contracts');
@@ -263,9 +293,7 @@ Route::post('configuracion_olt', 'ConfiguracionController@configurarOLT');
 Route::post('configuracion/whatsapp-business-id', 'ConfiguracionController@guardarWhatsappBusinessId');
 Route::post('configuracion/obtener-plantillas-whatsapp', 'ConfiguracionController@obtenerPlantillasWhatsappMeta');
 Route::post('configuracion/registrar-numero-whatsapp-meta', 'ConfiguracionController@registrarNumeroWhatsappMeta');
-Route::get('configuracion/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
-Route::get('configuracion/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
-Route::post('configuracion/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
+
 Route::post('prorrateo', 'ConfiguracionController@actDescProrrateo');
 Route::post('efecty', 'ConfiguracionController@actDescEfecty');
 Route::post('oficina', 'ConfiguracionController@actDescOficina');
@@ -381,6 +409,27 @@ Route::post('save_pass', 'Auth\ResetPasswordController@cambiar_pass')->name('pas
 
 Route::get('/categorymassive', 'HomeController@createCategoryMassive');
 
+// Webhooks (sin auth)
+Route::get('/webhooks/whatsapp', 'WhatsAppWebhookController@verify')->name('whatsapp.webhook.verify');
+Route::post('/webhooks/whatsapp', 'WhatsAppWebhookController@webhook')->name('whatsapp.webhook');
+
+// Chat interface (con auth)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/chat/whatsapp', 'ChatController@index')->name('chat.whatsapp');
+    
+    // Chat API routes (Internal use for AJAX)
+    Route::group(['prefix' => 'chat/whatsapp'], function () {
+        Route::get('/conversations', 'ChatController@conversations')->name('chat.whatsapp.conversations');
+        Route::get('/conversations/{id}/messages', 'ChatController@messages')->name('chat.whatsapp.messages');
+        Route::get('/updates', 'ChatController@updates')->name('chat.whatsapp.updates');
+        
+        Route::post('/conversations/{id}/send', 'ChatController@sendMessage')->name('chat.whatsapp.send');
+        Route::post('/conversations/{id}/send-image', 'ChatController@sendImage')->name('chat.whatsapp.send_image');
+        Route::post('/conversations/{id}/assign', 'ChatController@assign')->name('chat.whatsapp.assign');
+        Route::post('/conversations/{id}/close', 'ChatController@close')->name('chat.whatsapp.close');
+    });
+});
+
 Route::group(['prefix' => 'master', 'middleware' => ['auth', 'master']], function () {
 	Route::get('/', 'HomeController@index')->name('master');
 
@@ -488,6 +537,9 @@ Route::group(['prefix' => 'siigo'], function () {
 Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::resource('instances', 'InstanceController');
 	Route::get('instances/{id}/pair', 'InstanceController@pair')->name('instances.pair');
+	
+	Route::get('morosos', 'MorososController@index')->name('morosos.index');
+	Route::get('morosos/listar', 'MorososController@listar')->name('morosos.listar');
 	Route::get('/', 'HomeController@index')->name('empresa');
 
 	// Ruta para el PDF de asignación de material
@@ -1026,6 +1078,8 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 
 
 		Route::get('/facturaasociada', 'NotascreditoController@facturaAsociada');
+        
+        Route::get('empresa/nomina/periodos-eliminar/{id}', 'Nomina\NominaController@eliminarNominaPeriodo')->name('nomina.eliminar.periodo');
 	});
 	Route::resource('notascredito', 'NotascreditoController');
 
@@ -1386,11 +1440,16 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/get-plantillas-meta-factura', 'ConfiguracionController@getPlantillasMetaFactura');
 		Route::get('/get-plantilla-meta-factura/{id}', 'ConfiguracionController@getPlantillaMetaFactura');
 		Route::post('/guardar-plantilla-factura-whatsapp', 'ConfiguracionController@guardarPlantillaFacturaWhatsapp');
+
+		// Configuración plantilla WhatsApp Meta para tirillas
+		Route::get('/get-plantillas-meta-tirilla', 'ConfiguracionController@getPlantillasMetaTirilla');
+		Route::get('/get-plantilla-meta-tirilla/{id}', 'ConfiguracionController@getPlantillaMetaTirilla');
+		Route::post('/guardar-plantilla-tirilla-whatsapp', 'ConfiguracionController@guardarPlantillaTirillaWhatsapp');
 	});
 
 	Route::post('/storetipocontactoajax', 'TiposEmpresaController@storeTipoContactoAjax')->name('configuracion.tipocontactoajax');
 
-	Route::resource('configuracion', 'ConfiguracionController');
+	Route::resource('configuracion', 'ConfiguracionController')->except(['show']);
 	Route::resource('soporte', 'SoporteController');
 
 	//Reportes
@@ -1659,6 +1718,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{mikrotik}/arp', 'MikrotikController@arp')->name('mikrotik.arp');
 	});
 
+
 	Route::resource('mikrotik', 'MikrotikController');
 
 	// PLANTILLAS
@@ -1727,6 +1787,20 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/{grupo}/destroy_lote', 'GruposCorteController@destroy_lote')->name('grupos-corte.destroy_lote');
 		Route::get('/opcionmasiva', 'GruposCorteController@opcion_masiva')->name('grupos-corte.opcionmasiva');
 		Route::get('/estados-del-corte/{idGrupo?}/{fecha?}', 'GruposCorteController@estadosGruposCorte')->name('grupos-corte.estados');
+		// Análisis de ciclos de facturación
+		Route::get('/analisis-ciclo/{idGrupo}/{periodo?}', 'GruposCorteController@analisisCiclo')->name('grupos-corte.analisis-ciclo');
+		Route::get('/api/{idGrupo}/ciclos-disponibles', 'GruposCorteController@getCiclosDisponibles')->name('grupos-corte.ciclos-disponibles');
+		Route::get('/api/{idGrupo}/cycle-data/{periodo}', 'GruposCorteController@getCycleData')->name('grupos-corte.cycle-data');
+		Route::post('/api/habilitar-facturacion-off', 'GruposCorteController@habilitarFacturacionOff')->name('grupos-corte.habilitar-facturacion-off');
+		Route::post('/api/generar-facturas-faltantes', 'GruposCorteController@generarFacturasFaltantes')->name('grupos-corte.generar-facturas-faltantes');
+		Route::post('/api/update-empresa-config', 'GruposCorteController@updateEmpresaConfig')->name('grupos-corte.update-empresa-config');
+		Route::post('/api/marcar-facturas-mes-lote', 'GruposCorteController@marcarFacturasMesLote')->name('grupos-corte.marcar-facturas-mes-lote');
+		Route::post('/api/eliminar-factura-duplicada', 'GruposCorteController@eliminarFacturaDuplicada')->name('grupos-corte.eliminar-factura-duplicada');
+		Route::post('/api/eliminar-masivo-duplicados', 'GruposCorteController@eliminarMasivoDuplicados')->name('grupos-corte.eliminar-masivo-duplicados');
+		Route::post('/api/limpiar-cache-ciclo', 'GruposCorteController@limpiarCacheCiclo')->name('grupos-corte.limpiar-cache-ciclo');
+		Route::post('/api/eliminar-ciclo-facturacion', 'GruposCorteController@eliminarFacturasCiclo')->name('grupos-corte.eliminar-ciclo');
+		Route::get('/api/generated-invoices-datatable', 'GruposCorteController@datatableGeneratedInvoices')->name('grupos-corte.dt-generated-invoices');
+		Route::post('/api/habilitar-contratos-deshabilitados', 'GruposCorteController@habilitarContratosDeshabilitados')->name('grupos-corte.habilitar-contratos-deshabilitados');
 	});
 
 	Route::resource('grupos-corte', 'GruposCorteController');
@@ -1776,10 +1850,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 		Route::get('/chat-ia/contacts/load-more', 'CRMController@chatIALoadMore')->name('crm.chatIA.loadMore');
 		Route::get('/chat-ia/search', 'CRMController@chatIASearch')->name('crm.chatIA.search');
 		Route::post('/chat-ia/send', 'CRMController@chatIASendMessage')->name('crm.chatIA.send');
-		Route::get('/chat-meta', 'CRMController@chatMeta')->name('crm.chat_meta');
-		Route::get('/chat-meta/{uuid}/messages', 'CRMController@chatMetaMessages')->name('crm.chatMeta.messages');
-		Route::get('/chat-meta/contacts/load-more', 'CRMController@chatMetaLoadMore')->name('crm.chatMeta.loadMore');
-		Route::get('/chat-meta/search', 'CRMController@chatMetaSearch')->name('crm.chatMeta.search');
+
 	});
 	Route::resource('crm', 'CRMController');
 	Route::resource('etiqueta', 'EtiquetaController');

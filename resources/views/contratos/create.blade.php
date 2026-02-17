@@ -78,6 +78,8 @@
             border-color: #dee4e6;
             font-size: 0.9rem;
         }
+
+
     </style>
 @endsection
 
@@ -781,23 +783,13 @@
                                 <label class="control-label">¿Agregar iva al servicio de internet? <a><i
                                             data-tippy-content="Decida si la factura que genere este contrato llevará iva"
                                             class="icono far fa-question-circle"></i></a></label>
-                                <div class="row">
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="iva_factura"
-                                                    id="iva_factura1" value="1"> Si
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="iva_factura"
-                                                    id="iva_factura2" value="0" checked> No
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
+                                <div class="d-flex align-items-center">
+                                    <label class="switch mb-0">
+                                        <input type="hidden" name="iva_factura" value="0">
+                                        <input type="checkbox" name="iva_factura" id="iva_factura" value="1">
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="ml-2" id="iva_factura_label">No</span>
                                 </div>
                                 <span class="help-block error">
                                     <strong></strong>
@@ -1002,6 +994,23 @@
                             </div>
 
                             <div class="col-md-4 form-group">
+                                <label class="control-label">Habilitar Prorrateo <a><i
+                                            data-tippy-content="Habilitar o deshabilitar el cobro de prorrateo para este contrato, esta acción habilitada genera de inmediato una factura prorrateada."
+                                            class="icono far fa-question-circle"></i></a></label>
+                                <div class="d-flex align-items-center">
+                                    <label class="switch mb-0">
+                                        <input type="hidden" name="prorrateo" value="0">
+                                        <input type="checkbox" name="prorrateo" id="prorrateo" value="1" {{ Auth::user()->empresa()->prorrateo == 1 ? 'checked' : '' }}>
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="ml-2" id="prorrateo_label">{{ Auth::user()->empresa()->prorrateo == 1 ? 'Habilitado' : 'Deshabilitado' }}</span>
+                                </div>
+                                <span style="color: red;">
+                                    <strong>{{ $errors->first('prorrateo') }}</strong>
+                                </span>
+                            </div>
+
+                            <div class="col-md-4 form-group">
                                 <label class="control-label">Canal de Venta <a><i
                                             data-tippy-content="Seleccione el canal de venta del contrato"
                                             class="icono far fa-question-circle"></i></a></label>
@@ -1083,23 +1092,13 @@
                                 <label class="control-label">¿Agregar fechas de No suspensión? <a><i
                                             data-tippy-content="Decida si este contrato tendrá un rango de fechas donde si tiene facturas abiertas no lo suspenderá (esto solo pasará en el rango escogido)"
                                             class="icono far fa-question-circle"></i></a></label>
-                                <div class="row">
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="tipo_suspension_no"
-                                                    id="tipo_suspension_no1" value="1"> Si
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="tipo_suspension_no"
-                                                    id="tipo_suspension_no2" value="0" checked> No
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
+                                <div class="d-flex align-items-center">
+                                    <label class="switch mb-0">
+                                        <input type="hidden" name="tipo_suspension_no" value="0">
+                                        <input type="checkbox" name="tipo_suspension_no" id="tipo_suspension_no" value="1">
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="ml-2" id="tipo_suspension_no_label">No</span>
                                 </div>
                                 <span class="help-block error">
                                     <strong></strong>
@@ -1108,46 +1107,31 @@
 
                             <div class="form-group col-md-4">
                                 <label class="control-label">¿Crear factura el primer mes del contrato? <a><i
-                                            data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato"
+                                            data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato en la fecha de facturación segun el grupo de corte"
                                             class="icono far fa-question-circle"></i></a></label>
-                                <div class="row">
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="fact_primer_mes"
-                                                    value="1" checked> Si
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-sm-6">
-                                        <div class="form-radio">
-                                            <label class="form-check-label">
-                                                <input type="radio" class="form-check-input" name="fact_primer_mes"
-                                                    value="0"> No
-                                                <i class="input-helper"></i><i class="input-helper"></i></label>
-                                        </div>
-                                    </div>
+                                <div class="d-flex align-items-center">
+                                    <label class="switch mb-0">
+                                        <input type="hidden" name="fact_primer_mes" value="0">
+                                        <input type="checkbox" name="fact_primer_mes" id="fact_primer_mes" value="1">
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="ml-2" id="fact_primer_mes_label">Si</span>
                                 </div>
                                 <span class="help-block error">
                                     <strong></strong>
                                 </span>
                             </div>
 
-                            <div class="col-md-4 form-group">
-                                <div class="cls-nosuspension d-none">
-                                    <label class="control-label">Fecha desde no suspensión</label>
-                                    <input type="date" class="form-control" id="fecha_desde_nosuspension"
-                                        value="" name="fecha_desde_nosuspension" required>
-                                </div>
+                            <div class="col-md-4 form-group cls-nosuspension d-none" id="div_fecha_desde_nosuspension">
+                                <label class="control-label">Fecha desde no suspensión</label>
+                                <input type="date" class="form-control" id="fecha_desde_nosuspension"
+                                    value="" name="fecha_desde_nosuspension" required>
                             </div>
 
-                            <div class="col-md-4 form-group">
-                                <div class="cls-nosuspension d-none">
-                                    <label class="control-label">Fecha hasta no suspensión</label>
-                                    <input type="date" class="form-control" id="fecha_hasta_nosuspension"
-                                        value="" name="fecha_hasta_nosuspension" required>
-                                </div>
+                            <div class="col-md-4 form-group cls-nosuspension d-none" id="div_fecha_hasta_nosuspension">
+                                <label class="control-label">Fecha hasta no suspensión</label>
+                                <input type="date" class="form-control" id="fecha_hasta_nosuspension"
+                                    value="" name="fecha_hasta_nosuspension" required>
                             </div>
 
                             <div class="form-group col-md-12">
@@ -1253,63 +1237,112 @@
     </div>
 
     <script>
-        function visibilidad(selectElement) {
+        $(document).ready(function() {
+            console.log('CREATE BLADE JS LOADED');
 
-            var selectedOption = selectElement.value;
-            // Mostrar los inputs inalámbricos si la opción es igual a 2
-            if (selectedOption == 2) {
-
-                document.getElementById('puerto_receptor').classList.toggle('d-none', selectedOption != 2);
-                document.getElementById('ip_receptora').classList.toggle('d-none', selectedOption != 2);
+            // --- Definición de funciones auxiliares ---
+            function visibilidad(selectElement) {
+                var selectedOption = selectElement.value;
+                // Mostrar los inputs inalámbricos si la opción es igual a 2
+                var isWireless = (selectedOption == 2);
+                var puerto = document.getElementById('puerto_receptor');
+                var ip = document.getElementById('ip_receptora');
+                
+                if(puerto) puerto.classList.toggle('d-none', !isWireless);
+                if(ip) ip.classList.toggle('d-none', !isWireless);
             }
-        }
-
-        // Llamar a la función una vez al inicio para manejar el estado inicial
-        handleTecnologiaChange(document.getElementById('tecnologia'));
-    </script>
-    <script>
-        $('#tipo_suspension_no1').change(function(e) {
-            if ($('#tipo_suspension_no1').val() == 1) {
-                $('.cls-nosuspension').removeClass('d-none');
-            } else {
-                $('.cls-nosuspension').addClass('d-none');
-            }
-        });
-
-
-        $('#tipo_suspension_no2').change(function(e) {
-            if ($('#tipo_suspension_no2').val() == 0) {
-                $('.cls-nosuspension').addClass('d-none');
-            } else {
-                $('.cls-nosuspension').removeClass('d-none');
-            }
-        });
-    </script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const selectPermanencia = document.getElementById("contrato_permanencia");
-            const divMeses = document.getElementById("div_meses");
 
             function toggleMeses() {
-                if (selectPermanencia.value === "1") {
-                    divMeses.classList.remove("d-none");
-                } else {
-                    divMeses.classList.add("d-none");
+                const selectPermanencia = document.getElementById("contrato_permanencia");
+                const divMeses = document.getElementById("div_meses");
+                if (selectPermanencia && divMeses) {
+                    if (selectPermanencia.value === "1") {
+                        divMeses.classList.remove("d-none");
+                    } else {
+                        divMeses.classList.add("d-none");
+                    }
                 }
             }
 
-            // Ejecutar al cargar la página (por si viene con valor preseleccionado)
-            toggleMeses();
+            // --- Inicialización ---
 
-            // Ejecutar cuando cambie la opción
-            selectPermanencia.addEventListener("change", toggleMeses);
+            // Visibilidad Tecnología
+            var tecnologiaSelect = document.getElementById('tecnologia');
+            if (tecnologiaSelect) {
+                visibilidad(tecnologiaSelect);
+                // Bind change event manually if not handled by attribute
+                $('#tecnologia').on('change', function() {
+                    visibilidad(this);
+                });
+            }
+
+            // Permanencia
+            const selectPermanencia = document.getElementById("contrato_permanencia");
+            if(selectPermanencia) {
+                toggleMeses();
+                $('#contrato_permanencia').on('change', toggleMeses);
+            }
+
+            // Mascara MAC
+            $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
+                'translation': {
+                    A: { pattern: /[0-9a-fA-F]/ }
+                },
+            });
+
+            // ToggleCamposDHCP
+            if(typeof toggleCamposDHCP === 'function') {
+                toggleCamposDHCP();
+            }
+
+            // --- Toggle Switch Handlers (Direct Binding + Delegation Backup) ---
+            
+            function updateProrrateo() {
+                var isChecked = $('#prorrateo').is(':checked');
+                $('#prorrateo_label').text(isChecked ? 'Habilitado' : 'Deshabilitado');
+            }
+            $('#prorrateo').change(updateProrrateo);
+            // Ejecutar al inicio
+            updateProrrateo();
+
+
+            function updateIva() {
+                 var isChecked = $('#iva_factura').is(':checked');
+                $('#iva_factura_label').text(isChecked ? 'Si' : 'No');
+            }
+            $('#iva_factura').change(updateIva);
+            updateIva();
+
+
+            function updateFactPrimerMes() {
+                var isChecked = $('#fact_primer_mes').is(':checked');
+                $('#fact_primer_mes_label').text(isChecked ? 'Si' : 'No');
+            }
+            $('#fact_primer_mes').change(updateFactPrimerMes);
+            updateFactPrimerMes();
+
+
+            function updateSuspension() {
+                var isChecked = $('#tipo_suspension_no').is(':checked');
+                $('#tipo_suspension_no_label').text(isChecked ? 'Si' : 'No');
+                
+                if(isChecked) {
+                    $('#div_fecha_desde_nosuspension').removeClass('d-none');
+                    $('#div_fecha_hasta_nosuspension').removeClass('d-none');
+                } else {
+                    $('#div_fecha_desde_nosuspension').addClass('d-none');
+                    $('#div_fecha_hasta_nosuspension').addClass('d-none');
+                }
+            }
+            $('#tipo_suspension_no').change(updateSuspension);
+            updateSuspension();
+
+            console.log('Create JS Initialization Complete');
         });
-    </script>
-
-    <script>
-        // Función global para cargar puertos NAP
+        
+        // Función global para cargar puertos NAP (se mantiene fuera del ready si es llamada por onclick en HTML, aunque lo ideal es que esté dentro)
+        // Se deja global por si acaso se llama desde algún otro lado
         function cargarPuertosNap() {
-            // Obtener el valor del select usando jQuery
             var cajaNapId = $('#cajanap_id').val();
 
             if (!cajaNapId || cajaNapId == '') {
@@ -1362,142 +1395,5 @@
                 }
             });
         }
-    </script>
-
-
-
-@endsection
-
-@section('scripts')
-    <script>
-        // Variable global para controlar si se deben hacer consultas a Mikrotik
-        var consultasMk = {{ Auth::user()->empresa()->consultas_mk ?? 0 }};
-    </script>
-    <script>
-
-        $("#formGrupo").submit(function() {
-            return false;
-        });
-        $("#formulario").submit(function() {
-            return false;
-        });
-
-        $(document).on('change', 'input[type="file"]', function() {
-            var fileName = this.files[0].name;
-            var fileSize = this.files[0].size;
-            var fileInputId = $(this).attr('id');
-            var referenciaId = '';
-
-            // Mapear el adjunto a su referencia correspondiente
-            if (fileInputId === 'adjunto_a') {
-                referenciaId = 'referencia_a';
-            } else if (fileInputId === 'adjunto_b') {
-                referenciaId = 'referencia_b';
-            } else if (fileInputId === 'adjunto_c') {
-                referenciaId = 'referencia_c';
-            } else if (fileInputId === 'adjunto_d') {
-                referenciaId = 'referencia_d';
-            }
-
-            if (fileSize > 512000) {
-                this.value = '';
-                Swal.fire({
-                    title: 'La documentación adjuntada no puede exceder 512kb',
-                    text: 'Intente nuevamente',
-                    type: 'error',
-                    showCancelButton: false,
-                    showConfirmButton: false,
-                    cancelButtonColor: '#d33',
-                    cancelButtonText: 'Cancelar',
-                    timer: 10000
-                });
-            } else {
-                var ext = fileName.split('.').pop();
-                switch (ext) {
-                    case 'jpg':
-                    case 'png':
-                    case 'pdf':
-                    case 'JPG':
-                    case 'PNG':
-                    case 'PDF':
-                        // Validar que si hay adjunto, también haya referencia
-                        if (referenciaId && this.files.length > 0) {
-                            var referenciaValue = $('#' + referenciaId).val();
-                            if (!referenciaValue || referenciaValue.trim() === '') {
-                                var letraAdjunto = fileInputId.replace('adjunto_', '').toUpperCase();
-                                Swal.fire({
-                                    title: 'Debe ingresar una Referencia ' + letraAdjunto,
-                                    text: 'Si ingresa un Adjunto ' + letraAdjunto + ', debe ingresar también una Referencia ' + letraAdjunto,
-                                    type: 'warning',
-                                    showCancelButton: false,
-                                    confirmButtonColor: '#3085d6',
-                                    confirmButtonText: 'Aceptar'
-                                });
-                                $('#' + referenciaId).focus();
-                            }
-                        }
-                        break;
-                    default:
-                        this.value = '';
-                        Swal.fire({
-                            title: 'La documentación adjuntada debe poseer una extensión apropiada. Sólo se aceptan archivos jpg, png o pdf',
-                            text: 'Intente nuevamente',
-                            type: 'error',
-                            showCancelButton: false,
-                            showConfirmButton: false,
-                            cancelButtonColor: '#d33',
-                            cancelButtonText: 'Cancelar',
-                            timer: 10000
-                        });
-                }
-            }
-        });
-
-        // Validación antes de enviar el formulario
-        $('#form-contrato').on('submit', function(e) {
-            var adjuntos = ['adjunto_a', 'adjunto_b', 'adjunto_c', 'adjunto_d'];
-            var referencias = ['referencia_a', 'referencia_b', 'referencia_c', 'referencia_d'];
-            var errores = [];
-
-            for (var i = 0; i < adjuntos.length; i++) {
-                var adjuntoInput = document.getElementById(adjuntos[i]);
-                var referenciaInput = $('#' + referencias[i]);
-
-                if (adjuntoInput && adjuntoInput.files.length > 0) {
-                    var referenciaValue = referenciaInput.val();
-                    if (!referenciaValue || referenciaValue.trim() === '') {
-                        var letra = adjuntos[i].replace('adjunto_', '').toUpperCase();
-                        errores.push('Si ingresa un Adjunto ' + letra + ', debe ingresar también una Referencia ' + letra);
-                    }
-                }
-            }
-
-            if (errores.length > 0) {
-                e.preventDefault();
-                Swal.fire({
-                    title: 'Validación de Adjuntos',
-                    html: errores.join('<br>'),
-                    type: 'error',
-                    confirmButtonColor: '#3085d6',
-                    confirmButtonText: 'Aceptar'
-                });
-                return false;
-            }
-        });
-
-        $(document).ready(function() {
-            $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
-                'translation': {
-                    A: {
-                        pattern: /[0-9a-fA-F]/
-                    }
-                },
-            });
-
-            // Ejecutar toggleCamposDHCP al cargar la página para manejar el estado inicial
-            if(typeof toggleCamposDHCP === 'function') {
-                toggleCamposDHCP();
-            }
-        });
     </script>
 @endsection

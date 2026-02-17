@@ -1,0 +1,236 @@
+name: Deploy to cPanel Servers
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      deploy_code:
+        description: 'Desplegar código'
+        required: true
+        default: true
+        type: boolean
+      run_migrations:
+        description: 'Ejecutar migraciones de base de datos'
+        required: true
+        default: false
+        type: boolean
+      specific_servers:
+        description: 'Servidores específicos (indices separados por coma, ej: 0,1,5). Vacío = todos'
+        required: false
+        default: ''
+        type: string
+
+env:
+  MAX_PARALLEL: 5
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        server_index: [0, 1, 2]
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y jq
+          echo "✅ jq instalado correctamente"
+
+      - name: Crear configuración desde secret
+        run: |
+          mkdir -p config
+          echo '${{ secrets.SERVERS_CONFIG }}' > config/servers.json
+
+      - name: Verificar si servidor debe procesarse
+        id: should_deploy
+        run: |
+          INDEX=${{ matrix.server_index }}
+          
+          # Verificar que el índice existe en el array
+          SERVER_EXISTS=$(jq -e ".servers[$INDEX]" config/servers.json > /dev/null 2>&1 && echo "true" || echo "false")
+          
+          if [ "$SERVER_EXISTS" = "false" ]; then
+            echo "⏭️ Servidor índice $INDEX no existe en la configuración"
+            echo "deploy=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Verificar si el servidor está habilitado
+          ENABLED=$(jq -r ".servers[$INDEX].enabled" config/servers.json)
+          
+          if [ "$ENABLED" != "true" ]; then
+            echo "⏭️ Servidor índice $INDEX está deshabilitado (enabled: false)"
+            echo "deploy=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Verificar si hay filtro de servidores específicos
+          SPECIFIC='${{ github.event.inputs.specific_servers }}'
+          
+          if [ -n "$SPECIFIC" ]; then
+            # Convertir string "0,1,5" a array y verificar si contiene el índice actual
+            if echo ",$SPECIFIC," | grep -q ",$INDEX,"; then
+              echo "✅ Servidor índice $INDEX incluido en lista específica"
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "⏭️ Servidor índice $INDEX no está en lista específica: $SPECIFIC"
+              echo "deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            echo "✅ Servidor índice $INDEX habilitado"
+            echo "deploy=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extraer configuración del servidor
+        id: server_config
+        if: steps.should_deploy.outputs.deploy == 'true'
+        run: |
+          INDEX=${{ matrix.server_index }}
+          
+          NAME=$(jq -r ".servers[$INDEX].name" config/servers.json)
+          HOST=$(jq -r ".servers[$INDEX].host" config/servers.json)
+          PORT=$(jq -r ".servers[$INDEX].port" config/servers.json)
+          USER=$(jq -r ".servers[$INDEX].user" config/servers.json)
+          PATH=$(jq -r ".servers[$INDEX].path" config/servers.json)
+          DB_NAME=$(jq -r ".servers[$INDEX].db_name" config/servers.json)
+          DB_USER=$(jq -r ".servers[$INDEX].db_user" config/servers.json)
+          
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "host=$HOST" >> $GITHUB_OUTPUT
+          echo "port=$PORT" >> $GITHUB_OUTPUT
+          echo "user=$USER" >> $GITHUB_OUTPUT
+          echo "path=$PATH" >> $GITHUB_OUTPUT
+          echo "db_name=$DB_NAME" >> $GITHUB_OUTPUT
+          echo "db_user=$DB_USER" >> $GITHUB_OUTPUT
+          
+          echo "========================================="
+          echo "📦 Configuración cargada para: $NAME"
+          echo "========================================="
+
+      - name: Configurar SSH
+        if: steps.should_deploy.outputs.deploy == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo '${{ secrets.SSH_PRIVATE_KEY }}' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          ssh-keyscan -p ${{ steps.server_config.outputs.port }} -H ${{ steps.server_config.outputs.host }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          echo "✅ SSH configurado para: ${{ steps.server_config.outputs.name }}"
+
+      - name: Desplegar código
+        if: |
+          steps.should_deploy.outputs.deploy == 'true' && 
+          (github.event_name == 'push' || github.event.inputs.deploy_code == 'true')
+        run: |
+          echo "========================================="
+          echo "🚀 Desplegando código a: ${{ steps.server_config.outputs.name }}"
+          echo "📍 Host: ${{ steps.server_config.outputs.host }}:${{ steps.server_config.outputs.port }}"
+          echo "👤 Usuario: ${{ steps.server_config.outputs.user }}"
+          echo "📂 Ruta: ${{ steps.server_config.outputs.path }}"
+          echo "========================================="
+          
+          if [ ! -f scripts/deploy.sh ]; then
+            echo "❌ ERROR: scripts/deploy.sh no encontrado"
+            exit 1
+          fi
+          
+          chmod +x scripts/deploy.sh
+          
+          ./scripts/deploy.sh \
+            --host "${{ steps.server_config.outputs.host }}" \
+            --port "${{ steps.server_config.outputs.port }}" \
+            --user "${{ steps.server_config.outputs.user }}" \
+            --path "${{ steps.server_config.outputs.path }}"
+          
+          echo "✅ Código desplegado exitosamente"
+
+      - name: Ejecutar migraciones
+        if: |
+          steps.should_deploy.outputs.deploy == 'true' && 
+          github.event.inputs.run_migrations == 'true'
+        env:
+          DB_PASS: ${{ secrets[format('DB_PASS_SERVER_{0}', matrix.server_index)] }}
+        run: |
+          echo "========================================="
+          echo "🗄️ Ejecutando migraciones en: ${{ steps.server_config.outputs.name }}"
+          echo "📊 Base de datos: ${{ steps.server_config.outputs.db_name }}"
+          echo "👤 Usuario DB: ${{ steps.server_config.outputs.db_user }}"
+          echo "========================================="
+          
+          if [ ! -f scripts/run-migrations.sh ]; then
+            echo "❌ ERROR: scripts/run-migrations.sh no encontrado"
+            exit 1
+          fi
+          
+          if [ -z "$DB_PASS" ]; then
+            echo "❌ ERROR: Secret DB_PASS_SERVER_${{ matrix.server_index }} no configurado"
+            exit 1
+          fi
+          
+          chmod +x scripts/run-migrations.sh
+          
+          ./scripts/run-migrations.sh \
+            --host "${{ steps.server_config.outputs.host }}" \
+            --port "${{ steps.server_config.outputs.port }}" \
+            --user "${{ steps.server_config.outputs.user }}" \
+            --db-name "${{ steps.server_config.outputs.db_name }}" \
+            --db-user "${{ steps.server_config.outputs.db_user }}" \
+            --db-pass "$DB_PASS"
+          
+          echo "✅ Migraciones completadas"
+
+      - name: Limpiar archivos sensibles
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f config/servers.json
+          echo "🔒 Archivos sensibles eliminados"
+
+      - name: Reportar resultado
+        if: always()
+        run: |
+          echo "========================================="
+          if [ "${{ steps.should_deploy.outputs.deploy }}" != "true" ]; then
+            echo "⏭️ SALTADO: Servidor índice ${{ matrix.server_index }}"
+          elif [ "${{ job.status }}" == "success" ]; then
+            echo "✅ ÉXITO: ${{ steps.server_config.outputs.name }}"
+          else
+            echo "❌ ERROR: ${{ steps.server_config.outputs.name }}"
+          fi
+          echo "========================================="
+
+  summary:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Resumen del deployment
+        run: |
+          echo "=========================================="
+          echo "📊 RESUMEN DE DEPLOYMENT"
+          echo "=========================================="
+          echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Ejecutado por: ${{ github.actor }}"
+          echo "=========================================="
+          
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment completado"
+          elif [ "${{ needs.deploy.result }}" == "failure" ]; then
+            echo "⚠️ Algunos deployments fallaron - revise los logs"
+          else
+            echo "ℹ️ Estado: ${{ needs.deploy.result }}"
+          fi
+          echo "=========================================="

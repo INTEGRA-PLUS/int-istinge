@@ -727,6 +727,101 @@
         div.dataTables_wrapper div.dataTables_paginate {
             text-align: -webkit-center !important;
         }
+
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: #28a745;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .slider.round {
+            border-radius: 24px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+
+        /* Modern Radio Button Styles */
+        .custom-radio {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+
+        .custom-radio input[type="radio"] {
+            display: none;
+        }
+
+        .custom-radio .radio-btn {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            margin-right: 8px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .custom-radio input[type="radio"]:checked + .radio-btn {
+            border-color: #007bff;
+        }
+
+        .custom-radio input[type="radio"]:checked + .radio-btn::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background-color: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .custom-radio .radio-label {
+            font-weight: 500;
+            color: #333;
+        }
     </style>
     @yield('style')
 </head>
@@ -1205,117 +1300,7 @@
 
         @endphp
 
-        @if (!is_null($instancia ?? null) && !empty($instancia ?? ''))
 
-            const socketSerVER = io.connect('https://api.whatsive.com:{{ $instancia->port }}', {
-                'reconnection': true,
-                'reconnectionDelay': 2000,
-                'reconnectionDelayMax': 2000,
-                'reconnectionAttempts': 5
-            });
-            socketSerVER.on('changeoperador', function(data) {
-                if (data.tecnico == "{{ $user = Auth::user()->id }}") {
-                    audioElementA.play();
-                    $.gritter.add({
-                        title: 'CHAT ASIGNADO',
-                        text: 'El chat  <b>' + data.cliente + '</b> te fué asignado.',
-                        sticky: true,
-                        time: '',
-                        class_name: 'alerta-whatsapp'
-                    });
-                }
-            })
-
-            socketSerVER.on('newmessagewat', function(datos) {
-                if (datos?.author != null) {
-
-                } else {
-
-                    @php
-
-                        $permisoWppNoti = DB::table('permisos_usuarios')
-                            ->where('id_usuario', Auth::user()->id)
-                            ->where('id_permiso', 857)
-                            ->first();
-                    @endphp
-
-                    @if (!is_null($permisoWppNoti))
-                        audioElement.play();
-                    @endif
-
-                    let typechats = {
-                        "video": "  <span class = 'fas fa-video fa-lg' ></span> Video",
-                        "ptt": "  <span class = 'fas fa-microphone fa-lg' ></span> Audio",
-                        "audio": "  <span class = 'fas fa-microphone fa-lg' ></span> Audio",
-                        "image": "  <span class = 'fas fa-image fa-lg' ></span> Imagen",
-                        "sticker": "  <span class = 'fas fa-file fa-lg' ></span> Sticker",
-                        "document": "  <span class = 'fas fa-file-archive fa-lg' ></span> Archivo",
-                        "location": "  <span class = 'fas fa-map fa-lg' ></span> Ubicacion",
-                        "call_log": "  <span style = 'color:red' class = 'fa fa-phone fa-lg' ></span> Llamada perdida ",
-                        "e2e_notification": "Respuesta automatica",
-                        "ciphertext": "  <span class = 'fas fa-microphone fa-lg' ></span> Audio",
-                        "revoked": "<span class = 'fa fa-ban fa-lg' ></span> Elimino el mensaje",
-                        "vcard": "<span class = 'fa fa-user fa-lg' ></span> Contacto",
-                        "notification_template": "<span class = 'fa fa-clock-o fa-lg' ></span> Aviso whatsapp",
-                        "gp2": "<span class = 'fa fa-clock-o fa-lg' ></span> Aviso whatsapp",
-                    };
-                    if (!datos.isStatus && (datos.type != "e2e_notification" && datos.type !=
-                            "notification_template" && datos.type != "g2p")) {
-                        if (datos.type != "chat") {
-                            datos._data.body = typechats[datos.type];
-                        }
-                        if (!datos?.picurl) {
-                            datos.picurl =
-                                "https://ramenparados.com/wp-content/uploads/2019/03/no-avatar-png-8.png";
-                        }
-                        nombre = datos.to.replace("@c.us", "");
-                        if (datos?.contact) {
-                            if (datos.contact?.name) {
-                                datos._data.notifyName = datos.contact.name;
-                            } else {
-                                datos._data.notifyName = datos.contact.pushname;
-                            }
-                        }
-
-                        @if (!is_null($permisoWppNoti))
-                            alertawhat({
-                                nombre: datos._data.notifyName,
-                                mensaje: datos._data.body,
-                                avatar: datos.picurl
-                            });
-                        @endif
-                    }
-                }
-            })
-            socketSerVER.on('closesion', function(data) {
-                swal({
-                    title: "Se cerro la sesion de Whatsapp ",
-                    text: "Vuelva a conectar el dispositivo para poder seguir usando Whatsapp",
-                    type: 'error',
-                    showCancelButton: false,
-                    confirmButtonColor: '#00ce68',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: confirmar,
-                    cancelButtonText: 'No',
-                }).then((result) => {
-                    location.reload();
-                });
-            });
-            socketSerVER.on('disconnected', function(data) {
-                swal({
-                    title: "Se cerro la sesion de Whatsapp ",
-                    text: "Vuelva a conectar el dispositivo para poder seguir usando Whatsapp",
-                    type: 'error',
-                    showCancelButton: false,
-                    confirmButtonColor: '#00ce68',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: "confirmar",
-                    cancelButtonText: 'No',
-                }).then((result) => {
-                    location.reload();
-                });
-            });
-        @endif
 
         function alertawhat(data) {
             $.gritter.add({

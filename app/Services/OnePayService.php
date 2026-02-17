@@ -259,11 +259,11 @@ class OnePayService
     /**
      * Eliminar factura en OnePay
      */
-    public function deleteInvoice(Factura $factura, $reason = 'Factura eliminada')
+    public function deleteInvoice(Factura $factura, $reason = 'DELETE_FROM_PROVIDER')
     {
         try {
             if (!$factura->onepay_invoice_id) {
-                throw new \Exception('La factura no tiene onepay_invoice_id');
+                return; // No hay nada que eliminar en OnePay
             }
 
             // Preparar datos
@@ -302,14 +302,40 @@ class OnePayService
             $responseData = json_decode($response, true);
 
             if ($httpCode >= 200 && $httpCode < 300) {
+                // Registrar log de éxito
+                $descripcion = '<i class="fas fa-trash text-warning"></i> <b>Factura eliminada en OnePay</b> exitosamente. Motivo: <b>' . $reason . '</b>';
+                $this->registrarLogFactura($factura, $descripcion, false);
+
+                // Limpiar onepay_invoice_id
+                $factura->onepay_invoice_id = null;
+                $factura->save();
+
                 return $responseData;
             } else {
                 $errorMessage = isset($responseData['message']) ? $responseData['message'] : 'Error desconocido';
+
+                // Si OnePay responde que la factura no existe (404), igual limpiamos el ID local
+                if ($httpCode == 404) {
+                    $factura->onepay_invoice_id = null;
+                    $factura->save();
+                    return;
+                }
+
                 Log::error('OnePay API Error: ' . $errorMessage, ['response' => $responseData]);
+
+                // Registrar log de error
+                $descripcion = '<i class="fas fa-times text-danger"></i> <b>Error al eliminar factura en OnePay</b>: ' . $errorMessage;
+                $this->registrarLogFactura($factura, $descripcion, true);
+
                 throw new \Exception('Error al eliminar factura en OnePay: ' . $errorMessage);
             }
         } catch (\Exception $e) {
             Log::error('OnePay deleteInvoice Exception: ' . $e->getMessage());
+
+             // Registrar log de error en la excepción
+             $descripcion = '<i class="fas fa-times text-danger"></i> <b>Error al eliminar factura en OnePay</b>: ' . $e->getMessage();
+             $this->registrarLogFactura($factura, $descripcion, true);
+
             throw $e;
         }
     }

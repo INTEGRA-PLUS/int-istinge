@@ -87,6 +87,9 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
             <li class="nav-item" id="proveedores">
                 <a class="nav-link" href="{{ route('olt.unconfiguredAdminOLT') }}">Onus AdminOLT</a>
             </li>
+            <li class="nav-item" id="morosos">
+                <a class="nav-link" href="{{ route('morosos.index') }}">Morosos</a>
+            </li>
         </ul>
     </div>
 </li>
@@ -115,7 +118,7 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                     <a class="nav-link" href="{{route('inventario.index')}}">Planes</a>
                 </li>
                 <li class="nav-item" id="material">
-                    <a class="nav-link" href="{{route('inventario.material')}}">Productos</a>
+                    <a class="nav-link" href="{{route('inventario.index')}}">Productos</a>
                 </li>
                 <li class="nav-item" id="planes_tv">
                     <a class="nav-link" href="{{route('inventario.television')}}">Planes de Televisión</a>
@@ -336,11 +339,10 @@ isset($_SESSION['permisos']['804']) || isset($_SESSION['permisos']['858'])
                 <a class="nav-link" href="{{ route('crm.chat_IA') }}">Chat IA</a>
             </li>
             @endif
-            @if(Auth::user()->empresa()->wppNuevo == 1)
-            <li class="nav-item" id="crm_chat_meta">
-                <a class="nav-link" href="{{ route('crm.chat_meta') }}">Chat Meta</a>
+
+            <li class="nav-item" id="chat_whatsapp_meta">
+                <a class="nav-link" href="{{ route('chat.whatsapp') }}">Chat Meta (Nuevo)</a>
             </li>
-            @endif
             {{-- @if(Auth::user()->empresa()->chat_ia == 1) --}}
             <li class="nav-item" id="crm_whatsapp">
                 <a class="nav-link" href="{{route('crm.chatboxIA')}}">Chatbox</a>

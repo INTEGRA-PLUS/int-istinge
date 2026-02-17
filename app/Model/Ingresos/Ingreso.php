@@ -31,6 +31,11 @@ class Ingreso extends Model
         'nro', 'empresa', 'cliente', 'cuenta', 'metodo_pago', 'fecha', 'observaciones', 'notas', 'tipo', 'estatus', 'created_at', 'updated_at', 'nota_debito', 'total_debito', 'nro_devolucion', 'created_by', 'updated_by'
     ];
 
+    public function setTotalDebitoAttribute($value)
+    {
+        $this->attributes['total_debito'] = \App\Funcion::precision($value);
+    }
+
     public function parsear($valor)
     {
         return number_format($valor, auth()->user()->empresa()->precision, auth()->user()->empresa()->sep_dec, (auth()->user()->empresa()->sep_dec == '.' ? ',' : '.'));
@@ -165,7 +170,7 @@ class Ingreso extends Model
                                     $totales["reten"][$key]->total=0;
                                 }
 
-                                $totales["reten"][$key]->total+=round($retencion->valor, 2);
+                                $totales["reten"][$key]->total+=\App\Funcion::precision($retencion->valor);
                             }
                         }
                     }
@@ -186,7 +191,7 @@ class Ingreso extends Model
             $result=0; $desc=0; $impuesto=0;
             foreach ($items as $item) {
                 $result=$item->valor*$item->cant;
-                $totales['subtotal']+=round($result, 2);
+                $totales['subtotal']+=\App\Funcion::precision($result);
 
                 //SACAR EL IMPUESTO
 
@@ -223,8 +228,8 @@ class Ingreso extends Model
                             if (!isset($totales["reten"][$key]->total)) {
                                 $totales["reten"][$key]->total=0;
                             }
-                            $totales["reten"][$key]->total+=round($item->valor, 2);
-                            $totales['total']-=round($item->valor, 2);
+                            $totales["reten"][$key]->total+=\App\Funcion::precision($item->valor);
+                            $totales['total']-=\App\Funcion::precision($item->valor);
 
                         }
                     }

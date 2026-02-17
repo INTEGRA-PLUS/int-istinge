@@ -577,21 +577,13 @@
                                 <label class="control-label">¿Agregar iva al servicio de internet?  <a><i
                                     data-tippy-content="Decida si la factura que genere este contrato llevará iva"
                                     class="icono far fa-question-circle"></i></a></label>
-                              <div class="row">
-                                  <div class="col-sm-6">
-                                  <div class="form-radio">
-                                      <label class="form-check-label">
-                                      <input type="radio" class="form-check-input" name="iva_factura" id="iva_factura1" value="1" {{$contrato->iva_factura == 1 ? 'checked' : ''}}> Si
-                                      <i class="input-helper"></i><i class="input-helper"></i></label>
-                                  </div>
-                              </div>
-                              <div class="col-sm-6">
-                                  <div class="form-radio">
-                                      <label class="form-check-label">
-                                      <input type="radio" class="form-check-input" name="iva_factura" id="iva_factura2" value="0" {{$contrato->iva_factura == 0 ? 'checked' : ''}}> No
-                                      <i class="input-helper"></i><i class="input-helper"></i></label>
-                                  </div>
-                              </div>
+                              <div class="d-flex align-items-center">
+                                  <label class="switch mb-0">
+                                      <input type="hidden" name="iva_factura" value="0">
+                                      <input type="checkbox" name="iva_factura" id="iva_factura" value="1" {{$contrato->iva_factura == 1 ? 'checked' : ''}}>
+                                      <span class="slider round"></span>
+                                  </label>
+                                  <span class="ml-2" id="iva_factura_label">{{$contrato->iva_factura == 1 ? 'Si' : 'No'}}</span>
                               </div>
                               <span class="help-block error">
                                   <strong></strong>
@@ -663,21 +655,13 @@
                                 <label class="control-label">¿Agregar un tiempo de facturar el ítem?  <a><i
                                     data-tippy-content="Si selecciona si, deberás escoger una fecha hasta la que el ítem se debe facturar en este contrato"
                                     class="icono far fa-question-circle"></i></a></label>
-                              <div class="row">
-                                  <div class="col-sm-6">
-                                  <div class="form-radio">
-                                      <label class="form-check-label">
-                                      <input type="radio" class="form-check-input" name="rd_item_vencimiento" id="item_vencimiento1" value="1" {{$contrato->rd_item_vencimiento == 1 ? 'checked' : ''}}> Si
-                                      <i class="input-helper"></i><i class="input-helper"></i></label>
-                                  </div>
-                              </div>
-                              <div class="col-sm-6">
-                                  <div class="form-radio">
-                                      <label class="form-check-label">
-                                      <input type="radio" class="form-check-input" name="rd_item_vencimiento" id="item_vencimiento2" value="0" {{$contrato->rd_item_vencimiento == 0 ? 'checked' : ''}}> No
-                                      <i class="input-helper"></i><i class="input-helper"></i></label>
-                                  </div>
-                              </div>
+                              <div class="d-flex align-items-center">
+                                  <label class="switch mb-0">
+                                      <input type="hidden" name="rd_item_vencimiento" value="0">
+                                      <input type="checkbox" name="rd_item_vencimiento" id="rd_item_vencimiento" value="1" {{$contrato->rd_item_vencimiento == 1 ? 'checked' : ''}}>
+                                      <span class="slider round"></span>
+                                  </label>
+                                  <span class="ml-2" id="rd_item_vencimiento_label">{{$contrato->rd_item_vencimiento == 1 ? 'Si' : 'No'}}</span>
                               </div>
                           </div>
 
@@ -799,6 +783,23 @@
                             </div>
 
                             <div class="col-md-4 form-group">
+                                <label class="control-label">Habilitar Prorrateo<a><i
+                                            data-tippy-content="Habilitar o deshabilitar el cobro de prorrateo para este contrato"
+                                            class="icono far fa-question-circle"></i></a></label>
+                                <div class="d-flex align-items-center">
+                                    <label class="switch mb-0">
+                                        <input type="hidden" name="prorrateo" value="0">
+                                        <input type="checkbox" name="prorrateo" id="prorrateo" value="1" {{ $contrato->prorrateo == 1 ? 'checked' : '' }}>
+                                        <span class="slider round"></span>
+                                    </label>
+                                    <span class="ml-2" id="prorrateo_label">{{ $contrato->prorrateo == 1 ? 'Habilitado' : 'Deshabilitado' }}</span>
+                                </div>
+                                <span style="color: red;">
+                                    <strong>{{ $errors->first('prorrateo') }}</strong>
+                                </span>
+                            </div>
+
+                            <div class="col-md-4 form-group">
                                 <label class="control-label">Canal de Venta <a><i data-tippy-content="Seleccione el canal de venta del contrato" class="icono far fa-question-circle"></i></a></label>
                                 <div class="input-group mb-2">
                                     <select class="form-control selectpicker" name="canal" id="canal" title="Seleccione" data-live-search="true" data-size="5" required>
@@ -864,21 +865,13 @@
 
                         <div class="form-group col-md-4">
                             <label class="control-label">¿Crear factura el primer mes del contrato?  <a><i data-tippy-content="Elige si deseas que se genere factura al usuario el primer mes con el contrato" class="icono far fa-question-circle"></i></a></label>
-                            <div class="row">
-                                <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="fact_primer_mes" value="1" {{$contrato->fact_primer_mes == 1 ? 'checked' : ''}}> Si
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="fact_primer_mes" value="0" {{$contrato->fact_primer_mes == 0 ? 'checked' : ''}}> No
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
+                            <div class="d-flex align-items-center">
+                                <label class="switch mb-0">
+                                    <input type="hidden" name="fact_primer_mes" value="0">
+                                    <input type="checkbox" name="fact_primer_mes" id="fact_primer_mes" value="1" {{$contrato->fact_primer_mes == 1 ? 'checked' : ''}}>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="ml-2" id="fact_primer_mes_label">{{$contrato->fact_primer_mes == 1 ? 'Si' : 'No'}}</span>
                             </div>
                             <span class="help-block error">
                                 <strong></strong>
@@ -887,21 +880,13 @@
 
                         <div class="form-group col-md-4">
                             <label class="control-label">¿Cambiar de cliente el contrato?  <a><i class="icono far fa-question-circle"></i></a></label>
-                            <div class="row">
-                                <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="change_cliente" value="1"> Si
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="change_cliente" value="0"> No
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
+                            <div class="d-flex align-items-center">
+                                <label class="switch mb-0">
+                                    <input type="hidden" name="change_cliente" value="0">
+                                    <input type="checkbox" name="change_cliente" id="change_cliente" value="1">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="ml-2" id="change_cliente_label">No</span>
                             </div>
                             <span class="help-block error">
                                 <strong></strong>
@@ -921,59 +906,39 @@
 
                         <div class="form-group col-md-4">
                             <label class="control-label">¿Agregar fechas de No suspensión?  <a><i data-tippy-content="Decida si este contrato tendrá un rango de fechas donde si tiene facturas abiertas no lo suspenderá (esto solo pasará en el rango escogido)" class="icono far fa-question-circle"></i></a></label>
-                          <div class="row">
-                              <div class="col-sm-6">
-                              <div class="form-radio">
-                                  <label class="form-check-label">
-                                  <input type="radio" class="form-check-input" name="tipo_suspension_no" id="tipo_suspension_no1" value="1" {{$contrato->tipo_nosuspension == 1 ? 'checked' : ''}}> Si
-                                  <i class="input-helper"></i><i class="input-helper"></i></label>
-                              </div>
-                          </div>
-                          <div class="col-sm-6">
-                              <div class="form-radio">
-                                  <label class="form-check-label">
-                                  <input type="radio" class="form-check-input" name="tipo_suspension_no" id="tipo_suspension_no2" value="0" {{$contrato->tipo_nosuspension == 0 ? 'checked' : ''}}> No
-                                  <i class="input-helper"></i><i class="input-helper"></i></label>
-                              </div>
-                          </div>
+                          <div class="d-flex align-items-center">
+                              <label class="switch mb-0">
+                                  <input type="hidden" name="tipo_suspension_no" value="0">
+                                  <input type="checkbox" name="tipo_suspension_no" id="tipo_suspension_no" value="1" {{$contrato->tipo_nosuspension == 1 ? 'checked' : ''}}>
+                                  <span class="slider round"></span>
+                              </label>
+                              <span class="ml-2" id="tipo_suspension_no_label">{{$contrato->tipo_nosuspension == 1 ? 'Si' : 'No'}}</span>
                           </div>
                           <span class="help-block error">
                               <strong></strong>
                           </span>
                       </div>
 
-                        <div class="col-md-4 form-group">
-                            <div @if($contrato->tipo_nosuspension == 0) class="cls-nosuspension d-none" @endif>
+                        <div class="col-md-4 form-group @if($contrato->tipo_nosuspension == 0) cls-nosuspension d-none @endif" id="div_fecha_desde_nosuspension">
                             <label class="control-label">Fecha desde no suspensión</label>
-                                    <input type="date" class="form-control"  id="fecha_desde_nosuspension" value="{{$contrato->fecha_desde_nosuspension}}" name="fecha_desde_nosuspension" >
-                            </div>
+                            <input type="date" class="form-control"  id="fecha_desde_nosuspension" value="{{$contrato->fecha_desde_nosuspension}}" name="fecha_desde_nosuspension" >
                         </div>
 
-                        <div class="col-md-4 form-group">
-                            <div @if($contrato->tipo_nosuspension == 0) class="cls-nosuspension d-none" @endif>
-                                <label class="control-label">Fecha hasta no suspensión</label>
-                                <input type="date" class="form-control"  id="fecha_hasta_nosuspension" value="{{$contrato->fecha_hasta_nosuspension}}" name="fecha_hasta_nosuspension">
-                            </div>
+                        <div class="col-md-4 form-group @if($contrato->tipo_nosuspension == 0) cls-nosuspension d-none @endif" id="div_fecha_hasta_nosuspension">
+                            <label class="control-label">Fecha hasta no suspensión</label>
+                            <input type="date" class="form-control"  id="fecha_hasta_nosuspension" value="{{$contrato->fecha_hasta_nosuspension}}" name="fecha_hasta_nosuspension">
                         </div>
 
                         @if($empresa->api_key_siigo != null || $empresa->api_key_siigo != "")
                         <div class="form-group col-md-4">
                             <label class="control-label">¿Enviar a siigo cuando se haga un pago sobre la factura? </label>
-                            <div class="row">
-                                <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="pago_siigo_contrato" id="pago_siigo_contrato1" value="1" {{$contrato->pago_siigo_contrato == 1 ? 'checked' : ''}}> Si
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="form-radio">
-                                    <label class="form-check-label">
-                                    <input type="radio" class="form-check-input" name="pago_siigo_contrato" id="pago_siigo_contrato2" value="0" {{$contrato->pago_siigo_contrato == 0 ? 'checked' : ''}}> No
-                                    <i class="input-helper"></i><i class="input-helper"></i></label>
-                                </div>
-                            </div>
+                            <div class="d-flex align-items-center">
+                                <label class="switch mb-0">
+                                    <input type="hidden" name="pago_siigo_contrato" value="0">
+                                    <input type="checkbox" name="pago_siigo_contrato" id="pago_siigo_contrato" value="1" {{$contrato->pago_siigo_contrato == 1 ? 'checked' : ''}}>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="ml-2" id="pago_siigo_contrato_label">{{$contrato->pago_siigo_contrato == 1 ? 'Si' : 'No'}}</span>
                             </div>
                         </div>
                         @endif
@@ -1055,11 +1020,12 @@
 
             var selectedOption = selectElement.value;
             // Mostrar los inputs inalámbricos si la opción es igual a 2
-            if (selectedOption == 2) {
-
-                document.getElementById('puerto_receptor').classList.toggle('d-none', selectedOption != 2);
-                document.getElementById('ip_receptora').classList.toggle('d-none', selectedOption != 2);
-            }
+            var isWireless = (selectedOption == 2);
+            var puerto = document.getElementById('puerto_receptor');
+            var ip = document.getElementById('ip_receptora');
+            
+            if(puerto) puerto.classList.toggle('d-none', !isWireless);
+            if(ip) ip.classList.toggle('d-none', !isWireless);
             }
         $('#us2').locationpicker({
             location: {
@@ -1150,13 +1116,6 @@
 
         $(document).ready(function () {
 
-            $('input[name="change_cliente"]').on('change', function () {
-                if ($(this).val() == '1') {
-                    $('.divnew_contacto').removeClass('d-none');
-                } else {
-                    $('.divnew_contacto').addClass('d-none');
-                }
-            });
 
             $('#mac_address').mask('AA:AA:AA:AA:AA:AA', {
                 'translation': {A: {pattern: /[0-9a-fA-F]/}},
@@ -1169,9 +1128,12 @@
 
             // Solo cargar interfaces y profiles si consultas_mk == 1
             if (consultasMk == 1) {
-                getInterfaces($("#server_configuration_id").val());
-                // Cargar profiles iniciales del Mikrotik seleccionado
-                getProfiles($("#server_configuration_id").val());
+                var serverId = "{{ $contrato->server_configuration_id }}";
+                if (serverId) {
+                    getInterfaces(serverId);
+                    // Cargar profiles iniciales del Mikrotik seleccionado
+                    getProfiles(serverId);
+                }
             }
 
             // Seleccionar automáticamente el profile actual del contrato cuando
@@ -1198,6 +1160,78 @@
             }
 
 
+
+            // Toggle Switch Handlers with event delegation
+            $(document).on('change', '#prorrateo', function() {
+                if($(this).is(':checked')) {
+                    $('#prorrateo_label').text('Habilitado');
+                } else {
+                    $('#prorrateo_label').text('Deshabilitado');
+                }
+            });
+
+            $(document).on('change', '#iva_factura', function() {
+                $('#iva_factura_label').text($(this).is(':checked') ? 'Si' : 'No');
+            });
+
+            $(document).on('change', '#rd_item_vencimiento', function() {
+                var isChecked = $(this).is(':checked');
+                $('#rd_item_vencimiento_label').text(isChecked ? 'Si' : 'No');
+                
+                // Show/hide dtItemHasta field
+                if(isChecked) {
+                    $("#dtItemHasta").show();
+                    $("#dt_item_hasta").prop('disabled', false);
+                } else {
+                    $("#dtItemHasta").hide();
+                    $("#dt_item_hasta").prop('disabled', true);
+                }
+            });
+
+            $(document).on('change', '#fact_primer_mes', function() {
+                $('#fact_primer_mes_label').text($(this).is(':checked') ? 'Si' : 'No');
+            });
+
+            $(document).on('change', '#tipo_suspension_no', function() {
+                var isChecked = $(this).is(':checked');
+                $('#tipo_suspension_no_label').text(isChecked ? 'Si' : 'No');
+                
+                // Show/hide nosuspension date fields
+                if(isChecked) {
+                    $('#div_fecha_desde_nosuspension').removeClass('d-none');
+                    $('#div_fecha_hasta_nosuspension').removeClass('d-none');
+                } else {
+                    $('#div_fecha_desde_nosuspension').addClass('d-none');
+                    $('#div_fecha_hasta_nosuspension').addClass('d-none');
+                }
+            });
+
+            $(document).on('change', '#pago_siigo_contrato', function() {
+                $('#pago_siigo_contrato_label').text($(this).is(':checked') ? 'Si' : 'No');
+            });
+
+            $(document).on('change', '#change_cliente', function() {
+                var isChecked = $(this).is(':checked');
+                $('#change_cliente_label').text(isChecked ? 'Si' : 'No');
+                
+                // Show/hide new contact field
+                if(isChecked) {
+                    $('.divnew_contacto').removeClass('d-none');
+                } else {
+                    $('.divnew_contacto').addClass('d-none');
+                }
+            });
+
+            // Initialize labels/states on load
+            $('#prorrateo').trigger('change');
+            $('#iva_factura').trigger('change');
+            $('#rd_item_vencimiento').trigger('change');
+            $('#fact_primer_mes').trigger('change');
+            $('#tipo_suspension_no').trigger('change');
+            $('#pago_siigo_contrato').trigger('change');
+            $('#change_cliente').trigger('change');
+
+
             $('#contrato_permanencia').change(function(){
                 if($('#contrato_permanencia').val() == 1){
                     $("#div_meses").removeClass('d-none');
@@ -1217,19 +1251,6 @@
                 }
             });
 
-            $("#item_vencimiento1").change(function(){
-                if($("#item_vencimiento1").is(':checked')){
-                    $("#dtItemHasta").show();
-                    $("#dt_item_hasta").prop('disabled', false);
-                }
-            });
-
-            $("#item_vencimiento2").change(function(){
-                if($("#item_vencimiento2").is(':checked')){
-                    $("#dtItemHasta").hide();
-                    $("#dt_item_hasta").prop('disabled', true);
-                }
-            });
         });
 
         function validarTipo(){
@@ -1290,22 +1311,6 @@
 			})
             }
 
-        $('#tipo_suspension_no1').change(function (e) {
-            if ($('#tipo_suspension_no1').val() == 1) {
-                $('.cls-nosuspension').removeClass('d-none');
-            } else {
-                $('.cls-nosuspension').addClass('d-none');
-            }
-        });
-
-
-    $('#tipo_suspension_no2').change(function (e) {
-        if ($('#tipo_suspension_no2').val() == 0) {
-            $('.cls-nosuspension').addClass('d-none');
-        } else {
-            $('.cls-nosuspension').removeClass('d-none');
-        }
-    });
 
     function refreshDataInternet(){
 

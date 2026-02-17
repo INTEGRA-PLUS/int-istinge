@@ -33,6 +33,16 @@ class Inventario extends Model
         'inicial', 'unidad', 'status',  'created_at', 'updated_at', 'tipo_producto', 'publico', 'costo_unidad', 'lista', 'link', 'type',
         'siigo_id',
     ];
+
+    public function setPrecioAttribute($value)
+    {
+        $this->attributes['precio'] = Funcion::precision($value);
+    }
+
+    public function setCostoUnidadAttribute($value)
+    {
+        $this->attributes['costo_unidad'] = Funcion::precision($value);
+    }
     public function status(){
       return $this->status==1?'Activo':'Inactivo';
     }
