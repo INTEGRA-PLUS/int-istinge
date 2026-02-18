@@ -7011,6 +7011,21 @@ class FacturasController extends Controller{
 
                 // Si pasa todas las validaciones, eliminar factura y registros relacionados
                 try {
+                    // Generar MovimientoLog
+                    $factura_contrato = DB::table('facturas_contratos')->where('factura_id', $factura->id)->first();
+                    if ($factura_contrato) {
+                        $contrato = Contrato::where('nro', $factura_contrato->contrato_nro)->first();
+                        if ($contrato) {
+                            $movimiento = new MovimientoLOG;
+                            $movimiento->contrato    = $contrato->id;
+                            $movimiento->modulo      = 5;
+                            $movimiento->descripcion = "Factura {$factura->codigo} eliminada";
+                            $movimiento->created_by  = Auth::user()->id;
+                            $movimiento->empresa     = Auth::user()->empresa;
+                            $movimiento->save();
+                        }
+                    }
+
                     // Eliminar items_factura (esto también elimina los impuestos asociados que están en la misma tabla)
                     ItemsFactura::where('factura', $factura->id)->delete();
 
