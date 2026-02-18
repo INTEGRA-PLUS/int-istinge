@@ -963,22 +963,13 @@ class AsignacionesController extends Controller
 
     public function generar_link($id)
     {
-        $contacto = Contacto::find($id);
+        $contrato = Contrato::find($id);
         $empresa = Empresa::first();
 
-        if($contacto) {
-            $sw = 1;
-            while ($sw == 1) {
-                $ref = Funcion::generateRandomString();
-                if (Contacto::where('referencia_asignacion', $ref)->first()) {
-                    $ref = Funcion::generateRandomString();
-                } else {
-                    $sw = 0;
-                    $contacto->referencia_asignacion = $ref;
-                    $contacto->save();
-                }
-            }
+        if($contrato) {
 
+            $ref = $contrato->nro;
+            $contacto = Contacto::find($contrato->client_id);
             $link = config('app.url')."/api/contrato-digital/".$ref;
 
             return response()->json([

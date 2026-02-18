@@ -22,9 +22,10 @@
         .txt-center { text-align: -webkit-center; }
     </style>
 
-    <form method="POST" action="{{ route('asignaciones.store_firma', $contacto->referencia_asignacion) }}" style="padding: 2% 3%;" role="form" class="forms-sample" id="form-asignacion">
-        <input name="referencia_asignacion" type="hidden" value="{{ $contacto->referencia_asignacion }}">
-        <input name="id" type="hidden" value="{{ $contacto->id }}">
+    <form method="POST" action="{{ route('asignaciones.store_firma', $contrato->id) }}" style="padding: 2% 3%;" role="form" class="forms-sample" id="form-asignacion">
+        
+        <input name="contacto_id" type="hidden" value="{{ $contacto->id }}">
+        <input name="contrato_id" type="hidden" value="{{ $contrato->id }}">
         @csrf
 
         {{-- Imprime o debuggea las variables --}}
