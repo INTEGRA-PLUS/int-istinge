@@ -804,7 +804,15 @@ class AsignacionesController extends Controller
     // funcion que permita imprimir el contrato en firma de asignaciones
     public function imprimir_firma($id)
     {
-        $digital = ContratoDigital::findOrFail($id);
+        $digital = ContratoDigital::find($id);
+        if (!$digital) {
+            $digital = ContratoDigital::where('cliente_id', $id)->orderBy('id', 'DESC')->first();
+        }
+
+        if (!$digital) {
+            abort(404, 'No se encontró el contrato digital.');
+        }
+
         $contact = $digital->cliente;
         $contract = $digital->contrato;
         $company = Empresa::first();
@@ -928,21 +936,37 @@ class AsignacionesController extends Controller
         $contrato = Contrato::find($id);
         $empresa = Empresa::first();
 
-        if($contrato) {
+        if (!$contrato) {
+            $contacto = Contacto::find(request()->cliente);
+            if ($contacto) {
+                $ref = $contacto->nit;
+                $link = config('app.url') . "/api/contrato-digital/" . $ref;
 
+                return response()->json([
+                    'success'  => true,
+                    'contacto' => $contacto->id,
+                    'text'     => "<a href='" . config('app.url') . "/api/contrato-digital/" . $ref . "' target='_blank'>" . config('app.url') . "/api/contrato-digital/" . $ref . "</a><br><br><button class='btn btn-primary btn-lg' data-clipboard-text='" . $link . "'>COPIAR URL</button>
+                    ",
+                    'link'     => config('app.url') . "/api/contrato-digital/" . $ref,
+                    'type'     => 'success'
+                ]);
+            }
+        }
+
+        if ($contrato) {
             $ref = $contrato->nro;
             $contacto = Contacto::find($contrato->client_id);
-            $link = config('app.url')."/api/contrato-digital/".$ref;
+            $link = config('app.url') . "/api/contrato-digital/" . $ref;
 
             return response()->json([
                 'success'  => true,
                 'contacto' => $contacto->id,
-                'text'     => "<a href='".config('app.url')."/api/contrato-digital/".$ref."' target='_blank'>".config('app.url')."/api/contrato-digital/".$ref."</a><br><br><button class='btn btn-primary btn-lg' data-clipboard-text='".$link."'>COPIAR URL</button>
+                'text'     => "<a href='" . config('app.url') . "/api/contrato-digital/" . $ref . "' target='_blank'>" . config('app.url') . "/api/contrato-digital/" . $ref . "</a><br><br><button class='btn btn-primary btn-lg' data-clipboard-text='" . $link . "'>COPIAR URL</button>
                 ",
-                'link'     => config('app.url')."/api/contrato-digital/".$ref,
+                'link'     => config('app.url') . "/api/contrato-digital/" . $ref,
                 'type'     => 'success'
             ]);
         }
-        return response()->json(['success' => false,'text' => 'Algo falló, intente nuevamente', 'type' => 'error']);
+        return response()->json(['success' => false, 'text' => 'Algo falló, intente nuevamente', 'type' => 'error']);
     }
 }
