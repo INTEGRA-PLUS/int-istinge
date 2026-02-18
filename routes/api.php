@@ -44,6 +44,7 @@ Route::post('contrato-digital/{key}', function (Request $request, $key) {
     if ($contratoDigital) {
         $contratoDigital->firma            = $request->firma_isp;
         $contratoDigital->fecha_firma      = date('Y-m-d');
+        $contratoDigital->estado_firma     = 1;
         $contratoDigital->save();
 
         $empresa    = Empresa::find($contrato->empresa);
