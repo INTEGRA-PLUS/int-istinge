@@ -34,7 +34,7 @@
     <div class="row card-description">
         <div class="col-md-12">
             <div class="form-group d-flex align-items-end">
-                <div class="flex-grow-3">
+                <div class="col-md-6">
                     <label for="mikrotik_id">Seleccione Mikrotik</label>
                     <select class="form-control selectpicker" id="mikrotik_id" name="mikrotik_id" data-live-search="true" title="Seleccione una opción">
                         @foreach($mikrotiks as $mikrotik)
@@ -42,7 +42,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="ml-3">
+                <div class="col-md-6">
                     <button class="btn btn-primary btn-batch-sacar" title="Solucionar Discrepancias en Lote">
                         <i class="fas fa-magic"></i> Solucionar Discrepancias en Lote
                     </button>
