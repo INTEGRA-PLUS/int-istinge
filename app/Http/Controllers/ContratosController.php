@@ -1149,7 +1149,7 @@ class ContratosController extends Controller
                     $API->disconnect();
 
                 }else {
-                    $mensaje = 'NO SE HA PODIDO CREAR EL CONTRATO DE SERVICIOS';
+                    $mensaje = 'La conexión a la mikrotik ' . $mikrotik->nombre . ' no se pudo establecer';
                     return redirect('empresa/contratos')->with('danger', $mensaje);
                 }
             }
