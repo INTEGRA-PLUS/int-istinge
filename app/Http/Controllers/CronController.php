@@ -5005,8 +5005,11 @@ class CronController extends Controller
                 $responseData = json_decode(json_encode($response), true);
                 $status = 'error';
                 
-                if (isset($responseData['messaging_product']) && $responseData['messaging_product'] === 'whatsapp') {
-                    if (isset($responseData['messages']) && count($responseData['messages']) > 0) {
+                // El MetaWhatsAppService devuelve la respuesta de la API de Meta dentro de una llave 'data'
+                $metaData = $responseData['data'] ?? $responseData;
+
+                if (isset($metaData['messaging_product']) && $metaData['messaging_product'] === 'whatsapp') {
+                    if (isset($metaData['messages']) && count($metaData['messages']) > 0) {
                         // Asumimos 'success' si Meta devuelve message_id
                          $status = 'success';
                     }

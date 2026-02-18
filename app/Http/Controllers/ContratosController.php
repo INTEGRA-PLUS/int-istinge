@@ -1603,7 +1603,8 @@ class ContratosController extends Controller
             'contracts.pago_siigo_contrato',
             'contracts.cajanap_id',
             'contracts.cajanap_puerto',
-            'contracts.prorrateo'
+            'contracts.prorrateo',
+            'contracts.estrato'
         )
             ->where('contracts.id', $id)->where('contracts.empresa', Auth::user()->empresa)->first();
 
