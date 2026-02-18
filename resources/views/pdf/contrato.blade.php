@@ -652,14 +652,15 @@
 
     @php
         $imagenes = [];
-        if($contact->imgA ?? $contract->imgA ?? null) $imagenes[] = ['letra' => 'A', 'ruta' => ($contact->imgA ?? $contract->imgA)];
-        if($contact->imgB ?? $contract->imgB ?? null) $imagenes[] = ['letra' => 'B', 'ruta' => ($contact->imgB ?? $contract->imgB)];
-        if($contact->imgC ?? $contract->imgC ?? null) $imagenes[] = ['letra' => 'C', 'ruta' => ($contact->imgC ?? $contract->imgC)];
-        if($contact->imgD ?? $contract->imgD ?? null) $imagenes[] = ['letra' => 'D', 'ruta' => ($contact->imgD ?? $contract->imgD)];
-        if($contact->imgE ?? $contract->imgE ?? null) $imagenes[] = ['letra' => 'E', 'ruta' => ($contact->imgE ?? $contract->imgE)];
-        if($contact->imgF ?? $contract->imgF ?? null) $imagenes[] = ['letra' => 'F', 'ruta' => ($contact->imgF ?? $contract->imgF)];
-        if($contact->imgG ?? $contract->imgG ?? null) $imagenes[] = ['letra' => 'G', 'ruta' => ($contact->imgG ?? $contract->imgG)];
-        if($contact->imgH ?? $contract->imgH ?? null) $imagenes[] = ['letra' => 'H', 'ruta' => ($contact->imgH ?? $contract->imgH)];
+        if($digital->documento ?? $digital->documento ?? null) $imagenes[] = ['letra' => 'Documento', 'ruta' => ($digital->documento ?? $digital->documento)];
+        if($digital->imgA ?? $digital->imgA ?? null) $imagenes[] = ['letra' => 'A', 'ruta' => ($digital->imgA ?? $digital->imgA)];
+        if($digital->imgB ?? $digital->imgB ?? null) $imagenes[] = ['letra' => 'B', 'ruta' => ($digital->imgB ?? $digital->imgB)];
+        if($digital->imgC ?? $digital->imgC ?? null) $imagenes[] = ['letra' => 'C', 'ruta' => ($digital->imgC ?? $digital->imgC)];
+        if($digital->imgD ?? $digital->imgD ?? null) $imagenes[] = ['letra' => 'D', 'ruta' => ($digital->imgD ?? $digital->imgD)];
+        if($digital->imgE ?? $digital->imgE ?? null) $imagenes[] = ['letra' => 'E', 'ruta' => ($digital->imgE ?? $digital->imgE)];
+        if($digital->imgF ?? $digital->imgF ?? null) $imagenes[] = ['letra' => 'F', 'ruta' => ($digital->imgF ?? $digital->imgF)];
+        if($digital->imgG ?? $digital->imgG ?? null) $imagenes[] = ['letra' => 'G', 'ruta' => ($digital->imgG ?? $digital->imgG)];
+        if($digital->imgH ?? $digital->imgH ?? null) $imagenes[] = ['letra' => 'H', 'ruta' => ($digital->imgH ?? $digital->imgH)];
     @endphp
 
     @if(count($imagenes) > 0)
