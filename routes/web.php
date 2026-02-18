@@ -541,6 +541,7 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::get('morosos', 'MorososController@index')->name('morosos.index');
 	Route::get('morosos/listar', 'MorososController@listar')->name('morosos.listar');
 	Route::post('morosos/sacar', 'MorososController@sacarMoroso')->name('morosos.sacar');
+	Route::post('morosos/sacar-masivo', 'MorososController@sacarMorososMasivo')->name('morosos.sacar.masivo');
 	Route::get('/', 'HomeController@index')->name('empresa');
 
 	// Ruta para el PDF de asignación de material

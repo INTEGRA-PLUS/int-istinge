@@ -79,4 +79,63 @@ class MorososController extends Controller
             'message' => 'No se pudo remover del Mikrotik. Verifique la conexión.'
         ]);
     }
+
+    public function sacarMorososMasivo(Request $request)
+    {
+        $request->validate([
+            'mikrotik_id' => 'required'
+        ]);
+
+        // 1. Obtener la lista de morosos para esta Mikrotik
+        $result = $this->mikrotikService->getMorosos($request->mikrotik_id);
+        
+        if (!$result['success'] || empty($result['data'])) {
+            return response()->json(['success' => false, 'message' => 'No se encontraron morosos o hubo un error al consultar.']);
+        }
+
+        $exitosos = 0;
+        $fallidos = 0;
+
+        foreach ($result['data'] as $item) {
+            // Solo procesar los que tienen discrepancia (PAGADA) y tienen contrato asociado
+            if ($item['tiene_discrepancia'] && isset($item['contrato']['id'])) {
+                $removed = $this->mikrotikService->removerMoroso($request->mikrotik_id, $item['ip']);
+
+                if ($removed) {
+                    $contrato = \App\Contrato::find($item['contrato']['id']);
+                    if ($contrato) {
+                        $contrato->state = 'enabled';
+                        $contrato->save();
+
+                        // Registrar Log
+                        $movimiento = new \App\MovimientoLOG;
+                        $movimiento->contrato    = $contrato->id;
+                        $movimiento->modulo      = 5;
+                        $movimiento->descripcion = "Se sacó de morosos por la acción en lote (Discrepancia resuelta)";
+                        $movimiento->created_by  = Auth::user()->id;
+                        $movimiento->empresa     = Auth::user()->empresa;
+                        $movimiento->save();
+                        
+                        $exitosos++;
+                    } else {
+                        $fallidos++;
+                    }
+                } else {
+                    $fallidos++;
+                }
+            }
+        }
+
+        if ($exitosos > 0) {
+            return response()->json([
+                'success' => true,
+                'message' => "Se procesaron $exitosos discrepancias con éxito." . ($fallidos > 0 ? " Errores: $fallidos" : "")
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No se encontraron discrepancias para solucionar o hubo un error en todos los intentos.'
+        ]);
+    }
 }

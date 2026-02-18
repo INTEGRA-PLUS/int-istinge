@@ -33,13 +33,20 @@
 
     <div class="row card-description">
         <div class="col-md-12">
-            <div class="form-group">
-                <label for="mikrotik_id">Seleccione Mikrotik</label>
-                <select class="form-control selectpicker" id="mikrotik_id" name="mikrotik_id" data-live-search="true" title="Seleccione una opción">
-                    @foreach($mikrotiks as $mikrotik)
-                        <option value="{{ $mikrotik->id }}" {{ $loop->first ? 'selected' : '' }}>{{ $mikrotik->nombre }} - {{ $mikrotik->ip }}</option>
-                    @endforeach
-                </select>
+            <div class="form-group d-flex align-items-end">
+                <div class="flex-grow-1">
+                    <label for="mikrotik_id">Seleccione Mikrotik</label>
+                    <select class="form-control selectpicker" id="mikrotik_id" name="mikrotik_id" data-live-search="true" title="Seleccione una opción">
+                        @foreach($mikrotiks as $mikrotik)
+                            <option value="{{ $mikrotik->id }}" {{ $loop->first ? 'selected' : '' }}>{{ $mikrotik->nombre }} - {{ $mikrotik->ip }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="ml-3">
+                    <button class="btn btn-primary btn-batch-sacar" title="Solucionar Discrepancias en Lote">
+                        <i class="fas fa-magic"></i> Solucionar Discrepancias en Lote
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -177,6 +184,48 @@
 					},
 					error: function() {
 						swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
+					}
+				});
+			});
+		});
+
+        $(document).on('click', '.btn-batch-sacar', function() {
+            var mikrotikId = $('#mikrotik_id').val();
+            var mikrotikNombre = $('#mikrotik_id option:selected').text();
+
+            if (!mikrotikId) {
+                swal("Error", "Por favor seleccione una Mikrotik", "error");
+                return;
+            }
+
+			swal({
+				title: "¿Estás seguro?",
+				text: "Se buscarán todos los clientes con estado 'PAGADA (Discrepancia)' en " + mikrotikNombre + " y se procesarán automáticamente para sacarlos de morosos y activar sus contratos.",
+				type: "warning",
+				showCancelButton: true,
+				confirmButtonColor: "#5cb85c",
+				confirmButtonText: "Sí, procesar en lote",
+				cancelButtonText: "Cancelar",
+				closeOnConfirm: false,
+				showLoaderOnConfirm: true
+			}, function(){
+				$.ajax({
+					url: '{{ route("morosos.sacar.masivo") }}',
+					type: 'POST',
+					data: {
+						_token: '{{ csrf_token() }}',
+						mikrotik_id: mikrotikId
+					},
+					success: function(response) {
+						if (response.success) {
+							swal("¡Éxito!", response.message, "success");
+							tabla.ajax.reload();
+						} else {
+							swal("Info", response.message, "info");
+						}
+					},
+					error: function() {
+						swal("Error", "Ocurrió un error al procesar el lote.", "error");
 					}
 				});
 			});
