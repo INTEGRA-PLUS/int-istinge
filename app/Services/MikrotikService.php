@@ -84,6 +84,42 @@ class MikrotikService
     }
 
     /**
+     * Remove IP from morosos address-list
+     * 
+     * @param int $mikrotikId
+     * @param string $ip
+     * @return bool
+     */
+    public function removerMoroso($mikrotikId, $ip)
+    {
+        try {
+            $this->connect($mikrotikId);
+            $listName = env('MIKROTIK_LIST_NAME', 'morosos');
+
+            // 1. Buscar el .id de la entrada en address-list
+            $response = $this->client->comm('/ip/firewall/address-list/print', [
+                "?address" => $ip,
+                "?list" => $listName,
+                "=.proplist" => ".id"
+            ]);
+
+            if (!empty($response) && isset($response[0]['.id'])) {
+                // 2. Eliminar por .id
+                $this->client->comm('/ip/firewall/address-list/remove', [
+                    "=.id" => $response[0]['.id']
+                ]);
+            }
+            
+            $this->client->disconnect();
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Mikrotik remove moroso error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Format the response from Mikrotik
      * 
      * @param array $data

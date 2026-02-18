@@ -54,6 +54,7 @@
 						<th>Comentario Mikrotik</th>
 						<th>Estado Sistema</th>
 						<th>Fecha Creación</th>
+						<th>Acciones</th>
 					</tr>
 				</thead>
 			</table>
@@ -124,13 +125,62 @@
                         }
                     }
                 },
-				{data: 'fecha_creacion'}
+				{data: 'fecha_creacion'},
+				{
+					data: null,
+					render: function(data, type, row) {
+						if (row.tiene_discrepancia && row.contrato) {
+							return '<button class="btn btn-outline-primary btn-sm btn-sacar" data-ip="'+row.ip+'" data-contrato="'+row.contrato.id+'" title="Sacar de Morosos"><i class="fas fa-check"></i> Sacar de Morosos</button>';
+						}
+						return '';
+					}
+				}
 			]
 		});
 
         $('#mikrotik_id').on('change', function() {
             tabla.ajax.reload();
         });
+
+		$(document).on('click', '.btn-sacar', function() {
+			var ip = $(this).data('ip');
+			var contratoId = $(this).data('contrato');
+			var mikrotikId = $('#mikrotik_id').val();
+
+			swal({
+				title: "¿Estás seguro?",
+				text: "Se eliminará la IP " + ip + " de la lista de morosos en Mikrotik y se activará el contrato.",
+				type: "warning",
+				showCancelButton: true,
+				confirmButtonColor: "#DD6B55",
+				confirmButtonText: "Sí, sacar de morosos",
+				cancelButtonText: "Cancelar",
+				closeOnConfirm: false,
+				showLoaderOnConfirm: true
+			}, function(){
+				$.ajax({
+					url: '{{ route("morosos.sacar") }}',
+					type: 'POST',
+					data: {
+						_token: '{{ csrf_token() }}',
+						ip: ip,
+						contrato_id: contratoId,
+						mikrotik_id: mikrotikId
+					},
+					success: function(response) {
+						if (response.success) {
+							swal("¡Éxito!", response.message, "success");
+							tabla.ajax.reload();
+						} else {
+							swal("Error", response.message, "error");
+						}
+					},
+					error: function() {
+						swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
+					}
+				});
+			});
+		});
     });
 </script>
 @endsection
