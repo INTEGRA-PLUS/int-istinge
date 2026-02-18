@@ -48,7 +48,7 @@ class BillingCycleAnalyzer
             $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
             
             // Obtener facturas generadas en el ciclo
-            $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
+            $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $periodo);
             
             // Análisis de facturas faltantes (pasamos colecciones ya obtenidas para evitar re-queries)
             $missingAnalysis = $this->getMissingInvoicesAnalysis($grupoCorteId, $periodo, $contratosEsperados, $facturasGeneradas);
@@ -180,58 +180,15 @@ class BillingCycleAnalyzer
     /**
      * Obtiene las facturas generadas en el ciclo
      */
-    private function getGeneratedInvoices($grupoCorteId, $fechaCiclo)
+    private function getGeneratedInvoices($grupoCorteId, $periodo)
     {
-        // Rangos de fecha index-friendly (en vez de DATE_FORMAT que impide uso de índices)
-        $startOfMonth = Carbon::parse($fechaCiclo)->startOfMonth()->format('Y-m-d');
-        $startOfNextMonth = Carbon::parse($fechaCiclo)->startOfMonth()->addMonth()->format('Y-m-d');
-        $startOfMonthAfterNext = Carbon::parse($fechaCiclo)->startOfMonth()->addMonths(2)->format('Y-m-d');
+        $query = $this->getGeneratedInvoicesQuery($grupoCorteId, $periodo);
+        
+        if (!$query) {
+            return collect();
+        }
 
-        // Closure reutilizable para el filtro de fecha
-        $dateFilter = function ($query) use ($startOfMonth, $startOfNextMonth, $startOfMonthAfterNext) {
-            $query->where(function ($q) use ($startOfMonth, $startOfNextMonth) {
-                // Facturas del mes actual
-                $q->where('factura.fecha', '>=', $startOfMonth)
-                  ->where('factura.fecha', '<', $startOfNextMonth);
-            })->orWhere(function ($q) use ($startOfNextMonth, $startOfMonthAfterNext) {
-                // Facturas del mes siguiente marcadas como factura_mes_manual
-                $q->where('factura.fecha', '>=', $startOfNextMonth)
-                  ->where('factura.fecha', '<', $startOfMonthAfterNext)
-                  ->where('factura.factura_mes_manual', 1);
-            });
-        };
-
-        // Closure reutilizable para el filtro de tipo de facturación
-        $tipoFilter = function($query) {
-            $query->where('factura.facturacion_automatica', 1)
-                  ->orWhere(function($q) {
-                      $q->where('factura.facturacion_automatica', 0)
-                        ->where('factura.factura_mes_manual', 1);
-                  });
-        };
-
-        // 1. Facturas vinculadas directamente por contrato_id
-        $directas = Factura::join('contracts as c', 'c.id', '=', 'factura.contrato_id')
-            ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'factura.estatus', 'c.id as contrato_id', 'c.nro as contrato_nro', DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"))
-            ->where('c.grupo_corte', $grupoCorteId)
-            ->where('factura.estatus', '!=', 2)
-            ->where($dateFilter)
-            ->where($tipoFilter)
-            ->get();
-            
-        // 2. Facturas vinculadas mediante tabla pivot facturas_contratos
-        $viaPivot = Factura::join('facturas_contratos as fc', 'factura.id', '=', 'fc.factura_id')
-            ->join('contracts as c', 'fc.contrato_nro', '=', 'c.nro')
-            ->join('contactos as cli', 'cli.id', '=', 'factura.cliente')
-            ->select('factura.id', 'factura.fecha', 'factura.facturacion_automatica', 'factura.factura_mes_manual', 'factura.whatsapp', 'factura.cliente', 'factura.codigo', 'factura.nro', 'factura.tipo_operacion', 'factura.estatus', 'c.id as contrato_id', 'c.nro as contrato_nro', DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"))
-            ->where('c.grupo_corte', $grupoCorteId)
-            ->where('factura.estatus', '!=', 2)
-            ->where($dateFilter)
-            ->where($tipoFilter)
-            ->get();
-            
-        return $directas->merge($viaPivot)->unique(function($item) {
+        return $query->get()->unique(function($item) {
             return $item->id . '-' . $item->contrato_id;
         });
     }
@@ -250,7 +207,7 @@ class BillingCycleAnalyzer
             $contratosEsperados = $this->getContractsExpectedToInvoice($grupoCorteId, $periodo);
         }
         if ($facturasGeneradas === null) {
-            $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $fechaCiclo);
+            $facturasGeneradas = $this->getGeneratedInvoices($grupoCorteId, $periodo);
         }
         
         // Obtener IDs de contratos que ya facturaron
@@ -977,8 +934,11 @@ class BillingCycleAnalyzer
                 'factura.whatsapp', 
                 'factura.cliente',
                 'factura.factura_mes_manual',
+                'factura.facturacion_automatica',
+                'factura.tipo_operacion',
                 DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
+                'c.id as contrato_id',
                 'c.nro as contrato_nro'
             )
             ->where('c.grupo_corte', $grupoCorteId)
@@ -1002,8 +962,11 @@ class BillingCycleAnalyzer
                 'factura.whatsapp', 
                 'factura.cliente',
                 'factura.factura_mes_manual',
+                'factura.facturacion_automatica',
+                'factura.tipo_operacion',
                 DB::raw("CONCAT_WS(' ', cli.nombre, cli.apellido1, cli.apellido2) as nombre_cliente"),
                 'cli.nit as nit_cliente',
+                'c.id as contrato_id',
                 'c.nro as contrato_nro'
             )
             ->where('c.grupo_corte', $grupoCorteId)
