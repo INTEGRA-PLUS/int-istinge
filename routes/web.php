@@ -139,6 +139,7 @@ Route::get('/updatecontratofactura', 'FacturasController@updateContratoId');
 Route::get('/radicadosbarrio', 'Controller@radicadosBarrio');
 
 Route::get('/digitales', function() {
+	return ""
     $contactos = App\Contacto::whereNotNull('fecha_isp')->where('fecha_isp', '!=', '0000-00-00')->get();
     $count = 0;
     foreach($contactos as $c) {
