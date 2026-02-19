@@ -52,6 +52,7 @@
 					<tr>
 						<th>Contrato Nro</th>
 						<th>Cliente</th>
+                        <th>Apellido</th>
 						<th>IP</th>
                         <th>Estado Mikrotik</th>
 						<th>Acciones</th>
@@ -62,6 +63,7 @@
                     <tr>
                         <td><a href="{{ route('contratos.show', $item['id']) }}" target="_blank">{{ $item['nro'] }}</a></td>
                         <td>{{ $item['cliente_nombre'] }}</td>
+                        <td>{{ $item['apellido1'] }}</td>
                         <td>{{ $item['ip'] }}</td>
                         <td><span class="badge badge-danger">No Listado</span></td>
                         <td>

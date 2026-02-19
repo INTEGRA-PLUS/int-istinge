@@ -174,10 +174,12 @@ class MorososController extends Controller
 
         foreach ($contratosDisabled as $contrato) {
             if (!in_array($contrato->ip, $morososIps)) {
+                $cliente = $contrato->cliente();
                 $discrepancias[] = [
                     'id' => $contrato->id,
                     'nro' => $contrato->nro,
-                    'cliente_nombre' => $contrato->cliente()->nombre ?? 'Desconocido',
+                    'cliente_nombre' => $cliente->nombre ?? 'Desconocido',
+                    'apellido1' => $cliente->apellido1 ?? '',
                     'ip' => $contrato->ip,
                     'mikrotik_id' => $mikrotikId
                 ];
@@ -193,6 +195,7 @@ class MorososController extends Controller
 
     public function indexDisabledDiscrepancy(Request $request)
     {
+        $this->getAllPermissions(Auth::user()->id);
         $mikrotikId = $request->mikrotik_id;
         $mikrotik = Mikrotik::find($mikrotikId);
         
@@ -206,7 +209,7 @@ class MorososController extends Controller
         $data = $this->checkDisabledButNotListed($req)->getData(true);
         $discrepancias = $data['data'];
 
-        view()->share(['seccion' => 'contratos', 'subseccion' => 'clientes', 'title' => 'Contratos Deshabilitados sin Bloqueo', 'icon' => 'fas fa-user-slash']);
+        view()->share(['seccion' => 'contratos', 'subseccion' => 'clientes', 'title' => 'Contratos Deshabilitados sin Bloqueo - ' . $mikrotik->nombre, 'icon' => 'fas fa-user-slash']);
         
         return view('mikrotik.discrepancias_disabled', compact('discrepancias', 'mikrotik'));
     }
