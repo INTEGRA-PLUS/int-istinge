@@ -1207,47 +1207,31 @@ class GruposCorteController extends Controller
                 return response()->json(['success' => false, 'message' => 'No se encontraron facturas para eliminar en este ciclo.'], 400);
             }
 
-            // 1. Validaciones previas
-            $errores = [];
-            foreach ($facturas as $f) {
-                // Convertir a objeto Factura para usar métodos del modelo si es necesario, 
-                // pero el query devuelve objetos stdClass. 
-                // Para validaciones estrictas, mejor instanciar el modelo o consultar directo.
-                $factura = Factura::find($f->id);
-                
-                if (!$factura) continue;
-
-                if ($factura->emitida == 1) {
-                    $errores[] = "Factura {$factura->codigo} ya fue emitida a la DIAN.";
-                }
-
-                if ($factura->pagado() != 0) {
-                    $errores[] = "Factura {$factura->codigo} tiene pagos registrados.";
-                }
-            }
-
-            if (count($errores) > 0) {
-                DB::rollBack();
-                // Retornar solo los primeros 5 errores para no saturar
-                $mensaje = "No se puede eliminar el ciclo. Se encontraron " . count($errores) . " bloqueos. <br>" . implode("<br>", array_slice($errores, 0, 5));
-                if (count($errores) > 5) $mensaje .= "<br>...";
-                
-                return response()->json(['success' => false, 'message' => $mensaje], 400);
-            }
-
-            // 2. Eliminación
+            // 1. Procesamiento y Eliminación
             $count = 0;
+            $errores = [];
             $tiposNumeracionAfectados = [];
 
             foreach ($facturas as $f) {
                 $factura = Factura::find($f->id);
                 if (!$factura) continue;
 
+                // Validaciones de bloqueo
+                $bloqueo = null;
+                if ($factura->emitida == 1) {
+                    $bloqueo = "Factura {$factura->codigo} ya fue emitida a la DIAN.";
+                } elseif ($factura->pagado() != 0) {
+                    $bloqueo = "Factura {$factura->codigo} tiene pagos registrados.";
+                }
+
+                if ($bloqueo) {
+                    $errores[] = $bloqueo;
+                    continue;
+                }
+
                 // Guardar tipo para reset de numeración
-                if (!in_array($factura->numeracion, $tiposNumeracionAfectados)) {
-                    if ($factura->numeracion) {
-                        $tiposNumeracionAfectados[] = $factura->numeracion;
-                    }
+                if ($factura->numeracion && !in_array($factura->numeracion, $tiposNumeracionAfectados)) {
+                    $tiposNumeracionAfectados[] = $factura->numeracion;
                 }
 
                 // Borrado de dependencias
@@ -1260,33 +1244,31 @@ class GruposCorteController extends Controller
                 $count++;
             }
 
-            // 3. Reset de Numeración
-            $numeracionesAfectadas = array_unique($tiposNumeracionAfectados);
-            
-            foreach ($numeracionesAfectadas as $numeracionId) {
-                $numeracion = NumeracionFactura::find($numeracionId);
-                if ($numeracion) {
-                    // Buscar el máximo número (consecutivo) actualmente en uso para esta resolución
-                    $maxNumero = Factura::where('empresa', $empresa)
-                        ->where('numeracion', $numeracionId)
-                        // Incluir anuladas? El usuario quiere "ultimo numero creado". 
-                        // Si anuladas consumen numero, maxNumero las tendrá.
-                        // estatus=2 es anulada.
-                        // Generalmente el usuario quiere reutilizar. Si eliminó las ultimas, quiere volver atrás.
-                        // Si hay anuladas intercaladas, maxNumero será alto.
-                        ->max(DB::raw('CAST(nro as UNSIGNED)')); 
-                    
-                    if ($maxNumero) {
-                         $numeracion->inicio = $maxNumero + 1;
-                         // Validar que inicio no supere final
-                         if ($numeracion->inicio > $numeracion->final) {
-                             // Advertencia? O dejarlo así? Mejor dejarlo, es consistente.
-                         }
-                         $numeracion->save();
-                    } else {
-                        // Si no hay facturas, quizás es el primer uso.
-                        // Ojo con esto. Si es null, podríamos dejarlo quieto o intentar restaurar un default.
-                        // Asumiremos que si hay null no tocamos.
+            if ($count == 0 && count($errores) > 0) {
+                DB::rollBack();
+                // Retornar solo los primeros 5 errores para no saturar
+                $mensaje = "No se pudo eliminar ninguna factura. Se encontraron " . count($errores) . " bloqueos. <br>" . implode("<br>", array_slice($errores, 0, 5));
+                if (count($errores) > 5) $mensaje .= "<br>...";
+                
+                return response()->json(['success' => false, 'message' => $mensaje], 400);
+            }
+
+            // 2. Reset de Numeración
+            if ($count > 0) {
+                $numeracionesAfectadas = array_unique($tiposNumeracionAfectados);
+                
+                foreach ($numeracionesAfectadas as $numeracionId) {
+                    $numeracion = NumeracionFactura::find($numeracionId);
+                    if ($numeracion) {
+                        // Buscar el máximo número (consecutivo) actualmente en uso para esta resolución
+                        $maxNumero = Factura::where('empresa', $empresa)
+                            ->where('numeracion', $numeracionId)
+                            ->max(DB::raw('CAST(nro as UNSIGNED)')); 
+                        
+                        if ($maxNumero) {
+                             $numeracion->inicio = $maxNumero + 1;
+                             $numeracion->save();
+                        }
                     }
                 }
             }
@@ -1296,9 +1278,14 @@ class GruposCorteController extends Controller
             // Limpiar caché
             $analyzer->clearCycleCache($idGrupo, $periodo);
 
+            $mensajeFinal = "Se eliminaron {$count} facturas correctamente.";
+            if (count($errores) > 0) {
+                $mensajeFinal .= " Se saltaron " . count($errores) . " facturas por presentar bloqueos.";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => "Se eliminaron {$count} facturas correctamente y se ajustó la numeración."
+                'message' => $mensajeFinal
             ]);
 
         } catch (\Exception $e) {
