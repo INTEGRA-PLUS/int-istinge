@@ -484,6 +484,10 @@
         from { transform: scale(0.9); opacity: 0; }
         to { transform: scale(1); opacity: 1; }
     }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
     
     /* Scrollbar */
     .custom-scroll::-webkit-scrollbar { width: 6px; }
@@ -538,7 +542,7 @@
                 >
             </div>
             
-            <div class="chat-list custom-scroll">
+            <div class="chat-list custom-scroll" ref="chatList">
                 <div v-if="loadingConversations" style="text-align: center; padding: 20px; color: #667781;">
                     CARGANDO CHATS...
                 </div>
@@ -567,6 +571,16 @@
                             <span v-if="conv.unread_count > 0" class="unread-badge">@{{ conv.unread_count }}</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Load more indicator -->
+                <div v-if="loadingMore" style="text-align: center; padding: 12px; color: #667781;">
+                    <span style="display:inline-block; width:20px; height:20px; border:3px solid #d1d7db; border-top-color:#00a884; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle;"></span>
+                    <span style="margin-left:8px; font-size:0.85rem;">Cargando más...</span>
+                </div>
+                <div v-else-if="!loadingConversations && !hasMoreConversations && conversations.length > 0"
+                     style="text-align:center; padding:10px; color:#aaa; font-size:0.8rem;">
+                    No hay más conversaciones
                 </div>
             </div>
         </div>
@@ -793,7 +807,12 @@ new Vue({
         panX: 0,
         panY: 0,
         startX: 0,
-        startY: 0
+        startY: 0,
+
+        // Pagination
+        currentPage: 1,
+        lastPage: 1,
+        loadingMore: false,
     },
     
     computed: {
@@ -806,6 +825,10 @@ new Vue({
                 (c.name && c.name.toLowerCase().includes(query)) ||
                 (c.phone_number && c.phone_number.includes(query))
             );
+        },
+
+        hasMoreConversations() {
+            return this.currentPage < this.lastPage;
         },
 
         groupedMessages() {
@@ -889,6 +912,20 @@ new Vue({
         window.addEventListener('mouseup', () => {
             this.isDragging = false;
         });
+
+        // Infinite scroll for conversations
+        this._convScrollHandler = this.handleConversationsScroll.bind(this);
+        this.$nextTick(() => {
+            if (this.$refs.chatList) {
+                this.$refs.chatList.addEventListener('scroll', this._convScrollHandler);
+            }
+        });
+    },
+
+    beforeDestroy() {
+        if (this.$refs.chatList && this._convScrollHandler) {
+            this.$refs.chatList.removeEventListener('scroll', this._convScrollHandler);
+        }
     },
     
     methods: {
@@ -898,10 +935,21 @@ new Vue({
             this.messages = [];
             this.selectedConversation = null;
             this.lastUpdateTimestamp = null;
+            this.currentPage = 1;
+            this.lastPage = 1;
+            this.loadingMore = false;
             
             if (this.selectedInstanceId) {
                 this.loadConversations();
                 this.startPolling();
+
+                // Re-attach scroll listener on next tick (ref stays mounted)
+                this.$nextTick(() => {
+                    if (this.$refs.chatList) {
+                        this.$refs.chatList.removeEventListener('scroll', this._convScrollHandler);
+                        this.$refs.chatList.addEventListener('scroll', this._convScrollHandler);
+                    }
+                });
             }
         },
         
@@ -909,15 +957,55 @@ new Vue({
             if (!this.selectedInstanceId) return;
             
             this.loadingConversations = true;
+            this.currentPage = 1;
             try {
                 const response = await axios.get(window.routes.conversations, {
-                    params: { instance_id: this.selectedInstanceId }
+                    params: { instance_id: this.selectedInstanceId, page: 1, per_page: 20 }
                 });
                 this.conversations = response.data.data || [];
+                // Capture pagination metadata if the API exposes it
+                const meta = response.data.meta || response.data;
+                this.lastPage = meta.last_page || meta.lastPage || 1;
+                console.log('📋 Conversations page 1/' + this.lastPage + ' loaded (' + this.conversations.length + ' items)');
             } catch (error) {
                 console.error('Error cargando conversaciones:', error);
             } finally {
                 this.loadingConversations = false;
+            }
+        },
+
+        async loadMoreConversations() {
+            if (!this.selectedInstanceId || this.loadingMore || !this.hasMoreConversations) return;
+
+            this.loadingMore = true;
+            const nextPage = this.currentPage + 1;
+            try {
+                const response = await axios.get(window.routes.conversations, {
+                    params: { instance_id: this.selectedInstanceId, page: nextPage, per_page: 20 }
+                });
+                const newConvs = response.data.data || [];
+                const meta = response.data.meta || response.data;
+                this.lastPage = meta.last_page || meta.lastPage || this.lastPage;
+
+                // Append without duplicates
+                const existingIds = new Set(this.conversations.map(c => c.id));
+                newConvs.forEach(c => { if (!existingIds.has(c.id)) this.conversations.push(c); });
+
+                this.currentPage = nextPage;
+                console.log('📋 Conversations page ' + this.currentPage + '/' + this.lastPage + ' loaded');
+            } catch (error) {
+                console.error('Error cargando más conversaciones:', error);
+            } finally {
+                this.loadingMore = false;
+            }
+        },
+
+        handleConversationsScroll() {
+            const el = this.$refs.chatList;
+            if (!el) return;
+            // Trigger when within 80px of the bottom
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                this.loadMoreConversations();
             }
         },
         
