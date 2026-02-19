@@ -102,6 +102,7 @@ class PlanesVelocidadController extends Controller
 
     public function planes(Request $request)
     {
+        $this->getAllPermissions(auth()->user()->id);
         $modoLectura = auth()->user()->modo_lectura();
         $moneda = auth()->user()->empresa()->moneda;
         $planes = PlanesVelocidad::query();
