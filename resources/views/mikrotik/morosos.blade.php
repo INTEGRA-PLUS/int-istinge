@@ -229,7 +229,7 @@
 					}
 				});
 			});
-			});
+
 		});
 
         // Check for Disabled Discrepancies
