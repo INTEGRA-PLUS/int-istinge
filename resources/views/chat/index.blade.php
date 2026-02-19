@@ -1192,15 +1192,39 @@ new Vue({
             if (!timestamp) return '';
             
             const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return '';
+
             const now = new Date();
-            const diffInHours = (now - date) / (1000 * 60 * 60);
-            
-            if (diffInHours < 24) {
-                return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-            } else if (diffInHours < 48) {
+
+            // Build calendar date strings in local time (YYYY-MM-DD)
+            const toYMD = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const msgDay  = toYMD(date);
+            const today   = toYMD(now);
+
+            const yesterdayDate = new Date(now);
+            yesterdayDate.setDate(now.getDate() - 1);
+            const yesterday = toYMD(yesterdayDate);
+
+            // Start of the current week (Monday)
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Monday = 0
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            if (msgDay === today) {
+                // Same day: show time (e.g. "9:37 a. m.")
+                return date.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true });
+            } else if (msgDay === yesterday) {
                 return 'Ayer';
+            } else if (date >= startOfWeek) {
+                // Within the current week (but not today/yesterday): show weekday name
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                return days[date.getDay()];
             } else {
-                return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' });
+                // Older: show short date DD/MM/YY
+                const dd = String(date.getDate()).padStart(2, '0');
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const yy = String(date.getFullYear()).slice(-2);
+                return `${dd}/${mm}/${yy}`;
             }
         },
         
