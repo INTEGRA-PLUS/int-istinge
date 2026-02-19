@@ -139,6 +139,16 @@ Route::get('facturaElectronica/{key}', function ($key) {
     return abort(419);
 });
 
+Route::group(['prefix' => 'v1', 'middleware' => 'auth.api_key', 'namespace' => 'API'], function () {
+    Route::get('/planes', 'ExternalApiController@getPlanes');
+    Route::get('/mikrotiks', 'ExternalApiController@getMikrotiks');
+    Route::get('/nodos', 'ExternalApiController@getNodos');
+    Route::get('/grupos-corte', 'ExternalApiController@getGruposCorte');
+    Route::get('/access-points', 'ExternalApiController@getAccessPoints');
+    Route::get('/cajas-nap', 'ExternalApiController@getCajasNap');
+    Route::get('/oficinas', 'ExternalApiController@getOficinas');
+    Route::get('/canales', 'ExternalApiController@getCanales');
+});
 
 Route::get('facturaElectronica/{key}/pdf', function ($key) {
     $tipo1=$tipo = 'original';
