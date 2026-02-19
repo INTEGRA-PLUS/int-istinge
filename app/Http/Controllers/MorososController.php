@@ -227,10 +227,11 @@ class MorososController extends Controller
             return response()->json(['success' => false, 'message' => 'Contrato no encontrado']);
         }
         
-        $comment = "Bloqueado por sistema (" . $contrato->nro . ") - " . ($contrato->cliente()->nombre ?? '');
-        
-        // Agregar a Morosos
-        $added = $this->mikrotikService->agregarMoroso($request->mikrotik_id, $request->ip, $comment);
+        // Lógica solicitada: comment = servicio
+        $servicio = $contrato->plan()->name;
+
+        // Agregar a Morosos DIRECTO
+        $added = $this->mikrotikService->agregarMorosoDirecto($request->mikrotik_id, $request->ip, $servicio);
 
         if ($added) {
             // Log
@@ -267,8 +268,19 @@ class MorososController extends Controller
         $fallidos = 0;
 
         foreach ($discrepancias as $item) {
-            $comment = "Bloqueado por sistema (" . $item['nro'] . ") - " . $item['cliente_nombre'];
-            $added = $this->mikrotikService->agregarMoroso($request->mikrotik_id, $item['ip'], $comment);
+            // Lógica solicitada: comment = servicio
+            $servicio = 'N/A';
+            // Need to fetch contract again or if $item has enough info?
+            // $item in checkDisabledButNotListed returns: id, nro, cliente_nombre, ip...
+            // It does NOT return plan/service. 
+            // So we must fetch contract to get the plan name.
+
+            $contratoItem = \App\Contrato::find($item['id']);
+            if ($contratoItem) {
+                $servicio = $contratoItem->plan()->name;
+            }
+
+            $added = $this->mikrotikService->agregarMorosoDirecto($request->mikrotik_id, $item['ip'], $servicio);
 
             if ($added) {
                 // Log

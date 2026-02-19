@@ -147,11 +147,38 @@ class MikrotikService
                 ]);
             }
             
+            return true;
+        } catch (Exception $e) {
+            Log::error('Mikrotik add moroso error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Add IP to morosos address-list (Direct Logic requested by user)
+     * 
+     * @param int $mikrotikId
+     * @param string $ip
+     * @param string $comment
+     * @return bool
+     */
+    public function agregarMorosoDirecto($mikrotikId, $ip, $comment)
+    {
+        try {
+            $this->connect($mikrotikId);
+            
+            // Lógica solicitada por el usuario: Directamente agregar sin verificar
+            $this->client->comm("/ip/firewall/address-list/add", array(
+                "address" => $ip,
+                "comment" => $comment,
+                "list" => 'morosos'
+            ));
+            
             $this->client->disconnect();
             return true;
 
         } catch (Exception $e) {
-            Log::error('Mikrotik add moroso error: ' . $e->getMessage());
+            Log::error('Mikrotik add moroso direct error: ' . $e->getMessage());
             return false;
         }
     }
