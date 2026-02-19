@@ -1260,10 +1260,14 @@ class GruposCorteController extends Controller
                 foreach ($numeracionesAfectadas as $numeracionId) {
                     $numeracion = NumeracionFactura::find($numeracionId);
                     if ($numeracion) {
+                        $prefijo = $numeracion->prefijo ?? '';
+                        
                         // Buscar el máximo número (consecutivo) actualmente en uso para esta resolución
+                        // Se extrae del campo 'codigo' quitando el prefijo
                         $maxNumero = Factura::where('empresa', $empresa)
                             ->where('numeracion', $numeracionId)
-                            ->max(DB::raw('CAST(nro as UNSIGNED)')); 
+                            ->selectRaw("MAX(CAST(REPLACE(codigo, ?, '') AS UNSIGNED)) as max_nro", [$prefijo])
+                            ->value('max_nro');
                         
                         if ($maxNumero) {
                              $numeracion->inicio = $maxNumero + 1;
