@@ -120,6 +120,43 @@ class MikrotikService
     }
 
     /**
+     * Add IP to morosos address-list
+     * 
+     * @param int $mikrotikId
+     * @param string $ip
+     * @param string $comment
+     * @return bool
+     */
+    public function agregarMoroso($mikrotikId, $ip, $comment)
+    {
+        try {
+            $this->connect($mikrotikId);
+            $listName = env('MIKROTIK_LIST_NAME', 'morosos');
+
+            // Verificar si ya existe
+            $exists = $this->client->comm('/ip/firewall/address-list/print', [
+                "?address" => $ip,
+                "?list" => $listName
+            ]);
+
+            if (empty($exists)) {
+                $this->client->comm('/ip/firewall/address-list/add', [
+                    "address" => $ip,
+                    "list" => $listName,
+                    "comment" => $comment
+                ]);
+            }
+            
+            $this->client->disconnect();
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Mikrotik add moroso error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Format the response from Mikrotik
      * 
      * @param array $data

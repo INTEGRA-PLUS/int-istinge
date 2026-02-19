@@ -138,4 +138,153 @@ class MorososController extends Controller
             'message' => 'No se encontraron discrepancias para solucionar o hubo un error en todos los intentos.'
         ]);
     }
+
+
+    // --- NUEVAS FUNCIONES PARA DISCREPANCIAS DE DISABLED ---
+
+    /**
+     * Compara contratos 'disabled' en BD con la lista de morosos en Mikrotik.
+     * Retorna conteo y lista de contratos que NO estan en Mikrotik.
+     */
+    public function checkDisabledButNotListed(Request $request)
+    {
+        if (!$request->has('mikrotik_id')) {
+            return response()->json(['success' => false, 'message' => 'Falta mikrotik_id']);
+        }
+
+        $mikrotikId = $request->mikrotik_id;
+        
+        // 1. Obtener lista de morosos actual (Solo IPs)
+        $morosos = $this->mikrotikService->getMorosos($mikrotikId);
+        $morososIps = [];
+        if ($morosos['success']) {
+            foreach ($morosos['data'] as $m) {
+                if ($m['ip']) $morososIps[] = $m['ip'];
+            }
+        }
+
+        // 2. Obtener contratos disabled asociados a esta Mikrotik
+        // Asumiendo que state='disabled' es lo que buscamos
+        $contratosDisabled = \App\Contrato::where('server_configuration_id', $mikrotikId)
+            ->where('state', 'disabled')
+            ->whereNotNull('ip')
+            ->get();
+
+        $discrepancias = [];
+
+        foreach ($contratosDisabled as $contrato) {
+            if (!in_array($contrato->ip, $morososIps)) {
+                $discrepancias[] = [
+                    'id' => $contrato->id,
+                    'nro' => $contrato->nro,
+                    'cliente_nombre' => $contrato->cliente()->nombre ?? 'Desconocido',
+                    'ip' => $contrato->ip,
+                    'mikrotik_id' => $mikrotikId
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'count' => count($discrepancias),
+            'data' => $discrepancias
+        ]);
+    }
+
+    public function indexDisabledDiscrepancy(Request $request)
+    {
+        $mikrotikId = $request->mikrotik_id;
+        $mikrotik = Mikrotik::find($mikrotikId);
+        
+        if (!$mikrotik) {
+            return redirect()->back()->with('danger', 'Mikrotik no encontrada');
+        }
+
+        // Reutilizamos la lógica de checkDisabledButNotListed pero internamente
+        // para pasar los datos a la vista
+        $req = new Request(['mikrotik_id' => $mikrotikId]);
+        $data = $this->checkDisabledButNotListed($req)->getData(true);
+        $discrepancias = $data['data'];
+
+        view()->share(['seccion' => 'contratos', 'subseccion' => 'clientes', 'title' => 'Contratos Deshabilitados sin Bloqueo', 'icon' => 'fas fa-user-slash']);
+        
+        return view('mikrotik.discrepancias_disabled', compact('discrepancias', 'mikrotik'));
+    }
+
+    public function fixDisabledDiscrepancy(Request $request)
+    {
+        $request->validate([
+            'mikrotik_id' => 'required',
+            'contrato_id' => 'required',
+            'ip' => 'required'
+        ]);
+
+        $contrato = \App\Contrato::find($request->contrato_id);
+        if (!$contrato) {
+            return response()->json(['success' => false, 'message' => 'Contrato no encontrado']);
+        }
+        
+        $comment = "Bloqueado por sistema (" . $contrato->nro . ") - " . ($contrato->cliente()->nombre ?? '');
+        
+        // Agregar a Morosos
+        $added = $this->mikrotikService->agregarMoroso($request->mikrotik_id, $request->ip, $comment);
+
+        if ($added) {
+            // Log
+            $movimiento = new \App\MovimientoLOG;
+            $movimiento->contrato    = $contrato->id;
+            $movimiento->modulo      = 5;
+            $movimiento->descripcion = "Se agregó a morosos por corrección de discrepancia (Disabled en BD pero no en Mikrotik)";
+            $movimiento->created_by  = Auth::user()->id;
+            $movimiento->empresa     = Auth::user()->empresa;
+            $movimiento->save();
+
+            return response()->json(['success' => true, 'message' => 'Agregado a morosos correctamente']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Error al agregar a Mikrotik']);
+    }
+
+    public function fixDisabledDiscrepancyBatch(Request $request)
+    {
+        $request->validate([
+            'mikrotik_id' => 'required'
+        ]);
+
+        // Obtener lista fresca de discrepancias
+        $req = new Request(['mikrotik_id' => $request->mikrotik_id]);
+        $data = $this->checkDisabledButNotListed($req)->getData(true);
+        $discrepancias = $data['data'];
+
+        if (empty($discrepancias)) {
+            return response()->json(['success' => false, 'message' => 'No hay discrepancias para procesar']);
+        }
+
+        $exitosos = 0;
+        $fallidos = 0;
+
+        foreach ($discrepancias as $item) {
+            $comment = "Bloqueado por sistema (" . $item['nro'] . ") - " . $item['cliente_nombre'];
+            $added = $this->mikrotikService->agregarMoroso($request->mikrotik_id, $item['ip'], $comment);
+
+            if ($added) {
+                // Log
+                $movimiento = new \App\MovimientoLOG;
+                $movimiento->contrato    = $item['id'];
+                $movimiento->modulo      = 5;
+                $movimiento->descripcion = "Se agregó a morosos por corrección de discrepancia LOTE (Disabled en BD pero no en Mikrotik)";
+                $movimiento->created_by  = Auth::user()->id;
+                $movimiento->empresa     = Auth::user()->empresa;
+                $movimiento->save();
+                $exitosos++;
+            } else {
+                $fallidos++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Procesados: $exitosos. Fallidos: $fallidos"
+        ]);
+    }
 }

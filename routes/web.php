@@ -543,6 +543,13 @@ Route::group(['prefix' => 'empresa', 'middleware' => ['auth']], function () {
 	Route::get('morosos/listar', 'MorososController@listar')->name('morosos.listar');
 	Route::post('morosos/sacar', 'MorososController@sacarMoroso')->name('morosos.sacar');
 	Route::post('morosos/sacar-masivo', 'MorososController@sacarMorososMasivo')->name('morosos.sacar.masivo');
+
+    // Rutas para discrepancias de contratos Disabled
+    Route::get('morosos/check-disabled', 'MorososController@checkDisabledButNotListed')->name('morosos.check.disabled');
+    Route::get('morosos/discrepancias-disabled', 'MorososController@indexDisabledDiscrepancy')->name('morosos.discrepancias.disabled');
+    Route::post('morosos/fix-disabled', 'MorososController@fixDisabledDiscrepancy')->name('morosos.fix.disabled');
+    Route::post('morosos/fix-disabled-batch', 'MorososController@fixDisabledDiscrepancyBatch')->name('morosos.fix.disabled.batch');
+
 	Route::get('/', 'HomeController@index')->name('empresa');
 
 	// Ruta para el PDF de asignación de material
