@@ -94,20 +94,19 @@ class MikrotikService
     {
         try {
             $this->connect($mikrotikId);
-            $listName = env('MIKROTIK_LIST_NAME', 'morosos');
+            $listName = 'morosos'; // User code used hardcoded 'morosos', sticking to it or env if user prefers, but user showed 'morosos'
 
-            // 1. Buscar el .id de la entrada en address-list
-            $response = $this->client->comm('/ip/firewall/address-list/print', [
-                "?address" => $ip,
-                "?list" => $listName,
-                "=.proplist" => ".id"
-            ]);
+            // Lógica solicitada por el usuario (RAW API)
+            $this->client->write('/ip/firewall/address-list/print', false);
+            $this->client->write('?address='.$ip, false);
+            $this->client->write("?list=".$listName, false);
+            $this->client->write('=.proplist=.id');
+            $ARRAYS = $this->client->read();
 
-            if (!empty($response) && isset($response[0]['.id'])) {
-                // 2. Eliminar por .id
-                $this->client->comm('/ip/firewall/address-list/remove', [
-                    "=.id" => $response[0]['.id']
-                ]);
+            if(count($ARRAYS)>0){
+                $this->client->write('/ip/firewall/address-list/remove', false);
+                $this->client->write('=.id='.$ARRAYS[0]['.id']);
+                $this->client->read();
             }
             
             $this->client->disconnect();
