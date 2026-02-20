@@ -15,7 +15,7 @@ use App\Canal;
 
 class ExternalApiController extends Controller
 {
-    public function getPlanes()
+    public function getPlanes($mikrotik = null)
     {
         $planes = PlanesVelocidad::where('status', 1)->get()->map(function($plan) {
             return [
