@@ -5247,12 +5247,21 @@ class ContratosController extends Controller
             if ($tieneNroContratoEnEncabezado) {
                 $esNroContrato = true;
                 $nro_contrato_actualizar = is_numeric($valorColumnaA) ? $valorColumnaA : null;
-                $nit = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
+                $nit_raw = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
             } else {
                 // Sin encabezado de Nro Contrato, tratar A como identificación
                 $esNroContrato = false;
                 $nro_contrato_actualizar = null;
-                $nit = $valorColumnaA;
+                $nit_raw = $valorColumnaA;
+            }
+
+            // Limpiar NIT de formatos Excel (decimales) o guiones de verificación
+            $nit_str = trim((string)$nit_raw);
+            if (strpos($nit_str, '-') !== false) {
+                $nit_parts = explode('-', $nit_str);
+                $nit = trim($nit_parts[0]);
+            } else {
+                $nit = preg_replace('/\.0+$/', '', $nit_str);
             }
 
             // Datos comunes - ajustar columnas según si hay nro contrato
@@ -5590,12 +5599,21 @@ class ContratosController extends Controller
             if ($tieneNroContratoEnEncabezado) {
                 $esNroContrato = true;
                 $nro_contrato_actualizar = is_numeric($valorColumnaA) ? $valorColumnaA : null;
-                $nit = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
+                $nit_raw = $sheet->getCell("B" . $row)->getValue(); // Si hay nro contrato, la identificación está en B
             } else {
                 // Sin encabezado de Nro Contrato, tratar A como identificación
                 $esNroContrato = false;
                 $nro_contrato_actualizar = null;
-                $nit = $valorColumnaA;
+                $nit_raw = $valorColumnaA;
+            }
+
+            // Limpiar NIT de formatos Excel (decimales) o guiones de verificación
+            $nit_str = trim((string)$nit_raw);
+            if (strpos($nit_str, '-') !== false) {
+                $nit_parts = explode('-', $nit_str);
+                $nit = trim($nit_parts[0]);
+            } else {
+                $nit = preg_replace('/\.0+$/', '', $nit_str);
             }
 
             $request                = (object) array();
@@ -6033,9 +6051,18 @@ class ContratosController extends Controller
         for ($row = 4; $row <= $highestRow; $row++) {
             $request = (object) array();
             //obtengo el A4 desde donde empieza la data
-            $nit = $sheet->getCell("A" . $row)->getValue();
-            if (empty($nit)) {
+            $nit_raw = $sheet->getCell("A" . $row)->getValue();
+            if (empty($nit_raw)) {
                 break;
+            }
+
+            // Limpiar NIT de formatos Excel (decimales) o guiones de verificación
+            $nit_str = trim((string)$nit_raw);
+            if (strpos($nit_str, '-') !== false) {
+                $nit_parts = explode('-', $nit_str);
+                $nit = trim($nit_parts[0]);
+            } else {
+                $nit = preg_replace('/\.0+$/', '', $nit_str);
             }
 
             $request->servicio      = $sheet->getCell("B" . $row)->getValue();
@@ -6097,9 +6124,18 @@ class ContratosController extends Controller
         }
 
         for ($row = 4; $row <= $highestRow; $row++) {
-            $nit = $sheet->getCell("A" . $row)->getValue();
-            if (empty($nit)) {
+            $nit_raw = $sheet->getCell("A" . $row)->getValue();
+            if (empty($nit_raw)) {
                 break;
+            }
+
+            // Limpiar NIT de formatos Excel (decimales) o guiones de verificación
+            $nit_str = trim((string)$nit_raw);
+            if (strpos($nit_str, '-') !== false) {
+                $nit_parts = explode('-', $nit_str);
+                $nit = trim($nit_parts[0]);
+            } else {
+                $nit = preg_replace('/\.0+$/', '', $nit_str);
             }
             $request                = (object) array();
             $request->servicio      = $sheet->getCell("B" . $row)->getValue();
