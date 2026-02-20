@@ -107,32 +107,43 @@
 				showCancelButton: true,
 				confirmButtonColor: "#d9534f",
 				confirmButtonText: "Sí, bloquear",
-				cancelButtonText: "Cancelar",
-				closeOnConfirm: false,
-				showLoaderOnConfirm: true
-			}, function(){
-				$.ajax({
-					url: '{{ route("morosos.fix.disabled") }}',
-					type: 'POST',
-					data: {
-						_token: '{{ csrf_token() }}',
-						mikrotik_id: mikrotikId,
-						contrato_id: contratoId,
-						ip: ip
-					},
-					success: function(response) {
-						if (response.success) {
-							swal("¡Éxito!", response.message, "success");
-                            // Remove row via DataTables or reload
-                            location.reload(); 
-						} else {
-							swal("Error", response.message, "error");
-						}
-					},
-					error: function() {
-						swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
-					}
-				});
+				cancelButtonText: "Cancelar"
+			}).then((result) => {
+                if (result.value) {
+                    // Show loading
+                    swal({
+                        title: 'Procesando...',
+                        text: 'Espere un momento por favor',
+                        onOpen: () => {
+                            swal.showLoading()
+                        },
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    });
+
+                    $.ajax({
+                        url: '{{ route("morosos.fix.disabled") }}',
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            mikrotik_id: mikrotikId,
+                            contrato_id: contratoId,
+                            ip: ip
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                swal("¡Éxito!", response.message, "success").then(() => {
+                                    location.reload(); 
+                                });
+                            } else {
+                                swal("Error", response.message, "error");
+                            }
+                        },
+                        error: function() {
+                            swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
+                        }
+                    });
+                }
 			});
         });
 
@@ -147,29 +158,41 @@
 				showCancelButton: true,
 				confirmButtonColor: "#d9534f",
 				confirmButtonText: "Sí, procesar todo",
-				cancelButtonText: "Cancelar",
-				closeOnConfirm: false,
-				showLoaderOnConfirm: true
-			}, function(){
-				$.ajax({
-					url: '{{ route("morosos.fix.disabled.batch") }}',
-					type: 'POST',
-					data: {
-						_token: '{{ csrf_token() }}',
-						mikrotik_id: mikrotikId
-					},
-					success: function(response) {
-						if (response.success) {
-							swal("¡Éxito!", response.message, "success");
-                            location.reload(); 
-						} else {
-							swal("Info", response.message, "info");
-						}
-					},
-					error: function() {
-						swal("Error", "Ocurrió un error al procesar el lote.", "error");
-					}
-				});
+				cancelButtonText: "Cancelar"
+			}).then((result) => {
+                if (result.value) {
+                     // Show loading
+                     swal({
+                        title: 'Procesando...',
+                        text: 'Espere un momento por favor',
+                        onOpen: () => {
+                            swal.showLoading()
+                        },
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    });
+
+                    $.ajax({
+                        url: '{{ route("morosos.fix.disabled.batch") }}',
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            mikrotik_id: mikrotikId
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                swal("¡Éxito!", response.message, "success").then(() => {
+                                    location.reload();
+                                });
+                            } else {
+                                swal("Info", response.message, "info");
+                            }
+                        },
+                        error: function() {
+                            swal("Error", "Ocurrió un error al procesar el lote.", "error");
+                        }
+                    });
+                }
 			});
         });
     });
