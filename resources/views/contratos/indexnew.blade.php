@@ -50,7 +50,7 @@
 @section('content')
     @if(Session::has('success'))
         <div class="alert alert-success" style="margin-left: 2%;margin-right: 2%;">
-            {{Session::get('success')}}
+            {!! Session::get('success') !!}
         </div>
         <script type="text/javascript">
             setTimeout(function() {
@@ -62,7 +62,7 @@
 
     @if(Session::has('danger'))
         <div class="alert alert-danger" style="margin-left: 2%;margin-right: 2%;">
-            {{Session::get('danger')}}
+            {!! Session::get('danger') !!}
         </div>
         <script type="text/javascript">
             setTimeout(function() {
