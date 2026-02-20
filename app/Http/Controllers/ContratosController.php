@@ -5224,6 +5224,8 @@ class ContratosController extends Controller
 
         // Array para recopilar todas las identificaciones no encontradas
         $identificacionesNoEncontradas = [];
+        $ipsDuplicadas = [];
+        $ipsRegistradasEnArchivo = [];
 
         // Verificar el encabezado en la fila 3 para determinar si es actualización
         // Si la columna A en la fila 3 dice "Nro Contrato", entonces todas las filas tienen nro contrato
@@ -5430,6 +5432,28 @@ class ContratosController extends Controller
                     ];
                 }
             }
+
+            if (!empty($request->ip)) {
+                $queryIp = Contrato::where('ip', $request->ip)->where('empresa', Auth::user()->empresa);
+                if ($esNroContrato && $nro_contrato_actualizar) {
+                    $queryIp->where('nro', '!=', $nro_contrato_actualizar);
+                }
+                
+                $isDuplicateInFile = false;
+                if (isset($ipsRegistradasEnArchivo[$request->ip])) {
+                    $isDuplicateInFile = true;
+                } else {
+                    $ipsRegistradasEnArchivo[$request->ip] = true;
+                }
+
+                if ($queryIp->count() > 0 || $isDuplicateInFile) {
+                    $ipsDuplicadas[] = [
+                        'fila' => $row,
+                        'ip' => $request->ip
+                    ];
+                }
+            }
+
             if (!$request->servicio) {
                 $error->servicio = "El campo Servicio es obligatorio";
             }
@@ -5520,21 +5544,45 @@ class ContratosController extends Controller
             }
         }
 
-        // Al final del primer bucle, verificar si hay identificaciones no encontradas
+        $mensajeErroresAlert = '';
         if (count($identificacionesNoEncontradas) > 0) {
-            $mensajeErrores = "<strong>Las siguientes identificaciones no se encuentran registradas en el sistema:</strong><br><ul style='margin-top: 10px; margin-bottom: 10px;'>";
+            $mensajeErroresAlert .= "<strong>Las siguientes identificaciones no se encuentran registradas en el sistema:</strong><br><ul style='margin-top: 10px; margin-bottom: 10px;'>";
             foreach ($identificacionesNoEncontradas as $item) {
-                $mensajeErrores .= "<li>Fila {$item['fila']}: <strong>{$item['identificacion']}</strong></li>";
+                $mensajeErroresAlert .= "<li>Fila {$item['fila']}: <strong>{$item['identificacion']}</strong></li>";
             }
-            $mensajeErrores .= "</ul>Por favor, verifique estas identificaciones en el archivo Excel y asegúrese de que los contactos estén creados antes de importar los contratos.";
+            $mensajeErroresAlert .= "</ul>";
+        }
 
-            return back()->withErrors(['identificaciones' => $mensajeErrores])->withInput();
+        if (count($ipsDuplicadas) > 0) {
+            $mensajeErroresAlert .= "<strong>Las siguientes filas no fueron registradas porque las IPs ya están registradas:</strong><br><ul style='margin-top: 10px; margin-bottom: 10px;'>";
+            foreach ($ipsDuplicadas as $item) {
+                $mensajeErroresAlert .= "<li>Fila {$item['fila']}: <strong>{$item['ip']}</strong></li>";
+            }
+            $mensajeErroresAlert .= "</ul>";
         }
 
         for ($row = 4; $row <= $highestRow; $row++) {
             $valorColumnaA = $sheet->getCell("A" . $row)->getValue();
             if (empty($valorColumnaA)) {
                 break;
+            }
+
+            $skipRow = false;
+            foreach ($identificacionesNoEncontradas as $item) {
+                if ($item['fila'] == $row) {
+                    $skipRow = true;
+                    break;
+                }
+            }
+            foreach ($ipsDuplicadas as $item) {
+                if ($item['fila'] == $row) {
+                    $skipRow = true;
+                    break;
+                }
+            }
+            
+            if ($skipRow) {
+                continue;
             }
 
             // Usar la misma detección del encabezado que en el primer bucle
@@ -5942,6 +5990,11 @@ class ContratosController extends Controller
         if ($modf > 0) {
             $mensaje .= ' MODIFICADOS: ' . $modf;
         }
+
+        if ($mensajeErroresAlert != '') {
+            return redirect('empresa/contratos')->with('success', $mensaje)->with('danger', $mensajeErroresAlert);
+        }
+
         return redirect('empresa/contratos')->with('success', $mensaje);
     }
 
