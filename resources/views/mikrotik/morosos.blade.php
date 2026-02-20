@@ -86,7 +86,7 @@
 				'url': '{{asset("vendors/DataTables/es.json")}}'
 			},
 			order: [
-				[0, "desc"]
+				[4, "desc"]
 			],
 			ajax: {
                 url: '{{ route("morosos.listar") }}',
@@ -161,31 +161,41 @@
 				showCancelButton: true,
 				confirmButtonColor: "#DD6B55",
 				confirmButtonText: "Sí, sacar de morosos",
-				cancelButtonText: "Cancelar",
-				closeOnConfirm: false,
-				showLoaderOnConfirm: true
-			}, function(){
-				$.ajax({
-					url: '{{ route("morosos.sacar") }}',
-					type: 'POST',
-					data: {
-						_token: '{{ csrf_token() }}',
-						ip: ip,
-						contrato_id: contratoId,
-						mikrotik_id: mikrotikId
-					},
-					success: function(response) {
-						if (response.success) {
-							swal("¡Éxito!", response.message, "success");
-							tabla.ajax.reload();
-						} else {
-							swal("Error", response.message, "error");
+				cancelButtonText: "Cancelar"
+			}).then((result) => {
+				if (result.value) {
+					swal({
+						title: 'Procesando...',
+						text: 'Espere un momento por favor',
+						onOpen: () => {
+							swal.showLoading()
+						},
+						allowOutsideClick: false,
+						allowEscapeKey: false
+					});
+
+					$.ajax({
+						url: '{{ route("morosos.sacar") }}',
+						type: 'POST',
+						data: {
+							_token: '{{ csrf_token() }}',
+							ip: ip,
+							contrato_id: contratoId,
+							mikrotik_id: mikrotikId
+						},
+						success: function(response) {
+							if (response.success) {
+								swal("¡Éxito!", response.message, "success");
+								tabla.ajax.reload();
+							} else {
+								swal("Error", response.message, "error");
+							}
+						},
+						error: function() {
+							swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
 						}
-					},
-					error: function() {
-						swal("Error", "Ocurrió un error al procesar la solicitud.", "error");
-					}
-				});
+					});
+				}
 			});
 		});
 
@@ -205,29 +215,39 @@
 				showCancelButton: true,
 				confirmButtonColor: "#5cb85c",
 				confirmButtonText: "Sí, procesar en lote",
-				cancelButtonText: "Cancelar",
-				closeOnConfirm: false,
-				showLoaderOnConfirm: true
-			}, function(){
-				$.ajax({
-					url: '{{ route("morosos.sacar.masivo") }}',
-					type: 'POST',
-					data: {
-						_token: '{{ csrf_token() }}',
-						mikrotik_id: mikrotikId
-					},
-					success: function(response) {
-						if (response.success) {
-							swal("¡Éxito!", response.message, "success");
-							tabla.ajax.reload();
-						} else {
-							swal("Info", response.message, "info");
+				cancelButtonText: "Cancelar"
+			}).then((result) => {
+				if (result.value) {
+					swal({
+						title: 'Procesando...',
+						text: 'Espere un momento por favor',
+						onOpen: () => {
+							swal.showLoading()
+						},
+						allowOutsideClick: false,
+						allowEscapeKey: false
+					});
+
+					$.ajax({
+						url: '{{ route("morosos.sacar.masivo") }}',
+						type: 'POST',
+						data: {
+							_token: '{{ csrf_token() }}',
+							mikrotik_id: mikrotikId
+						},
+						success: function(response) {
+							if (response.success) {
+								swal("¡Éxito!", response.message, "success");
+								tabla.ajax.reload();
+							} else {
+								swal("Info", response.message, "info");
+							}
+						},
+						error: function() {
+							swal("Error", "Ocurrió un error al procesar el lote.", "error");
 						}
-					},
-					error: function() {
-						swal("Error", "Ocurrió un error al procesar el lote.", "error");
-					}
-				});
+					});
+				}
 			});
 
 		});
