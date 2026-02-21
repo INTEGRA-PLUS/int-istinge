@@ -833,6 +833,11 @@ class SiigoController extends Controller
                 if (!$factura || !empty($factura->siigo_id)) {
                     continue;
                 }
+
+                if($factura->tipo == 2){
+                    $factura->fecha = Carbon::now()->format('Y-m-d');
+                    $factura->save();
+                }
     
                 // ==============================
                 // OBTENER TIPOS DE PAGO SIIGO
