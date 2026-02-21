@@ -1067,10 +1067,11 @@ class ContactosController extends Controller
                     break;
                 }
 
-                $req->apellido1         = $sheet->getCell('B'.$row)->getValue();
-                $req->apellido2         = $sheet->getCell('C'.$row)->getValue();
+                $req->nombre            = $this->repairEncoding($nombre);
+                $req->apellido1         = $this->repairEncoding($sheet->getCell('B'.$row)->getValue());
+                $req->apellido2         = $this->repairEncoding($sheet->getCell('C'.$row)->getValue());
                 $req->tip_iden          = $sheet->getCell('D'.$row)->getValue();
-                $req->nit               = $sheet->getCell('E'.$row)->getValue();
+                $req->nit               = $this->cleanIdentification($sheet->getCell('E'.$row)->getValue(), $req->tip_iden);
                 $req->dv                = $sheet->getCell('F'.$row)->getValue();
                 $req->fk_idpais         = $sheet->getCell('G'.$row)->getValue();
                 $req->fk_iddepartamento = $sheet->getCell('H'.$row)->getValue();
@@ -1079,13 +1080,13 @@ class ContactosController extends Controller
                 $req->telefono1         = $sheet->getCell('K'.$row)->getValue(); // Teléfono1
                 $req->telefono2         = $sheet->getCell('L'.$row)->getValue(); // Teléfono2 (NO obligatorio)
                 $req->celular           = $sheet->getCell('M'.$row)->getValue(); // Celular
-                $req->direccion         = $sheet->getCell('N'.$row)->getValue();
-                $req->vereda            = $sheet->getCell('O'.$row)->getValue();
-                $req->barrio            = $sheet->getCell('P'.$row)->getValue();
-                $req->ciudad            = $sheet->getCell('Q'.$row)->getValue();
-                $req->email             = $sheet->getCell('R'.$row)->getValue(); // Correo1
+                $req->direccion         = $this->repairEncoding($sheet->getCell('N'.$row)->getValue());
+                $req->vereda            = $this->repairEncoding($sheet->getCell('O'.$row)->getValue());
+                $req->barrio            = $this->repairEncoding($sheet->getCell('P'.$row)->getValue());
+                $req->ciudad            = $this->repairEncoding($sheet->getCell('Q'.$row)->getValue());
+                $req->email             = $this->repairEncoding($sheet->getCell('R'.$row)->getValue()); // Correo1
                 $req->email2            = $sheet->getCell('S'.$row)->getValue(); // Correo2 (NO obligatorio)
-                $req->observaciones     = $sheet->getCell('T'.$row)->getValue();
+                $req->observaciones     = $this->repairEncoding($sheet->getCell('T'.$row)->getValue());
                 $req->tipo_contacto     = $sheet->getCell('U'.$row)->getValue();
                 $req->estrato           = $sheet->getCell('V'.$row)->getValue();
 
@@ -1149,11 +1150,11 @@ class ContactosController extends Controller
                 }
 
                 $req                    = (object) [];
-                $req->nombre            = $nombre;
-                $req->apellido1         = $sheet->getCell('B'.$row)->getValue();
-                $req->apellido2         = $sheet->getCell('C'.$row)->getValue();
+                $req->nombre            = $this->repairEncoding($nombre);
+                $req->apellido1         = $this->repairEncoding($sheet->getCell('B'.$row)->getValue());
+                $req->apellido2         = $this->repairEncoding($sheet->getCell('C'.$row)->getValue());
                 $req->tip_iden          = $sheet->getCell('D'.$row)->getValue();
-                $req->nit               = $sheet->getCell('E'.$row)->getValue();
+                $req->nit               = $this->cleanIdentification($sheet->getCell('E'.$row)->getValue(), $req->tip_iden);
                 $req->dv                = $sheet->getCell('F'.$row)->getValue();
                 $req->fk_idpais         = $sheet->getCell('G'.$row)->getValue();
                 $req->fk_iddepartamento = $sheet->getCell('H'.$row)->getValue();
@@ -1162,13 +1163,13 @@ class ContactosController extends Controller
                 $req->telefono1         = $sheet->getCell('K'.$row)->getValue();
                 $req->telefono2         = $sheet->getCell('L'.$row)->getValue();
                 $req->celular           = $sheet->getCell('M'.$row)->getValue();
-                $req->direccion         = $sheet->getCell('N'.$row)->getValue();
-                $req->vereda            = $sheet->getCell('O'.$row)->getValue();
-                $req->barrio            = $sheet->getCell('P'.$row)->getValue();
-                $req->ciudad            = $sheet->getCell('Q'.$row)->getValue();
-                $req->email             = $sheet->getCell('R'.$row)->getValue();
+                $req->direccion         = $this->repairEncoding($sheet->getCell('N'.$row)->getValue());
+                $req->vereda            = $this->repairEncoding($sheet->getCell('O'.$row)->getValue());
+                $req->barrio            = $this->repairEncoding($sheet->getCell('P'.$row)->getValue());
+                $req->ciudad            = $this->repairEncoding($sheet->getCell('Q'.$row)->getValue());
+                $req->email             = $this->repairEncoding($sheet->getCell('R'.$row)->getValue());
                 $req->email2            = $sheet->getCell('S'.$row)->getValue();
-                $req->observaciones     = $sheet->getCell('T'.$row)->getValue();
+                $req->observaciones     = $this->repairEncoding($sheet->getCell('T'.$row)->getValue());
                 $req->tipo_contacto     = $sheet->getCell('U'.$row)->getValue();
                 $req->estrato           = $sheet->getCell('V'.$row)->getValue();
 

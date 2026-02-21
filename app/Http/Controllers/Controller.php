@@ -111,6 +111,55 @@ class Controller extends BaseController
             return $cadena;
     }
 
+    /**
+     * Repara codificación dañada por caracteres en Excel (Mojibake UTF-8)
+     * @param string $text
+     * @return string
+     */
+    public function repairEncoding($text)
+    {
+        if (empty($text)) return $text;
+
+        $map = [
+            'Ã±' => 'ñ', 'Ã‘' => 'Ñ', 'Ã¡' => 'á', 'Ã©' => 'é',
+            'Ã­' => 'í', 'Ã³' => 'ó', 'Ãº' => 'ú', 'Ã' => 'Á',
+            'Ã‰' => 'É', 'Ã' => 'Í', 'Ã“' => 'Ó', 'Ãš' => 'Ú',
+            'Ã±' => 'ñ', 'Ã±' => 'ñ', 'Ã‘' => 'Ñ', 'Ã' => 'í',
+            'ÃA' => 'Ñ', 'ÃO' => 'Ñ', 'Ã¹' => 'ù', 'Ã¼' => 'ü',
+            'Ã¡' => 'á', 'Ã©' => 'é', 'Ã­' => 'í', 'Ã³' => 'ó',
+            'Ãº' => 'ú', 'Ã n' => 'ñ', 'Ã N' => 'Ñ'
+        ];
+
+        return str_replace(array_keys($map), array_values($map), $text);
+    }
+
+    /**
+     * Limpia la identificación de caracteres no deseados y detecta si es NIT
+     * @param string $nit
+     * @param int|null $tipo_identificacion
+     * @return string
+     */
+    public function cleanIdentification($nit, &$tipo_identificacion = null)
+    {
+        if (empty($nit)) return $nit;
+
+        $nit = (string)$nit;
+        $nit = trim($nit);
+
+        // Detectar si termina en -[0-9]
+        if (preg_match('/-(\d)$/', $nit, $matches)) {
+            $nit = preg_replace('/-(\d)$/', '', $nit);
+            if ($tipo_identificacion !== null) {
+                $tipo_identificacion = 6; // NIT
+            }
+        }
+
+        // Eliminar puntos, comas, comillas, espacios
+        $nit = str_replace(['.', ',', "'", '"', ' '], '', $nit);
+
+        return $nit;
+    }
+
     /*
     $modulo = Pagos recibidos, PG Remisiones.. etc
     $id = id de pagos recibidos, pgremisiones... etc

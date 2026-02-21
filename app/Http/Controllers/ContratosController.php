@@ -5259,18 +5259,19 @@ class ContratosController extends Controller
             $nit_str = trim((string)$nit_raw);
             if (strpos($nit_str, '-') !== false) {
                 $nit_parts = explode('-', $nit_str);
-                $nit = trim($nit_parts[0]);
+                    // $nit = trim($nit_parts[0]);
             } else {
-                $nit = preg_replace('/\.0+$/', '', $nit_str);
+                // $nit = preg_replace('/\.0+$/', '', $nit_str);
             }
 
             // Datos comunes - ajustar columnas según si hay nro contrato
             // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
             // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
             // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
+            $nit = $this->cleanIdentification($nit_raw);
             if ($esNroContrato) {
                 // CON nro contrato: todo desplazado una columna a la derecha
-                $request->servicio   = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
+                $request->servicio   = $this->repairEncoding($sheet->getCell("C" . $row)->getValue());  // C = Servicio
                 $request->serial_onu = $sheet->getCell("D" . $row)->getValue();  // D = Serial ONU
                 $request->olt_sn_mac = $sheet->getCell("E" . $row)->getValue();  // E = OLT SN MAC
                 $request->plan       = $sheet->getCell("F" . $row)->getValue();  // F = Plan (NO E!)
@@ -5278,7 +5279,7 @@ class ContratosController extends Controller
                 $request->state      = $sheet->getCell("H" . $row)->getValue();  // H = Estado
             } else {
                 // SIN nro contrato: lectura normal
-                $request->servicio   = $sheet->getCell("B" . $row)->getValue();  // B = Servicio
+                $request->servicio   = $this->repairEncoding($sheet->getCell("B" . $row)->getValue());  // B = Servicio
                 $request->serial_onu = $sheet->getCell("C" . $row)->getValue();  // C = Serial ONU
                 $request->olt_sn_mac = $sheet->getCell("D" . $row)->getValue();  // D = OLT SN MAC
                 $request->plan       = $sheet->getCell("E" . $row)->getValue();  // E = Plan
@@ -5637,9 +5638,10 @@ class ContratosController extends Controller
             // IMPORTANTE: Cuando hay Nro Contrato en A, TODAS las columnas se desplazan una posición a la derecha
             // Estructura CON Nro Contrato: A=Nro, B=Identificacion, C=Servicio, D=Serial ONU, E=OLT SN MAC, F=Plan, G=Mikrotik, H=Estado
             // Estructura SIN Nro Contrato: A=Identificacion, B=Servicio, C=Serial ONU, D=OLT SN MAC, E=Plan, F=Mikrotik, G=Estado
+            $nit = $this->cleanIdentification($nit_raw);
             if ($esNroContrato) {
                 // CON nro contrato: todo desplazado una columna a la derecha
-                $request->servicio      = $sheet->getCell("C" . $row)->getValue();  // C = Servicio
+                $request->servicio      = $this->repairEncoding($sheet->getCell("C" . $row)->getValue());  // C = Servicio
                 $request->serial_onu    = $sheet->getCell("D" . $row)->getValue();  // D = Serial ONU
                 $request->olt_sn_mac    = $sheet->getCell("E" . $row)->getValue();  // E = OLT SN MAC
                 $request->plan          = $sheet->getCell("F" . $row)->getValue();  // F = Plan (NO E!)
@@ -5647,7 +5649,7 @@ class ContratosController extends Controller
                 $request->state         = $sheet->getCell("H" . $row)->getValue();  // H = Estado
             } else {
                 // SIN nro contrato: lectura normal
-                $request->servicio      = $sheet->getCell("B" . $row)->getValue();  // B = Servicio
+                $request->servicio      = $this->repairEncoding($sheet->getCell("B" . $row)->getValue());  // B = Servicio
                 $request->serial_onu    = $sheet->getCell("C" . $row)->getValue();  // C = Serial ONU
                 $request->olt_sn_mac    = $sheet->getCell("D" . $row)->getValue();  // D = OLT SN MAC
                 $request->plan          = $sheet->getCell("E" . $row)->getValue();  // E = Plan
