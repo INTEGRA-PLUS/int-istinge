@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Barrios;
 use App\Campos;
 use App\Contacto;
 use App\Contrato;
@@ -1222,6 +1223,19 @@ class ContactosController extends Controller
                 $contacto->ciudad        = ucwords(mb_strtolower($req->ciudad));
                 $contacto->direccion     = ucwords(mb_strtolower($req->direccion));
                 $contacto->vereda        = ucwords(mb_strtolower($req->vereda));
+                
+                if($req->barrio){
+                    $barrio = Barrios::where('nombre', $req->barrio)->first();
+                    if (!$barrio) {
+                        $barrio = new Barrios;
+                        $barrio->nombre = ucwords(mb_strtolower($req->barrio));
+                        $barrio->status = 1;
+                        $barrio->created_by = Auth::user()->id;
+                        $barrio->save();
+                    }
+                    $contacto->barrio_id = $barrio->id;
+                }
+                
                 $contacto->barrio        = ucwords(mb_strtolower($req->barrio));
                 $contacto->email         = mb_strtolower($req->email);
                 $contacto->email2        = $req->email2 ? mb_strtolower($req->email2) : null;
