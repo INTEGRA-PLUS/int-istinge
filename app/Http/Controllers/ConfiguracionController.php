@@ -378,6 +378,9 @@ class ConfiguracionController extends Controller
       $numeracion->cajar=$request->cajar;
       $numeracion->pago=$request->pago;
       $numeracion->credito=$request->credito;
+      if (isset($request->prefijo_credito) || \Schema::hasColumn('numeraciones', 'prefijo_credito')) {
+          $numeracion->prefijo_credito = $request->prefijo_credito;
+      }
       $numeracion->remision=$request->remision;
       $numeracion->cotizacion=$request->cotizacion;
       $numeracion->orden=$request->orden;
