@@ -1094,7 +1094,7 @@ class ContactosController extends Controller
                     $error->tip_iden = 'El campo Tipo de identificación es obligatorio';
                 }
                 if (! $req->celular && ! $req->telefono1) {
-                    $error->celular = 'Debe indicar un nro celular o de teléfono';
+                    // $error->celular = 'Debe indicar un nro celular o de teléfono';
                 }
                 if (! $req->tipo_contacto) {
                     $error->tipo_contacto = 'El campo Tipo de Contacto es obligatorio';
