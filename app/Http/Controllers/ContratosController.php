@@ -5941,7 +5941,7 @@ class ContratosController extends Controller
             $contrato->mac_address             = $request->mac ?? null;
             $contrato->serial_onu              = $request->serial_onu;
             $contrato->olt_sn_mac              = $request->olt_sn_mac ?? null;
-            $contrato->created_at              = $request->created_at;
+            $contrato->created_at              = $this->validateDateOrNow($request->created_at);
             $contrato->mk                      = $request->mk;
             $contrato->usuario                 = $request->usuario ?? null;
             $contrato->password                = $request->clave ?? null;
@@ -5990,13 +5990,13 @@ class ContratosController extends Controller
 
             // Solo actualizar created_at si es un nuevo contrato
             if (!($esNroContrato && $nro_contrato_actualizar && isset($contrato->id))) {
-                $contrato->created_at = Carbon::now();
+                // Ya se asignó en la línea 5944 usando validateDateOrNow
             } else {
                 // Para actualizaciones, solo actualizar si viene fecha en el Excel
                 if (!empty($request->created_at)) {
-                    $contrato->created_at = $request->created_at;
+                    $contrato->created_at = $this->validateDateOrNow($request->created_at);
                 }
-                // Si no viene fecha, mantener la fecha original
+                // Si no viene fecha, se mantiene la fecha original del contrato (laravel no la sobreescribe si no se asigna)
             }
 
             $contrato->save();
@@ -6222,7 +6222,7 @@ class ContratosController extends Controller
             $contrato->servicio_tv             = $request->plan;
             $contrato->state                   = $request->state;
             $contrato->serial_onu              = $request->serial_onu;
-            $contrato->created_at              = $request->created_at;
+            $contrato->created_at              = $this->validateDateOrNow($request->created_at);
             $contrato->tecnologia              = $request->tecnologia;
 
             $contrato->save();

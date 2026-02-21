@@ -160,6 +160,28 @@ class Controller extends BaseController
         return $nit;
     }
 
+    /**
+     * Valida si una fecha es válida y la retorna, de lo contrario retorna la fecha actual
+     * @param mixed $date
+     * @return \Carbon\Carbon
+     */
+    public function validateDateOrNow($date)
+    {
+        if (empty($date)) {
+            return \Carbon\Carbon::now();
+        }
+
+        try {
+            // Si es numérico, podría ser un formato de fecha de Excel
+            if (is_numeric($date)) {
+                return \Carbon\Carbon::instance(\PHPExcel_Shared_Date::ExcelToPHPObject($date));
+            }
+            return \Carbon\Carbon::parse($date);
+        } catch (\Exception $e) {
+            return \Carbon\Carbon::now();
+        }
+    }
+
     /*
     $modulo = Pagos recibidos, PG Remisiones.. etc
     $id = id de pagos recibidos, pgremisiones... etc
