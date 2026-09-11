@@ -95,12 +95,25 @@ class MasterApiController extends Controller
 
         $this->asegurarColumnasSuspension();
         $suscripcion->update(['fec_corte' => now()->subDay()->toDateString()]);
-        // 'ilimitado' anula el corte: apagarlo para que la suspensión aplique.
-        DB::table('suscripciones')->where('id', $suscripcion->id)->update([
-            'ilimitado'                  => 0,
-            'portal_suspendida'          => 1,
-            'portal_suspension_mensaje'  => $request->input('mensaje') ?: null,
-        ]);
+
+        // 'ilimitado' anula el corte propio del ERP: hay que apagarlo para que
+        // la suspensión aplique, pero guardando el valor previo. Sin eso, al
+        // reactivar la empresa quedaba con el reloj viejo encendido para
+        // siempre y volvía sola a modo lectura el día siguiente a fec_corte,
+        // hubiera pagado o no (modo_lectura() en app/User.php).
+        // Si ya estaba suspendida no se pisa lo guardado: el valor bueno es el
+        // de la primera suspensión, no el 0 que dejó ella misma.
+        $update = [
+            'ilimitado'                 => 0,
+            'portal_suspendida'         => 1,
+            'portal_suspension_mensaje' => $request->input('mensaje') ?: null,
+        ];
+
+        if (! $suscripcion->portal_suspendida) {
+            $update['portal_ilimitado_previo'] = (int) $suscripcion->ilimitado;
+        }
+
+        DB::table('suscripciones')->where('id', $suscripcion->id)->update($update);
 
         return response()->json(['ok' => true, 'estado' => 'suspendida']);
     }
@@ -117,10 +130,21 @@ class MasterApiController extends Controller
         $hasta = $request->input('hasta')
             ?: now()->addMonthNoOverflow()->day(10)->toDateString();
         $suscripcion->update(['fec_corte' => $hasta]);
-        DB::table('suscripciones')->where('id', $suscripcion->id)->update([
+
+        $update = [
             'portal_suspendida'         => 0,
             'portal_suspension_mensaje' => null,
-        ]);
+        ];
+
+        // Reactivar devuelve la empresa a como estaba, incluido el 'ilimitado'
+        // que la suspensión apagó. Si no hay nada guardado (suspensión anterior
+        // a este arreglo) no se inventa un valor: se deja como esté.
+        if ($suscripcion->portal_ilimitado_previo !== null) {
+            $update['ilimitado'] = (int) $suscripcion->portal_ilimitado_previo;
+            $update['portal_ilimitado_previo'] = null;
+        }
+
+        DB::table('suscripciones')->where('id', $suscripcion->id)->update($update);
 
         return response()->json(['ok' => true, 'estado' => 'activa', 'hasta' => $hasta]);
     }
@@ -169,6 +193,15 @@ class MasterApiController extends Controller
         if (! Schema::hasColumn('suscripciones', 'portal_suspension_mensaje')) {
             Schema::table('suscripciones', function ($table) {
                 $table->text('portal_suspension_mensaje')->nullable();
+            });
+        }
+
+        // Guarda el 'ilimitado' de antes de la suspensión para poder devolverlo
+        // intacto al reactivar. Nullable a propósito: null = no hay nada que
+        // restaurar.
+        if (! Schema::hasColumn('suscripciones', 'portal_ilimitado_previo')) {
+            Schema::table('suscripciones', function ($table) {
+                $table->tinyInteger('portal_ilimitado_previo')->nullable();
             });
         }
     }
