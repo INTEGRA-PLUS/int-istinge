@@ -2381,6 +2381,11 @@ class IngresosController extends Controller
                 return back()->withInput()->with('error', $mensajeVacio);
             }
 
+            // Todo o nada: si algo falla a mitad de camino no puede quedar el ingreso
+            // con el tipo cambiado y sin líneas (así quedó el 4467 en $0).
+            DB::beginTransaction();
+            try {
+
             // Validar si paso de Anticipo a Pago a factura/categoría
             if ($ingreso->anticipo == 1 && $ingreso->valor_anticipo > 0) {
                 $contacto_saldo = Contacto::find($ingreso->cliente);
@@ -2607,6 +2612,18 @@ class IngresosController extends Controller
 
             //ingresos
             $this->up_transaccion(1, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 1, $ingreso->pago(), $ingreso->fecha, $ingreso->descripcion);
+
+            DB::commit();
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                DB::rollBack();
+                throw $e;
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                Log::error('[IngresosController::update] No se pudo modificar el ingreso '.$ingreso->nro.': '.$e->getMessage(), [
+                    'archivo' => $e->getFile().':'.$e->getLine(),
+                ]);
+                return back()->withInput()->with('error', 'No se pudo modificar el ingreso, no se guardó ningún cambio. Detalle: '.$e->getMessage());
+            }
 
             $mensaje='Se ha modificado satisfactoriamente el ingreso';
             return redirect('empresa/ingresos')->with('success', $mensaje)->with('ingreso_id', $ingreso->id);

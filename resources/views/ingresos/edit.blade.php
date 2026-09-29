@@ -5,12 +5,15 @@
     <div class="alert alert-danger" >
         {{Session::get('error')}}
     </div>
-    <script type="text/javascript">
-        setTimeout(function(){
-            $('.alert').hide();
-            $('.active_table').attr('class', ' ');
-        }, 5000);
-    </script>
+    {{-- El error no se oculta solo: es lo que explica por qué no se guardó el formulario. --}}
+    @endif
+
+    @if($ingreso->anticipo != 1 && $ingreso->pago() <= 0)
+    <div class="alert alert-warning">
+        <b>Este ingreso quedó en $0: no tiene facturas ni categorías asociadas.</b><br>
+        Para corregirlo, abajo en "¿Asociar este ingreso a una factura de venta?" elija <b>Sí</b> y escriba el valor pagado en la factura,
+        o elija <b>No</b> y agregue una categoría con su valor. Si el pago no debía existir, anúlelo desde el listado de ingresos.
+    </div>
     @endif
 
 	<form method="POST" action="{{ route('ingresos.update', $ingreso->nro) }}" style="padding: 2% 3%;    " role="form" class="forms-sample" novalidate id="form-ingreso" enctype="multipart/form-data">
@@ -443,6 +446,11 @@
 <script>
   $(document).ready(function(){
     showAnti();
+
+    // Ingreso por categorías sin ninguna línea: se deja una fila lista para llenar.
+    @if($ingreso->tipo == 2 && $ingreso->anticipo != 1 && count($items) == 0)
+      CrearFilaCategorias();
+    @endif
 
     //validacion
     let opcion = $("#input-ingresos-electronica").val();
