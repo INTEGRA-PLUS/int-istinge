@@ -2365,6 +2365,22 @@ class IngresosController extends Controller
                 return redirect('empresa/ingresos')->with('error', 'No puede editar un pago de nota de débito');
             }
 
+            // Antes de tocar nada: el ingreso debe quedar con al menos una línea con valor.
+            // Sin esto el foreach de abajo revienta con null y deja el ingreso guardado a medias (en $0).
+            if ($request->tipo == 1) {
+                $lineas = is_array($request->precio) ? $request->precio : [];
+                $mensajeVacio = 'Debe asociar el ingreso a al menos una factura con valor mayor a 0.';
+            } elseif ($request->tipo == 2) {
+                $lineas = is_array($request->precio_categoria) && is_array($request->categoria) ? $request->precio_categoria : [];
+                $mensajeVacio = 'Debe agregar al menos una categoría con valor mayor a 0.';
+            } else {
+                $lineas = [];
+                $mensajeVacio = 'Seleccione si el ingreso se asocia a una factura de venta o a categorías.';
+            }
+            if (collect($lineas)->map(fn($v) => floatval($v))->sum() <= 0) {
+                return back()->withInput()->with('error', $mensajeVacio);
+            }
+
             // Validar si paso de Anticipo a Pago a factura/categoría
             if ($ingreso->anticipo == 1 && $ingreso->valor_anticipo > 0) {
                 $contacto_saldo = Contacto::find($ingreso->cliente);
