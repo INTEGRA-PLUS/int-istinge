@@ -54,6 +54,16 @@ class Kernel extends ConsoleKernel
         // la tarea bloqueada un día entero si el proceso moría sin liberar el candado
         // (kill del watchdog, OOM, reinicio del contenedor). Un barrido real dura
         // minutos —media hora como mucho—, así que 60 min no permite solapes reales.
+        //
+        //  Eso valía para los barridos que no crean nada. El del día de corte SÍ
+        //  dura más: en enternet (1.800 contratos) el del 05-09-2026 arrancó 07:00
+        //  y no habia terminado a las 08:00, cuando el mutex expiró y el scheduler
+        //  lanzó una segunda copia encima (cron.log: dos "[CrearFactura] inicio" y
+        //  un solo "fin" de 4492s). Las dos copias recorrieron la misma lista en
+        //  paralelo y dejaron 36 facturas repetidas, varias con el mismo consecutivo.
+        //  Por eso cron-crear-factura usa un mutex mayor que el barrido más largo
+        //  (CRON_MUTEX_FACTURACION); el watchdog sigue matando lo que se cuelgue.
+        $mutexFacturacion = 240; // 4 h: > que cualquier barrido real, < que un día
 
         // Suspender contratos con facturas vencidas según grupos de corte.
         // Cada 15 min: el método compara hora_suspension del grupo con la hora actual.
@@ -68,7 +78,7 @@ class Kernel extends ConsoleKernel
             ->name('cron-crear-factura')
             ->everyFifteenMinutes()
             ->timezone('America/Bogota')
-            ->withoutOverlapping(60);
+            ->withoutOverlapping($mutexFacturacion);
 
         // Aviso de pago oportuno (facturas con pago_oportuno = hoy). Cada 15 min.
         $schedule->call($this->cronLogueado('PagoOportuno', [CronController::class, 'PagoOportuno']))

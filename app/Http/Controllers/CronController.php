@@ -257,7 +257,16 @@ class CronController extends Controller
 
         // El driver 'file' en Laravel 7 no soporta lock(), usamos add() como alternativa atómica
         // Cache::add solo devuelve true si la llave NO existe (implementa el bloqueo)
-        if (!Cache::add($lockKey, true, 1800)) { // Bloqueo por 30 minutos
+        //
+        //  El TTL tiene que ser MAYOR que el barrido más largo, o el candado deja de
+        //  serlo justo cuando hace falta: con 1800s (30 min) el barrido del día de
+        //  corte de enternet —75 min para 1.800 contratos— quedaba sin protección a
+        //  la media hora, y la segunda copia que el scheduler lanzaba al expirar su
+        //  propio mutex entraba por aquí sin encontrar nada. Resultado: dos barridos
+        //  en paralelo y 36 facturas duplicadas el 05-09-2026. 4 h cubre el barrido
+        //  más lento con margen; el finally lo libera al terminar bien, y si el
+        //  proceso muere el watchdog lo mata antes (2 h) y el candado caduca solo.
+        if (!Cache::add($lockKey, true, 14400)) { // Bloqueo por 4 horas
             Log::info("CrearFactura: Intento de ejecución concurrente detectado. El proceso para {$lockKey} ya está en curso o falló la liberación anterior. Saltando.");
             return;
         }
@@ -521,17 +530,14 @@ class CronController extends Controller
                                             // desajuste no puede volver a ocurrir.
                                             $tipo = ((int) $nro->tipo === 2) ? 2 : 1; // 1= normal, 2= electrónica
 
-                                            // Reservar consecutivo atómicamente: buscar el próximo código libre
-                                            // y guardarlo SOLO cuando confirmemos que la factura se va a crear
-                                            $nroRefrescado = NumeracionFactura::lockForUpdate()->find($nro->id);
-                                            while (Factura::where('codigo', $nroRefrescado->prefijo . $nroRefrescado->inicio)->where('empresa', 1)->exists()) {
-                                                $nroRefrescado->inicio += 1;
-                                            }
-                                            $facturaCodigo = $nroRefrescado->prefijo . $nroRefrescado->inicio;
-
+                                            //  El consecutivo se reserva más abajo, dentro de la misma
+                                            //  transacción que inserta la factura (ver "reserva atómica").
+                                            //  Antes se elegía aquí y se insertaba 40 líneas después: en ese
+                                            //  hueco cabía otro barrido eligiendo el mismo número, y el
+                                            //  lockForUpdate() suelto —sin transacción abierta— no bloqueaba
+                                            //  nada. Así salieron 55831 y 56625 repetidas el 05-09-2026.
                                             $factura = new Factura;
                                             $factura->nro           = $numero;
-                                            $factura->codigo        = $facturaCodigo;
                                             $factura->numeracion    = $nro->id;
                                             $factura->plazo         = isset($plazo->id) ? $plazo->id : '';
                                             $factura->term_cond     = $contrato->terminos_cond;
@@ -566,13 +572,34 @@ class CronController extends Controller
                                                 $factura->contrato_id = $contrato->id;
                                             }
 
-                                            //validacion extra antes de guardar que no exista el mismo codigo.
-                                            if(!Factura::where('codigo', $factura->codigo)->where('empresa', 1)->exists()){
+                                            //  Reserva atómica del consecutivo: elegir el código libre, insertar
+                                            //  la factura y avanzar la numeración ocurren dentro de una sola
+                                            //  transacción, con la fila de numeracion_facturas bloqueada
+                                            //  (lockForUpdate sí bloquea aquí, porque hay transacción abierta).
+                                            //  Cualquier otro proceso que llegue al mismo consecutivo espera al
+                                            //  commit y entonces ya ve la factura, así que toma el siguiente.
+                                            $facturaCreada = DB::transaction(function () use ($factura, $nro) {
+                                                $numeracion = NumeracionFactura::lockForUpdate()->find($nro->id);
+                                                if (!$numeracion) {
+                                                    return false;
+                                                }
+
+                                                while (Factura::where('codigo', $numeracion->prefijo . $numeracion->inicio)
+                                                        ->where('empresa', 1)->exists()) {
+                                                    $numeracion->inicio += 1;
+                                                }
+
+                                                $factura->codigo = $numeracion->prefijo . $numeracion->inicio;
                                                 $factura->save();
 
                                                 // Solo avanzar el consecutivo DESPUÉS de guardar exitosamente
-                                                $nroRefrescado->inicio += 1;
-                                                $nroRefrescado->save();
+                                                $numeracion->inicio += 1;
+                                                $numeracion->save();
+
+                                                return true;
+                                            });
+
+                                            if($facturaCreada){
 
                                             // *** Actualizacion importante contratos multiples en una sola factura **** //
                                             if($contrato->factura_individual == 0){

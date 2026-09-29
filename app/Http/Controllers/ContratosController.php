@@ -1848,6 +1848,49 @@ class ContratosController extends Controller
                 'registro_mk'              => $registro,
             ]);
 
+            //  Reenvío del formulario: el número se elige mucho antes de llegar aquí y
+            //  entre medio está la conexión a la MikroTik, que tarda segundos. Dos POST
+            //  del mismo formulario (doble clic, F5 + "volver a enviar") toman el mismo
+            //  `nro` y crean dos contratos gemelos: así salieron 4855 (ids 3227/3228, 7
+            //  segundos de diferencia) y 4885 en enternet, y a esos clientes el cron les
+            //  factura el plan dos veces todos los meses. Antes de grabar se comprueba
+            //  que no exista ya un contrato idéntico recién creado, y que el consecutivo
+            //  siga libre —la comprobación de arriba quedó vieja mientras hablábamos con
+            //  la MikroTik—.
+            $gemeloReciente = Contrato::where('client_id', $request->client_id)
+                ->where('server_configuration_id', $request->server_configuration_id)
+                ->where('plan_id', $request->plan_id)
+                ->where('created_at', '>=', Carbon::now()->subSeconds(60))
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($gemeloReciente) {
+                Log::warning('[ContratosController::store] Reenvío detectado: ya existe un contrato idéntico recién creado, no se duplica', [
+                    'contrato_existente' => $gemeloReciente->id,
+                    'nro_existente'      => $gemeloReciente->nro,
+                    'client_id'          => $request->client_id,
+                ]);
+
+                return redirect('empresa/contratos')
+                    ->with('success', 'El contrato '.$gemeloReciente->nro.' ya se había creado hace unos segundos: se descartó el reenvío del formulario para no duplicarlo.');
+            }
+
+            if (Contrato::where('nro', $nro_contrato)->exists()) {
+                $nroOcupado = $nro_contrato;
+                $nro_contrato = (int) Contrato::max('nro') + 1;
+                $contrato->nro = $nro_contrato;
+                $contrato->servicio = $this->normaliza($servicio) . '-' . $nro_contrato;
+
+                //  El comentario/queue que quedó en la MikroTik lleva el número viejo:
+                //  queda anotado para poder corregirlo, pero es preferible a grabar dos
+                //  contratos con el mismo `nro`.
+                Log::warning('[ContratosController::store] El consecutivo se ocupó mientras se configuraba la MikroTik; se reasignó', [
+                    'nro_ocupado' => $nroOcupado,
+                    'nro_nuevo'   => $nro_contrato,
+                    'client_id'   => $request->client_id,
+                ]);
+            }
+
             $contrato->save();
 
             Log::info('[ContratosController::store] Contrato guardado en BD exitosamente', [

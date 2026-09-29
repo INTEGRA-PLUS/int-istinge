@@ -1545,41 +1545,82 @@ class Controller extends BaseController
         $mikrotikObj = Mikrotik::where('id', $mikrotik)->first();
         $ARRAY = '';
 
-        if ($mikrotikObj) {
-            // Obtener la empresa desde la mikrotik
-            $empresaId = $mikrotikObj->empresa ?? null;
+        // Antes, cualquier falla aquí devolvía '' y el formulario dejaba el combo de
+        // interfaces vacío sin decir nada: el usuario no podía guardar el contrato y no
+        // había forma de saber por qué. Ahora cada falla devuelve {"error": "..."}.
+        if (!$mikrotikObj) {
+            return $this->errorInterfaces('No se encontro el servidor Mikrotik (id ' . $mikrotik . ') en el software.', $mikrotik);
+        }
 
-            if ($empresaId) {
-                // Verificar si la empresa tiene consultas_mk = 0
-                $empresa = Empresa::find($empresaId);
-                $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+        // Obtener la empresa desde la mikrotik
+        $empresaId = $mikrotikObj->empresa ?? null;
 
-                // Si consultas_mk == 0 o la mikrotik está deshabilitada, obtener interfaces desde la base de datos
-                if ($consultasMk == 0 || $mikrotikObj->status == 0) {
-                    $interfaces = Interfaz::all();
-                    $ARRAY = $interfaces->map(function($interfaz) {
-                        return [
-                            'name' => $interfaz->name,
-                            'type' => $interfaz->type
-                        ];
-                    })->toArray();
-                    return json_encode($this->convert_from_latin1_to_utf8_recursively($ARRAY));
+        if ($empresaId) {
+            // Verificar si la empresa tiene consultas_mk = 0
+            $empresa = Empresa::find($empresaId);
+            $consultasMk = $empresa ? $empresa->consultas_mk : 1;
+
+            // Si consultas_mk == 0 o la mikrotik está deshabilitada, obtener interfaces desde la base de datos
+            if ($consultasMk == 0 || $mikrotikObj->status == 0) {
+                $interfaces = Interfaz::all();
+
+                if ($interfaces->isEmpty()) {
+                    $motivo = ($mikrotikObj->status == 0)
+                        ? 'la Mikrotik "' . $mikrotikObj->nombre . '" esta deshabilitada en el software'
+                        : 'las consultas a la Mikrotik estan desactivadas para la empresa (consultas_mk = 0)';
+
+                    return $this->errorInterfaces(
+                        'No hay interfaces para mostrar: ' . $motivo . ' y la tabla de interfaces del software esta vacia.',
+                        $mikrotik
+                    );
                 }
-            }
 
-            // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
-            $API = new RouterosAPI();
-            $API->port = $mikrotikObj->puerto_api;
-
-            if ($API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
-                $API->write('/interface/getall');
-                $READ = $API->read(false);
-                $ARRAY = $API->parseResponse($READ);
-
-                $API->disconnect();
+                $ARRAY = $interfaces->map(function($interfaz) {
+                    return [
+                        'name' => $interfaz->name,
+                        'type' => $interfaz->type
+                    ];
+                })->toArray();
+                return json_encode($this->convert_from_latin1_to_utf8_recursively($ARRAY));
             }
         }
+
+        // Si consultas_mk == 1, hacer consulta a Mikrotik (comportamiento original)
+        $API = new RouterosAPI();
+        $API->port = $mikrotikObj->puerto_api;
+
+        if (!$API->connect($mikrotikObj->ip, $mikrotikObj->usuario, $mikrotikObj->clave)) {
+            // error_str lo llena stream_socket_client: si viene con texto la falla es de
+            // red (puerto cerrado, filtrado o router inalcanzable); si viene vacio el
+            // socket abrio y lo que fallo fue el login.
+            $detalle = trim((string) $API->error_str) !== ''
+                ? 'No se pudo abrir la conexion (' . $API->error_str . ').'
+                : 'El puerto respondio pero el usuario o la clave fueron rechazados por el router.';
+
+            return $this->errorInterfaces(
+                'No se pudo conectar a la Mikrotik ' . $mikrotikObj->ip . ':' . $mikrotikObj->puerto_api . '. ' . $detalle .
+                ' Revise en el router IP > Services > api (habilitado, puerto y "Available From") y el usuario/clave guardados en el software.',
+                $mikrotik
+            );
+        }
+
+        $API->write('/interface/getall');
+        $READ = $API->read(false);
+        $ARRAY = $API->parseResponse($READ);
+
+        $API->disconnect();
+
         return json_encode($this->convert_from_latin1_to_utf8_recursively($ARRAY));
+    }
+
+    /**
+     * Respuesta de error de getInterfaces: la deja en el log y se la manda al
+     * formulario para que muestre el motivo en pantalla.
+     */
+    private function errorInterfaces($mensaje, $mikrotik){
+        \Log::error('[Mikrotik] getInterfaces fallo (servidor ' . $mikrotik . '): ' . $mensaje);
+
+        return json_encode(['error' => $mensaje]);
     }
 
     public function getPlanes($mikrotik){

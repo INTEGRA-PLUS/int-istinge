@@ -394,11 +394,13 @@ class OltController extends Controller
         ));
 
         $response = curl_exec($curl);
+        $curlError = curl_error($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $response = json_decode($response, true);
 
         curl_close($curl);
 
-        if ($response['status'] == 200) {
+        if (isset($response['status']) && $response['status'] == 200) {
 
             // Crear factura prorrateada si se selecciono
             if ($request->crear_factura_prorrateo == 1) {
@@ -413,7 +415,25 @@ class OltController extends Controller
             $mensaje = "Onu autorizada con exito";
             return redirect('Olt/unconfigured-onus')->with('success', $mensaje);
         } else {
-            $mensaje = "Onu no ha sido autorizada";
+            // SmartOLT manda el motivo real en 'error' (SN ya autorizada, perfil o zona
+            // inexistente, token sin permisos...). Sin esto el usuario solo veia
+            // "Onu no ha sido autorizada" y no habia forma de saber que paso.
+            $detalle = $response['error'] ?? $response['message'] ?? null;
+
+            if (!$detalle) {
+                $detalle = $curlError ?: 'SmartOLT respondio HTTP ' . $httpCode . ' sin detalle';
+            }
+
+            \Log::error('[SmartOLT] authorize_onu fallo — HTTP ' . $httpCode, [
+                'sn' => $request->sn,
+                'olt_id' => $request->olt_id,
+                'board' => $request->board,
+                'port' => $request->port,
+                'curl_error' => $curlError,
+                'response' => $response,
+            ]);
+
+            $mensaje = "Onu no ha sido autorizada: " . $detalle;
             return redirect('Olt/unconfigured-onus')->with('error', $mensaje);
         }
     }

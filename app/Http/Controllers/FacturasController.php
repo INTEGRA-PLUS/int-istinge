@@ -2801,8 +2801,28 @@ class FacturasController extends Controller{
                     }
                 }
 
+                //  Un mismo contrato_nro no puede entrar dos veces. contratos_json se
+                //  recorre más arriba sin comprobar repetidos, así que dos filas de
+                //  `contracts` con el mismo `nro` —el contrato grabado por duplicado—
+                //  metían la relación dos veces. Con eso el contrato salía repetido en
+                //  el listado y el total del índice se multiplicaba por el JOIN.
+                //  Además la fila del cron (is_cron=1) sobrevive al delete de arriba,
+                //  así que el contrato principal ya está relacionado: no se reinserta.
+                $contratosFinales = array_unique(array_map('strval', $contratosFinales));
+
+                $yaRelacionados = DB::table('facturas_contratos')
+                    ->where('factura_id', $factura->id)
+                    ->pluck('contrato_nro')
+                    ->map(function($n){ return (string) $n; })
+                    ->all();
+
                 // Insertar todos los contratos finales
                 foreach($contratosFinales as $contratoNro){
+                    if(in_array($contratoNro, $yaRelacionados, true)){
+                        continue;
+                    }
+                    $yaRelacionados[] = $contratoNro;
+
                     DB::table('facturas_contratos')->insert([
                         'factura_id' => $factura->id,
                         'contrato_nro' => $contratoNro,

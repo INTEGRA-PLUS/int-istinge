@@ -4533,7 +4533,31 @@ function getInterfaces(mikrotik) {
         method: 'get',
         success: function (data) {
             cargando(false);
-            data = JSON.parse(data);
+
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                $("#interfaz").empty().selectpicker('refresh');
+                mostrarErrorInterfaces('La respuesta del servidor no se pudo leer. Avise a soporte.');
+                getSegmentos(mikrotik);
+                return;
+            }
+
+            // El backend manda {"error": "..."} cuando no logra consultar la Mikrotik.
+            // Antes el combo quedaba vacio sin explicacion y bloqueaba el contrato.
+            if (data && data.error) {
+                $("#interfaz").empty().selectpicker('refresh');
+                mostrarErrorInterfaces(data.error);
+                getSegmentos(mikrotik);
+                return;
+            }
+
+            if (Array.isArray(data) && data.length === 0) {
+                $("#interfaz").empty().selectpicker('refresh');
+                mostrarErrorInterfaces('La Mikrotik respondio sin ninguna interfaz. Revise el equipo antes de continuar.');
+                getSegmentos(mikrotik);
+                return;
+            }
 
             $("#interfaz").empty();
             var $select = $('#interfaz');
@@ -4545,12 +4569,44 @@ function getInterfaces(mikrotik) {
 
             $('#interfaz').val($("#interfaz_bd").val());
             $('#interfaz').selectpicker('refresh');
+            limpiarErrorInterfaces();
             getSegmentos(mikrotik);
         },
-        error: function (data) {
+        error: function (xhr) {
             cargando(false);
+            $("#interfaz").empty().selectpicker('refresh');
+            mostrarErrorInterfaces('No se pudo consultar la lista de interfaces (error ' + xhr.status + '). Intente de nuevo o avise a soporte.');
+            getSegmentos(mikrotik);
         }
     })
+}
+
+/**
+ * Muestra el motivo por el que no se pudieron cargar las interfaces de la Mikrotik:
+ * aviso emergente + texto fijo debajo del campo, para que no se pierda.
+ */
+function mostrarErrorInterfaces(mensaje) {
+    var $ayuda = $("#div_interfaz").find('.help-block.error strong');
+    if ($ayuda.length) {
+        $ayuda.text(mensaje);
+    }
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            type: 'error',
+            title: 'No se pudieron cargar las interfaces',
+            text: mensaje,
+        });
+    } else {
+        console.error(mensaje);
+    }
+}
+
+function limpiarErrorInterfaces() {
+    var $ayuda = $("#div_interfaz").find('.help-block.error strong');
+    if ($ayuda.length) {
+        $ayuda.text('');
+    }
 }
 
 function getPlanes(mikrotik, consultasMk, currentPlanId, currentConexion) {
@@ -5308,7 +5364,20 @@ function getInterfaz(mikrotik) {
         method: 'get',
         success: function (data) {
             cargando(false);
-            data = JSON.parse(data);
+
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                $("#interfaz").empty().selectpicker('refresh');
+                mostrarErrorInterfaces('La respuesta del servidor no se pudo leer. Avise a soporte.');
+                return;
+            }
+
+            if (data && data.error) {
+                $("#interfaz").empty().selectpicker('refresh');
+                mostrarErrorInterfaces(data.error);
+                return;
+            }
 
             $("#interfaz").empty();
             var $select = $('#interfaz');
@@ -5322,8 +5391,10 @@ function getInterfaz(mikrotik) {
             $('#interfaz').val(inter);
             $('#interfaz').selectpicker('refresh');
         },
-        error: function (data) {
+        error: function (xhr) {
             cargando(false);
+            $("#interfaz").empty().selectpicker('refresh');
+            mostrarErrorInterfaces('No se pudo consultar la lista de interfaces (error ' + xhr.status + '). Intente de nuevo o avise a soporte.');
         }
     })
 }
