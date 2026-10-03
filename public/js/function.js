@@ -4547,7 +4547,7 @@ function getInterfaces(mikrotik) {
             // Antes el combo quedaba vacio sin explicacion y bloqueaba el contrato.
             if (data && data.error) {
                 $("#interfaz").empty().selectpicker('refresh');
-                mostrarErrorInterfaces(data.error);
+                mostrarErrorInterfaces(data.error, data.opcional);
                 getSegmentos(mikrotik);
                 return;
             }
@@ -4585,16 +4585,22 @@ function getInterfaces(mikrotik) {
  * Muestra el motivo por el que no se pudieron cargar las interfaces de la Mikrotik:
  * aviso emergente + texto fijo debajo del campo, para que no se pierda.
  */
-function mostrarErrorInterfaces(mensaje) {
+function mostrarErrorInterfaces(mensaje, opcional) {
     var $ayuda = $("#div_interfaz").find('.help-block.error strong');
     if ($ayuda.length) {
         $ayuda.text(mensaje);
     }
 
+    // Sin consultas a la Mikrotik la interfaz no se usa al guardar: se suelta el
+    // required para que el contrato se pueda crear igual.
+    if (opcional) {
+        $("#interfaz").removeAttr('required');
+    }
+
     if (typeof Swal !== 'undefined') {
         Swal.fire({
-            type: 'error',
-            title: 'No se pudieron cargar las interfaces',
+            type: opcional ? 'warning' : 'error',
+            title: opcional ? 'Sin interfaces registradas' : 'No se pudieron cargar las interfaces',
             text: mensaje,
         });
     } else {
@@ -5375,7 +5381,7 @@ function getInterfaz(mikrotik) {
 
             if (data && data.error) {
                 $("#interfaz").empty().selectpicker('refresh');
-                mostrarErrorInterfaces(data.error);
+                mostrarErrorInterfaces(data.error, data.opcional);
                 return;
             }
 

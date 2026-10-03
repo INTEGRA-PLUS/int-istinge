@@ -1565,12 +1565,20 @@ class Controller extends BaseController
                 $interfaces = Interfaz::all();
 
                 if ($interfaces->isEmpty()) {
-                    $motivo = ($mikrotikObj->status == 0)
-                        ? 'la Mikrotik "' . $mikrotikObj->nombre . '" esta deshabilitada en el software'
-                        : 'las consultas a la Mikrotik estan desactivadas para la empresa (consultas_mk = 0)';
+                    // Con consultas_mk = 0 el contrato nunca se manda al router (ver
+                    // ContratosController::store), asi que la interfaz es solo informativa:
+                    // se avisa pero no se bloquea el contrato. La tabla no tiene pantalla
+                    // para llenarla, de modo que exigirla dejaba a la empresa sin poder crear.
+                    if ($consultasMk == 0) {
+                        return $this->errorInterfaces(
+                            'No hay interfaces registradas en el software y las consultas a la Mikrotik estan desactivadas (consultas_mk = 0). Puede guardar el contrato sin interfaz.',
+                            $mikrotik,
+                            true
+                        );
+                    }
 
                     return $this->errorInterfaces(
-                        'No hay interfaces para mostrar: ' . $motivo . ' y la tabla de interfaces del software esta vacia.',
+                        'No hay interfaces para mostrar: la Mikrotik "' . $mikrotikObj->nombre . '" esta deshabilitada en el software y la tabla de interfaces del software esta vacia.',
                         $mikrotik
                     );
                 }
@@ -1617,10 +1625,12 @@ class Controller extends BaseController
      * Respuesta de error de getInterfaces: la deja en el log y se la manda al
      * formulario para que muestre el motivo en pantalla.
      */
-    private function errorInterfaces($mensaje, $mikrotik){
+    private function errorInterfaces($mensaje, $mikrotik, $opcional = false){
         \Log::error('[Mikrotik] getInterfaces fallo (servidor ' . $mikrotik . '): ' . $mensaje);
 
-        return json_encode(['error' => $mensaje]);
+        // opcional = el formulario puede guardarse sin interfaz (no se le quita al
+        // usuario la posibilidad de crear el contrato).
+        return json_encode(['error' => $mensaje, 'opcional' => $opcional]);
     }
 
     public function getPlanes($mikrotik){

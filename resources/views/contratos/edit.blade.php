@@ -403,7 +403,13 @@
                                 <label class="control-label">Interfaz de Conexión <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="hidden" id="interfaz_bd" value="{{ $contrato->interfaz }}">
-                                    <select class="form-control selectpicker" name="interfaz" id="interfaz" {{ ($contrato->conexion==3 || (($contrato->conexion==1 || $contrato->conexion==2) && $contrato->simple_queue != 'dinamica')) ? 'required' : '' }} title="Seleccione" data-live-search="true" data-size="5">
+                                    {{-- Con consultas_mk = 0 y la tabla de interfaces vacia no hay nada que elegir
+                                         y la interfaz no se manda al router: no se exige. --}}
+                                    <select class="form-control selectpicker" name="interfaz" id="interfaz" {{ (($contrato->conexion==3 || (($contrato->conexion==1 || $contrato->conexion==2) && $contrato->simple_queue != 'dinamica')) && ($consultasMk == 1 || $interfaces->isNotEmpty())) ? 'required' : '' }} title="Seleccione" data-live-search="true" data-size="5">
+                                        {{-- La interfaz guardada se conserva aunque ya no este en la tabla. --}}
+                                        @if($contrato->interfaz && !$interfaces->contains('name', $contrato->interfaz))
+                                        <option value="{{ $contrato->interfaz }}" selected>{{ $contrato->interfaz }}</option>
+                                        @endif
                                         @foreach($interfaces as $interfaz)
                                         <option value="{{$interfaz->name}}" {{$interfaz->name==$contrato->interfaz?'selected':''}}>{{$interfaz->name}}</option>
                                         @endforeach
