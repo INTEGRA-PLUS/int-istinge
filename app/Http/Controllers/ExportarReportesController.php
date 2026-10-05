@@ -4585,8 +4585,9 @@ class ExportarReportesController extends Controller
         if($request->forma_pago){
             $movimientos->where('i.forma_pago', $request->forma_pago);
         }
-
-
+        if($request->usuario){
+            $movimientos->realizadoPor($request->usuario);
+        }
 
         $movimientos=  $movimientos->orderBy('fecha', 'DESC')->get();
 

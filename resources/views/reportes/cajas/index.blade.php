@@ -49,6 +49,15 @@
                 </select>
             </div>
             <div class="form-group col-md-2">
+                <label>Usuario</label>
+                <select class="form-control selectpicker" name="usuario" id="usuario" title="Seleccione" data-live-search="true" data-size="6">
+                    @foreach($usuarios as $usuario)
+                        <option value="{{$usuario->id}}" {{$usuario->id == $request->usuario ? 'selected' : ''}}>{{$usuario->nombres}}</option>
+                    @endforeach
+                    <option value="">TODOS</option>
+                </select>
+            </div>
+            <div class="form-group col-md-2">
                 <label></label>
                 <select class="form-control selectpicker" name="fechas" id="fechas">
                     <optgroup label="Presente">

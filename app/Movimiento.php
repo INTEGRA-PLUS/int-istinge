@@ -234,6 +234,26 @@ class Movimiento extends Model
         }
     }
 
+    /**
+     * Movimientos cuyo ingreso (modulo 1) o gasto (modulo 3) registro el usuario dado:
+     * es el mismo dato que muestra la columna "Realizó" del reporte de cajas.
+     */
+    public function scopeRealizadoPor($query, $userId){
+        return $query->where(function ($q) use ($userId) {
+            $q->where(function ($q) use ($userId) {
+                $q->where('movimientos.modulo', 1)
+                  ->whereIn('movimientos.id_modulo', function ($sub) use ($userId) {
+                      $sub->select('id')->from('ingresos')->where('created_by', $userId);
+                  });
+            })->orWhere(function ($q) use ($userId) {
+                $q->where('movimientos.modulo', 3)
+                  ->whereIn('movimientos.id_modulo', function ($sub) use ($userId) {
+                      $sub->select('id')->from('gastos')->where('created_by', $userId);
+                  });
+            });
+        });
+    }
+
     public function padre(){
         if ($this->modulo==1) {
             return Ingreso::find($this->id_modulo);
