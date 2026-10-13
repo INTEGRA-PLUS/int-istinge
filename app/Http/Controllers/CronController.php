@@ -1117,12 +1117,14 @@ class CronController extends Controller
                 if($factura->id == $ultimaFacturaRegistrada && $cantFacturasVencidas >= $cant_fac_grupo_corte){
 
                     //1. debemos primero mirar si los contrsatos existen en la tabla detalle, si no hacemos el proceso antiguo
-                    $contratos = Contrato::whereIn('nro',$facturaContratos)->get();
-                    if(!$contratos){
+                    //Solo contratos del cliente de la factura: el nro de contrato puede estar repetido
+                    //en otro cliente y antes se cortaba tambien a ese (p. ej. a un exento de pago).
+                    $contratos = Contrato::whereIn('nro',$facturaContratos)->where('client_id',$factura->cliente)->get();
+                    if($contratos->isEmpty()){
                         if($factura->contrato_id != null){
-                            $contratos = Contrato::where('id',$factura->contrato_id)->get();
+                            $contratos = Contrato::where('id',$factura->contrato_id)->where('client_id',$factura->cliente)->get();
                         }else{
-                            $contratos = Contrato::where('id',$contacto->contrato_id)->get();
+                            $contratos = Contrato::where('id',$contacto->contrato_id)->where('client_id',$factura->cliente)->get();
                         }
                     }
 
@@ -1192,7 +1194,7 @@ class CronController extends Controller
 
                         //segundo filtro de validacion, validando por rango de fechas
                         $diasHabilesNocobro = 0;
-                        if($contrato->tipo_nosuspension == 1 &&  $contrato->fecha_desde_nosuspension <= $fecha && $contrato->fecha_hasta_nosuspension >= $fecha){
+                        if($contrato->enNoSuspension($fecha)){
                             $diasHabilesNocobro = 1;
                         }
 
@@ -1645,12 +1647,14 @@ class CronController extends Controller
                 if($factura->id == $ultimaFacturaRegistrada && $cantFacturasVencidas >= $cant_fac_grupo_corte){
 
                     //1. debemos primero mirar si los contrsatos existen en la tabla detalle, si no hacemos el proceso antiguo
-                    $contratos = Contrato::whereIn('nro',$facturaContratos)->get();
-                    if(!$contratos){
+                    //Solo contratos del cliente de la factura: el nro de contrato puede estar repetido
+                    //en otro cliente y antes se cortaba tambien a ese (p. ej. a un exento de pago).
+                    $contratos = Contrato::whereIn('nro',$facturaContratos)->where('client_id',$factura->cliente)->get();
+                    if($contratos->isEmpty()){
                         if($factura->contrato_id != null){
-                            $contratos = Contrato::where('id',$factura->contrato_id)->get();
+                            $contratos = Contrato::where('id',$factura->contrato_id)->where('client_id',$factura->cliente)->get();
                         }else{
-                            $contratos = Contrato::where('id',$contacto->idcontrato)->get();
+                            $contratos = Contrato::where('id',$contacto->idcontrato)->where('client_id',$factura->cliente)->get();
                         }
                     }
 
@@ -1720,7 +1724,7 @@ class CronController extends Controller
 
                         //segundo filtro de validacion, validando por rango de fechas
                         $diasHabilesNocobro = 0;
-                        if($contrato->tipo_nosuspension == 1 &&  $contrato->fecha_desde_nosuspension <= $fecha && $contrato->fecha_hasta_nosuspension >= $fecha){
+                        if($contrato->enNoSuspension($fecha)){
                             $diasHabilesNocobro = 1;
                         }
 
@@ -2119,12 +2123,13 @@ class CronController extends Controller
 
                     if($factura->id == $ultimaFacturaRegistrada && $cantFacturasVencidas >= $cant_fac_grupo_corte){
 
-                        $contratos = Contrato::whereIn('nro',$facturaContratos)->get();
-                        if(!$contratos){
+                        //Solo contratos del cliente de la factura (el nro puede repetirse en otro cliente).
+                        $contratos = Contrato::whereIn('nro',$facturaContratos)->where('client_id',$factura->cliente)->get();
+                        if($contratos->isEmpty()){
                             if($factura->contrato_id != null){
-                                $contratos = Contrato::where('id',$factura->contrato_id)->get();
+                                $contratos = Contrato::where('id',$factura->contrato_id)->where('client_id',$factura->cliente)->get();
                             }else{
-                                $contratos = Contrato::where('id',$contacto->idcontrato)->get();
+                                $contratos = Contrato::where('id',$contacto->idcontrato)->where('client_id',$factura->cliente)->get();
                             }
                         }
 

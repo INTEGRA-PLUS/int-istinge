@@ -344,8 +344,8 @@ class CortesAnalyzer
                     $reasons['ya_suspendido'][] = $row; continue;
                 }
                 if ($row->tipo_nosuspension == 1
-                    && $row->fecha_desde_nosuspension <= $fecha
-                    && $row->fecha_hasta_nosuspension >= $fecha) {
+                    && (empty($row->fecha_desde_nosuspension) || $row->fecha_desde_nosuspension <= $fecha)
+                    && (empty($row->fecha_hasta_nosuspension) || $row->fecha_hasta_nosuspension >= $fecha)) {
                     $reasons['no_suspension'][] = $row; continue;
                 }
                 if (! $row->server_configuration_id && ! $row->olt_sn_mac) {
@@ -454,9 +454,10 @@ class CortesAnalyzer
                 $tienePromesa     = isset($conPromesa[$c->ultima_factura_id]);
                 $facturaVencida   = (bool) $c->tiene_factura_vencida;
                 $facturaVencidaTv = (bool) $c->tiene_factura_vencida_tv;
+                // Fecha vacía = sin límite, igual que Contrato::enNoSuspension().
                 $noSuspension     = $c->tipo_nosuspension == 1
-                    && $c->fecha_desde_nosuspension <= $fecha
-                    && $c->fecha_hasta_nosuspension >= $fecha;
+                    && (empty($c->fecha_desde_nosuspension) || $c->fecha_desde_nosuspension <= $fecha)
+                    && (empty($c->fecha_hasta_nosuspension) || $c->fecha_hasta_nosuspension >= $fecha);
 
                 $facturaAntigua = $facturaVencida
                     && $c->abs_estatus !== null && (int) $c->abs_estatus === 0

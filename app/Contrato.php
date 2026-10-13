@@ -233,6 +233,22 @@ class Contrato extends Model
         return $grupo && !((int) $grupo->nro_factura_vencida > 0);
     }
 
+    /**
+     * ¿Está el contrato dentro de su rango de "No suspensión" en esa fecha?
+     * Una fecha vacía no limita: sin "hasta" la exención no vence y sin "desde"
+     * aplica desde ya. Antes, sin "hasta" la comparación con null daba falso y el
+     * cron cortaba a clientes marcados como exentos.
+     */
+    public function enNoSuspension($fecha){
+        if((int) $this->tipo_nosuspension !== 1){
+            return false;
+        }
+        $desde = $this->fecha_desde_nosuspension;
+        $hasta = $this->fecha_hasta_nosuspension;
+
+        return (empty($desde) || $desde <= $fecha) && (empty($hasta) || $hasta >= $fecha);
+    }
+
     public function plug($class=false){
         if($this->ip){
             $ping = Ping::where('ip', $this->ip)->first();

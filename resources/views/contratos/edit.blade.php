@@ -1050,7 +1050,7 @@
                         </div>
 
                         <div class="col-md-4 form-group @if($contrato->tipo_nosuspension == 0) cls-nosuspension d-none @endif" id="div_fecha_hasta_nosuspension">
-                            <label class="control-label">Fecha hasta no suspensión</label>
+                            <label class="control-label">Fecha hasta no suspensión <small class="text-muted">(vacía = sin fecha fin)</small></label>
                             <input type="date" class="form-control"  id="fecha_hasta_nosuspension" value="{{$contrato->fecha_hasta_nosuspension}}" name="fecha_hasta_nosuspension">
                         </div>
 
