@@ -37,7 +37,10 @@
         @endif
 
         @if(isset($_SESSION['permisos']['405']))
-        <a href="javascript:exportarContratos('{{route('contratos.exportar')}}');" class="btn btn-success btn-sm" ><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+        {{-- Usa exportar(): manda los mismos filtros que la tabla. El submit del formulario
+             mandaba nombres distintos (grupo_cort, conexion_s...) y solo el último valor de
+             los selects múltiples, así que el Excel no coincidía con el conteo de la tabla. --}}
+        <a href="javascript:exportar();" class="btn btn-success btn-sm" ><i class="fas fa-file-excel"></i> Exportar a Excel</a>
         @endif
 
         @if(isset($_SESSION['permisos']['411']))
