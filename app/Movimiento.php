@@ -68,6 +68,15 @@ class Movimiento extends Model
         return  null;
     }
 
+    /**
+     * Número visible del comprobante (Nro del recibo), no el id interno.
+     * El saldo a favor (modulo 7) guarda en id_modulo el id del ingreso que lo generó.
+     */
+    public function comprobante(){
+        $padre = $this->modulo == 7 ? Ingreso::find($this->id_modulo) : $this->show_modulo();
+        return ($padre && $padre->nro) ? $padre->nro : $this->id_modulo;
+    }
+
     public function conciliado(){
         return $this->conciliado==0?'No':'Si';
     }

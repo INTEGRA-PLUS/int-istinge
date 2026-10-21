@@ -129,7 +129,7 @@
                                 </td>
                                 <td>
                                     <a href="{{$movimiento->show_url()}}">
-                                        {{$movimiento->id_modulo}}
+                                        {{$movimiento->comprobante()}}
                                     </a>
                                 </td>
                                 <td>
