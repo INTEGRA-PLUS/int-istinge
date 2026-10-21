@@ -908,7 +908,7 @@ class ExportarReportesController extends Controller
             $objPHPExcel->setActiveSheetIndex(0)->setCellValue($letras[$i].'3', utf8_decode($titulosColumnas[$i]));
         }
 
-        $saldos_favor = Contacto::where("saldo_favor",">",0);
+        $saldos_favor = Contacto::where("saldo_favor",">",0)->where("status",1); // sin clientes eliminados
 
 
         $saldos_favor= $saldos_favor->OrderBy("nit", "asc")->get();

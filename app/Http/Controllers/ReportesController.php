@@ -3183,7 +3183,7 @@ class ReportesController extends Controller
         $this->getAllPermissions(Auth::user()->id);
         $total = 0;
 
-        $saldos_favor = Contacto::where("saldo_favor",">",0);
+        $saldos_favor = Contacto::where("saldo_favor",">",0)->where("status",1); // sin clientes eliminados
 
 
 
