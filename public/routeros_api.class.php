@@ -24,6 +24,8 @@ class RouterosAPI
     var $attempts  = 5;     //  Connection attempt count
     var $delay     = 3;     //  Delay between connection attempts in seconds
     var $socket;            //  Variable for storing socket resource
+    var $esperaMaxima = 30; //  Segundos acumulados de timeouts de lectura que se toleran por respuesta
+    var $esperas   = 0;     //  Timeouts de lectura acumulados en la respuesta actual
     var $error_no;          //  Variable for storing connection error number, if any
     var $error_str;         //  Variable for storing connection error text, if any
     /* Check, can be var used in foreach  */
@@ -240,6 +242,29 @@ class RouterosAPI
         }
     }
     /**
+     * El socket ya no va a entregar mas datos: vencio el timeout de lectura o el
+     * router cerro la conexion.
+     */
+    private function socketMuerto()
+    {
+        if (!is_resource($this->socket) || feof($this->socket)) {
+            $this->debug('Conexion cerrada por el router durante la lectura.');
+            return true;
+        }
+        $STATUS = stream_get_meta_data($this->socket);
+        if (!empty($STATUS['timed_out'])) {
+            // Un timeout suelto no basta: un router lento puede tardar mas de $timeout
+            // en responder y antes se le seguia esperando. Se corta al pasar el margen.
+            $this->esperas++;
+            if ($this->esperas * max(1, $this->timeout) >= $this->esperaMaxima) {
+                $this->debug('El router no respondio en ' . $this->esperaMaxima . ' s.');
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Read data from Router OS
      *
      * @param boolean     $parse      Parse the data? default: true
@@ -250,10 +275,17 @@ class RouterosAPI
     {
         $RESPONSE     = array();
         $receiveddone = false;
+        $this->esperas = 0;
         while (true) {
             // Read the first byte of input which gives us some or all of the length
             // of the remaining reply.
             $BYTE   = ord(fread($this->socket, 1));
+            // Si el router dejo de responder (timeout) o cerro la conexion, fread devuelve
+            // vacio para siempre y este while giraba hasta "Maximum execution time of 300
+            // seconds exceeded". Se corta y se devuelve lo leido hasta ahora.
+            if ($this->socketMuerto()) {
+                break;
+            }
             $LENGTH = 0;
             // If the first bit is set then we need to remove the first four bits, shift left 8
             // and then read another byte in.
@@ -292,6 +324,9 @@ class RouterosAPI
                     $toread = $LENGTH - $retlen;
                     $_ .= fread($this->socket, $toread);
                     $retlen = strlen($_);
+                    if ($retlen < $LENGTH && $this->socketMuerto()) {
+                        break 2;
+                    }
                 }
                 $RESPONSE[] = $_;
                 $this->debug('>>> [' . $retlen . '/' . $LENGTH . '] bytes read.');
