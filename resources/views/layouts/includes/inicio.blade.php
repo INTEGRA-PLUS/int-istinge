@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es" translate="no">
 <head><meta charset="gb18030">
+    <meta name="google" content="notranslate">
 	
 	
 	
