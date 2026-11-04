@@ -1739,9 +1739,21 @@ class Factura extends Model
 
 
 
-                $yearContrato = Carbon::parse($contrato->created_at)->format('Y');
-                $mesContrato = Carbon::parse($contrato->created_at)->format('m');
-                $diaContrato = Carbon::parse($contrato->created_at)->format('d');
+                // El servicio empieza a cobrarse desde que se crea el contrato, salvo que la factura
+                // prorrateada se haga después (ej: contrato creado el 29, instalado y facturado el 4
+                // con corte el 1): ahí se cobra desde la fecha de la factura hasta el próximo corte,
+                // no los días de un periodo que ya pasó.
+                $inicioServicio = Carbon::parse($contrato->created_at)->startOfDay();
+                if (($forzar_prorrateo == 1 || $this->prorrateo_aplicado != 0) && $this->fecha) {
+                    $fechaDocumento = Carbon::parse($this->fecha)->startOfDay();
+                    if ($fechaDocumento->gt($inicioServicio)) {
+                        $inicioServicio = $fechaDocumento;
+                    }
+                }
+
+                $yearContrato = $inicioServicio->format('Y');
+                $mesContrato = $inicioServicio->format('m');
+                $diaContrato = $inicioServicio->format('d');
 
                 $fechaContrato = $yearContrato . "-" . $mesContrato . "-" . $diaContrato;
                 $fechaContrato = Carbon::parse($fechaContrato);
