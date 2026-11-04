@@ -30,7 +30,8 @@
         @if(auth()->user()->rol <> 8)
             <div class="row" style="margin: -2% 0 0 2%;">
                 <div class="col-md-12">
-                    @if ($factura->emitida == 0 && $empresa->estado_dian == 1)
+                    {{-- Solo las electrónicas (tipo 2) se emiten a la DIAN; una estándar primero se convierte desde "Más acciones" --}}
+                    @if ($factura->emitida == 0 && $empresa->estado_dian == 1 && $factura->tipo == 2)
                     @if($empresa->proveedor == 1 || $empresa->proveedor == null)
                     <a href="#" class="btn btn-outline-primary btn-icons" title="Emitir Factura de venta. {{ $factura->codigo }}"
                         onclick="validateDian({{ $factura->id }}, '{{ route('xml.factura', $factura->id) }}', '{{ $factura->codigo }}')">

@@ -4944,6 +4944,14 @@ class FacturasController extends Controller{
             ], 404);
         }
 
+        // Una factura estándar no tiene resolución DIAN: hay que convertirla a electrónica antes de emitir
+        if ($factura->tipo != 2) {
+            return response()->json([
+                "success" => false,
+                "message" => "La factura {$factura->codigo} es estándar, no electrónica. Para enviarla a la DIAN use Más acciones > Convertir a factura electrónica."
+            ], 422);
+        }
+
         $numeracion = NumeracionFactura::where('empresa', Auth::user()->empresa)->where('tipo',2)->where('id', $factura->numeracion)->first();
 
         // Validar que la numeración exista
