@@ -1624,10 +1624,24 @@ class CronController extends Controller
                 $contratosNro = Contrato::whereIn('nro',$facturaContratos)
                 ->pluck('nro');
 
+                // La factura que se crea al instalar ("Factura creada desde contrato") no puede salvar
+                // del corte a la vencida del ciclo anterior mientras ella misma no haya vencido.
+                // Caso: contrato creado el 26-09, el cron factura octubre el 27-09 (vence 11-10), se
+                // instala el 01-10 con otra factura que vence el 13-11; como esa era "la última",
+                // el corte del 13-10 se saltaba la de octubre y el cliente seguía con servicio.
+                // Las demás facturas más nuevas siguen contando como antes (empresas que cobran la
+                // última y dejan las viejas abiertas no se ven afectadas).
+                $sinFacturaInstalacionVigente = function ($q) {
+                    $q->whereDate('factura.vencimiento', '<=', now())
+                      ->orWhereNull('factura.observaciones')
+                      ->orWhere('factura.observaciones', 'not like', 'Factura creada desde contrato%');
+                };
+
                 $ultimaFacturaRegistrada = DB::table('facturas_contratos')
                     ->join('factura', 'facturas_contratos.factura_id', '=', 'factura.id')
                     ->whereIn('facturas_contratos.contrato_nro', $contratosNro)
                     ->where('factura.estatus', '!=', 2)
+                    ->where($sinFacturaInstalacionVigente)
                     ->select('factura.*')
                     ->orderBy('factura.created_at', 'desc')
                     ->orderBy('factura.id', 'desc') // desempate por ID
@@ -1638,6 +1652,7 @@ class CronController extends Controller
                       $ultimaFacturaRegistrada = Factura::
                         where('cliente',$factura->cliente)
                         ->where('contrato_id',$factura->contrato_id)
+                        ->where($sinFacturaInstalacionVigente)
                         ->orderBy('created_at', 'desc')
                         ->value('id');
                 }
