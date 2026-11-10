@@ -50,7 +50,8 @@
                 <div style="flex:1; min-width:0;">
                     <div style="font-weight:700; margin-bottom:4px;">{{ $noti->titulo }}</div>
                     <div style="font-size:.9rem; line-height:1.5;">{!! $cuerpoHtml !!}</div>
-                    @if ($noti->tipo === 'pago')
+                    {{-- Con el contador de plazo activo, el formulario ya está allí. --}}
+                    @if ($noti->tipo === 'pago' && ! \App\PortalPlazoPago::vigente())
                         {{-- Adjuntar el comprobante directamente desde el aviso:
                              mismo canal de Mi suscripción; al enviarlo, el mes
                              queda cubierto y este aviso desaparece. --}}

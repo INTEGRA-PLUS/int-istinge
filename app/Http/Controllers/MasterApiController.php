@@ -181,6 +181,43 @@ class MasterApiController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /**
+     * Plazo de pago con contador: el portal fija la fecha y hora límite del
+     * mes y el dashboard muestra la cuenta regresiva mientras el mes no esté
+     * cubierto (comprobante enviado o pago confirmado). limite null = quitar.
+     */
+    public function plazoPago(Request $request)
+    {
+        $data = $request->validate([
+            'periodo' => ['required', 'date_format:Y-m'],
+            'limite' => ['nullable', 'date'],
+        ]);
+
+        if (! Schema::hasTable('portal_plazo_pago')) {
+            Schema::create('portal_plazo_pago', function ($table) {
+                $table->bigIncrements('id');
+                $table->date('periodo')->unique();
+                $table->dateTime('limite');
+                $table->timestamps();
+            });
+        }
+
+        $periodo = $data['periodo'].'-01';
+
+        if (! empty($data['limite'])) {
+            // Se guarda en la hora local de la app.
+            $limite = \Carbon\Carbon::parse($data['limite'])->setTimezone(config('app.timezone'));
+            DB::table('portal_plazo_pago')->updateOrInsert(
+                ['periodo' => $periodo],
+                ['limite' => $limite->format('Y-m-d H:i:s'), 'updated_at' => now(), 'created_at' => now()]
+            );
+        } else {
+            DB::table('portal_plazo_pago')->where('periodo', $periodo)->delete();
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
     /** Auto-provisión de las columnas del modal (BDs sin migraciones). */
     private function asegurarColumnasSuspension(): void
     {

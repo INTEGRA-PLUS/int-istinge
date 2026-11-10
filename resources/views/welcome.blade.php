@@ -494,6 +494,9 @@
 @endsection
 
 @section('content')
+{{-- Plazo de pago con cuenta regresiva (Integra Portal) --}}
+@include('partials.portal-plazo-pago')
+
 {{-- Notificaciones del sistema (Integra Portal) --}}
 @include('partials.portal-notificaciones')
 
