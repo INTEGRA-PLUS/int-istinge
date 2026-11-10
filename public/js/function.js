@@ -801,6 +801,16 @@ function contratos_facturas(contacto) {
 
             let contratos = data.data
 
+            //En la factura estándar nueva solo se ofrecen los contratos estándar: un cliente
+            //puede tener uno electrónico (facturacion = 3) y otro estándar, y el electrónico se
+            //factura por Facturas electrónicas. Si todos son electrónicos se deja la lista igual
+            //(contacto() ya avisa) y si el cliente tiene factura_est_elec se ven todos.
+            let esFacturaEstandarNueva = $('#electronica').length == 0 && $('#editfactura').length == 0;
+            let estandar = contratos.filter(c => c.facturacion != 3);
+            if (esFacturaEstandarNueva && estandar.length > 0 && estandar.length < contratos.length) {
+                contratos = estandar;
+            }
+
             contratos.map(contrato => {
                 console.log(contrato.nro)
                 $("#contratos_json").append(
@@ -881,7 +891,13 @@ function contacto(selected, modificar = false, type = 1) {
         success: function (data) {
             data = JSON.parse(data);
             if (type == 1) {
-                if (data[0]) {
+                //El json trae una fila por contrato. Si el cliente tiene uno electrónico y otro
+                //estándar, se toma el estándar: antes se tomaba siempre la primera fila y, si era
+                //la del electrónico, se bloqueaba la factura estándar del otro contrato.
+                if (Array.isArray(data) && data.length > 1) {
+                    let estandar = data.find(c => c.facturacion != 3);
+                    data = estandar ? estandar : data[0];
+                } else if (data[0]) {
                     data = data[0];
                 }
             } else {
