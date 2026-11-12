@@ -1087,7 +1087,19 @@ class GruposCorteController extends Controller
             }
 
             if (empty($idsParaBorrar)) {
-                return response()->json(['success' => true, 'message' => 'No se encontraron duplicados para eliminar']);
+                //Antes respondía "No se encontraron duplicados" sin 'eliminadas' (la vista
+                //mostraba "undefined") aunque la lista tuviera decenas: confundía. Casi siempre
+                //es que todas tienen pagos, p. ej. la del periodo anterior generada tarde
+                //(02-10) y la del siguiente (27-10) caen en el mismo mes y ambas están pagadas.
+                $mensaje = $noPudoEliminar > 0
+                    ? "No se eliminó ninguna factura: las {$noPudoEliminar} marcadas como duplicadas tienen pagos registrados. Normalmente son de periodos distintos (una generada a inicio de mes y otra a fin de mes) y no son un cobro doble. Si alguna sí lo es, anule primero su pago y luego elimínela."
+                    : 'No se encontraron duplicados para eliminar';
+                return response()->json([
+                    'success' => true,
+                    'message' => $mensaje,
+                    'eliminadas' => 0,
+                    'no_pudieron_eliminar' => $noPudoEliminar,
+                ]);
             }
 
             // 1. Eliminar de OnePay (FUERA de transacción)
