@@ -694,6 +694,19 @@ class IngresosController extends Controller
                     $mensaje='DISCULPE, NO SE ENCUENTRA REGISTRADO UN BANCO CON EL NOMBRE "SALDOS A FAVOR"';
                     return back()->with('danger', $mensaje)->withInput();
                 }
+
+                //Con saldo a favor no se puede pagar más de lo que el cliente tiene: antes no se
+                //validaba y en latinnetandes se cerró una factura de $155.771 usando un saldo de
+                //$29.850 (recibo 22554, Sembranza Andes).
+                $saldoDisponible = (float) (Contacto::where('id', $request->cliente)->value('saldo_favor') ?? 0);
+                $valorConSaldo = 0;
+                foreach ((array) $request->precio as $valorLinea) {
+                    $valorConSaldo += (float) $this->precision($valorLinea);
+                }
+                if ($valorConSaldo > $saldoDisponible + 1) {
+                    $mensaje = 'El cliente solo tiene $'.number_format($saldoDisponible, 0, ',', '.').' de saldo a favor y se intentó pagar $'.number_format($valorConSaldo, 0, ',', '.').' con ese saldo. Registre con saldo a favor solo $'.number_format($saldoDisponible, 0, ',', '.').' y el resto como un pago normal.';
+                    return back()->with('danger', $mensaje)->withInput();
+                }
             }
 
             $ingreso = new Ingreso;
@@ -1113,7 +1126,17 @@ class IngresosController extends Controller
                     PucMovimiento::ingreso($ingreso,1,2,$request);
 
                     if(isset($request->uso_saldo) && $request->uso_saldo){
-                        $this->up_transaccion(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $ingreso->pago(), $ingreso->fecha, "Uso de saldo a favor");
+                        $valorSaldoUsado = $ingreso->pago();
+                        $this->up_transaccion(7, $ingreso->id, $ingreso->cuenta, $ingreso->cliente, 2, $valorSaldoUsado, $ingreso->fecha, "Uso de saldo a favor");
+
+                        //El saldo usado se descuenta del cliente. Anular o borrar el recibo ya lo
+                        //devolvía (destroy/chage_status_transaccion suman el movimiento tipo 2),
+                        //pero aquí nunca se restaba: el saldo quedaba intacto y se podía volver a usar.
+                        $contactoSaldo = Contacto::find($ingreso->cliente);
+                        if ($contactoSaldo) {
+                            $contactoSaldo->saldo_favor = max(0, (float) $contactoSaldo->saldo_favor - $valorSaldoUsado);
+                            $contactoSaldo->save();
+                        }
                     }
                 }
 
