@@ -2613,6 +2613,27 @@ class Controller extends BaseController
             return false; // Ya existe una factura para este contrato hoy
         }
 
+        // Si el contrato ya tiene una factura del periodo en curso (abierta o pagada, sin
+        // anular, que aún no vence), la de instalación cobraría ese mismo periodo otra vez.
+        // Pasó en latinnetandes: el cron del 27-10 facturó contratos recién creados y al
+        // autorizar la ONU días después salió una segunda factura; el cliente pagaba una y
+        // lo cortaban por la otra (contrato 4406: EX113811 + EX116510).
+        $facturaDelPeriodo = Factura::where(function ($q) use ($contrato) {
+                $q->where('contrato_id', $contrato->id)
+                  ->orWhereIn('id', DB::table('facturas_contratos')->where('contrato_nro', $contrato->nro)->select('factura_id'));
+            })
+            ->whereIn('estatus', [0, 1])
+            ->whereDate('vencimiento', '>=', $fecha)
+            ->first();
+
+        if ($facturaDelPeriodo) {
+            Log::info('[createFacturaProrrateo] No se crea: el contrato ya tiene factura del periodo', [
+                'contrato_id' => $contrato->id,
+                'factura'     => $facturaDelPeriodo->codigo,
+            ]);
+            return false;
+        }
+
         // Validación adicional para $desdeConfig: no permitir dos facturas prorrateadas en el mismo mes.
         if ($desdeConfig) {
             $facturaProrrateadaExistente = DB::table('factura')
