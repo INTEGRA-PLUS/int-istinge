@@ -6320,6 +6320,15 @@ class CronController extends Controller
                 $xmlPath = 'xml/empresa1/FV/FV-'.$factura->codigo.'.xml';
             }
 
+            //La clave de Brevo vigente es la de Configuración > Servidor de correo (la misma
+            //que usa el botón Enviar). empresas.api_key_mail quedó vieja en algunas empresas:
+            //en latinnetandes Brevo la rechazaba ("API Key is not enabled") y ninguna factura
+            //del cron llegaba al correo. Solo si no hay servidor Brevo activo se usa la vieja.
+            $hostBrevo = ServidorCorreo::where('estado', 1)->where('empresa', $empresa->id)->where('proveedor', 1)->first();
+            if ($hostBrevo && !$hostBrevo->password) {
+                $hostBrevo = null;
+            }
+
             $html = view('emails.emailSendInBlue', [
                 'factura' => $factura,
                 'total'   => $total,
@@ -6335,8 +6344,8 @@ class CronController extends Controller
                     ]
                 ],
                 'sender' => [
-                    'name' => $empresa->nombre,
-                    'email' => $empresa->email
+                    'name' => $hostBrevo ? $hostBrevo->name : $empresa->nombre,
+                    'email' => $hostBrevo ? $hostBrevo->address : $empresa->email
                 ],
                 'subject' => $tituloCorreo,
                 'htmlContent' => '<html>'.$html.'</html>',
@@ -6349,7 +6358,7 @@ class CronController extends Controller
             curl_setopt($ch, CURLOPT_URL, 'https://api.sendinblue.com/v3/smtp/email');
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'accept: application/json',
-                'api-key: '.$empresa->api_key_mail.'', 'content-type: application/json'
+                'api-key: '.($hostBrevo ? $hostBrevo->password : $empresa->api_key_mail), 'content-type: application/json'
             ]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HEADER, false);
